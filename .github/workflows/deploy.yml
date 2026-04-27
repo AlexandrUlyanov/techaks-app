@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - master
+      - dev
+      - preprod
+      - prod
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: techaks-app
   REGION: us-central1
 
 jobs:
@@ -17,6 +19,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set Service Name
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/prod" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "SERVICE_NAME=techaks-app" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == "refs/heads/preprod" ]]; then
+            echo "SERVICE_NAME=techaks-app-preprod" >> $GITHUB_ENV
+          else
+            echo "SERVICE_NAME=techaks-app-dev" >> $GITHUB_ENV
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
