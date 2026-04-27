@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 200 80% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 80% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 80% 8%;
+    --primary: 187 100% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 66 70% 54%;
+    --secondary-foreground: 200 80% 8%;
+    --muted: 200 20% 95%;
+    --muted-foreground: 200 10% 45%;
+    --accent: 187 100% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 200 20% 88%;
+    --input: 200 20% 88%;
+    --ring: 187 100% 42%;
+    --radius: 0.75rem;
+    --chart-1: 187 100% 42%;
+    --chart-2: 66 70% 54%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 200 5.3% 26.1%;
+    --sidebar-primary: 187 100% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 66 70% 54%;
+    --sidebar-accent-foreground: 200 80% 8%;
+    --sidebar-border: 200 13% 91%;
+    --sidebar-ring: 187 100% 42%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .container-main {
+    @apply max-w-[1280px] mx-auto px-6;
+  }
+}
