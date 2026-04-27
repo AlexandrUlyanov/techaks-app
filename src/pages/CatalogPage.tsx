@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import ProductCard from "@/components/ProductCard";
-import { products, categories } from "@/data/products";
+import { trpc } from "@/providers/trpc";
 
 export default function CatalogPage() {
   const [searchParams] = useSearchParams();
@@ -9,19 +9,27 @@ export default function CatalogPage() {
   const [activeCategory, setActiveCategory] = useState(initialCat);
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">("default");
 
-  const filteredProducts = useMemo(() => {
-    let result = activeCategory === "all"
-      ? products
-      : products.filter((p) => p.categorySlug === activeCategory);
+  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: products = [], isLoading } = trpc.product.getByCategory.useQuery({ 
+    categorySlug: activeCategory 
+  });
+
+  const sortedProducts = useMemo(() => {
+    let result = [...products];
 
     if (sortBy === "price-asc") {
-      result = [...result].sort((a, b) => a.price - b.price);
+      result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-desc") {
-      result = [...result].sort((a, b) => b.price - a.price);
+      result.sort((a, b) => b.price - a.price);
     }
 
     return result;
-  }, [activeCategory, sortBy]);
+  }, [products, sortBy]);
+
+  const allCategories = useMemo(() => [
+    { slug: "all", name: "Все" },
+    ...categories
+  ], [categories]);
 
   return (
     <div className="min-h-screen pb-16 md:pb-0">
@@ -41,7 +49,7 @@ export default function CatalogPage() {
       <section className="bg-white border-b border-gray-200 py-5 sticky top-16 z-30">
         <div className="container-main flex flex-wrap items-center gap-4">
           <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
+            {allCategories.map((cat) => (
               <button
                 key={cat.slug}
                 onClick={() => setActiveCategory(cat.slug)}
@@ -72,15 +80,25 @@ export default function CatalogPage() {
       {/* Products Grid */}
       <section className="py-12">
         <div className="container-main">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-lg text-gray-400">Товары в этой категории скоро появятся</p>
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-gray-100 rounded-xl h-[350px] animate-pulse" />
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {sortedProducts.map((product) => (
+                  <ProductCard key={product.id} product={product as any} />
+                ))}
+              </div>
+              {sortedProducts.length === 0 && (
+                <div className="text-center py-16">
+                  <p className="text-lg text-gray-400">Товары в этой категории скоро появятся</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1777321275041,
+      "tag": "0000_damp_wilson_fisk",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { env } from "../lib/env";
 import * as schema from "@db/schema";
 import * as relations from "@db/relations";
@@ -9,9 +10,10 @@ let instance: ReturnType<typeof drizzle<typeof fullSchema>>;
 
 export function getDb() {
   if (!instance) {
-    instance = drizzle(env.databaseUrl, {
-      mode: "planetscale",
+    const connection = mysql.createPool(env.databaseUrl);
+    instance = drizzle(connection, {
       schema: fullSchema,
+      mode: "default",
     });
   }
   return instance;
