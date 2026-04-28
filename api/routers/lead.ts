@@ -13,6 +13,7 @@ export const leadRouter = createRouter({
         message: z.string().max(1000).optional(),
         type: z.enum(["callback", "availability", "question", "service"]).default("callback"),
         source: z.string().max(100).default("website"),
+        metadata: z.any().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -23,6 +24,8 @@ export const leadRouter = createRouter({
         message: input.message || null,
         type: input.type,
         source: input.source,
+        metadata: input.metadata || null,
+        status: "new",
       });
       return { success: true, id: Number(result[0].insertId) };
     }),
@@ -54,6 +57,17 @@ export const leadRouter = createRouter({
         leads: items,
         total: countResult[0].count,
       };
+    }),
+
+  updateStatus: publicQuery
+    .input(z.object({ 
+      id: z.number(), 
+      status: z.enum(["new", "processing", "completed", "cancelled"]) 
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(leads).set({ status: input.status }).where(eq(leads.id, input.id));
+      return { success: true };
     }),
 
   delete: publicQuery

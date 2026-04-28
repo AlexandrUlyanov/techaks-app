@@ -7,6 +7,7 @@ interface LeadFormProps {
   subtitle?: string;
   type?: "callback" | "availability" | "question" | "service";
   source?: string;
+  metadata?: any;
   dark?: boolean;
   buttonText?: string;
 }
@@ -16,6 +17,7 @@ export default function LeadForm({
   subtitle = "Оставьте номер — мы перезвоним и поможем подобрать аксессуар",
   type = "callback",
   source = "website",
+  metadata,
   dark = false,
   buttonText = "Заказать звонок",
 }: LeadFormProps) {
@@ -47,6 +49,7 @@ export default function LeadForm({
       message: message.trim() || undefined,
       type,
       source,
+      metadata,
     });
   };
 

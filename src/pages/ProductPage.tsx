@@ -176,7 +176,12 @@ export default function ProductPage() {
               title={`Заявка на «${product.name}»`}
               subtitle="Оставьте контакты — мы проверим наличие и свяжемся с вами"
               type="availability"
-              source="product"
+              source="product_page"
+              metadata={{ 
+                productName: product.name, 
+                productSlug: product.slug,
+                productId: product.id 
+              }}
               buttonText="Узнать наличие"
             />
           </div>

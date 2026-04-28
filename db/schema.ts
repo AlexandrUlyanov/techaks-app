@@ -17,6 +17,8 @@ export const leads = mysqlTable("leads", {
   message: text("message"),
   type: varchar("type", { length: 50 }).notNull().default("callback"),
   source: varchar("source", { length: 100 }).notNull().default("website"),
+  status: varchar("status", { length: 20 }).notNull().default("new"),
+  metadata: json("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
