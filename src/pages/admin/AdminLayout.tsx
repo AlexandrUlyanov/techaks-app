@@ -6,11 +6,13 @@ import {
   Settings, 
   LogOut, 
   Home,
-  ChevronRight
+  ChevronRight,
+  MessageSquare
 } from "lucide-react";
 
 const navItems = [
   { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
+  { name: "Заявки", href: "/admin/leads", icon: MessageSquare },
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Магазины", href: "/admin/stores", icon: Store },
   { name: "Настройки", href: "/admin/settings", icon: Settings },

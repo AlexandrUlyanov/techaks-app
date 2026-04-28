@@ -55,4 +55,12 @@ export const leadRouter = createRouter({
         total: countResult[0].count,
       };
     }),
+
+  delete: publicQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.delete(leads).where(eq(leads.id, input.id));
+      return { success: true };
+    }),
 });

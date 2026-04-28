@@ -14,6 +14,7 @@ import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminStores from "@/pages/admin/AdminStores";
+import AdminLeads from "@/pages/admin/AdminLeads";
 
 export default function App() {
   const location = useLocation();
@@ -34,6 +35,7 @@ export default function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="leads" element={<AdminLeads />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="stores" element={<AdminStores />} />
             <Route path="settings" element={<div>Настройки системы (в разработке)</div>} />
