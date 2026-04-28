@@ -60,7 +60,7 @@ export default function PromotionsPage() {
                       {promo.subtitle}
                     </p>
                     <Link 
-                      to={promo.link || "/catalog"}
+                      to={`/promotions/${promo.slug}`}
                       className="inline-flex items-center gap-2 text-[#00bcd4] font-bold hover:gap-3 transition-all"
                     >
                       Узнать подробнее

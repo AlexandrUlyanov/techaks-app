@@ -72,10 +72,13 @@ export const reviews = mysqlTable("reviews", {
 
 export const banners = mysqlTable("banners", {
   id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 100 }).notNull().default("").unique(),
   title: varchar("title", { length: 255 }).notNull(),
   subtitle: varchar("subtitle", { length: 255 }),
+  content: text("content"),
   image: varchar("image", { length: 255 }).notNull(),
   link: varchar("link", { length: 255 }),
   active: boolean("active").notNull().default(true),
   sortOrder: int("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });

@@ -39,8 +39,10 @@ export default function AdminBanners() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
+      slug: formData.get("slug") as string,
       title: formData.get("title") as string,
       subtitle: formData.get("subtitle") as string || null,
+      content: formData.get("content") as string || null,
       image: formData.get("image") as string,
       link: formData.get("link") as string || null,
       active: formData.get("active") === "on",
@@ -151,14 +153,25 @@ export default function AdminBanners() {
             </div>
             
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Заголовок</label>
-                <input name="title" defaultValue={editingBanner.title} placeholder="Например: Скидка 20% на все чехлы" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Заголовок</label>
+                  <input name="title" defaultValue={editingBanner.title} placeholder="Например: Скидка 20% на все чехлы" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Slug (URL акции)</label>
+                  <input name="slug" defaultValue={editingBanner.slug} placeholder="skidka-20-cases" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Описание</label>
-                <textarea name="subtitle" defaultValue={editingBanner.subtitle} rows={3} placeholder="Краткое описание акции..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] resize-none" />
+                <label className="text-sm font-medium text-gray-700">Краткое описание (подзаголовок)</label>
+                <textarea name="subtitle" defaultValue={editingBanner.subtitle} rows={2} placeholder="Краткое описание акции для списка..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] resize-none" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">Полный текст акции (HTML поддерживается)</label>
+                <textarea name="content" defaultValue={editingBanner.content} rows={6} placeholder="Подробные условия, текст, списки..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] font-mono text-sm" />
               </div>
 
               <div className="space-y-1">

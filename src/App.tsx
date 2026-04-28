@@ -9,6 +9,7 @@ import ProductPage from "@/pages/ProductPage";
 import StoresPage from "@/pages/StoresPage";
 import ContactsPage from "@/pages/ContactsPage";
 import PromotionsPage from "@/pages/PromotionsPage";
+import PromotionDetailPage from "@/pages/PromotionDetailPage";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/stores" element={<StoresPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/promotions" element={<PromotionsPage />} />
+          <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
