@@ -7,7 +7,8 @@ import {
   LogOut, 
   Home,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  Gift
 } from "lucide-react";
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
   { name: "Заявки", href: "/admin/leads", icon: MessageSquare },
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Магазины", href: "/admin/stores", icon: Store },
+  { name: "Акции", href: "/admin/banners", icon: Gift },
   { name: "Настройки", href: "/admin/settings", icon: Settings },
 ];
 
