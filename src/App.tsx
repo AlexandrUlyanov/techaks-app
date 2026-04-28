@@ -13,6 +13,7 @@ import ContactsPage from "@/pages/ContactsPage";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
+import AdminStores from "@/pages/admin/AdminStores";
 
 export default function App() {
   const location = useLocation();
@@ -34,7 +35,7 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
-            <Route path="stores" element={<div>Управление магазинами (в разработке)</div>} />
+            <Route path="stores" element={<AdminStores />} />
             <Route path="settings" element={<div>Настройки системы (в разработке)</div>} />
           </Route>
         </Routes>
