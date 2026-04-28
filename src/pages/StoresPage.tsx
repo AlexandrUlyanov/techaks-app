@@ -1,7 +1,10 @@
 import { MapPin } from "lucide-react";
 import StoreCard from "@/components/StoreCard";
+import { trpc } from "@/providers/trpc";
 
 export default function StoresPage() {
+  const { data: stores = [] } = trpc.store.getAll.useQuery();
+  
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
 
@@ -23,26 +26,19 @@ export default function StoresPage() {
       <section className="py-16">
         <div className="container-main">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <StoreCard
-              name="пр. Строителей, 50А"
-              address="пр. Строителей, 50А"
-              hours="Ежедневно 9:00–21:00"
-              phone="+7 (927) 375-05-55"
-              rating="4.9"
-              reviews="31 оценка, 28 отзывов"
-              image="/images/store-stroiteley.jpg"
-              isOpen={isStoreOpen}
-            />
-            <StoreCard
-              name="ул. Генерала Глазунова, 1"
-              address="ул. Генерала Глазунова, 1 (ТЦ Застава)"
-              hours="Ежедневно 9:00–21:00"
-              phone="+7 (927) 375-05-55"
-              rating="4.9"
-              reviews="35 оценок, 33 отзыва"
-              image="/images/store-glazunova.jpg"
-              isOpen={isStoreOpen}
-            />
+            {stores.map((store) => (
+              <StoreCard
+                key={store.id}
+                name={store.name}
+                address={store.address}
+                hours={store.hours}
+                phone={store.phone}
+                rating={store.rating}
+                reviews={`${store.reviewCount} оценок`}
+                image={store.image}
+                isOpen={isStoreOpen}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -60,24 +56,18 @@ export default function StoresPage() {
                 Карта с магазинами — интеграция Яндекс/2ГИС
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-4">
-                <a
-                  href="https://yandex.ru/maps/?text=%D0%BF%D1%80.+%D0%A1%D1%82%D1%80%D0%BE%D0%B8%D1%82%D0%B5%D0%BB%D0%B5%D0%B9%2C+50%D0%90+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                >
-                  <MapPin size={16} className="text-[#00bcd4]" />
-                  пр. Строителей, 50А
-                </a>
-                <a
-                  href="https://yandex.ru/maps/?text=%D1%83%D0%BB.+%D0%93%D0%B5%D0%BD%D0%B5%D1%80%D0%B0%D0%BB%D0%B0+%D0%93%D0%BB%D0%B0%D0%B7%D1%83%D0%BD%D0%BE%D0%B2%D0%B0%2C+1+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                >
-                  <MapPin size={16} className="text-[#00bcd4]" />
-                  ул. Генерала Глазунова, 1
-                </a>
+                {stores.map((store) => (
+                  <a
+                    key={store.id}
+                    href={store.mapUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                  >
+                    <MapPin size={16} className="text-[#00bcd4]" />
+                    {store.name}
+                  </a>
+                ))}
               </div>
             </div>
           </div>

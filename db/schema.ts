@@ -26,6 +26,7 @@ export const categories = mysqlTable("categories", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   icon: varchar("icon", { length: 50 }),
+  sortOrder: int("sort_order").notNull().default(0),
 });
 
 export const products = mysqlTable("products", {
@@ -43,4 +44,36 @@ export const products = mysqlTable("products", {
   rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("0.0"),
   reviewCount: int("review_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stores = mysqlTable("stores", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  address: varchar("address", { length: 255 }).notNull(),
+  hours: varchar("hours", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }).notNull(),
+  rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("0.0"),
+  reviewCount: int("review_count").notNull().default(0),
+  image: varchar("image", { length: 255 }).notNull(),
+  mapUrl: text("map_url"),
+  sortOrder: int("sort_order").notNull().default(0),
+});
+
+export const reviews = mysqlTable("reviews", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  author: varchar("author", { length: 255 }).notNull(),
+  rating: int("rating").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const banners = mysqlTable("banners", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  subtitle: varchar("subtitle", { length: 255 }),
+  image: varchar("image", { length: 255 }).notNull(),
+  link: varchar("link", { length: 255 }),
+  active: boolean("active").notNull().default(true),
+  sortOrder: int("sort_order").notNull().default(0),
 });

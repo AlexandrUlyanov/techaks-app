@@ -8,6 +8,13 @@
       "when": 1777321275041,
       "tag": "0000_damp_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1777377754749,
+      "tag": "0001_perpetual_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

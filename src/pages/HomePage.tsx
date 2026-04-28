@@ -17,13 +17,7 @@ import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
 import LeadForm from "@/components/LeadForm";
-import { products, homeCategories } from "@/data/products";
-
-const reviews = [
-  { name: "Анна К.", date: "15 апр. 2026", rating: 5, text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.", source: "Яндекс Карты" },
-  { name: "Михаил С.", date: "10 апр. 2026", rating: 5, text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!", source: "2ГИС" },
-  { name: "Елена В.", date: "5 апр. 2026", rating: 5, text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!", source: "Яндекс Карты" },
-];
+import { trpc } from "@/providers/trpc";
 
 const blogPosts = [
   { category: "Обзоры", title: "Как выбрать power bank: гид по ёмкости и мощности", date: "18 апреля 2026", image: "/images/blog-1.jpg" },
@@ -42,8 +36,18 @@ const iconMap: Record<string, React.ElementType> = {
   Wrench,
 };
 
+const defaultReviews = [
+  { author: "Анна К.", rating: 5, text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.", createdAt: new Date("2024-04-15").toISOString() },
+  { author: "Михаил С.", rating: 5, text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!", createdAt: new Date("2024-04-10").toISOString() },
+  { author: "Елена В.", rating: 5, text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!", createdAt: new Date("2024-04-05").toISOString() },
+];
+
 export default function HomePage() {
-  const productWeek = products[1]; // HOCO EW81
+  const { data: products = [] } = trpc.product.getAll.useQuery();
+  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: stores = [] } = trpc.store.getAll.useQuery();
+  
+  const productWeek = products.find(p => p.badge === "Акция") || products[0];
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
 
@@ -111,8 +115,8 @@ export default function HomePage() {
             Выберите нужный раздел и найдите подходящий товар
           </p>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {homeCategories.map((cat) => {
-              const Icon = iconMap[cat.icon] || Smartphone;
+            {categories.slice(0, 8).map((cat) => {
+              const Icon = iconMap[cat.icon || "Smartphone"] || Smartphone;
               return (
                 <Link
                   key={cat.slug}
@@ -121,7 +125,7 @@ export default function HomePage() {
                 >
                   <Icon size={48} className="mx-auto text-[#007c91] mb-4" />
                   <h3 className="text-lg font-semibold text-[#0a0a0a]">{cat.name}</h3>
-                  <p className="mt-2 text-sm text-gray-500">{cat.description}</p>
+                  <p className="mt-2 text-sm text-gray-500 line-clamp-2">{cat.description}</p>
                 </Link>
               );
             })}
@@ -130,58 +134,62 @@ export default function HomePage() {
       </section>
 
       {/* Product of the Week */}
-      <section className="py-20 bg-gray-50">
-        <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Товар недели
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Специальное предложение с лучшей ценой
-          </p>
-          <div className="mt-12 flex flex-col lg:flex-row gap-12 items-center">
-            {/* Image */}
-            <div className="flex-1 w-full">
-              <div className="bg-white rounded-xl p-12 flex items-center justify-center">
-                <img
-                  src={productWeek.image}
-                  alt={productWeek.name}
-                  className="max-h-[320px] object-contain"
-                />
+      {productWeek && (
+        <section className="py-20 bg-gray-50">
+          <div className="container-main">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
+              Товар недели
+            </h2>
+            <p className="mt-3 text-base text-gray-600 text-center">
+              Специальное предложение с лучшей ценой
+            </p>
+            <div className="mt-12 flex flex-col lg:flex-row gap-12 items-center">
+              {/* Image */}
+              <div className="flex-1 w-full">
+                <div className="bg-white rounded-xl p-12 flex items-center justify-center">
+                  <img
+                    src={productWeek.image}
+                    alt={productWeek.name}
+                    className="max-h-[320px] object-contain"
+                  />
+                </div>
               </div>
-            </div>
-            {/* Info */}
-            <div className="flex-1 w-full">
-              <span className="inline-flex bg-[#00bcd4] text-white text-xs font-semibold px-3 py-1 rounded-md uppercase tracking-wide">
-                Акция
-              </span>
-              <h3 className="mt-4 text-3xl md:text-4xl font-bold text-[#0a0a0a]">
-                {productWeek.name}
-              </h3>
-              <p className="mt-3 text-base text-gray-600 leading-relaxed">
-                {productWeek.description}
-              </p>
-              <div className="mt-6 flex items-center gap-4">
-                <span className="text-4xl md:text-5xl font-extrabold text-[#007c91]">
-                  {productWeek.price.toLocaleString("ru-RU")} ₽
-                </span>
-                {productWeek.oldPrice && (
-                  <span className="text-2xl text-gray-400 line-through">
-                    {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
+              {/* Info */}
+              <div className="flex-1 w-full">
+                {productWeek.badge && (
+                  <span className="inline-flex bg-[#00bcd4] text-white text-xs font-semibold px-3 py-1 rounded-md uppercase tracking-wide">
+                    {productWeek.badge}
                   </span>
                 )}
+                <h3 className="mt-4 text-3xl md:text-4xl font-bold text-[#0a0a0a]">
+                  {productWeek.name}
+                </h3>
+                <p className="mt-3 text-base text-gray-600 leading-relaxed">
+                  {productWeek.description}
+                </p>
+                <div className="mt-6 flex items-center gap-4">
+                  <span className="text-4xl md:text-5xl font-extrabold text-[#007c91]">
+                    {productWeek.price.toLocaleString("ru-RU")} ₽
+                  </span>
+                  {productWeek.oldPrice && (
+                    <span className="text-2xl text-gray-400 line-through">
+                      {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
+                    </span>
+                  )}
+                </div>
+                <Link
+                  to={`/product/${productWeek.slug}`}
+                  className="mt-8 inline-flex items-center gap-2 px-8 py-3.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
+                  style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
+                >
+                  Узнать наличие
+                  <ArrowRight size={16} />
+                </Link>
               </div>
-              <Link
-                to={`/product/${productWeek.id}`}
-                className="mt-8 inline-flex items-center gap-2 px-8 py-3.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
-                style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
-              >
-                Узнать наличие
-                <ArrowRight size={16} />
-              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Promo Banners */}
       <section id="promos" className="py-20 bg-white">
@@ -245,26 +253,19 @@ export default function HomePage() {
             Два магазина в Пензе — выбирайте ближайший
           </p>
           <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <StoreCard
-              name="пр. Строителей, 50А"
-              address="пр. Строителей, 50А"
-              hours="Ежедневно 9:00–21:00"
-              phone="+7 (927) 375-05-55"
-              rating="4.9"
-              reviews="31 оценка, 28 отзывов"
-              image="/images/store-stroiteley.jpg"
-              isOpen={isStoreOpen}
-            />
-            <StoreCard
-              name="ул. Генерала Глазунова, 1"
-              address="ул. Генерала Глазунова, 1"
-              hours="Ежедневно 9:00–21:00"
-              phone="+7 (927) 375-05-55"
-              rating="4.9"
-              reviews="35 оценок, 33 отзыва"
-              image="/images/store-glazunova.jpg"
-              isOpen={isStoreOpen}
-            />
+            {stores.map((store) => (
+              <StoreCard
+                key={store.id}
+                name={store.name}
+                address={store.address}
+                hours={store.hours}
+                phone={store.phone}
+                rating={store.rating}
+                reviews={`${store.reviewCount} оценок`}
+                image={store.image}
+                isOpen={isStoreOpen}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -302,8 +303,14 @@ export default function HomePage() {
 
           {/* Review Cards */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reviews.map((review, i) => (
-              <ReviewCard key={i} {...review} />
+            {defaultReviews.map((review, i) => (
+              <ReviewCard 
+                key={i} 
+                name={review.author} 
+                rating={review.rating} 
+                text={review.text} 
+                date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
+              />
             ))}
           </div>
 
@@ -394,7 +401,7 @@ export default function HomePage() {
           </p>
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.slice(0, 8).map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product as any} />
             ))}
           </div>
           <div className="mt-12 text-center">

@@ -1,14 +1,24 @@
 import { useParams, Link } from "react-router";
 import { Star, CheckCircle, MessageCircle, ArrowLeft } from "lucide-react";
-import { products } from "@/data/products";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useState } from "react";
+import { trpc } from "@/providers/trpc";
 
 export default function ProductPage() {
-  const { id } = useParams<{ id: string }>();
-  const product = products.find((p) => p.id === id);
+  const { id: slug } = useParams<{ id: string }>();
   const [showForm, setShowForm] = useState(false);
+
+  const { data: product, isLoading } = trpc.product.getBySlug.useQuery({ slug: slug || "" });
+  const { data: allProducts = [] } = trpc.product.getAll.useQuery();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="animate-pulse text-gray-400">Загрузка товара...</div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -24,8 +34,8 @@ export default function ProductPage() {
     );
   }
 
-  const relatedProducts = products
-    .filter((p) => p.categorySlug === product.categorySlug && p.id !== product.id)
+  const relatedProducts = allProducts
+    .filter((p) => p.categoryId === product.categoryId && p.id !== product.id)
     .slice(0, 4);
 
   const formatPrice = (price: number) => new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -37,10 +47,6 @@ export default function ProductPage() {
         <div className="container-main">
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Link to="/catalog" className="hover:text-[#0a0a0a] transition-colors">Каталог</Link>
-            <span>/</span>
-            <Link to={`/catalog?cat=${product.categorySlug}`} className="hover:text-[#0a0a0a] transition-colors">
-              {product.category}
-            </Link>
             <span>/</span>
             <span className="text-[#0a0a0a]">{product.name}</span>
           </div>
@@ -64,10 +70,7 @@ export default function ProductPage() {
 
             {/* Info */}
             <div className="flex-1">
-              <span className="text-xs font-semibold uppercase text-[#007c91] tracking-wide">
-                {product.category}
-              </span>
-              <h1 className="mt-2 text-3xl md:text-4xl font-bold text-[#0a0a0a]">
+              <h1 className="text-3xl md:text-4xl font-bold text-[#0a0a0a]">
                 {product.name}
               </h1>
 
@@ -78,7 +81,7 @@ export default function ProductPage() {
                     <Star
                       key={i}
                       size={14}
-                      className={i < Math.round(product.rating) ? "fill-[#facc15] text-[#facc15]" : "text-gray-200"}
+                      className={i < Math.round(Number(product.rating)) ? "fill-[#facc15] text-[#facc15]" : "text-gray-200"}
                     />
                   ))}
                 </div>
@@ -107,7 +110,7 @@ export default function ProductPage() {
               <div className="mt-4 flex items-center gap-2">
                 <CheckCircle size={16} className="text-[#22c55e]" />
                 <span className="text-sm font-medium text-gray-600">
-                  В наличии в обоих магазинах
+                  {product.inStock ? "В наличии в обоих магазинах" : "Нет в наличии"}
                 </span>
               </div>
 
@@ -117,20 +120,22 @@ export default function ProductPage() {
               </p>
 
               {/* Specs */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-[#0a0a0a] mb-4">Характеристики</h3>
-                <div className="border-t border-gray-200">
-                  {Object.entries(product.specs).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex justify-between py-3 border-b border-gray-200"
-                    >
-                      <span className="text-sm text-gray-500">{key}</span>
-                      <span className="text-sm font-medium text-[#0a0a0a]">{value}</span>
-                    </div>
-                  ))}
+              {product.specs && typeof product.specs === 'object' && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-[#0a0a0a] mb-4">Характеристики</h3>
+                  <div className="border-t border-gray-200">
+                    {Object.entries(product.specs as Record<string, string>).map(([key, value]) => (
+                      <div
+                        key={key}
+                        className="flex justify-between py-3 border-b border-gray-200"
+                      >
+                        <span className="text-sm text-gray-500">{key}</span>
+                        <span className="text-sm font-medium text-[#0a0a0a]">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* CTA */}
               <div className="mt-8 flex flex-wrap gap-3">
@@ -187,7 +192,7 @@ export default function ProductPage() {
             </h2>
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={p as any} />
               ))}
             </div>
           </div>

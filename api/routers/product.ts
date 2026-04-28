@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { products, categories } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { products, categories, reviews } from "@db/schema";
+import { eq, asc, desc } from "drizzle-orm";
 
 export const productRouter = createRouter({
   getAll: publicQuery.query(async () => {
@@ -24,7 +24,7 @@ export const productRouter = createRouter({
 
   getCategories: publicQuery.query(async () => {
     const db = getDb();
-    return await db.select().from(categories);
+    return await db.select().from(categories).orderBy(asc(categories.sortOrder));
   }),
 
   getByCategory: publicQuery
@@ -47,5 +47,16 @@ export const productRouter = createRouter({
         .select()
         .from(products)
         .where(eq(products.categoryId, category[0].id));
+    }),
+
+  getReviews: publicQuery
+    .input(z.object({ productId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      return await db
+        .select()
+        .from(reviews)
+        .where(eq(reviews.productId, input.productId))
+        .orderBy(desc(reviews.createdAt));
     }),
 });
