@@ -37,9 +37,10 @@ export default function PromotionsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {banners.map((promo) => (
-                <div 
+                <Link 
                   key={promo.id} 
-                  className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full"
+                  to={promo.slug ? `/promotions/${promo.slug}` : "#"}
+                  className="group bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full"
                 >
                   <div className="h-64 overflow-hidden bg-gray-100">
                     <img 
@@ -53,21 +54,18 @@ export default function PromotionsPage() {
                       <Zap size={16} className="fill-current" />
                       <span className="text-xs font-bold uppercase tracking-widest">Акция</span>
                     </div>
-                    <h3 className="text-2xl font-bold text-[#0a0a0a] mb-3">
+                    <h3 className="text-2xl font-bold text-[#0a0a0a] mb-3 group-hover:text-[#00bcd4] transition-colors">
                       {promo.title}
                     </h3>
                     <p className="text-gray-600 mb-8 flex-1">
                       {promo.subtitle}
                     </p>
-                    <Link 
-                      to={`/promotions/${promo.slug}`}
-                      className="inline-flex items-center gap-2 text-[#00bcd4] font-bold hover:gap-3 transition-all"
-                    >
+                    <div className="inline-flex items-center gap-2 text-[#00bcd4] font-bold group-hover:gap-3 transition-all">
                       Узнать подробнее
                       <ArrowRight size={20} />
-                    </Link>
+                    </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
