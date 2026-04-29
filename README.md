@@ -1,73 +1,83 @@
-# React + TypeScript + Vite
+# ТЕХАКС — Магазин техники и аксессуаров
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Полнофункциональное веб-приложение для сети магазинов аксессуаров в Пензе.
 
-Currently, two official plugins are available:
+## 🚀 Стек технологий
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Frontend:** React 19 + TypeScript + Vite
+- **Styling:** Tailwind CSS + shadcn/ui (Radix UI)
+- **Backend:** Node.js + Hono
+- **API:** tRPC (полная типизация между фронтом и беком)
+- **Database:** MySQL + Drizzle ORM
+- **Icons:** Lucide React
 
-## React Compiler
+## 📂 Структура проекта
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+app/
+├── api/             # Исходный код бэкенда (Hono + tRPC)
+│   ├── routers/     # Модули API (продукты, акции, лиды)
+│   ├── boot.ts      # Точка входа сервера и REST-эндпоинты
+│   └── router.ts    # Главный tRPC роутер
+├── db/              # База данных
+│   ├── schema.ts    # Описание таблиц (Drizzle)
+│   └── migrations/  # SQL миграции
+├── src/             # Исходный код фронтенда (React)
+│   ├── components/  # Общие компоненты
+│   ├── pages/       # Страницы (Home, Catalog, Promotions и др.)
+│   ├── pages/admin/ # Админ-панель
+│   └── providers/   # Провайдеры (tRPC/React Query)
+└── public/          # Статические файлы и загруженные изображения
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🛠 Установка и запуск
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Установка зависимостей:**
+   ```bash
+   npm install
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+2. **Настройка окружения:**
+   Создайте файл `.env` в папке `app/` на основе `.env.example`. Обязательно укажите:
+   - `DATABASE_URL`: Строка подключения к MySQL.
+
+3. **Запуск в режиме разработки:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Миграции базы данных:**
+   - Генерация: `npm run db:generate`
+   - Применение: `npm run db:push`
+
+## 📦 Сборка и Деплой
+
+Приложение оптимизировано для деплоя на Google Cloud Run через Docker.
+
+- **Build:** `npm run build`
+- **Start:** `npm run start`
+
+## 🧩 Функциональные возможности
+
+### Публичная часть
+- **Каталог:** Фильтрация по категориям, просмотр товаров.
+- **Акции:** Динамический список действующих предложений с детальными страницами.
+- **Лиды:** Формы обратной связи с отправкой в БД.
+- **Магазины:** Информация об адресах, режиме работы и рейтинге.
+
+### Админ-панель (`/admin`)
+- Управление товарами и категориями.
+- Управление акциями (баннерами):
+  - **Загрузка изображений:** Подгрузка файлов через веб-интерфейс сразу на сервер.
+  - **Интеграция с каталогом:** Выбор ссылки на категорию или товар из выпадающего списка.
+  - **Управление статусом:** Возможность скрывать акции (черновики).
+
+## ⚠️ Важные нюансы
+- **Хранение изображений:** Текущая реализация использует локальную файловую систему. На Cloud Run изображения будут сбрасываться при каждом новом деплое или перезапуске контейнера. Для продакшена рекомендуется переход на S3/Google Cloud Storage.
+- **API Типизация:** При изменении бэкенд-роутеров фронтенд автоматически подхватывает изменения типов благодаря tRPC.
+
+## 🤝 Разработка
+При добавлении новых функций следуйте установленным паттернам:
+- UI компоненты берем из `src/components/ui`.
+- Все запросы к данным только через tRPC хуки.
+- Новые таблицы описываем в `db/schema.ts`.

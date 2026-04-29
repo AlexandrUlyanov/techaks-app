@@ -47,11 +47,13 @@ export default function HomePage() {
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
+  const { data: posts = [] } = trpc.blog.getPublished.useQuery();
   
   const productWeek = products.find(p => p.badge === "Акция") || products[0];
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const activeBanners = banners.slice(0, 2);
+  const latestPosts = posts.slice(0, 3);
 
   return (
     <div className="pb-16 md:pb-0">
@@ -345,49 +347,55 @@ export default function HomePage() {
       </section>
 
       {/* Blog Preview */}
-      <section id="blog" className="py-20 bg-white">
-        <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Блог и новости
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Обзоры товаров, полезные подборки и акции
-          </p>
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {blogPosts.map((post, i) => (
-              <div
-                key={i}
-                className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-250"
+      {latestPosts.length > 0 && (
+        <section id="blog" className="py-20 bg-white">
+          <div className="container-main">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
+              Блог и новости
+            </h2>
+            <p className="mt-3 text-base text-gray-600 text-center">
+              Обзоры товаров, полезные подборки и акции
+            </p>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {latestPosts.map((post) => (
+                <Link
+                  key={post.id}
+                  to={`/blog/${post.slug}`}
+                  className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-250"
+                >
+                  <div className="h-[180px] overflow-hidden">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="p-5">
+                    <span className="text-xs font-semibold uppercase text-[#007c91] tracking-wide">
+                      {post.category}
+                    </span>
+                    <h3 className="mt-2 text-base font-semibold text-[#0a0a0a] leading-snug line-clamp-2">
+                      {post.title}
+                    </h3>
+                    <span className="mt-3 inline-block text-xs text-gray-400">
+                      {new Date(post.createdAt).toLocaleDateString("ru-RU")}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="mt-12 text-center">
+              <Link
+                to="/blog"
+                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-[#0a0a0a] rounded-lg text-sm font-semibold hover:border-[#007c91] hover:text-[#007c91] transition-colors cursor-pointer"
               >
-                <div className="h-[180px] overflow-hidden">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="p-5">
-                  <span className="text-xs font-semibold uppercase text-[#007c91] tracking-wide">
-                    {post.category}
-                  </span>
-                  <h3 className="mt-2 text-base font-semibold text-[#0a0a0a] leading-snug line-clamp-2">
-                    {post.title}
-                  </h3>
-                  <span className="mt-3 inline-block text-xs text-gray-400">
-                    {post.date}
-                  </span>
-                </div>
-              </div>
-            ))}
+                Все статьи
+              </Link>
+            </div>
           </div>
-          <div className="mt-12 text-center">
-            <span className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-[#0a0a0a] rounded-lg text-sm font-semibold hover:border-[#007c91] hover:text-[#007c91] transition-colors cursor-pointer">
-              Все статьи
-            </span>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Popular Products */}
       <section className="py-20 bg-gray-50">

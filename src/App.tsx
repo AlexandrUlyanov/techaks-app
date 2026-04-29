@@ -10,6 +10,8 @@ import StoresPage from "@/pages/StoresPage";
 import ContactsPage from "@/pages/ContactsPage";
 import PromotionsPage from "@/pages/PromotionsPage";
 import PromotionDetailPage from "@/pages/PromotionDetailPage";
+import BlogPage from "@/pages/BlogPage";
+import BlogPostPage from "@/pages/BlogPostPage";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -18,6 +20,7 @@ import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminStores from "@/pages/admin/AdminStores";
 import AdminLeads from "@/pages/admin/AdminLeads";
 import AdminBanners from "@/pages/admin/AdminBanners";
+import AdminBlog from "@/pages/admin/AdminBlog";
 
 export default function App() {
   const location = useLocation();
@@ -36,6 +39,8 @@ export default function App() {
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/promotions" element={<PromotionsPage />} />
           <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
@@ -44,6 +49,7 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="stores" element={<AdminStores />} />
             <Route path="banners" element={<AdminBanners />} />
+            <Route path="blog" element={<AdminBlog />} />
             <Route path="settings" element={<div>Настройки системы (в разработке)</div>} />
           </Route>
         </Routes>

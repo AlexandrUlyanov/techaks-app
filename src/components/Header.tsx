@@ -6,8 +6,7 @@ const navLinks = [
   { label: "Каталог", href: "/catalog" },
   { label: "Акции", href: "/promotions" },
   { label: "Магазины", href: "/stores" },
-  { label: "Отзывы", href: "/#reviews" },
-  { label: "Блог", href: "/#blog" },
+  { label: "Блог", href: "/blog" },
   { label: "Контакты", href: "/contacts" },
 ];
 
