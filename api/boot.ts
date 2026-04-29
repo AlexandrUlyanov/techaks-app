@@ -16,17 +16,18 @@ app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.post("/api/upload", async (c) => {
   try {
     const body = await c.req.parseBody();
-    const file = body["file"] as File;
+    const file = body["file"];
     
-    if (!file) {
+    if (!file || typeof file === "string") {
       return c.json({ error: "No file uploaded" }, 400);
     }
 
-    const bytes = await file.arrayBuffer();
+    const fileData = file as any;
+    const bytes = await fileData.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
     // Create unique filename
-    const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    const filename = `${Date.now()}-${fileData.name.replace(/\s+/g, "-")}`;
     const publicPath = join(process.cwd(), "public", "images");
     const filePath = join(publicPath, filename);
 
