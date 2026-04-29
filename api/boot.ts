@@ -8,10 +8,14 @@ import { env } from "./lib/env";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Buffer } from "node:buffer";
+import { serveStatic } from "@hono/node-server/serve-static";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
+
+// Serve uploaded images in dev mode
+app.use("/images/*", serveStatic({ root: env.isProduction ? "./dist/public" : "./public" }));
 
 // File Upload Endpoint
 app.post("/api/upload", async (c) => {
@@ -30,7 +34,12 @@ app.post("/api/upload", async (c) => {
     
     // Create unique filename
     const filename = `${Date.now()}-${fileName}`;
-    const publicPath = join(process.cwd(), "public", "images");
+    
+    // Determine public path based on environment
+    const publicPath = env.isProduction 
+      ? join(process.cwd(), "dist", "public", "images")
+      : join(process.cwd(), "public", "images");
+      
     const filePath = join(publicPath, filename);
 
     // Ensure directory exists
