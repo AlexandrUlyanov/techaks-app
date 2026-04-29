@@ -7,6 +7,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { Buffer } from "node:buffer";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -16,18 +17,19 @@ app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.post("/api/upload", async (c) => {
   try {
     const body = await c.req.parseBody();
-    const file = body["file"];
+    const file = body["file"] as any;
     
     if (!file || typeof file === "string") {
       return c.json({ error: "No file uploaded" }, 400);
     }
 
-    const fileData = file as any;
-    const bytes = await fileData.arrayBuffer();
+    // Access properties safely for TS
+    const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const fileName = String(file.name || "unnamed-file").replace(/\s+/g, "-");
     
     // Create unique filename
-    const filename = `${Date.now()}-${fileData.name.replace(/\s+/g, "-")}`;
+    const filename = `${Date.now()}-${fileName}`;
     const publicPath = join(process.cwd(), "public", "images");
     const filePath = join(publicPath, filename);
 
