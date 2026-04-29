@@ -129,7 +129,7 @@ export default function AdminBanners() {
         </button>
       </div>
 
-      {/* ... (rest of banner list) ... */}
+      <div className="grid grid-cols-1 gap-6">
         {banners.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-500">
             Акций пока нет
