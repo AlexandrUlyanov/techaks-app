@@ -14,9 +14,12 @@ import { toast } from "sonner";
 
 export default function AdminBanners() {
   const [editingBanner, setEditingBanner] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
   
   const utils = trpc.useUtils();
   const { data: banners = [], isLoading } = trpc.banner.getAll.useQuery();
+  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: products = [] } = trpc.product.getAll.useQuery();
   
   const upsertMutation = trpc.banner.upsert.useMutation({
     onSuccess: () => {
@@ -34,6 +37,33 @@ export default function AdminBanners() {
       toast.success("Акция удалена");
     }
   });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.url) {
+        setEditingBanner({ ...editingBanner, image: data.url });
+        toast.success("Изображение загружено");
+      } else {
+        throw new Error(data.error || "Ошибка загрузки");
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,6 +93,14 @@ export default function AdminBanners() {
     );
   }
 
+  const linkOptions = [
+    { label: "Без ссылки", value: "" },
+    { label: "--- Категории ---", value: "", disabled: true },
+    ...categories.map(c => ({ label: `Каталог: ${c.name}`, value: `/catalog?cat=${c.slug}` })),
+    { label: "--- Товары ---", value: "", disabled: true },
+    ...products.map(p => ({ label: `Товар: ${p.name}`, value: `/product/${p.slug}` })),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -76,7 +114,7 @@ export default function AdminBanners() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      {/* ... (rest of banner list) ... */}
         {banners.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-500">
             Акций пока нет
@@ -175,14 +213,51 @@ export default function AdminBanners() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Ссылка на изображение</label>
-                <input name="image" defaultValue={editingBanner.image} placeholder="/images/blog-1.jpg" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                <label className="text-sm font-medium text-gray-700">Изображение</label>
+                <div className="flex flex-col gap-3">
+                  {editingBanner.image && (
+                    <div className="relative w-full h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                      <img src={editingBanner.image} className="w-full h-full object-contain" alt="Preview" />
+                      <button 
+                        type="button"
+                        onClick={() => setEditingBanner({ ...editingBanner, image: "" })}
+                        className="absolute top-2 right-2 p-1 bg-white/80 hover:bg-white rounded-full text-red-500 shadow-sm"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input 
+                      name="image" 
+                      value={editingBanner.image || ""} 
+                      onChange={(e) => setEditingBanner({ ...editingBanner, image: e.target.value })}
+                      placeholder="URL изображения или загрузите файл" 
+                      required 
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" 
+                    />
+                    <label className="flex items-center justify-center px-4 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors border border-gray-200">
+                      {uploading ? <Loader2 size={18} className="animate-spin text-gray-500" /> : <Plus size={18} className="text-gray-500" />}
+                      <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Ссылка (URL)</label>
-                  <input name="link" defaultValue={editingBanner.link} placeholder="/catalog?cat=chehly" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                  <label className="text-sm font-medium text-gray-700">Ссылка (из каталога)</label>
+                  <select 
+                    name="link" 
+                    defaultValue={editingBanner.link || ""} 
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] bg-white"
+                  >
+                    {linkOptions.map((opt, i) => (
+                      <option key={i} value={opt.value} disabled={opt.disabled}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Порядок</label>
@@ -214,7 +289,7 @@ export default function AdminBanners() {
                 <button 
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-8 py-2.5 bg-[#00_bcd4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-8 py-2.5 bg-[#00bcd4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
                 >
                   {upsertMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {editingBanner.id ? "Сохранить" : "Создать"}

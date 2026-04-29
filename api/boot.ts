@@ -5,10 +5,47 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
+
+// File Upload Endpoint
+app.post("/api/upload", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body["file"] as File;
+    
+    if (!file) {
+      return c.json({ error: "No file uploaded" }, 400);
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    
+    // Create unique filename
+    const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    const publicPath = join(process.cwd(), "public", "images");
+    const filePath = join(publicPath, filename);
+
+    // Ensure directory exists
+    await mkdir(publicPath, { recursive: true });
+    
+    // Write file
+    await writeFile(filePath, buffer);
+    
+    return c.json({ 
+      url: `/images/${filename}`,
+      success: true 
+    });
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    return c.json({ error: error.message || "Failed to upload file" }, 500);
+  }
+});
+
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
