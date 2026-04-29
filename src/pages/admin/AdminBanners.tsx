@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { 
   Plus, 
@@ -12,8 +12,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface Banner {
+  id?: number;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  content: string | null;
+  image: string;
+  link: string | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt?: string;
+}
+
 export default function AdminBanners() {
-  const [editingBanner, setEditingBanner] = useState<any>(null);
+  const [editingBanner, setEditingBanner] = useState<Partial<Banner> | null>(null);
   const [uploading, setUploading] = useState(false);
   
   const utils = trpc.useUtils();
@@ -53,7 +66,7 @@ export default function AdminBanners() {
       });
       const data = await res.json();
       if (data.url) {
-        setEditingBanner({ ...editingBanner, image: data.url });
+        setEditingBanner(prev => prev ? { ...prev, image: data.url } : { image: data.url });
         toast.success("Изображение загружено");
       } else {
         throw new Error(data.error || "Ошибка загрузки");
@@ -67,20 +80,22 @@ export default function AdminBanners() {
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!editingBanner) return;
+
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Banner = {
       slug: formData.get("slug") as string,
       title: formData.get("title") as string,
-      subtitle: formData.get("subtitle") as string || null,
-      content: formData.get("content") as string || null,
-      image: formData.get("image") as string,
-      link: formData.get("link") as string || null,
+      subtitle: (formData.get("subtitle") as string) || null,
+      content: (formData.get("content") as string) || null,
+      image: (formData.get("image") as string) || editingBanner.image || "",
+      link: (formData.get("link") as string) || null,
       active: formData.get("active") === "on",
       sortOrder: parseInt(formData.get("sortOrder") as string || "0"),
     };
 
     upsertMutation.mutate({
-      id: editingBanner?.id,
+      id: editingBanner.id,
       data
     });
   };
