@@ -46,10 +46,12 @@ export default function HomePage() {
   const { data: products = [] } = trpc.product.getAll.useQuery();
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
+  const { data: banners = [] } = trpc.banner.getActive.useQuery();
   
   const productWeek = products.find(p => p.badge === "Акция") || products[0];
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
+  const activeBanners = banners.slice(0, 2);
 
   return (
     <div className="pb-16 md:pb-0">
@@ -192,56 +194,53 @@ export default function HomePage() {
       )}
 
       {/* Promo Banners */}
-      <section id="promos" className="py-20 bg-white">
-        <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Акции и спецпредложения
-          </h2>
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {[
-              {
-                badge: "СКИДКА 20%",
-                title: "На все power bank HOCO",
-                desc: "Акция действует до 30 апреля",
-                image: "/images/product-powerbank.jpg",
-              },
-              {
-                badge: "НОВИНКА",
-                title: "Смарт-часы ISA",
-                desc: "Успейте купить по стартовой цене",
-                image: "/images/product-watch-1.jpg",
-              },
-            ].map((promo, i) => (
-              <div
-                key={i}
-                className="flex flex-col sm:flex-row items-center gap-8 bg-gradient-to-br from-[#003238] to-[#004d5c] rounded-xl p-8 md:p-10"
+      {activeBanners.length > 0 && (
+        <section id="promos" className="py-20 bg-white">
+          <div className="container-main">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
+              Акции и спецпредложения
+            </h2>
+            <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {activeBanners.map((promo) => (
+                <div
+                  key={promo.id}
+                  className="flex flex-col sm:flex-row items-center gap-8 bg-gradient-to-br from-[#003238] to-[#004d5c] rounded-xl p-8 md:p-10"
+                >
+                  <div className="flex-1">
+                    <span className="inline-flex bg-[rgba(128,222,234,0.2)] text-[#80deea] text-xs font-semibold px-3 py-1 rounded-md uppercase tracking-wider">
+                      Акция
+                    </span>
+                    <h3 className="mt-3 text-xl font-bold text-white">{promo.title}</h3>
+                    <p className="mt-2 text-sm text-white/70 line-clamp-2">{promo.subtitle}</p>
+                    <Link
+                      to={`/promotions/${promo.slug}`}
+                      className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 border border-white/30 text-white rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors"
+                    >
+                      Подробнее
+                      <ArrowRight size={16} />
+                    </Link>
+                  </div>
+                  <div className="flex-shrink-0 w-[140px] h-[140px] rounded-lg overflow-hidden bg-white/5 p-2">
+                    <img
+                      src={promo.image}
+                      alt={promo.title}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Link
+                to="/promotions"
+                className="text-sm font-bold text-[#007c91] hover:underline"
               >
-                <div className="flex-1">
-                  <span className="inline-flex bg-[rgba(128,222,234,0.2)] text-[#80deea] text-xs font-semibold px-3 py-1 rounded-md">
-                    {promo.badge}
-                  </span>
-                  <h3 className="mt-3 text-xl font-bold text-white">{promo.title}</h3>
-                  <p className="mt-2 text-sm text-white/70">{promo.desc}</p>
-                  <Link
-                    to="/catalog"
-                    className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 border border-white/30 text-white rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors"
-                  >
-                    Подробнее
-                    <ArrowRight size={16} />
-                  </Link>
-                </div>
-                <div className="flex-shrink-0 w-[140px] h-[140px]">
-                  <img
-                    src={promo.image}
-                    alt={promo.title}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </div>
-            ))}
+                Смотреть все акции
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Stores */}
       <section className="py-20 bg-gray-50">

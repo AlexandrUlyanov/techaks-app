@@ -4,7 +4,7 @@ import { Menu, X, Phone, ArrowRight } from "lucide-react";
 
 const navLinks = [
   { label: "Каталог", href: "/catalog" },
-  { label: "Акции", href: "/#promos" },
+  { label: "Акции", href: "/promotions" },
   { label: "Магазины", href: "/stores" },
   { label: "Отзывы", href: "/#reviews" },
   { label: "Блог", href: "/#blog" },

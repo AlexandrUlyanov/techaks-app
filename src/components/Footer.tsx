@@ -14,7 +14,7 @@ const catalogLinks = [
 const infoLinks = [
   { label: "О компании", href: "/#" },
   { label: "Магазины", href: "/stores" },
-  { label: "Акции", href: "/#promos" },
+  { label: "Акции", href: "/promotions" },
   { label: "Блог", href: "/#blog" },
   { label: "Контакты", href: "/contacts" },
 ];
