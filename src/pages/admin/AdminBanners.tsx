@@ -191,7 +191,6 @@ export default function AdminBanners() {
         ))}
       </div>
 
-      {/* Modal */}
       {editingBanner && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setEditingBanner(null)} />
