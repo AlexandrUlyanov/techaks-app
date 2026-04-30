@@ -38,6 +38,13 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          graphite: "#464A50",
+          cyan: "#05C3D4",
+          "cyan-light": "#27E6F2",
+          "cyan-dark": "#0099A8",
+          black: "#15171A",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -49,12 +56,17 @@ module.exports = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      fontFamily: {
+        heading: ['"Exo 2"', 'sans-serif'],
+        sans: ['Manrope', 'sans-serif'],
+        mono: ['"Space Mono"', 'monospace'],
+      },
       borderRadius: {
-        xl: "calc(var(--radius) + 4px)",
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-        xs: "calc(var(--radius) - 6px)",
+        '2xl': '28px',
+        'xl': '18px',
+        'lg': "var(--radius)",
+        'md': "calc(var(--radius) - 2px)",
+        'sm': "calc(var(--radius) - 4px)",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",

@@ -8,7 +8,7 @@ interface ReviewCardProps {
   source: string;
 }
 
-export default function ReviewCard({ name, date, rating, text, source }: ReviewCardProps) {
+export default function ReviewCard({ name, date, rating, text }: ReviewCardProps) {
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -16,35 +16,38 @@ export default function ReviewCard({ name, date, rating, text, source }: ReviewC
     .toUpperCase();
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.05)]">
+    <div className="bg-[#24272B] border border-white/5 rounded-2xl p-8 hover:border-[#05C3D4]/20 transition-all duration-300">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-[#0a0a0a]">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-sm font-black text-[#05C3D4] uppercase">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[#0a0a0a] truncate">{name}</div>
+          <div className="text-sm font-black text-white uppercase tracking-tight truncate">{name}</div>
+          <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-1">{date}</div>
         </div>
-        <span className="text-xs text-gray-400 shrink-0">{date}</span>
       </div>
 
       {/* Rating */}
-      <div className="mt-3 flex items-center gap-0.5">
+      <div className="mt-6 flex items-center gap-1 bg-white/5 inline-flex px-3 py-1.5 rounded-lg border border-white/5">
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
             size={14}
-            className={i < rating ? "fill-[#facc15] text-[#facc15]" : "text-gray-200"}
+            className={i < rating ? "fill-[#05C3D4] text-[#05C3D4]" : "text-white/10"}
           />
         ))}
       </div>
 
       {/* Text */}
-      <p className="mt-3 text-sm text-gray-500 leading-relaxed">{text}</p>
+      <p className="mt-6 text-sm text-white/60 font-medium leading-relaxed italic line-clamp-4">
+        "{text}"
+      </p>
 
       {/* Source */}
-      <div className="mt-4 inline-flex px-2.5 py-1 bg-gray-100 rounded-md">
-        <span className="text-xs text-gray-600 font-medium">{source}</span>
+      <div className="mt-8 flex items-center gap-2">
+        <span className="w-4 h-px bg-white/10" />
+        <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Яндекс Карты</span>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import { Link } from "react-router";
 import {
   ArrowRight,
   MapPin,
-  CheckCircle,
   Smartphone,
   Headphones,
   BatteryCharging,
@@ -18,12 +17,6 @@ import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
 import LeadForm from "@/components/LeadForm";
 import { trpc } from "@/providers/trpc";
-
-const blogPosts = [
-  { category: "Обзоры", title: "Как выбрать power bank: гид по ёмкости и мощности", date: "18 апреля 2026", image: "/images/blog-1.jpg" },
-  { category: "Новинки", title: "Обзор смарт-часов ISA: функции и сравнение", date: "15 апреля 2026", image: "/images/product-watch-1.jpg" },
-  { category: "Подборки", title: "Топ-10 аксессуаров для iPhone в 2026", date: "12 апреля 2026", image: "/images/product-case-1.jpg" },
-];
 
 const iconMap: Record<string, React.ElementType> = {
   Smartphone,
@@ -56,80 +49,100 @@ export default function HomePage() {
   const latestPosts = posts.slice(0, 3);
 
   return (
-    <div className="pb-16 md:pb-0">
+    <div className="pb-16 md:pb-0 bg-background text-foreground">
       {/* Hero */}
-      <section className="min-h-[85vh] bg-gradient-to-br from-[#003238] to-[#004d5c] flex items-center">
-        <div className="container-main py-16">
-          <h1 className="text-4xl md:text-5xl lg:text-[3rem] font-extrabold text-white max-w-[640px] leading-tight tracking-tight">
-            Техника и аксессуары в Пензе
-          </h1>
-          <p className="mt-5 text-base text-white/70 max-w-[520px] leading-relaxed">
-            Два магазина • Ежедневно 9:00–21:00 • Акции недели • Подбор аксессуаров
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Link
-              to="/catalog"
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
-              style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
-            >
-              Смотреть каталог
-              <ArrowRight size={16} />
-            </Link>
-            <Link
-              to="/catalog"
-              className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/30 text-white rounded-lg text-sm font-semibold hover:bg-white/5 hover:border-white/60 transition-all"
-            >
-              Узнать наличие
-            </Link>
-            <a
-              href="https://yandex.ru/maps/?text=%D0%BF%D1%80.+%D0%A1%D1%82%D1%80%D0%BE%D0%B8%D1%82%D0%B5%D0%BB%D0%B5%D0%B9%2C+50%D0%90+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/30 text-white rounded-lg text-sm font-semibold hover:bg-white/5 hover:border-white/60 transition-all"
-            >
-              <MapPin size={16} />
-              Построить маршрут
-            </a>
-          </div>
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#05C3D4]/10 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#464A50]/20 blur-[100px] rounded-full" />
+        </div>
 
-          {/* Trust Badges */}
-          <div className="mt-12 flex flex-wrap gap-6">
-            {[
-              "Официальные партнёры",
-              "Цены от производителей",
-              "2 магазина",
-              "Рейтинг 4.9",
-            ].map((badge) => (
-              <div key={badge} className="flex items-center gap-2">
-                <CheckCircle size={18} className="text-[#22c55e]" />
-                <span className="text-sm text-white/80">{badge}</span>
-              </div>
-            ))}
+        <div className="container-main relative z-10 py-24 md:py-32">
+          <div className="max-w-[800px]">
+            <span className="inline-block text-[#05C3D4] text-xs md:text-sm font-black uppercase tracking-[0.3em] mb-6">
+              Технологичный Retail • Пенза
+            </span>
+            <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black leading-[0.9] tracking-tighter uppercase font-heading">
+              ТЕХНИКА <br /> И АКСЕСС<span className="text-[#05C3D4]">УАРЫ</span>
+            </h1>
+            <p className="mt-8 text-lg md:text-xl text-white/50 max-w-[580px] leading-relaxed font-medium">
+              Помогаем быстро подобрать нужную технику и аксессуары без лишней сложности. Чистая визуальная система, два современных магазина.
+            </p>
+            
+            <div className="mt-12 flex flex-wrap gap-5">
+              <Link
+                to="/catalog"
+                className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan hover:-translate-y-1 active:scale-95"
+              >
+                Смотреть каталог
+                <ArrowRight size={18} />
+              </Link>
+              <a
+                href="https://yandex.ru/maps/?text=%D0%BF%D1%80.+%D0%A1%D1%82%D1%80%D0%BE%D0%B8%D1%82%D0%B5%D0%BB%D0%B5%D0%B9%2C+50%D0%90+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-10 py-5 border border-white/10 bg-white/5 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-y-1 active:scale-95"
+              >
+                <MapPin size={18} className="text-[#05C3D4]" />
+                Магазины
+              </a>
+            </div>
+
+            {/* Trust Badges */}
+            <div className="mt-16 flex flex-wrap gap-x-10 gap-y-6 border-t border-white/5 pt-10">
+              {[
+                { label: "Официально", value: "Партнёры брендов" },
+                { label: "В наличии", value: "Более 5000 товаров" },
+                { label: "Рейтинг", value: "4.9 Яндекс Карты" },
+              ].map((item) => (
+                <div key={item.label} className="flex flex-col gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{item.label}</span>
+                  <span className="text-sm font-bold text-white/80">{item.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Category Grid */}
-      <section className="py-20 bg-white">
+      <section className="py-24 bg-[#15171A] border-t border-white/5">
         <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Популярные категории
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Выберите нужный раздел и найдите подходящий товар
-          </p>
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+            <div>
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Направления</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                КАТЕГОРИИ <span className="text-white/20">ТОВАРОВ</span>
+              </h2>
+            </div>
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+              Смотреть все разделы
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {categories.slice(0, 8).map((cat) => {
               const Icon = iconMap[cat.icon || "Smartphone"] || Smartphone;
               return (
                 <Link
                   key={cat.slug}
                   to={`/catalog?cat=${cat.slug}`}
-                  className="group bg-gray-50 rounded-xl p-8 text-center hover:bg-[#eaeaea] hover:-translate-y-0.5 transition-all duration-200"
+                  className="group relative bg-[#24272B] border border-white/5 rounded-2xl p-8 overflow-hidden hover:border-[#05C3D4]/30 transition-all duration-300"
                 >
-                  <Icon size={48} className="mx-auto text-[#007c91] mb-4" />
-                  <h3 className="text-lg font-semibold text-[#0a0a0a]">{cat.name}</h3>
-                  <p className="mt-2 text-sm text-gray-500 line-clamp-2">{cat.description}</p>
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 group-hover:text-[#05C3D4] transition-all duration-500 transform group-hover:scale-110 group-hover:-rotate-12">
+                    <Icon size={120} />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center text-[#05C3D4] mb-8 group-hover:bg-[#05C3D4] group-hover:text-black transition-all duration-300">
+                      <Icon size={28} />
+                    </div>
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight text-white">{cat.name}</h3>
+                    <p className="mt-3 text-sm text-white/40 font-medium leading-relaxed line-clamp-2">{cat.description}</p>
+                    <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4] opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                      Перейти <ArrowRight size={12} />
+                    </div>
+                  </div>
                 </Link>
               );
             })}
@@ -139,55 +152,54 @@ export default function HomePage() {
 
       {/* Product of the Week */}
       {productWeek && (
-        <section className="py-20 bg-gray-50">
-          <div className="container-main">
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-              Товар недели
-            </h2>
-            <p className="mt-3 text-base text-gray-600 text-center">
-              Специальное предложение с лучшей ценой
-            </p>
-            <div className="mt-12 flex flex-col lg:flex-row gap-12 items-center">
+        <section className="py-24 bg-[#24272B] relative overflow-hidden">
+          <div className="container-main relative z-10">
+            <div className="flex flex-col lg:flex-row gap-16 items-center">
               {/* Image */}
               <div className="flex-1 w-full">
-                <div className="bg-white rounded-xl p-12 flex items-center justify-center">
+                <div className="relative group bg-white/5 border border-white/5 rounded-3xl p-16 flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#05C3D4]/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
                   <img
                     src={productWeek.image}
                     alt={productWeek.name}
-                    className="max-h-[320px] object-contain"
+                    className="relative z-10 max-h-[400px] object-contain transform group-hover:scale-110 transition-transform duration-700"
                   />
                 </div>
               </div>
               {/* Info */}
               <div className="flex-1 w-full">
-                {productWeek.badge && (
-                  <span className="inline-flex bg-[#00bcd4] text-white text-xs font-semibold px-3 py-1 rounded-md uppercase tracking-wide">
-                    {productWeek.badge}
-                  </span>
-                )}
-                <h3 className="mt-4 text-3xl md:text-4xl font-bold text-[#0a0a0a]">
+                <div className="inline-flex items-center gap-2 mb-6">
+                  <span className="w-2 h-2 rounded-full bg-[#05C3D4] animate-pulse" />
+                  <span className="text-[#05C3D4] text-xs font-black uppercase tracking-[0.3em]">Товар недели</span>
+                </div>
+                <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
                   {productWeek.name}
                 </h3>
-                <p className="mt-3 text-base text-gray-600 leading-relaxed">
+                <p className="mt-6 text-lg text-white/50 leading-relaxed font-medium">
                   {productWeek.description}
                 </p>
-                <div className="mt-6 flex items-center gap-4">
-                  <span className="text-4xl md:text-5xl font-extrabold text-[#007c91]">
-                    {productWeek.price.toLocaleString("ru-RU")} ₽
-                  </span>
-                  {productWeek.oldPrice && (
-                    <span className="text-2xl text-gray-400 line-through">
-                      {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
+                <div className="mt-10 flex items-center gap-8">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Цена сегодня</span>
+                    <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
+                      {productWeek.price.toLocaleString("ru-RU")} ₽
                     </span>
+                  </div>
+                  {productWeek.oldPrice && (
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Старая цена</span>
+                      <span className="text-2xl text-white/20 line-through font-bold">
+                        {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
+                      </span>
+                    </div>
                   )}
                 </div>
                 <Link
                   to={`/product/${productWeek.slug}`}
-                  className="mt-8 inline-flex items-center gap-2 px-8 py-3.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
-                  style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
+                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
                 >
                   Узнать наличие
-                  <ArrowRight size={16} />
+                  <ArrowRight size={18} />
                 </Link>
               </div>
             </div>
@@ -197,32 +209,37 @@ export default function HomePage() {
 
       {/* Promo Banners */}
       {activeBanners.length > 0 && (
-        <section id="promos" className="py-20 bg-white">
+        <section id="promos" className="py-24 bg-[#15171A]">
           <div className="container-main">
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-              Акции и спецпредложения
-            </h2>
-            <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="text-center mb-16">
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Digital Витрина</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                АКЦИИ <span className="text-white/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
+              </h2>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {activeBanners.map((promo) => (
                 <div
                   key={promo.id}
-                  className="flex flex-col sm:flex-row items-center gap-8 bg-gradient-to-br from-[#003238] to-[#004d5c] rounded-xl p-8 md:p-10"
+                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-[#24272B] border border-white/5 rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
                 >
-                  <div className="flex-1">
-                    <span className="inline-flex bg-[rgba(128,222,234,0.2)] text-[#80deea] text-xs font-semibold px-3 py-1 rounded-md uppercase tracking-wider">
-                      Акция
+                  <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#05C3D4]/5 blur-[60px] rounded-full" />
+                  <div className="relative z-10 flex-1">
+                    <span className="inline-block px-3 py-1 bg-[#05C3D4]/10 text-[#05C3D4] text-[10px] font-black uppercase tracking-widest rounded-md mb-4">
+                      {promo.badge || "Акция"}
                     </span>
-                    <h3 className="mt-3 text-xl font-bold text-white">{promo.title}</h3>
-                    <p className="mt-2 text-sm text-white/70 line-clamp-2">{promo.subtitle}</p>
+                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-white">{promo.title}</h3>
+                    <p className="mt-4 text-sm text-white/40 font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
                     <Link
                       to={`/promotions/${promo.slug}`}
-                      className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 border border-white/30 text-white rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors"
+                      className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-white hover:text-[#05C3D4] transition-colors"
                     >
                       Подробнее
-                      <ArrowRight size={16} />
+                      <ArrowRight size={14} />
                     </Link>
                   </div>
-                  <div className="flex-shrink-0 w-[140px] h-[140px] rounded-lg overflow-hidden bg-white/5 p-2">
+                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-white/5 p-4 border border-white/5 group-hover:border-[#05C3D4]/20 transition-all duration-500 transform group-hover:scale-105">
                     <img
                       src={promo.image}
                       alt={promo.title}
@@ -232,28 +249,20 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            <div className="mt-10 text-center">
-              <Link
-                to="/promotions"
-                className="text-sm font-bold text-[#007c91] hover:underline"
-              >
-                Смотреть все акции
-              </Link>
-            </div>
           </div>
         </section>
       )}
 
       {/* Stores */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-24 bg-[#24272B] border-t border-white/5">
         <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Наши магазины
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Два магазина в Пензе — выбирайте ближайший
-          </p>
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="text-center mb-16">
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Локации</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+              НАШИ <span className="text-white/20">МАГАЗИНЫ</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {stores.map((store) => (
               <StoreCard
                 key={store.id}
@@ -272,38 +281,38 @@ export default function HomePage() {
       </section>
 
       {/* Reviews */}
-      <section id="reviews" className="py-20 bg-white">
+      <section id="reviews" className="py-24 bg-[#15171A]">
         <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Отзывы покупателей
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Что говорят о нас на Яндекс Картах и 2ГИС
-          </p>
+          <div className="text-center mb-16">
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Обратная связь</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+              ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
+            </h2>
+          </div>
 
           {/* Rating Summary */}
-          <div className="mt-8 flex flex-wrap justify-center gap-12">
+          <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-white/5">
             {[
               { platform: "Яндекс Карты", rating: "4.9", count: "59 отзывов" },
               { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
             ].map((item) => (
-              <div key={item.platform} className="text-center">
-                <div className="text-sm font-semibold text-gray-500">{item.platform}</div>
-                <div className="mt-2 flex items-center gap-2 justify-center">
-                  <div className="flex">
+              <div key={item.platform} className="text-center group">
+                <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
+                <div className="flex items-center gap-4 justify-center">
+                  <div className="flex gap-1">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={16} className="fill-[#facc15] text-[#facc15]" />
+                      <Star key={i} size={20} className="fill-[#05C3D4] text-[#05C3D4]" />
                     ))}
                   </div>
-                  <span className="text-xl font-bold text-[#0a0a0a]">{item.rating}</span>
+                  <span className="text-4xl font-black font-heading text-white">{item.rating}</span>
                 </div>
-                <div className="mt-1 text-xs text-gray-400">{item.count}</div>
+                <div className="mt-3 text-xs font-bold text-white/40 uppercase tracking-widest">{item.count}</div>
               </div>
             ))}
           </div>
 
           {/* Review Cards */}
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {defaultReviews.map((review, i) => (
               <ReviewCard 
                 key={i} 
@@ -315,12 +324,12 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-12 text-center">
+          <div className="mt-16 text-center">
             <a
               href="https://yandex.ru/maps/org/techaks/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 border border-[#007c91] text-[#007c91] rounded-lg text-sm font-semibold hover:bg-[#007c91] hover:text-white transition-colors"
+              className="inline-flex items-center gap-3 px-8 py-4 border border-white/10 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/5 hover:border-[#05C3D4] transition-all"
             >
               Оставить отзыв
             </a>
@@ -329,18 +338,18 @@ export default function HomePage() {
       </section>
 
       {/* Lead Form */}
-      <section className="py-20 bg-gradient-to-br from-[#003238] to-[#004d5c]">
-        <div className="container-main max-w-[640px] mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Нужна помощь с выбором?
+      <section className="py-24 relative overflow-hidden bg-[#05C3D4]">
+        <div className="container-main relative z-10 max-w-[800px] mx-auto text-center">
+          <h2 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-black">
+            НУЖНА ПОМОЩЬ <br /> С ВЫБОРОМ?
           </h2>
-          <p className="mt-3 text-base text-white/70">
-            Оставьте номер — мы перезвоним и поможем подобрать аксессуар
+          <p className="mt-6 text-lg md:text-xl text-black/60 font-bold max-w-[500px] mx-auto">
+            Оставьте номер — мы перезвоним и поможем подобрать аксессуар за 5 минут.
           </p>
-          <div className="mt-10">
+          <div className="mt-12 max-w-[500px] mx-auto">
             <LeadForm
-              dark
-              buttonText="Заказать звонок"
+              dark={false}
+              buttonText="Подобрать аксессуар"
             />
           </div>
         </div>
@@ -348,76 +357,86 @@ export default function HomePage() {
 
       {/* Blog Preview */}
       {latestPosts.length > 0 && (
-        <section id="blog" className="py-20 bg-white">
+        <section id="blog" className="py-24 bg-[#15171A]">
           <div className="container-main">
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-              Блог и новости
-            </h2>
-            <p className="mt-3 text-base text-gray-600 text-center">
-              Обзоры товаров, полезные подборки и акции
-            </p>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Блог ТЕХАКС</span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                  СОВЕТЫ <span className="text-white/20">И ОБЗОРЫ</span>
+                </h2>
+              </div>
+              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+                Читать все статьи
+              </Link>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestPosts.map((post) => (
                 <Link
                   key={post.id}
                   to={`/blog/${post.slug}`}
-                  className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-250"
+                  className="group bg-[#24272B] border border-white/5 rounded-3xl overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
                 >
-                  <div className="h-[180px] overflow-hidden">
+                  <div className="h-[220px] overflow-hidden relative">
                     <img
                       src={post.image}
                       alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                       loading="lazy"
                     />
-                  </div>
-                  <div className="p-5">
-                    <span className="text-xs font-semibold uppercase text-[#007c91] tracking-wide">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#15171A] to-transparent opacity-60" />
+                    <span className="absolute bottom-4 left-4 px-3 py-1 bg-[#05C3D4] text-black text-[10px] font-black uppercase tracking-widest rounded-md">
                       {post.category}
                     </span>
-                    <h3 className="mt-2 text-base font-semibold text-[#0a0a0a] leading-snug line-clamp-2">
+                  </div>
+                  <div className="p-8">
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-tight line-clamp-2 min-h-[3.5rem] text-white">
                       {post.title}
                     </h3>
-                    <span className="mt-3 inline-block text-xs text-gray-400">
-                      {new Date(post.createdAt).toLocaleDateString("ru-RU")}
-                    </span>
+                    <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-6">
+                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                        {new Date(post.createdAt).toLocaleDateString("ru-RU")}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] group-hover:translate-x-1 transition-transform">
+                        Читать <ArrowRight size={12} className="inline ml-1" />
+                      </span>
+                    </div>
                   </div>
                 </Link>
               ))}
-            </div>
-            <div className="mt-12 text-center">
-              <Link
-                to="/blog"
-                className="inline-flex items-center gap-2 px-6 py-3 border border-gray-200 text-[#0a0a0a] rounded-lg text-sm font-semibold hover:border-[#007c91] hover:text-[#007c91] transition-colors cursor-pointer"
-              >
-                Все статьи
-              </Link>
             </div>
           </div>
         </section>
       )}
 
       {/* Popular Products */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-24 bg-[#24272B] border-t border-white/5">
         <div className="container-main">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0a0a0a] text-center">
-            Популярные товары
-          </h2>
-          <p className="mt-3 text-base text-gray-600 text-center">
-            Часто покупают в наших магазинах
-          </p>
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+            <div>
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Витрина</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                ПОПУЛЯРНЫЕ <span className="text-white/20">ТОВАРЫ</span>
+              </h2>
+            </div>
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+              Смотреть весь каталог
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {products.slice(0, 8).map((product) => (
               <ProductCard key={product.id} product={product as any} />
             ))}
           </div>
-          <div className="mt-12 text-center">
+          <div className="mt-16 text-center">
             <Link
               to="/catalog"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
             >
               Смотреть все товары
-              <ArrowRight size={16} />
+              <ArrowRight size={18} />
             </Link>
           </div>
         </div>

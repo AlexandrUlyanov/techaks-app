@@ -112,41 +112,58 @@ export default function Header() {
       {mobileOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/40 z-[70] lg:hidden"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
           <div
-            className="fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] bg-white z-[80] p-6 lg:hidden"
+            className="fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] bg-[#15171A] border-l border-white/5 z-[80] p-8 lg:hidden"
             style={{
               animation: "slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
             <button
-              className="absolute top-4 right-4 p-2"
+              className="absolute top-6 right-6 p-2 text-white/60 hover:text-white"
               onClick={() => setMobileOpen(false)}
             >
-              <X size={24} />
+              <X size={28} />
             </button>
+            
+            <div className="mt-12">
+              <Link to="/" className="flex flex-col leading-none" onClick={() => setMobileOpen(false)}>
+                <span className="text-2xl font-black tracking-tighter uppercase font-heading text-white">
+                  ТЕХ<span className="text-[#05C3D4]">АКС</span>
+                </span>
+              </Link>
+            </div>
+
             <nav className="mt-12 flex flex-col gap-6">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="text-xl font-semibold text-[#0a0a0a]"
+                  className="text-lg font-bold text-white/80 hover:text-[#05C3D4] uppercase tracking-wider"
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
                 </Link>
               ))}
             </nav>
-            <div className="mt-8 pt-8 border-t border-gray-200">
+            <div className="mt-12 pt-12 border-t border-white/10">
               <a
                 href="tel:+79273750555"
-                className="flex items-center gap-2 text-lg font-semibold text-[#0a0a0a]"
+                className="flex items-center gap-3 text-lg font-black text-white"
               >
-                <Phone size={20} />
+                <Phone size={24} className="text-[#05C3D4]" />
                 +7 (927) 375-05-55
               </a>
+              <Link
+                to="/catalog"
+                onClick={() => setMobileOpen(false)}
+                className="mt-8 flex items-center justify-center gap-2 w-full py-4 bg-[#05C3D4] text-black text-sm font-black uppercase tracking-widest rounded-xl hover:bg-[#27E6F2] transition-all"
+              >
+                Каталог
+                <ArrowRight size={18} />
+              </Link>
             </div>
           </div>
         </>

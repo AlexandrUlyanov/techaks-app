@@ -13,8 +13,8 @@ interface LeadFormProps {
 }
 
 export default function LeadForm({
-  title = "Нужна помощь с выбором?",
-  subtitle = "Оставьте номер — мы перезвоним и поможем подобрать аксессуар",
+  title = "НУЖНА ПОМОЩЬ С ВЫБОРОМ?",
+  subtitle = "Оставьте номер — мы перезвоним и поможем подобрать аксессуар за 5 минут.",
   type = "callback",
   source = "website",
   metadata,
@@ -54,25 +54,25 @@ export default function LeadForm({
   };
 
   const inputBase =
-    "w-full h-12 px-4 border rounded-lg text-base outline-none transition-all focus:ring-2 focus:ring-[rgba(0,188,212,0.15)] placeholder:text-gray-500";
+    "w-full h-14 px-5 border rounded-xl text-sm font-bold outline-none transition-all placeholder:text-white/20";
   const inputClass = dark
-    ? `${inputBase} bg-[#001a1f] border-[#004d5c] text-white placeholder:text-gray-400 focus:border-[#00bcd4]`
-    : `${inputBase} bg-white border-gray-200 text-[#0a0a0a] placeholder:text-gray-400 focus:border-[#00bcd4]`;
+    ? `${inputBase} bg-white/5 border-white/10 text-white focus:border-[#05C3D4] focus:bg-white/10`
+    : `${inputBase} bg-black/5 border-black/10 text-black focus:border-black/30 placeholder:text-black/30`;
 
   return (
-    <div className={dark ? "bg-[#00252b] rounded-xl p-8" : "bg-gray-50 rounded-xl p-8"}>
+    <div className={dark ? "bg-[#15171A] border border-white/5 rounded-3xl p-10" : "bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-10"}>
       <h3
-        className={`text-xl font-bold ${dark ? "text-white" : "text-[#0a0a0a]"}`}
+        className={`text-2xl font-black font-heading uppercase tracking-tight leading-none ${dark ? "text-white" : "text-black"}`}
       >
         {title}
       </h3>
       <p
-        className={`mt-2 text-sm ${dark ? "text-gray-400" : "text-gray-500"}`}
+        className={`mt-4 text-sm font-bold ${dark ? "text-white/40" : "text-black/50"}`}
       >
         {subtitle}
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-4">
         <input
           type="text"
           placeholder="Ваше имя"
@@ -93,23 +93,26 @@ export default function LeadForm({
           placeholder="Сообщение (опционально)"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          className={`${inputClass} py-3 h-auto resize-none`}
+          rows={3}
+          className={`${inputClass} py-4 h-auto resize-none`}
         />
         <button
           type="submit"
           disabled={createLead.isPending}
-          className="w-full h-12 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#00838f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
+          className={`w-full h-14 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all glow-cyan active:scale-95 disabled:opacity-50 ${
+            dark 
+              ? "bg-[#05C3D4] text-black hover:bg-[#27E6F2]" 
+              : "bg-black text-white hover:bg-black/90"
+          }`}
         >
-          {createLead.isPending ? "Отправка..." : buttonText}
+          {createLead.isPending ? "ОБРАБОТКА..." : buttonText.toUpperCase()}
         </button>
       </form>
 
       <p
-        className={`mt-4 text-xs text-center ${dark ? "text-gray-500" : "text-gray-400"}`}
+        className={`mt-6 text-[10px] font-bold text-center uppercase tracking-widest ${dark ? "text-white/20" : "text-black/30"}`}
       >
-        Нажимая кнопку, вы соглашаетесь с политикой обработки персональных данных
+        Нажимая кнопку, вы соглашаетесь с политикой обработки данных
       </p>
     </div>
   );

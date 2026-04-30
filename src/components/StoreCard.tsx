@@ -22,67 +22,77 @@ export default function StoreCard({
   isOpen,
 }: StoreCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.05)]">
+    <div className="bg-[#24272B] border border-white/5 rounded-3xl overflow-hidden group hover:border-[#05C3D4]/20 transition-all duration-300">
       {/* Image */}
-      <div className="h-[220px] overflow-hidden">
+      <div className="h-[240px] overflow-hidden relative">
         <img
           src={image}
           alt={name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           loading="lazy"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#15171A] to-transparent opacity-60" />
+        <span
+          className={`absolute top-6 left-6 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+            isOpen
+              ? "bg-[#05C3D4] text-black"
+              : "bg-white/10 text-white/40 border border-white/10 backdrop-blur-md"
+          }`}
+        >
+          {isOpen ? "Магазин открыт" : "Сейчас закрыто"}
+        </span>
       </div>
 
       {/* Info */}
-      <div className="p-6">
-        <h3 className="text-xl font-bold text-[#0a0a0a]">{address}</h3>
-        <span
-          className={`inline-flex mt-3 px-3 py-1 rounded-full text-xs font-medium ${
-            isOpen
-              ? "bg-[#dcfce7] text-[#166534]"
-              : "bg-[#fee2e2] text-[#991b1b]"
-          }`}
-        >
-          {isOpen ? "Открыто" : "Закрыто"}
-        </span>
-
-        <div className="mt-3 flex items-center gap-2 text-gray-500">
-          <Clock size={16} />
-          <span className="text-sm">{hours}</span>
-        </div>
-
-        <div className="mt-2 flex items-center gap-2 text-gray-500">
-          <Phone size={16} />
-          <span className="text-sm font-medium">{phone}</span>
-        </div>
-
-        <div className="mt-3 flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <Star size={14} className="fill-[#facc15] text-[#facc15]" />
-            <span className="text-sm font-semibold">{rating}</span>
+      <div className="p-8">
+        <h3 className="text-2xl font-black uppercase font-heading tracking-tight text-white">{address}</h3>
+        
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-white/5">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block">Время работы</span>
+            <div className="flex items-center gap-2 text-white/80">
+              <Clock size={16} className="text-[#05C3D4]" />
+              <span className="text-sm font-bold">{hours}</span>
+            </div>
           </div>
-          <span className="text-sm text-gray-500">({reviews})</span>
-        </div>
-      </div>
 
-      {/* Actions */}
-      <div className="px-6 pb-6 flex gap-3">
-        <a
-          href={`https://yandex.ru/maps/?text=${encodeURIComponent(address + " Пенза")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-lg text-sm font-semibold hover:border-[#00bcd4] transition-colors"
-        >
-          <MapPin size={16} />
-          Маршрут
-        </a>
-        <a
-          href={`tel:${phone.replace(/\D/g, "")}`}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
-        >
-          <Phone size={16} />
-          Позвонить
-        </a>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block">Телефон</span>
+            <div className="flex items-center gap-2 text-white/80">
+              <Phone size={16} className="text-[#05C3D4]" />
+              <span className="text-sm font-bold">{phone}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg">
+              <Star size={16} className="fill-[#05C3D4] text-[#05C3D4]" />
+              <span className="text-sm font-black text-white">{rating}</span>
+            </div>
+            <span className="text-xs font-bold text-white/30 uppercase tracking-widest">{reviews}</span>
+          </div>
+          
+          <div className="flex gap-3">
+            <a
+              href={`https://yandex.ru/maps/?text=${encodeURIComponent(address + " Пенза")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-12 h-12 flex items-center justify-center border border-white/10 rounded-xl text-white hover:bg-white/5 hover:border-[#05C3D4] transition-all active:scale-90"
+              title="Маршрут"
+            >
+              <MapPin size={20} />
+            </a>
+            <a
+              href={`tel:${phone.replace(/\D/g, "")}`}
+              className="flex-1 flex items-center justify-center gap-3 px-6 h-12 bg-[#05C3D4] text-black rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+            >
+              <Phone size={16} />
+              Позвонить
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

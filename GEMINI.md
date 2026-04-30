@@ -10,13 +10,21 @@
 - **Backend:** Hono (Web Framework), tRPC (Type-safe API).
 - **Database:** MySQL, Drizzle ORM.
 - **State Management:** TanStack Query (via tRPC).
+- **Design System:** Brand Guideline 2.0 (Graphite/Cyan).
 
 ## Critical Architectural Rules
 1. **API:** Почти всё взаимодействие идет через tRPC. Основной роутер: `api/router.ts`. 
 2. **REST Endpoints:** Только для специфических задач (например, `POST /api/upload` для файлов в `api/boot.ts`).
 3. **Database:** Схема в `db/schema.ts`. Миграции генерируются через `drizzle-kit`.
 4. **File Storage:** Эфемерное хранилище. Файлы в `dist/public/images` (prod) или `public/images` (dev). При деплое загруженные файлы теряются.
-5. **Styles:** Используется Vanilla CSS + Tailwind. Основные цвета: `#00bcd4` (Cyan), `#003238` (Dark Green).
+5. **Styles:** Используется Tailwind CSS. Основные цвета: 
+   - Акцент: `#05C3D4` (Tech Cyan)
+   - Фоновые: `#15171A` (Graphite 900), `#464A50` (Tech Graphite)
+   - Текст: `#FFFFFF` (Signal White)
+6. **UI Components:** 
+   - Кнопки: радиус 14-18px.
+   - Карточки: радиус 18-28px.
+   - Шрифты: Exo 2 (заголовки), Manrope (текст).
 
 ## Database Entities
 - `products`: Товары (цена, старая цена, badge "Акция", характеристики в JSON).
