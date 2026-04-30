@@ -73,7 +73,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center group active:scale-95 transition-transform">
             <img 
-              src={mounted && theme === "dark" ? "/images/logo-color.svg" : "/images/logo-color.svg"} 
+              src={mounted && theme === "dark" ? "/images/logo-color.svg" : "/images/logo-light.svg"} 
               alt="ТЕХАКС" 
               className="h-7 md:h-9 w-auto"
             />
@@ -105,10 +105,10 @@ export default function Header() {
 
           {/* Actions: High Contrast Call-to-Action */}
           <div className="hidden lg:flex items-center gap-8">
-            {/* Theme Toggle */}
+            {/* Theme Toggle: Slightly more visible in light mode for accessibility */}
             <button
               onClick={toggleTheme}
-              className="p-2 text-foreground/20 hover:text-[#05C3D4] transition-all duration-500 transform active:rotate-45 active:scale-90"
+              className="p-2 text-foreground/40 hover:text-[#05C3D4] dark:text-foreground/20 dark:hover:text-[#05C3D4] transition-all duration-500 transform active:rotate-45 active:scale-90"
               aria-label="Toggle theme"
             >
               {mounted && theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}

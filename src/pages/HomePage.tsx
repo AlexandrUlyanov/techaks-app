@@ -107,16 +107,16 @@ export default function HomePage() {
       </section>
 
       {/* Category Grid */}
-      <section className="py-24 bg-[#15171A] border-t border-white/5">
+      <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div>
               <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Направления</span>
-              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-                КАТЕГОРИИ <span className="text-white/20">ТОВАРОВ</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                КАТЕГОРИИ <span className="text-foreground/20">ТОВАРОВ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
               Смотреть все разделы
             </Link>
           </div>
@@ -128,17 +128,17 @@ export default function HomePage() {
                 <Link
                   key={cat.slug}
                   to={`/catalog?cat=${cat.slug}`}
-                  className="group relative bg-[#24272B] border border-white/5 rounded-2xl p-8 overflow-hidden hover:border-[#05C3D4]/30 transition-all duration-300"
+                  className="group relative bg-background border border-border rounded-2xl p-8 overflow-hidden hover:border-[#05C3D4]/30 transition-all duration-300 shadow-sm hover:shadow-xl"
                 >
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 group-hover:text-[#05C3D4] transition-all duration-500 transform group-hover:scale-110 group-hover:-rotate-12">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-100 group-hover:text-[#05C3D4] transition-all duration-500 transform group-hover:scale-110 group-hover:-rotate-12 pointer-events-none">
                     <Icon size={120} />
                   </div>
                   <div className="relative z-10">
-                    <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center text-[#05C3D4] mb-8 group-hover:bg-[#05C3D4] group-hover:text-black transition-all duration-300">
+                    <div className="w-14 h-14 rounded-xl bg-foreground/5 flex items-center justify-center text-[#05C3D4] mb-8 group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black transition-all duration-300">
                       <Icon size={28} />
                     </div>
-                    <h3 className="text-xl font-black uppercase font-heading tracking-tight text-white">{cat.name}</h3>
-                    <p className="mt-3 text-sm text-white/40 font-medium leading-relaxed line-clamp-2">{cat.description}</p>
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight text-foreground">{cat.name}</h3>
+                    <p className="mt-3 text-sm text-foreground/40 font-medium leading-relaxed line-clamp-2">{cat.description}</p>
                     <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4] opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                       Перейти <ArrowRight size={12} />
                     </div>
@@ -152,12 +152,12 @@ export default function HomePage() {
 
       {/* Product of the Week */}
       {productWeek && (
-        <section className="py-24 bg-[#24272B] relative overflow-hidden">
+        <section className="py-24 bg-card/50 relative overflow-hidden">
           <div className="container-main relative z-10">
             <div className="flex flex-col lg:flex-row gap-16 items-center">
               {/* Image */}
               <div className="flex-1 w-full">
-                <div className="relative group bg-white/5 border border-white/5 rounded-3xl p-16 flex items-center justify-center overflow-hidden">
+                <div className="relative group bg-background border border-border rounded-3xl p-16 flex items-center justify-center overflow-hidden shadow-2xl">
                   <div className="absolute inset-0 bg-gradient-to-br from-[#05C3D4]/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
                   <img
                     src={productWeek.image}
@@ -172,23 +172,23 @@ export default function HomePage() {
                   <span className="w-2 h-2 rounded-full bg-[#05C3D4] animate-pulse" />
                   <span className="text-[#05C3D4] text-xs font-black uppercase tracking-[0.3em]">Товар недели</span>
                 </div>
-                <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                   {productWeek.name}
                 </h3>
-                <p className="mt-6 text-lg text-white/50 leading-relaxed font-medium">
+                <p className="mt-6 text-lg text-foreground/50 leading-relaxed font-medium">
                   {productWeek.description}
                 </p>
                 <div className="mt-10 flex items-center gap-8">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Цена сегодня</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-1">Цена сегодня</span>
                     <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
                       {productWeek.price.toLocaleString("ru-RU")} ₽
                     </span>
                   </div>
                   {productWeek.oldPrice && (
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Старая цена</span>
-                      <span className="text-2xl text-white/20 line-through font-bold">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-1">Старая цена</span>
+                      <span className="text-2xl text-foreground/20 line-through font-bold">
                         {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
                       </span>
                     </div>
@@ -196,7 +196,7 @@ export default function HomePage() {
                 </div>
                 <Link
                   to={`/product/${productWeek.slug}`}
-                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
                 >
                   Узнать наличие
                   <ArrowRight size={18} />
@@ -209,12 +209,12 @@ export default function HomePage() {
 
       {/* Promo Banners */}
       {activeBanners.length > 0 && (
-        <section id="promos" className="py-24 bg-[#15171A]">
+        <section id="promos" className="py-24 bg-background">
           <div className="container-main">
             <div className="text-center mb-16">
               <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Digital Витрина</span>
-              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-                АКЦИИ <span className="text-white/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                АКЦИИ <span className="text-foreground/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
               </h2>
             </div>
             
@@ -222,24 +222,24 @@ export default function HomePage() {
               {activeBanners.map((promo) => (
                 <div
                   key={promo.id}
-                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-[#24272B] border border-white/5 rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
+                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-card border border-border rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
                 >
                   <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#05C3D4]/5 blur-[60px] rounded-full" />
                   <div className="relative z-10 flex-1">
                     <span className="inline-block px-3 py-1 bg-[#05C3D4]/10 text-[#05C3D4] text-[10px] font-black uppercase tracking-widest rounded-md mb-4">
                       {promo.badge || "Акция"}
                     </span>
-                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-white">{promo.title}</h3>
-                    <p className="mt-4 text-sm text-white/40 font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
+                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">{promo.title}</h3>
+                    <p className="mt-4 text-sm text-foreground/40 font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
                     <Link
                       to={`/promotions/${promo.slug}`}
-                      className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-white hover:text-[#05C3D4] transition-colors"
+                      className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground hover:text-[#05C3D4] transition-colors"
                     >
                       Подробнее
                       <ArrowRight size={14} />
                     </Link>
                   </div>
-                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-white/5 p-4 border border-white/5 group-hover:border-[#05C3D4]/20 transition-all duration-500 transform group-hover:scale-105">
+                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-background p-4 border border-border group-hover:border-[#05C3D4]/20 transition-all duration-500 transform group-hover:scale-105">
                     <img
                       src={promo.image}
                       alt={promo.title}
@@ -254,12 +254,12 @@ export default function HomePage() {
       )}
 
       {/* Stores */}
-      <section className="py-24 bg-[#24272B] border-t border-white/5">
+      <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
           <div className="text-center mb-16">
             <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Локации</span>
-            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-              НАШИ <span className="text-white/20">МАГАЗИНЫ</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              НАШИ <span className="text-foreground/20">МАГАЗИНЫ</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -281,32 +281,32 @@ export default function HomePage() {
       </section>
 
       {/* Reviews */}
-      <section id="reviews" className="py-24 bg-[#15171A]">
+      <section id="reviews" className="py-24 bg-background">
         <div className="container-main">
           <div className="text-center mb-16">
             <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Обратная связь</span>
-            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-              ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              ОТЗЫВЫ <span className="text-foreground/20">ПОКУПАТЕЛЕЙ</span>
             </h2>
           </div>
 
           {/* Rating Summary */}
-          <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-white/5">
+          <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-border">
             {[
               { platform: "Яндекс Карты", rating: "4.9", count: "59 отзывов" },
               { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
             ].map((item) => (
               <div key={item.platform} className="text-center group">
-                <div className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
                 <div className="flex items-center gap-4 justify-center">
                   <div className="flex gap-1">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} size={20} className="fill-[#05C3D4] text-[#05C3D4]" />
                     ))}
                   </div>
-                  <span className="text-4xl font-black font-heading text-white">{item.rating}</span>
+                  <span className="text-4xl font-black font-heading text-foreground">{item.rating}</span>
                 </div>
-                <div className="mt-3 text-xs font-bold text-white/40 uppercase tracking-widest">{item.count}</div>
+                <div className="mt-3 text-xs font-bold text-foreground/40 uppercase tracking-widest">{item.count}</div>
               </div>
             ))}
           </div>
@@ -329,7 +329,7 @@ export default function HomePage() {
               href="https://yandex.ru/maps/org/techaks/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-8 py-4 border border-white/10 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/5 hover:border-[#05C3D4] transition-all"
+              className="inline-flex items-center gap-3 px-8 py-4 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-card hover:border-[#05C3D4] transition-all"
             >
               Оставить отзыв
             </a>
@@ -357,16 +357,16 @@ export default function HomePage() {
 
       {/* Blog Preview */}
       {latestPosts.length > 0 && (
-        <section id="blog" className="py-24 bg-[#15171A]">
+        <section id="blog" className="py-24 bg-background">
           <div className="container-main">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
               <div>
                 <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Блог ТЕХАКС</span>
-                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-                  СОВЕТЫ <span className="text-white/20">И ОБЗОРЫ</span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  СОВЕТЫ <span className="text-foreground/20">И ОБЗОРЫ</span>
                 </h2>
               </div>
-              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
                 Читать все статьи
               </Link>
             </div>
@@ -376,7 +376,7 @@ export default function HomePage() {
                 <Link
                   key={post.id}
                   to={`/blog/${post.slug}`}
-                  className="group bg-[#24272B] border border-white/5 rounded-3xl overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
+                  className="group bg-card border border-border rounded-3xl overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl"
                 >
                   <div className="h-[220px] overflow-hidden relative">
                     <img
@@ -385,17 +385,17 @@ export default function HomePage() {
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#15171A] to-transparent opacity-60" />
-                    <span className="absolute bottom-4 left-4 px-3 py-1 bg-[#05C3D4] text-black text-[10px] font-black uppercase tracking-widest rounded-md">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60 dark:from-[#15171A]" />
+                    <span className="absolute bottom-4 left-4 px-3 py-1 bg-[#05C3D4] text-white dark:text-black text-[10px] font-black uppercase tracking-widest rounded-md">
                       {post.category}
                     </span>
                   </div>
                   <div className="p-8">
-                    <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-tight line-clamp-2 min-h-[3.5rem] text-white">
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-tight line-clamp-2 min-h-[3.5rem] text-foreground">
                       {post.title}
                     </h3>
-                    <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-6">
-                      <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                    <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
+                      <span className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest">
                         {new Date(post.createdAt).toLocaleDateString("ru-RU")}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] group-hover:translate-x-1 transition-transform">
@@ -411,16 +411,16 @@ export default function HomePage() {
       )}
 
       {/* Popular Products */}
-      <section className="py-24 bg-[#24272B] border-t border-white/5">
+      <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div>
               <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Витрина</span>
-              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-                ПОПУЛЯРНЫЕ <span className="text-white/20">ТОВАРЫ</span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                ПОПУЛЯРНЫЕ <span className="text-foreground/20">ТОВАРЫ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-[#05C3D4] transition-colors mb-2">
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
               Смотреть весь каталог
             </Link>
           </div>
@@ -433,7 +433,7 @@ export default function HomePage() {
           <div className="mt-16 text-center">
             <Link
               to="/catalog"
-              className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
             >
               Смотреть все товары
               <ArrowRight size={18} />

@@ -28,13 +28,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       to={`/product/${product.slug}`}
-      className="group bg-[#24272B] border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 hover:-translate-y-1"
+      className="group bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 hover:-translate-y-1 shadow-sm hover:shadow-xl"
     >
       {/* Image */}
       <div className="relative h-[220px] bg-white flex items-center justify-center p-6 transition-all duration-500">
         {product.badge && (
           <span
-            className={`absolute top-4 left-4 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-md`}
+            className={`absolute top-4 left-4 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-md shadow-lg`}
           >
             {product.badge}
           </span>
@@ -55,7 +55,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.categoryName}
           </span>
         )}
-        <h3 className="mt-2 text-base font-bold text-white line-clamp-2 leading-snug min-h-[3rem]">
+        <h3 className="mt-2 text-base font-bold text-foreground line-clamp-2 leading-snug min-h-[3rem]">
           {product.name}
         </h3>
         <div className="mt-4 flex items-center gap-4">
@@ -63,14 +63,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             {formatPrice(product.price)}
           </span>
           {product.oldPrice && (
-            <span className="text-sm text-white/20 line-through font-bold">
+            <span className="text-sm text-foreground/20 line-through font-bold">
               {formatPrice(product.oldPrice)}
             </span>
           )}
         </div>
         
         <div className="mt-6">
-          <span className="flex items-center justify-center w-full py-3.5 bg-white/5 border border-white/10 rounded-xl text-[11px] font-black uppercase tracking-widest text-white group-hover:bg-[#05C3D4] group-hover:text-black group-hover:border-[#05C3D4] transition-all">
+          <span className="flex items-center justify-center w-full py-3.5 bg-foreground/5 border border-foreground/10 rounded-xl text-[11px] font-black uppercase tracking-widest text-foreground group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black group-hover:border-[#05C3D4] transition-all">
             Подробнее
           </span>
         </div>

@@ -5,18 +5,18 @@
 @layer base {
   :root {
     /* Light Theme (Default) - Clean, Professional Retail */
-    --background: 0 0% 100%;
+    --background: 210 20% 98%; /* Very light grey for depth */
     --foreground: 216 10% 9%;
-    --card: 0 0% 98%;
+    --card: 0 0% 100%;
     --card-foreground: 216 10% 9%;
     --popover: 0 0% 100%;
     --popover-foreground: 216 10% 9%;
     --primary: 185 95% 43%; /* Tech Cyan */
-    --primary-foreground: 216 10% 9%;
-    --secondary: 210 10% 96%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 10% 94%;
     --secondary-foreground: 216 10% 9%;
     --muted: 210 10% 96%;
-    --muted-foreground: 215 5% 45%;
+    --muted-foreground: 215 5% 40%;
     --accent: 185 95% 43%;
     --accent-foreground: 216 10% 9%;
     --destructive: 0 84% 60%;
