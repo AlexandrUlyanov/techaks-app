@@ -4,21 +4,23 @@
 
 @layer base {
   :root {
-    /* Light Theme (Default) - High Contrast Retail */
+    /* Light Theme (Default) - Clean, High Contrast Retail */
     --background: 210 20% 98%;
-    --foreground: 216 20% 5%; /* Deep black-blue for text */
+    --foreground: 216 25% 10%; /* Deep dark for text */
     --card: 0 0% 100%;
-    --card-foreground: 216 20% 5%;
+    --card-foreground: 216 25% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 216 20% 5%;
+    --popover-foreground: 216 25% 10%;
     --primary: 185 95% 43%; /* Tech Cyan */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 10% 94%;
-    --secondary-foreground: 216 20% 5%;
+    --secondary-foreground: 216 25% 10%;
     --muted: 210 10% 96%;
-    --muted-foreground: 216 10% 25%; /* Much darker for readability */
+    --muted-foreground: 216 10% 35%; /* Optimized for contrast */
     --accent: 185 95% 43%;
     --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
     --border: 216 10% 88%;
     --input: 216 10% 88%;
     --ring: 185 95% 43%;
@@ -26,7 +28,7 @@
   }
 
   .dark {
-    /* Dark Theme - Tech Identity */
+    /* Dark Theme - Premium Tech */
     --background: 216 10% 9%;
     --foreground: 0 0% 100%;
     --card: 214 9% 15%;
@@ -41,6 +43,8 @@
     --muted-foreground: 215 5% 75%;
     --accent: 185 95% 43%;
     --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
     --border: 216 7% 20%;
     --input: 216 7% 20%;
     --ring: 185 95% 43%;
@@ -54,6 +58,7 @@
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
     font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    transition: background-color 0.4s ease, color 0.4s ease;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading tracking-tight;
