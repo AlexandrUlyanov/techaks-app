@@ -2,12 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { Menu, X, Phone, ArrowRight } from "lucide-react";
 
+const categories = [
+  { label: "Смартфоны", href: "/catalog?cat=smartfony" },
+  { label: "Наушники", href: "/catalog?cat=naushniki" },
+  { label: "Зарядка", href: "/catalog?cat=zaryadka" },
+  { label: "Чехлы", href: "/catalog?cat=chehly" },
+];
+
 const navLinks = [
-  { label: "Каталог", href: "/catalog" },
   { label: "Акции", href: "/promotions" },
   { label: "Магазины", href: "/stores" },
-  { label: "Блог", href: "/blog" },
-  { label: "Контакты", href: "/contacts" },
 ];
 
 export default function Header() {
@@ -26,91 +30,101 @@ export default function Header() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const announcementHeight = announcementVisible ? 36 : 0;
-  const headerTop = announcementVisible ? 36 : 0;
+  const headerHeight = announcementVisible ? 116 : 80;
 
   return (
     <>
-      {/* Announcement Bar */}
+      {/* CRO: Announcement Bar for Urgency/Trust */}
       {announcementVisible && (
         <div
-          className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-center px-4"
-          style={{ height: 36, backgroundColor: "#05C3D4" }}
+          className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-center px-4 bg-[#05C3D4]"
+          style={{ height: 36 }}
         >
-          <span className="text-white text-xs font-medium tracking-wide">
-            Акция недели — скидка 20% на power bank HOCO! Успейте до 30 апреля
+          <span className="text-black text-[10px] md:text-xs font-black tracking-widest uppercase">
+            ⚡️ Акция недели: -20% на все аксессуары HOCO до 30 апреля
           </span>
           <button
             onClick={() => setAnnouncementVisible(false)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
           >
             <X size={14} />
           </button>
         </div>
       )}
 
-      {/* Header */}
+      {/* Header: Dark Theme for Brand Consistency & Reduced Cognitive Load */}
       <header
-        className="fixed left-0 right-0 z-50 bg-white border-b border-gray-200 transition-shadow duration-200"
-        style={{
-          top: headerTop,
-          boxShadow: scrolled ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
-        }}
+        className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled 
+            ? "bg-[#15171A]/90 backdrop-blur-xl border-b border-white/5 shadow-2xl" 
+            : "bg-transparent border-b border-transparent"
+        }`}
+        style={{ top: announcementVisible ? 36 : 0 }}
       >
         <div className="container-main flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center group">
+          <Link to="/" className="flex items-center group active:scale-95 transition-transform">
             <img 
               src="/images/logo-color.svg" 
               alt="ТЕХАКС" 
-              className="h-8 md:h-10 w-auto"
+              className="h-7 md:h-9 w-auto"
             />
           </Link>
 
-          {/* Desktop Nav */}
+          {/* CRO: Direct Access to Categories in Main Menu (Reduced Friction) */}
           <nav className="hidden lg:flex items-center gap-8">
+            <div className="h-6 w-px bg-white/10 mx-2" />
+            {categories.map((link) => (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="text-[11px] font-black text-white/50 hover:text-[#05C3D4] uppercase tracking-widest transition-all hover:-translate-y-0.5"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <div className="h-6 w-px bg-white/10 mx-2" />
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className="text-sm font-medium text-gray-500 hover:text-[#0a0a0a] transition-colors"
+                className="text-[11px] font-black text-white/40 hover:text-white uppercase tracking-widest transition-colors"
               >
                 {link.label}
               </Link>
             ))}
           </nav>
 
-          {/* Actions */}
-          <div className="hidden lg:flex items-center gap-4">
+          {/* Actions: High Contrast Call-to-Action */}
+          <div className="hidden lg:flex items-center gap-8">
             <a
               href="tel:+79273750555"
-              className="flex items-center gap-2 text-sm font-semibold text-[#0a0a0a] hover:text-[#05C3D4] transition-colors"
+              className="flex items-center gap-2 text-xs font-black text-white hover:text-[#05C3D4] transition-colors"
             >
-              <Phone size={16} />
+              <Phone size={14} className="text-[#05C3D4]" />
               +7 (927) 375-05-55
             </a>
             <Link
               to="/catalog"
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#05C3D4] text-white text-sm font-semibold rounded-lg hover:bg-[#0097a7] transition-colors"
-              style={{ boxShadow: "0 2px 8px rgba(5,195,212,0.35)" }}
+              className="flex items-center gap-3 px-8 py-3.5 bg-[#05C3D4] text-black text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/10"
             >
-              Узнать наличие
+              Каталог
               <ArrowRight size={16} />
             </Link>
           </div>
 
           {/* Mobile Toggle */}
           <button
-            className="lg:hidden p-2"
+            className="lg:hidden p-2 text-white"
             onClick={() => setMobileOpen(true)}
           >
-            <Menu size={24} />
+            <Menu size={28} />
           </button>
         </div>
       </header>
 
-      {/* Spacer */}
-      <div style={{ height: 64 + announcementHeight }} />
+      {/* Spacer to prevent content jump */}
+      <div style={{ height: headerHeight }} />
 
       {/* Mobile Menu */}
       {mobileOpen && (
@@ -140,17 +154,38 @@ export default function Header() {
               </Link>
             </div>
 
-            <nav className="mt-12 flex flex-col gap-6">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className="text-lg font-bold text-white/80 hover:text-[#05C3D4] uppercase tracking-wider"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
+            <nav className="mt-12 flex flex-col gap-8">
+              <div className="space-y-4">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Категории</span>
+                <div className="grid grid-cols-1 gap-4">
+                  {categories.map((link) => (
+                    <Link
+                      key={link.href}
+                      to={link.href}
+                      className="text-xl font-black text-white hover:text-[#05C3D4] uppercase tracking-tight transition-colors"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-8 border-t border-white/5">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Информация</span>
+                <div className="grid grid-cols-1 gap-4">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      to={link.href}
+                      className="text-lg font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </nav>
             <div className="mt-12 pt-12 border-t border-white/10">
               <a
