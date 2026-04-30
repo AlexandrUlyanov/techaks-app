@@ -50,7 +50,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-bold text-[#0a0a0a]">Последние товары</h3>
-            <button className="text-sm text-[#00bcd4] font-medium hover:underline">Все товары</button>
+            <button className="text-sm text-[#05C3D4] font-medium hover:underline">Все товары</button>
           </div>
           <div className="divide-y divide-gray-200">
             {products.slice(0, 5).map((p) => (
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
                 <span className="font-medium">65%</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-[#00bcd4] w-[65%]" />
+                <div className="h-full bg-[#05C3D4] w-[65%]" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 pt-4">

@@ -35,7 +35,7 @@ export default function Header() {
       {announcementVisible && (
         <div
           className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-center px-4"
-          style={{ height: 36, backgroundColor: "#00bcd4" }}
+          style={{ height: 36, backgroundColor: "#05C3D4" }}
         >
           <span className="text-white text-xs font-medium tracking-wide">
             Акция недели — скидка 20% на power bank HOCO! Успейте до 30 апреля
@@ -84,15 +84,15 @@ export default function Header() {
           <div className="hidden lg:flex items-center gap-4">
             <a
               href="tel:+79273750555"
-              className="flex items-center gap-2 text-sm font-semibold text-[#0a0a0a] hover:text-[#00bcd4] transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-[#0a0a0a] hover:text-[#05C3D4] transition-colors"
             >
               <Phone size={16} />
               +7 (927) 375-05-55
             </a>
             <Link
               to="/catalog"
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#00bcd4] text-white text-sm font-semibold rounded-lg hover:bg-[#0097a7] transition-colors"
-              style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#05C3D4] text-white text-sm font-semibold rounded-lg hover:bg-[#0097a7] transition-colors"
+              style={{ boxShadow: "0 2px 8px rgba(5,195,212,0.35)" }}
             >
               Узнать наличие
               <ArrowRight size={16} />

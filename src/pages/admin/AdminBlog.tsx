@@ -87,7 +87,7 @@ export default function AdminBlog() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-[#00bcd4]" size={48} />
+        <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
       </div>
     );
   }
@@ -104,12 +104,12 @@ export default function AdminBlog() {
               placeholder="Поиск статей..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4] w-64"
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4] w-64"
             />
           </div>
           <button 
             onClick={() => setEditingPost({})}
-            className="flex items-center gap-2 px-4 py-2 bg-[#00bcd4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-[#05C3D4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
           >
             <Plus size={18} />
             Написать статью
@@ -149,7 +149,7 @@ export default function AdminBlog() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-blue-50 text-[#007c91] text-[10px] font-bold uppercase rounded-md">
+                  <span className="px-2 py-1 bg-blue-50 text-[#0099A8] text-[10px] font-bold uppercase rounded-md">
                     {post.category}
                   </span>
                 </td>
@@ -171,7 +171,7 @@ export default function AdminBlog() {
                   <div className="flex items-center justify-end gap-2">
                     <button 
                       onClick={() => setEditingPost(post)}
-                      className="p-2 text-gray-400 hover:text-[#00bcd4] hover:bg-white rounded-lg shadow-sm border border-transparent hover:border-gray-200 transition-all"
+                      className="p-2 text-gray-400 hover:text-[#05C3D4] hover:bg-white rounded-lg shadow-sm border border-transparent hover:border-gray-200 transition-all"
                     >
                       <Edit2 size={16} />
                     </button>
@@ -212,15 +212,15 @@ export default function AdminBlog() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Заголовок</label>
-                    <input name="title" defaultValue={editingPost.title} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                    <input name="title" defaultValue={editingPost.title} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Slug (URL)</label>
-                    <input name="slug" defaultValue={editingPost.slug} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                    <input name="slug" defaultValue={editingPost.slug} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Категория</label>
-                    <select name="category" defaultValue={editingPost.category || "Новости"} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] bg-white">
+                    <select name="category" defaultValue={editingPost.category || "Новости"} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] bg-white">
                       <option value="Новости">Новости</option>
                       <option value="Обзоры">Обзоры</option>
                       <option value="Советы">Советы</option>
@@ -229,7 +229,7 @@ export default function AdminBlog() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Краткое описание (для списка)</label>
-                    <textarea name="excerpt" defaultValue={editingPost.excerpt} rows={3} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] resize-none" />
+                    <textarea name="excerpt" defaultValue={editingPost.excerpt} rows={3} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] resize-none" />
                   </div>
                 </div>
 
@@ -256,7 +256,7 @@ export default function AdminBlog() {
                           onChange={(e) => setEditingPost({ ...editingPost, image: e.target.value })}
                           placeholder="URL изображения..." 
                           required 
-                          className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" 
+                          className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" 
                         />
                         <label className="flex items-center justify-center px-4 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors border border-gray-200">
                           {uploading ? <Loader2 size={18} className="animate-spin text-gray-500" /> : <Plus size={18} className="text-gray-500" />}
@@ -271,10 +271,10 @@ export default function AdminBlog() {
                       name="published" 
                       id="published" 
                       defaultChecked={editingPost.published ?? true} 
-                      className="w-5 h-5 text-[#00bcd4] border-gray-300 rounded focus:ring-[#00bcd4]"
+                      className="w-5 h-5 text-[#05C3D4] border-gray-300 rounded focus:ring-[#05C3D4]"
                     />
                     <label htmlFor="published" className="text-sm font-bold text-[#0a0a0a] cursor-pointer flex items-center gap-2">
-                      <Eye size={16} className="text-[#00bcd4]" /> Опубликовать статью
+                      <Eye size={16} className="text-[#05C3D4]" /> Опубликовать статью
                     </label>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export default function AdminBlog() {
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Контент статьи (HTML)</label>
-                <textarea name="content" defaultValue={editingPost.content} rows={12} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] font-mono text-sm" />
+                <textarea name="content" defaultValue={editingPost.content} rows={12} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] font-mono text-sm" />
               </div>
 
               <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
@@ -296,7 +296,7 @@ export default function AdminBlog() {
                 <button 
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-8 py-2.5 bg-[#00bcd4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-8 py-2.5 bg-[#05C3D4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
                 >
                   {upsertMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {editingPost.id ? "Сохранить" : "Опубликовать"}

@@ -25,7 +25,7 @@ export default function ProductPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-[#0a0a0a]">Товар не найден</h1>
-          <Link to="/catalog" className="mt-4 inline-flex items-center gap-2 text-[#007c91] hover:underline">
+          <Link to="/catalog" className="mt-4 inline-flex items-center gap-2 text-[#0099A8] hover:underline">
             <ArrowLeft size={16} />
             Вернуться в каталог
           </Link>
@@ -41,96 +41,111 @@ export default function ProductPage() {
   const formatPrice = (price: number) => new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
   return (
-    <div className="min-h-screen pb-16 md:pb-0">
+    <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Breadcrumbs */}
-      <section className="bg-gray-50 py-4 border-b border-gray-200">
+      <section className="bg-white/5 py-4 border-b border-white/5">
         <div className="container-main">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Link to="/catalog" className="hover:text-[#0a0a0a] transition-colors">Каталог</Link>
-            <span>/</span>
-            <span className="text-[#0a0a0a]">{product.name}</span>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
+            <Link to="/catalog" className="hover:text-[#05C3D4] transition-colors">Каталог</Link>
+            <span className="text-white/10">/</span>
+            <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
           </div>
         </div>
       </section>
 
       {/* Product Detail */}
-      <section className="py-12">
+      <section className="py-12 md:py-20">
         <div className="container-main">
-          <div className="flex flex-col lg:flex-row gap-12">
+          <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
             {/* Gallery */}
-            <div className="lg:w-[45%]">
-              <div className="bg-gray-50 rounded-xl p-8 flex items-center justify-center">
+            <div className="lg:w-[50%]">
+              <div className="relative group bg-white border border-white/5 rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
                 <img
                   src={product.image}
                   alt={product.name}
-                  className="max-h-[360px] object-contain"
+                  className="relative z-10 max-h-[450px] object-contain transform group-hover:scale-110 transition-transform duration-700"
                 />
               </div>
             </div>
 
             {/* Info */}
             <div className="flex-1">
-              <h1 className="text-3xl md:text-4xl font-bold text-[#0a0a0a]">
+              <span className="inline-block text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4">
+                {product.categoryName || "Аксессуар"}
+              </span>
+              <h1 className="text-3xl md:text-5xl font-black uppercase font-heading leading-[1.1] tracking-tighter text-white">
                 {product.name}
               </h1>
 
               {/* Rating */}
-              <div className="mt-3 flex items-center gap-3">
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      size={14}
-                      className={i < Math.round(Number(product.rating)) ? "fill-[#facc15] text-[#facc15]" : "text-gray-200"}
-                    />
-                  ))}
+              <div className="mt-6 flex items-center gap-4">
+                <div className="flex items-center gap-1 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        size={14}
+                        className={i < Math.round(Number(product.rating)) ? "fill-[#05C3D4] text-[#05C3D4]" : "text-white/10"}
+                      />
+                    ))}
+                  </div>
+                  <span className="ml-2 text-sm font-black text-white">{product.rating}</span>
                 </div>
-                <span className="text-sm font-medium text-[#0a0a0a]">{product.rating}</span>
-                <span className="text-sm text-gray-400">({product.reviewCount} отзывов)</span>
+                <span className="text-xs font-bold text-white/30 uppercase tracking-widest">({product.reviewCount} отзывов)</span>
               </div>
 
               {/* Price */}
-              <div className="mt-6 flex items-center gap-4">
-                <span className="text-2xl md:text-3xl font-bold text-[#0a0a0a]">
-                  {formatPrice(product.price)}
-                </span>
-                {product.oldPrice && (
-                  <>
-                    <span className="text-lg text-gray-400 line-through">
-                      {formatPrice(product.oldPrice)}
+              <div className="mt-10 p-8 bg-[#24272B] border border-white/5 rounded-3xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#05C3D4]/5 blur-3xl rounded-full" />
+                <div className="relative z-10">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-2 block">Актуальная цена</span>
+                  <div className="flex items-center gap-6">
+                    <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
+                      {formatPrice(product.price)}
                     </span>
-                    <span className="px-2.5 py-1 bg-[#dcfce7] text-[#166534] text-xs font-medium rounded-md">
-                      Экономия {formatPrice(product.oldPrice - product.price)}
-                    </span>
-                  </>
-                )}
+                    {product.oldPrice && (
+                      <div className="flex flex-col">
+                        <span className="text-xl text-white/20 line-through font-bold">
+                          {formatPrice(product.oldPrice)}
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
+                          Выгода {formatPrice(product.oldPrice - product.price)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Stock */}
-              <div className="mt-4 flex items-center gap-2">
-                <CheckCircle size={16} className="text-[#22c55e]" />
-                <span className="text-sm font-medium text-gray-600">
-                  {product.inStock ? "В наличии в обоих магазинах" : "Нет в наличии"}
+              <div className="mt-8 flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 w-fit">
+                <div className={`w-2 h-2 rounded-full ${product.inStock ? "bg-[#22c55e] animate-pulse" : "bg-white/20"}`} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                  {product.inStock ? "В наличии в магазинах" : "Нет в наличии"}
                 </span>
               </div>
 
               {/* Description */}
-              <p className="mt-6 text-base text-gray-600 leading-relaxed">
-                {product.description}
-              </p>
+              <div className="mt-10">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Описание</h3>
+                <p className="text-base text-white/50 leading-relaxed font-medium">
+                  {product.description}
+                </p>
+              </div>
 
               {/* Specs */}
               {product.specs && typeof product.specs === 'object' && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-[#0a0a0a] mb-4">Характеристики</h3>
-                  <div className="border-t border-gray-200">
+                <div className="mt-10">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Характеристики</h3>
+                  <div className="grid grid-cols-1 gap-1">
                     {Object.entries(product.specs as Record<string, string>).map(([key, value]) => (
                       <div
                         key={key}
-                        className="flex justify-between py-3 border-b border-gray-200"
+                        className="flex justify-between items-center py-3 border-b border-white/5 px-1 group"
                       >
-                        <span className="text-sm text-gray-500">{key}</span>
-                        <span className="text-sm font-medium text-[#0a0a0a]">{value}</span>
+                        <span className="text-sm font-bold text-white/30 group-hover:text-white/50 transition-colors">{key}</span>
+                        <span className="text-sm font-black text-white/80">{value}</span>
                       </div>
                     ))}
                   </div>
@@ -138,11 +153,10 @@ export default function ProductPage() {
               )}
 
               {/* CTA */}
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-12 flex flex-wrap gap-4">
                 <button
                   onClick={() => setShowForm(true)}
-                  className="px-8 py-3.5 bg-[#00bcd4] text-white rounded-lg text-sm font-semibold hover:bg-[#0097a7] transition-colors"
-                  style={{ boxShadow: "0 2px 8px rgba(0,188,212,0.35)" }}
+                  className="flex-1 min-w-[200px] h-14 bg-[#05C3D4] text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
                 >
                   Узнать наличие
                 </button>
@@ -150,10 +164,10 @@ export default function ProductPage() {
                   href="https://t.me/tech_aks"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-8 py-3.5 border border-gray-200 rounded-lg text-sm font-semibold hover:border-[#00bcd4] hover:text-[#007c91] transition-colors"
+                  className="flex items-center justify-center gap-3 px-8 h-14 border border-white/10 text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:border-[#05C3D4] transition-all active:scale-95"
                 >
-                  <MessageCircle size={16} />
-                  Задать вопрос
+                  <MessageCircle size={18} className="text-[#05C3D4]" />
+                  Вопрос
                 </a>
               </div>
             </div>
@@ -164,17 +178,18 @@ export default function ProductPage() {
       {/* Lead Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowForm(false)} />
-          <div className="relative bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowForm(false)} />
+          <div className="relative w-full max-w-xl">
             <button
               onClick={() => setShowForm(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-[#0a0a0a]"
+              className="absolute -top-12 right-0 text-white/40 hover:text-white flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-colors"
             >
-              ✕
+              Закрыть ✕
             </button>
             <LeadForm
-              title={`Заявка на «${product.name}»`}
-              subtitle="Оставьте контакты — мы проверим наличие и свяжемся с вами"
+              dark
+              title={`ЗАЯВКА НА «${product.name.toUpperCase()}»`}
+              subtitle="Оставьте контакты — мы проверим наличие и свяжемся с вами в течение 5 минут."
               type="availability"
               source="product_page"
               metadata={{ 
@@ -182,7 +197,7 @@ export default function ProductPage() {
                 productSlug: product.slug,
                 productId: product.id 
               }}
-              buttonText="Узнать наличие"
+              buttonText="ПРОВЕРИТЬ НАЛИЧИЕ"
             />
           </div>
         </div>
@@ -190,12 +205,17 @@ export default function ProductPage() {
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
+        <section className="py-24 bg-[#15171A] border-t border-white/5">
           <div className="container-main">
-            <h2 className="text-2xl md:text-3xl font-bold text-[#0a0a0a]">
-              Похожие товары
-            </h2>
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="flex items-end justify-between gap-6 mb-16">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Рекомендации</span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+                  ПОХОЖИЕ <span className="text-white/20">ТОВАРЫ</span>
+                </h2>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map((p) => (
                 <ProductCard key={p.id} product={p as any} />
               ))}

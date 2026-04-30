@@ -66,7 +66,7 @@ export default function AdminStores() {
         <h2 className="text-xl font-bold text-[#0a0a0a]">Список магазинов</h2>
         <button 
           onClick={() => setEditingStore({})}
-          className="flex items-center gap-2 px-4 py-2 bg-[#00bcd4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-[#05C3D4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
         >
           <Plus size={18} />
           Добавить магазин
@@ -94,15 +94,15 @@ export default function AdminStores() {
                 
                 <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex items-start gap-2">
-                    <MapPin size={16} className="text-[#00bcd4] mt-0.5" />
+                    <MapPin size={16} className="text-[#05C3D4] mt-0.5" />
                     <span>{store.address}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-[#00bcd4]" />
+                    <Clock size={16} className="text-[#05C3D4]" />
                     <span>{store.hours}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Phone size={16} className="text-[#00bcd4]" />
+                    <Phone size={16} className="text-[#05C3D4]" />
                     <span>{store.phone}</span>
                   </div>
                 </div>
@@ -127,7 +127,7 @@ export default function AdminStores() {
                   <a 
                     href={store.mapUrl} 
                     target="_blank" 
-                    className="flex items-center gap-1 text-sm text-[#00bcd4] font-medium hover:underline"
+                    className="flex items-center gap-1 text-sm text-[#05C3D4] font-medium hover:underline"
                   >
                     На карту <ExternalLink size={14} />
                   </a>
@@ -155,49 +155,49 @@ export default function AdminStores() {
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Название</label>
-                <input name="name" defaultValue={editingStore.name} placeholder="пр. Строителей, 50А" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="name" defaultValue={editingStore.name} placeholder="пр. Строителей, 50А" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Полный адрес</label>
-                <input name="address" defaultValue={editingStore.address} placeholder="пр. Строителей, 50А (ТЦ Олимп)" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="address" defaultValue={editingStore.address} placeholder="пр. Строителей, 50А (ТЦ Олимп)" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Режим работы</label>
-                  <input name="hours" defaultValue={editingStore.hours} placeholder="Ежедневно 9:00–21:00" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="hours" defaultValue={editingStore.hours} placeholder="Ежедневно 9:00–21:00" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Телефон</label>
-                  <input name="phone" defaultValue={editingStore.phone} placeholder="+7 (927) 375-05-55" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="phone" defaultValue={editingStore.phone} placeholder="+7 (927) 375-05-55" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Рейтинг</label>
-                  <input name="rating" defaultValue={editingStore.rating || "5.0"} step="0.1" type="number" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="rating" defaultValue={editingStore.rating || "5.0"} step="0.1" type="number" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Кол-во отзывов</label>
-                  <input name="reviewCount" type="number" defaultValue={editingStore.reviewCount || 0} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="reviewCount" type="number" defaultValue={editingStore.reviewCount || 0} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Ссылка на изображение</label>
-                <input name="image" defaultValue={editingStore.image} placeholder="/images/store-xxx.jpg" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="image" defaultValue={editingStore.image} placeholder="/images/store-xxx.jpg" required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Ссылка на карту (Яндекс/2ГИС)</label>
-                <input name="mapUrl" defaultValue={editingStore.mapUrl} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="mapUrl" defaultValue={editingStore.mapUrl} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Порядок сортировки</label>
-                <input name="sortOrder" type="number" defaultValue={editingStore.sortOrder || 0} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="sortOrder" type="number" defaultValue={editingStore.sortOrder || 0} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
@@ -211,7 +211,7 @@ export default function AdminStores() {
                 <button 
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-6 py-2 bg-[#00bcd4] text-white font-medium rounded-lg hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#05C3D4] text-white font-medium rounded-lg hover:bg-[#0097a7] transition-colors disabled:opacity-50"
                 >
                   {upsertMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {editingStore.id ? "Сохранить изменения" : "Создать магазин"}

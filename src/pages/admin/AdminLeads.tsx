@@ -58,7 +58,7 @@ export default function AdminLeads() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-[#00bcd4]" size={48} />
+        <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
       </div>
     );
   }
@@ -81,7 +81,7 @@ export default function AdminLeads() {
           const metadata = lead.metadata as any;
 
           return (
-            <div key={lead.id} className={`bg-white border rounded-xl p-6 transition-all ${lead.status === 'new' ? 'border-[#00bcd4] shadow-sm' : 'border-gray-200'}`}>
+            <div key={lead.id} className={`bg-white border rounded-xl p-6 transition-all ${lead.status === 'new' ? 'border-[#05C3D4] shadow-sm' : 'border-gray-200'}`}>
               <div className="flex flex-col lg:flex-row justify-between gap-6">
                 <div className="space-y-4 flex-1">
                   {/* Header Info */}
@@ -92,7 +92,7 @@ export default function AdminLeads() {
                     </div>
                     <a 
                       href={`tel:${lead.phone}`}
-                      className="flex items-center gap-2 bg-[#00bcd4]/10 text-[#007c91] px-3 py-1.5 rounded-lg border border-[#00bcd4]/20 hover:bg-[#00bcd4]/20 transition-colors"
+                      className="flex items-center gap-2 bg-[#05C3D4]/10 text-[#0099A8] px-3 py-1.5 rounded-lg border border-[#05C3D4]/20 hover:bg-[#05C3D4]/20 transition-colors"
                     >
                       <Phone size={16} />
                       <span className="font-bold">{lead.phone}</span>
@@ -125,13 +125,13 @@ export default function AdminLeads() {
                   {/* Product Context */}
                   {metadata?.productName && (
                     <div className="flex items-center gap-2 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
-                      <ShoppingBag size={18} className="text-[#007c91]" />
+                      <ShoppingBag size={18} className="text-[#0099A8]" />
                       <div className="text-sm">
                         <span className="text-gray-500">Запрос по товару:</span>{" "}
                         <a 
                           href={`/product/${metadata.productSlug}`} 
                           target="_blank" 
-                          className="font-semibold text-[#007c91] hover:underline"
+                          className="font-semibold text-[#0099A8] hover:underline"
                         >
                           {metadata.productName}
                         </a>

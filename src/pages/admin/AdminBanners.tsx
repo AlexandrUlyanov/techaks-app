@@ -103,7 +103,7 @@ export default function AdminBanners() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-[#00bcd4]" size={48} />
+        <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
       </div>
     );
   }
@@ -122,7 +122,7 @@ export default function AdminBanners() {
         <h2 className="text-xl font-bold text-[#0a0a0a]">Управление акциями</h2>
         <button 
           onClick={() => setEditingBanner({})}
-          className="flex items-center gap-2 px-4 py-2 bg-[#00bcd4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-[#05C3D4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
         >
           <Plus size={18} />
           Добавить акцию
@@ -154,7 +154,7 @@ export default function AdminBanners() {
                 </div>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{banner.subtitle}</p>
                 {banner.link && (
-                  <div className="text-xs text-[#00bcd4] font-medium truncate bg-blue-50 px-2 py-1 rounded inline-block">
+                  <div className="text-xs text-[#05C3D4] font-medium truncate bg-blue-50 px-2 py-1 rounded inline-block">
                     Ссылка: {banner.link}
                   </div>
                 )}
@@ -170,7 +170,7 @@ export default function AdminBanners() {
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => setEditingBanner(banner)}
-                    className="p-2 text-gray-400 hover:text-[#00bcd4] hover:bg-gray-50 rounded-lg transition-colors"
+                    className="p-2 text-gray-400 hover:text-[#05C3D4] hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     <Edit2 size={18} />
                   </button>
@@ -208,22 +208,22 @@ export default function AdminBanners() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Заголовок</label>
-                  <input name="title" defaultValue={editingBanner.title} placeholder="Например: Скидка 20% на все чехлы" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                  <input name="title" defaultValue={editingBanner.title} placeholder="Например: Скидка 20% на все чехлы" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Slug (URL акции)</label>
-                  <input name="slug" defaultValue={editingBanner.slug} placeholder="skidka-20-cases" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                  <input name="slug" defaultValue={editingBanner.slug} placeholder="skidka-20-cases" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Краткое описание (подзаголовок)</label>
-                <textarea name="subtitle" defaultValue={editingBanner.subtitle} rows={2} placeholder="Краткое описание акции для списка..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] resize-none" />
+                <textarea name="subtitle" defaultValue={editingBanner.subtitle} rows={2} placeholder="Краткое описание акции для списка..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] resize-none" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Полный текст акции (HTML поддерживается)</label>
-                <textarea name="content" defaultValue={editingBanner.content} rows={6} placeholder="Подробные условия, текст, списки..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] font-mono text-sm" />
+                <textarea name="content" defaultValue={editingBanner.content} rows={6} placeholder="Подробные условия, текст, списки..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] font-mono text-sm" />
               </div>
 
               <div className="space-y-1">
@@ -248,7 +248,7 @@ export default function AdminBanners() {
                       onChange={(e) => setEditingBanner({ ...editingBanner, image: e.target.value })}
                       placeholder="URL изображения или загрузите файл" 
                       required 
-                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" 
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" 
                     />
                     <label className="flex items-center justify-center px-4 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors border border-gray-200">
                       {uploading ? <Loader2 size={18} className="animate-spin text-gray-500" /> : <Plus size={18} className="text-gray-500" />}
@@ -264,7 +264,7 @@ export default function AdminBanners() {
                   <select 
                     name="link" 
                     defaultValue={editingBanner.link || ""} 
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4] bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] bg-white"
                   >
                     {linkOptions.map((opt, i) => (
                       <option key={i} value={opt.value} disabled={opt.disabled}>
@@ -275,7 +275,7 @@ export default function AdminBanners() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Порядок</label>
-                  <input name="sortOrder" type="number" defaultValue={editingBanner.sortOrder || 0} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#00bcd4]" />
+                  <input name="sortOrder" type="number" defaultValue={editingBanner.sortOrder || 0} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
@@ -285,10 +285,10 @@ export default function AdminBanners() {
                   name="active" 
                   id="active" 
                   defaultChecked={editingBanner.active ?? true} 
-                  className="w-5 h-5 text-[#00bcd4] border-gray-300 rounded focus:ring-[#00bcd4]"
+                  className="w-5 h-5 text-[#05C3D4] border-gray-300 rounded focus:ring-[#05C3D4]"
                 />
                 <label htmlFor="active" className="text-sm font-bold text-[#0a0a0a] cursor-pointer flex items-center gap-2">
-                  <Eye size={16} className="text-[#00bcd4]" /> Акция активна и видна на сайте
+                  <Eye size={16} className="text-[#05C3D4]" /> Акция активна и видна на сайте
                 </label>
               </div>
 
@@ -303,7 +303,7 @@ export default function AdminBanners() {
                 <button 
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-8 py-2.5 bg-[#00bcd4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-8 py-2.5 bg-[#05C3D4] text-white font-bold rounded-xl hover:bg-[#0097a7] transition-colors disabled:opacity-50"
                 >
                   {upsertMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {editingBanner.id ? "Сохранить" : "Создать"}

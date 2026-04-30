@@ -77,12 +77,12 @@ export default function AdminProducts() {
             placeholder="Поиск товаров..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
           />
         </div>
         <button 
           onClick={() => setEditingProduct({})}
-          className="flex items-center gap-2 px-4 py-2 bg-[#00bcd4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-[#05C3D4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
         >
           <Plus size={18} />
           Добавить товар
@@ -144,7 +144,7 @@ export default function AdminProducts() {
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => setEditingProduct(p)}
-                        className="p-2 text-gray-400 hover:text-[#00bcd4] hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-[#05C3D4] hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit2 size={16} />
                       </button>
@@ -188,55 +188,55 @@ export default function AdminProducts() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Название</label>
-                  <input name="name" defaultValue={editingProduct.name} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="name" defaultValue={editingProduct.name} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Slug (ID в URL)</label>
-                  <input name="slug" defaultValue={editingProduct.slug} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="slug" defaultValue={editingProduct.slug} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Категория</label>
-                  <select name="categoryId" defaultValue={editingProduct.categoryId} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]">
+                  <select name="categoryId" defaultValue={editingProduct.categoryId} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]">
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Бейдж (Акция, Хит...)</label>
-                  <input name="badge" defaultValue={editingProduct.badge} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="badge" defaultValue={editingProduct.badge} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Цена (₽)</label>
-                  <input type="number" name="price" defaultValue={editingProduct.price} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input type="number" name="price" defaultValue={editingProduct.price} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Старая цена (₽)</label>
-                  <input type="number" name="oldPrice" defaultValue={editingProduct.oldPrice} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input type="number" name="oldPrice" defaultValue={editingProduct.oldPrice} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Рейтинг</label>
-                  <input name="rating" defaultValue={editingProduct.rating || "5.0"} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                  <input name="rating" defaultValue={editingProduct.rating || "5.0"} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Ссылка на изображение</label>
-                <input name="image" defaultValue={editingProduct.image} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <input name="image" defaultValue={editingProduct.image} required className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Описание</label>
-                <textarea name="description" defaultValue={editingProduct.description} required rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4]" />
+                <textarea name="description" defaultValue={editingProduct.description} required rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Характеристики (JSON)</label>
-                <textarea name="specs" defaultValue={JSON.stringify(editingProduct.specs || {}, null, 2)} rows={5} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#00bcd4] font-mono text-xs" />
+                <textarea name="specs" defaultValue={JSON.stringify(editingProduct.specs || {}, null, 2)} rows={5} className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4] font-mono text-xs" />
               </div>
 
               <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function AdminProducts() {
                 <button 
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-6 py-2 bg-[#00bcd4] text-white font-medium rounded-lg hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2 bg-[#05C3D4] text-white font-medium rounded-lg hover:bg-[#0097a7] transition-colors disabled:opacity-50"
                 >
                   {upsertMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {editingProduct.id ? "Сохранить изменения" : "Создать товар"}

@@ -9,21 +9,23 @@ export default function StoresPage() {
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
 
   return (
-    <div className="min-h-screen pb-16 md:pb-0">
+    <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Hero */}
-      <section className="bg-gray-50 py-12">
-        <div className="container-main text-center">
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#0a0a0a]">
-            Магазины ТЕХАКС в Пензе
+      <section className="relative py-20 md:py-32 overflow-hidden border-b border-white/5">
+        <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
+        <div className="container-main relative z-10">
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Локации</span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+            МАГАЗИНЫ <span className="text-white/20">ТЕХАКС</span>
           </h1>
-          <p className="mt-3 text-base text-gray-600">
-            Адреса, часы работы, фото и маршруты
+          <p className="mt-8 text-lg text-white/40 max-w-xl font-medium leading-relaxed">
+            Два современных магазина в Пензе. Аккуратные витрины, профессиональная помощь и поклейка стекол на месте.
           </p>
         </div>
       </section>
 
       {/* Store Cards */}
-      <section className="py-16">
+      <section className="py-24 bg-[#15171A]">
         <div className="container-main">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {stores.map((store) => (
@@ -44,27 +46,34 @@ export default function StoresPage() {
       </section>
 
       {/* Map Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container-main text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-[#0a0a0a]">
-            Как добраться
-          </h2>
-          <div className="mt-8 bg-gray-200 rounded-xl h-[400px] flex items-center justify-center">
-            <div className="text-center">
-              <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">
-                Карта с магазинами — интеграция Яндекс/2ГИС
+      <section className="py-24 bg-[#24272B] border-t border-white/5">
+        <div className="container-main">
+          <div className="text-center mb-16">
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Навигация</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
+              КАК <span className="text-white/20">ДОБРАТЬСЯ</span>
+            </h2>
+          </div>
+          
+          <div className="relative group bg-[#15171A] border border-white/5 rounded-[2.5rem] h-[500px] flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5" />
+            <div className="relative z-10 text-center px-6">
+              <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center text-[#05C3D4] mx-auto mb-8 border border-white/5">
+                <MapPin size={40} />
+              </div>
+              <p className="text-xl font-black uppercase font-heading text-white/20 tracking-[0.2em] mb-10">
+                Интерактивная карта ТЕХАКС
               </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-4">
+              <div className="flex flex-wrap justify-center gap-5">
                 {stores.map((store) => (
                   <a
                     key={store.id}
                     href={store.mapUrl || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest text-white hover:bg-[#05C3D4] hover:text-black hover:border-[#05C3D4] transition-all active:scale-95 shadow-xl"
                   >
-                    <MapPin size={16} className="text-[#00bcd4]" />
+                    <MapPin size={16} />
                     {store.name}
                   </a>
                 ))}
