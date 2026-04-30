@@ -4,25 +4,23 @@
 
 @layer base {
   :root {
-    /* Light Theme (Default) - Clean, Professional Retail */
-    --background: 210 20% 98%; /* Very light grey for depth */
-    --foreground: 216 10% 9%;
+    /* Light Theme (Default) - High Contrast Retail */
+    --background: 210 20% 98%;
+    --foreground: 216 20% 5%; /* Deep black-blue for text */
     --card: 0 0% 100%;
-    --card-foreground: 216 10% 9%;
+    --card-foreground: 216 20% 5%;
     --popover: 0 0% 100%;
-    --popover-foreground: 216 10% 9%;
+    --popover-foreground: 216 20% 5%;
     --primary: 185 95% 43%; /* Tech Cyan */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 10% 94%;
-    --secondary-foreground: 216 10% 9%;
+    --secondary-foreground: 216 20% 5%;
     --muted: 210 10% 96%;
-    --muted-foreground: 215 5% 40%;
+    --muted-foreground: 216 10% 25%; /* Much darker for readability */
     --accent: 185 95% 43%;
-    --accent-foreground: 216 10% 9%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 216 10% 90%;
-    --input: 216 10% 90%;
+    --accent-foreground: 0 0% 100%;
+    --border: 216 10% 88%;
+    --input: 216 10% 88%;
     --ring: 185 95% 43%;
     --radius: 1.125rem;
   }
@@ -36,15 +34,13 @@
     --popover: 216 10% 9%;
     --popover-foreground: 0 0% 100%;
     --primary: 185 95% 43%;
-    --primary-foreground: 216 10% 9%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 216 7% 29%;
     --secondary-foreground: 0 0% 100%;
     --muted: 216 7% 25%;
     --muted-foreground: 215 5% 75%;
     --accent: 185 95% 43%;
-    --accent-foreground: 216 10% 9%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --accent-foreground: 0 0% 100%;
     --border: 216 7% 20%;
     --input: 216 7% 20%;
     --ring: 185 95% 43%;
@@ -53,7 +49,7 @@
 
 @layer base {
   * {
-    @apply border-border transition-colors duration-300;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;

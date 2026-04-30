@@ -31,7 +31,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       className="group bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 hover:-translate-y-1 shadow-sm hover:shadow-xl"
     >
       {/* Image */}
-      <div className="relative h-[220px] bg-white flex items-center justify-center p-6 transition-all duration-500">
+      <div className="relative h-[220px] bg-white flex items-center justify-center p-6 transition-all duration-500 overflow-hidden">
         {product.badge && (
           <span
             className={`absolute top-4 left-4 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-md shadow-lg`}
@@ -45,7 +45,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           className="max-w-[90%] max-h-[90%] object-contain group-hover:scale-110 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
       </div>
 
       {/* Info */}
