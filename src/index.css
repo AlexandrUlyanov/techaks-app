@@ -4,6 +4,31 @@
 
 @layer base {
   :root {
+    /* Light Theme (Default) - Clean, Professional Retail */
+    --background: 0 0% 100%;
+    --foreground: 216 10% 9%;
+    --card: 0 0% 98%;
+    --card-foreground: 216 10% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 10% 9%;
+    --primary: 185 95% 43%; /* Tech Cyan */
+    --primary-foreground: 216 10% 9%;
+    --secondary: 210 10% 96%;
+    --secondary-foreground: 216 10% 9%;
+    --muted: 210 10% 96%;
+    --muted-foreground: 215 5% 45%;
+    --accent: 185 95% 43%;
+    --accent-foreground: 216 10% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 216 10% 90%;
+    --input: 216 10% 90%;
+    --ring: 185 95% 43%;
+    --radius: 1.125rem;
+  }
+
+  .dark {
+    /* Dark Theme - Tech Identity */
     --background: 216 10% 9%;
     --foreground: 0 0% 100%;
     --card: 214 9% 15%;
@@ -23,24 +48,15 @@
     --border: 216 7% 20%;
     --input: 216 7% 20%;
     --ring: 185 95% 43%;
-    --radius: 1.125rem;
-    --sidebar-background: 216 10% 7%;
-    --sidebar-foreground: 215 5% 90%;
-    --sidebar-primary: 185 95% 43%;
-    --sidebar-primary-foreground: 216 10% 9%;
-    --sidebar-accent: 214 9% 15%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 216 7% 20%;
-    --sidebar-ring: 185 95% 43%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border transition-colors duration-300;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground;
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
     font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
@@ -53,19 +69,16 @@
     @apply max-w-[1320px] mx-auto px-4 md:px-6 lg:px-8;
   }
   
-  .text-cyan {
-    @apply text-[#05C3D4];
-  }
-  
-  .bg-graphite {
-    @apply bg-[#464A50];
-  }
-  
   .glow-cyan {
     box-shadow: 0 0 20px rgba(5, 195, 212, 0.15);
   }
   
   .glow-cyan-hover:hover {
     box-shadow: 0 0 25px rgba(5, 195, 212, 0.25);
+  }
+
+  /* Specific styling for the brand identity in any theme */
+  .brand-graphite {
+    @apply bg-[#15171A] dark:bg-[#0A0B0D];
   }
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import { Menu, X, Phone, ArrowRight } from "lucide-react";
+import { Menu, X, Phone, ArrowRight, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 
 const categories = [
   { label: "Смартфоны", href: "/catalog?cat=smartfony" },
@@ -18,9 +19,12 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [announcementVisible, setAnnouncementVisible] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
   const location = useLocation();
 
   useEffect(() => {
+    setMounted(true);
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -29,6 +33,10 @@ export default function Header() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   const headerHeight = announcementVisible ? 116 : 80;
 
@@ -52,11 +60,11 @@ export default function Header() {
         </div>
       )}
 
-      {/* Header: Dark Theme for Brand Consistency & Reduced Cognitive Load */}
+      {/* Header: Adaptable Theme */}
       <header
-        className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed left-0 right-0 z-50 transition-all duration-500 ${
           scrolled 
-            ? "bg-[#15171A]/90 backdrop-blur-xl border-b border-white/5 shadow-2xl" 
+            ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-2xl" 
             : "bg-transparent border-b border-transparent"
         }`}
         style={{ top: announcementVisible ? 36 : 0 }}
@@ -65,7 +73,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center group active:scale-95 transition-transform">
             <img 
-              src="/images/logo-color.svg" 
+              src={mounted && theme === "dark" ? "/images/logo-color.svg" : "/images/logo-color.svg"} 
               alt="ТЕХАКС" 
               className="h-7 md:h-9 w-auto"
             />
@@ -73,22 +81,22 @@ export default function Header() {
 
           {/* CRO: Direct Access to Categories in Main Menu (Reduced Friction) */}
           <nav className="hidden lg:flex items-center gap-8">
-            <div className="h-6 w-px bg-white/10 mx-2" />
+            <div className="h-6 w-px bg-foreground/10 mx-2" />
             {categories.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className="text-[11px] font-black text-white/50 hover:text-[#05C3D4] uppercase tracking-widest transition-all hover:-translate-y-0.5"
+                className="text-[11px] font-black text-foreground/50 hover:text-[#05C3D4] dark:hover:text-[#05C3D4] uppercase tracking-widest transition-all hover:-translate-y-0.5"
               >
                 {link.label}
               </Link>
             ))}
-            <div className="h-6 w-px bg-white/10 mx-2" />
+            <div className="h-6 w-px bg-foreground/10 mx-2" />
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className="text-[11px] font-black text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+                className="text-[11px] font-black text-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
               >
                 {link.label}
               </Link>
@@ -97,9 +105,18 @@ export default function Header() {
 
           {/* Actions: High Contrast Call-to-Action */}
           <div className="hidden lg:flex items-center gap-8">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-foreground/20 hover:text-[#05C3D4] transition-all duration-500 transform active:rotate-45 active:scale-90"
+              aria-label="Toggle theme"
+            >
+              {mounted && theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
             <a
               href="tel:+79273750555"
-              className="flex items-center gap-2 text-xs font-black text-white hover:text-[#05C3D4] transition-colors"
+              className="flex items-center gap-2 text-xs font-black text-foreground hover:text-[#05C3D4] transition-colors"
             >
               <Phone size={14} className="text-[#05C3D4]" />
               +7 (927) 375-05-55
@@ -113,13 +130,21 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Mobile Toggle */}
-          <button
-            className="lg:hidden p-2 text-white"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu size={28} />
-          </button>
+          {/* Mobile Toggle & Mobile Theme Switch */}
+          <div className="lg:hidden flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-foreground/40"
+            >
+              {mounted && theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button
+              className="p-2 text-foreground"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu size={28} />
+            </button>
+          </div>
         </div>
       </header>
 
