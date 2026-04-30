@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StickyBottomBar from "@/components/StickyBottomBar";
+import ScrollToTop from "@/components/ScrollToTop";
 import HomePage from "@/pages/HomePage";
 import CatalogPage from "@/pages/CatalogPage";
 import ProductPage from "@/pages/ProductPage";
@@ -58,10 +59,6 @@ export default function App() {
       {!isAdmin && <Footer />}
       {!isAdmin && <StickyBottomBar />}
       <Toaster position="top-center" richColors />
-    </div>
-  );
-}
-chColors />
     </div>
   );
 }
