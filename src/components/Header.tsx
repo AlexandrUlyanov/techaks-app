@@ -57,10 +57,14 @@ export default function Header() {
           boxShadow: scrolled ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
         }}
       >
-        <div className="container-main flex items-center justify-between h-16">
+        <div className="container-main flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="text-lg font-extrabold tracking-[0.08em] text-[#0a0a0a] uppercase">
-            ТЕХАКС
+          <Link to="/" className="flex items-center group">
+            <img 
+              src="/images/logo-color.svg" 
+              alt="ТЕХАКС" 
+              className="h-8 md:h-10 w-auto"
+            />
           </Link>
 
           {/* Desktop Nav */}
