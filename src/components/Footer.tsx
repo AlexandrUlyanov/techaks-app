@@ -26,13 +26,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
           {/* Brand */}
           <div className="space-y-6">
-            <Link to="/" className="flex flex-col leading-none group">
-              <span className="text-2xl font-black tracking-tighter uppercase font-heading">
-                ТЕХ<span className="text-[#05C3D4]">АКС</span>
-              </span>
-              <span className="text-[9px] font-bold tracking-[0.25em] text-white/40 uppercase mt-1">
-                Техника и аксессуары
-              </span>
+            <Link to="/" className="flex items-center group">
+              <img 
+                src="/images/logo-white.svg" 
+                alt="ТЕХАКС" 
+                className="h-8 w-auto"
+              />
             </Link>
             <p className="text-sm text-white/50 leading-relaxed font-medium">
               ТЕХАКС — техника и аксессуары в понятном, современном и надежном формате. 
