@@ -94,3 +94,31 @@ export const posts = mysqlTable("posts", {
   published: boolean("published").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const users = mysqlTable("users", {
+  id: serial("id").primaryKey(),
+  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  fullName: varchar("full_name", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const orders = mysqlTable("orders", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
+  totalPrice: int("total_price").notNull(),
+  deliveryType: varchar("delivery_type", { length: 20 }).notNull().default("pickup"), // pickup, delivery
+  address: text("address"),
+  paymentType: varchar("payment_type", { length: 20 }).notNull().default("cash"), // cash, card, sbp
+  paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("unpaid"), // unpaid, paid
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const orderItems = mysqlTable("order_items", {
+  id: serial("id").primaryKey(),
+  orderId: int("order_id").notNull(),
+  productId: int("product_id").notNull(),
+  quantity: int("quantity").notNull().default(1),
+  price: int("price").notNull(), // capture price at time of order
+});

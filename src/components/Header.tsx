@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import { Menu, X, Phone, ArrowRight, Sun, Moon } from "lucide-react";
+import { Menu, X, Phone, ArrowRight, Sun, Moon, ShoppingBag } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useCart } from "@/hooks/use-cart";
+import CartDrawer from "./CartDrawer";
 
 const categories = [
   { label: "Смартфоны", href: "/catalog?cat=smartfony" },
@@ -17,10 +19,12 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [announcementVisible, setAnnouncementVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { getItemCount } = useCart();
   const location = useLocation();
 
   useEffect(() => {
@@ -114,6 +118,20 @@ export default function Header() {
               {mounted && theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
+            {/* Cart Button */}
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2 text-foreground/40 hover:text-[#05C3D4] transition-colors"
+              aria-label="Корзина"
+            >
+              <ShoppingBag size={20} />
+              {mounted && getItemCount() > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#05C3D4] text-white dark:text-black text-[9px] font-black flex items-center justify-center rounded-full animate-in zoom-in">
+                  {getItemCount()}
+                </span>
+              )}
+            </button>
+
             <a
               href="tel:+79273750555"
               className="flex items-center gap-2 text-xs font-black text-foreground hover:text-[#05C3D4] transition-colors"
@@ -123,15 +141,26 @@ export default function Header() {
             </a>
             <Link
               to="/catalog"
-              className="flex items-center gap-3 px-8 py-3.5 bg-[#05C3D4] text-black text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/10"
+              className="flex items-center gap-3 px-8 py-3.5 bg-[#05C3D4] text-white dark:text-black text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/10"
             >
               Каталог
               <ArrowRight size={16} />
             </Link>
           </div>
 
-          {/* Mobile Toggle & Mobile Theme Switch */}
+          {/* Mobile Actions */}
           <div className="lg:hidden flex items-center gap-4">
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2 text-foreground/40"
+            >
+              <ShoppingBag size={22} />
+              {mounted && getItemCount() > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-[#05C3D4] text-white dark:text-black text-[8px] font-black flex items-center justify-center rounded-full">
+                  {getItemCount()}
+                </span>
+              )}
+            </button>
             <button
               onClick={toggleTheme}
               className="p-2 text-foreground/40"
@@ -150,6 +179,8 @@ export default function Header() {
 
       {/* Spacer to prevent content jump */}
       <div style={{ height: headerHeight }} />
+
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
 
       {/* Mobile Menu */}
       {mobileOpen && (
