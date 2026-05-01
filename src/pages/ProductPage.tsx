@@ -1,13 +1,17 @@
 import { useParams, Link } from "react-router";
-import { Star, CheckCircle, MessageCircle, ArrowLeft } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft, ShoppingBag } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useState } from "react";
 import { trpc } from "@/providers/trpc";
+import { useCart } from "@/hooks/use-cart";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
   const [showForm, setShowForm] = useState(false);
+  const { addItem } = useCart();
 
   const { data: product, isLoading } = trpc.product.getBySlug.useQuery({ slug: slug || "" });
   const { data: allProducts = [] } = trpc.product.getAll.useQuery();
@@ -39,6 +43,17 @@ export default function ProductPage() {
     .slice(0, 4);
 
   const formatPrice = (price: number) => new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+
+  const handleAddToCart = () => {
+    addItem({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+    });
+    toast.success("Товар добавлен в корзину");
+  };
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
@@ -152,22 +167,33 @@ export default function ProductPage() {
               )}
 
               {/* CTA */}
-              <div className="mt-12 flex flex-wrap gap-4">
-                <button
-                  onClick={() => setShowForm(true)}
-                  className="flex-1 min-w-[200px] h-14 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/10"
+              <div className="mt-12 flex flex-col gap-4">
+                <Button 
+                  size="lg" 
+                  onClick={handleAddToCart}
+                  className="w-full h-16 text-sm tracking-[0.2em] glow-cyan"
                 >
-                  Узнать наличие
-                </button>
-                <a
-                  href="https://t.me/tech_aks"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-3 px-8 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-muted transition-all active:scale-95"
-                >
-                  <MessageCircle size={18} className="text-[#05C3D4]" />
-                  Вопрос
-                </a>
+                  <ShoppingBag size={20} className="mr-2" />
+                  ДОБАВИТЬ В КОРЗИНУ
+                </Button>
+                
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="flex-1 min-w-[180px] h-14 bg-muted border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted/80 transition-all active:scale-95"
+                  >
+                    Узнать наличие
+                  </button>
+                  <a
+                    href="https://t.me/tech_aks"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-3 px-8 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted transition-all active:scale-95"
+                  >
+                    <MessageCircle size={18} className="text-[#05C3D4]" />
+                    Вопрос
+                  </a>
+                </div>
               </div>
             </div>
           </div>
