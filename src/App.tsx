@@ -13,6 +13,8 @@ import PromotionsPage from "@/pages/PromotionsPage";
 import PromotionDetailPage from "@/pages/PromotionDetailPage";
 import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
+import CheckoutPage from "@/pages/CheckoutPage";
+import AccountPage from "@/pages/AccountPage";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -26,11 +28,12 @@ import AdminBlog from "@/pages/admin/AdminBlog";
 export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
+  const isCheckout = location.pathname === "/checkout";
 
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
-      {!isAdmin && <Header />}
+      {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
         <Routes>
           {/* Public Routes */}
@@ -43,6 +46,8 @@ export default function App() {
           <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/account" element={<AccountPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
@@ -56,8 +61,8 @@ export default function App() {
           </Route>
         </Routes>
       </main>
-      {!isAdmin && <Footer />}
-      {!isAdmin && <StickyBottomBar />}
+      {!isAdmin && !isCheckout && <Footer />}
+      {!isAdmin && !isCheckout && <StickyBottomBar />}
       <Toaster position="top-center" richColors />
     </div>
   );

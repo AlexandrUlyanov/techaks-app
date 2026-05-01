@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import { Menu, X, Phone, ArrowRight, Sun, Moon, ShoppingBag } from "lucide-react";
+import { Menu, X, Phone, ArrowRight, Sun, Moon, ShoppingBag, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCart } from "@/hooks/use-cart";
+import { useAuth } from "@/hooks/use-auth";
 import CartDrawer from "./CartDrawer";
+import AuthModal from "./AuthModal";
 
 const categories = [
   { label: "Смартфоны", href: "/catalog?cat=smartfony" },
@@ -20,11 +22,13 @@ const navLinks = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [announcementVisible, setAnnouncementVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -132,6 +136,25 @@ export default function Header() {
               )}
             </button>
 
+            {/* Account Button */}
+            {isAuthenticated ? (
+              <Link
+                to="/account"
+                className="p-2 text-foreground/40 hover:text-[#05C3D4] transition-colors"
+                aria-label="Личный кабинет"
+              >
+                <User size={20} />
+              </Link>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="p-2 text-foreground/40 hover:text-[#05C3D4] transition-colors"
+                aria-label="Войти"
+              >
+                <User size={20} />
+              </button>
+            )}
+
             <a
               href="tel:+79273750555"
               className="flex items-center gap-2 text-xs font-black text-foreground hover:text-[#05C3D4] transition-colors"
@@ -161,6 +184,17 @@ export default function Header() {
                 </span>
               )}
             </button>
+            
+            {isAuthenticated ? (
+              <Link to="/account" className="p-2 text-foreground/40">
+                <User size={22} />
+              </Link>
+            ) : (
+              <button onClick={() => setAuthOpen(true)} className="p-2 text-foreground/40">
+                <User size={22} />
+              </button>
+            )}
+
             <button
               onClick={toggleTheme}
               className="p-2 text-foreground/40"
@@ -181,6 +215,22 @@ export default function Header() {
       <div style={{ height: headerHeight }} />
 
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+
+      {/* Auth Modal Overlay */}
+      {authOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
+          <div className="relative z-10 w-full max-w-sm">
+            <button
+              onClick={() => setAuthOpen(false)}
+              className="absolute -top-12 right-0 text-white/40 hover:text-white flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-colors"
+            >
+              Закрыть ✕
+            </button>
+            <AuthModal onSuccess={() => setAuthOpen(false)} />
+          </div>
+        </div>
+      )}
 
       {/* Mobile Menu */}
       {mobileOpen && (
