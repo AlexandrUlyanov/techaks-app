@@ -15,7 +15,7 @@ export default function ProductPage() {
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-pulse text-gray-400">Загрузка товара...</div>
+        <div className="animate-pulse text-muted-foreground">Загрузка товара...</div>
       </div>
     );
   }
@@ -24,8 +24,8 @@ export default function ProductPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#0a0a0a]">Товар не найден</h1>
-          <Link to="/catalog" className="mt-4 inline-flex items-center gap-2 text-[#0099A8] hover:underline">
+          <h1 className="text-2xl font-bold text-foreground">Товар не найден</h1>
+          <Link to="/catalog" className="mt-4 inline-flex items-center gap-2 text-[#05C3D4] hover:underline">
             <ArrowLeft size={16} />
             Вернуться в каталог
           </Link>
@@ -43,12 +43,12 @@ export default function ProductPage() {
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Breadcrumbs */}
-      <section className="bg-white/5 py-4 border-b border-white/5">
+      <section className="bg-muted/30 py-4 border-b border-border">
         <div className="container-main">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/30">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
             <Link to="/catalog" className="hover:text-[#05C3D4] transition-colors">Каталог</Link>
-            <span className="text-white/10">/</span>
-            <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
+            <span className="text-muted-foreground/20">/</span>
+            <span className="text-muted-foreground truncate max-w-[200px]">{product.name}</span>
           </div>
         </div>
       </section>
@@ -59,8 +59,7 @@ export default function ProductPage() {
           <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
             {/* Gallery */}
             <div className="lg:w-[50%]">
-              <div className="relative group bg-white border border-white/5 rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+              <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
                 <img
                   src={product.image}
                   alt={product.name}
@@ -74,39 +73,39 @@ export default function ProductPage() {
               <span className="inline-block text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4">
                 {product.categoryName || "Аксессуар"}
               </span>
-              <h1 className="text-3xl md:text-5xl font-black uppercase font-heading leading-[1.1] tracking-tighter text-white">
+              <h1 className="text-3xl md:text-5xl font-black uppercase font-heading leading-[1.1] tracking-tighter text-foreground">
                 {product.name}
               </h1>
 
               {/* Rating */}
               <div className="mt-6 flex items-center gap-4">
-                <div className="flex items-center gap-1 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                <div className="flex items-center gap-1 bg-muted px-3 py-1.5 rounded-lg border border-border">
                   <div className="flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
                         size={14}
-                        className={i < Math.round(Number(product.rating)) ? "fill-[#05C3D4] text-[#05C3D4]" : "text-white/10"}
+                        className={i < Math.round(Number(product.rating)) ? "fill-[#05C3D4] text-[#05C3D4]" : "text-muted-foreground/20"}
                       />
                     ))}
                   </div>
-                  <span className="ml-2 text-sm font-black text-white">{product.rating}</span>
+                  <span className="ml-2 text-sm font-black text-foreground">{product.rating}</span>
                 </div>
-                <span className="text-xs font-bold text-white/30 uppercase tracking-widest">({product.reviewCount} отзывов)</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">({product.reviewCount} отзывов)</span>
               </div>
 
               {/* Price */}
-              <div className="mt-10 p-8 bg-[#24272B] border border-white/5 rounded-3xl relative overflow-hidden">
+              <div className="mt-10 p-8 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#05C3D4]/5 blur-3xl rounded-full" />
                 <div className="relative z-10">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-2 block">Актуальная цена</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Актуальная цена</span>
                   <div className="flex items-center gap-6">
                     <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
                       {formatPrice(product.price)}
                     </span>
                     {product.oldPrice && (
                       <div className="flex flex-col">
-                        <span className="text-xl text-white/20 line-through font-bold">
+                        <span className="text-xl text-muted-foreground/40 line-through font-bold">
                           {formatPrice(product.oldPrice)}
                         </span>
                         <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
@@ -119,17 +118,17 @@ export default function ProductPage() {
               </div>
 
               {/* Stock */}
-              <div className="mt-8 flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/5 w-fit">
-                <div className={`w-2 h-2 rounded-full ${product.inStock ? "bg-[#22c55e] animate-pulse" : "bg-white/20"}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+              <div className="mt-8 flex items-center gap-3 px-4 py-3 bg-muted rounded-xl border border-border w-fit">
+                <div className={`w-2 h-2 rounded-full ${product.inStock ? "bg-[#22c55e] animate-pulse" : "bg-muted-foreground/30"}`} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   {product.inStock ? "В наличии в магазинах" : "Нет в наличии"}
                 </span>
               </div>
 
               {/* Description */}
               <div className="mt-10">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Описание</h3>
-                <p className="text-base text-white/50 leading-relaxed font-medium">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Описание</h3>
+                <p className="text-base text-muted-foreground leading-relaxed font-medium">
                   {product.description}
                 </p>
               </div>
@@ -137,15 +136,15 @@ export default function ProductPage() {
               {/* Specs */}
               {product.specs && typeof product.specs === 'object' && (
                 <div className="mt-10">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Характеристики</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Характеристики</h3>
                   <div className="grid grid-cols-1 gap-1">
                     {Object.entries(product.specs as Record<string, string>).map(([key, value]) => (
                       <div
                         key={key}
-                        className="flex justify-between items-center py-3 border-b border-white/5 px-1 group"
+                        className="flex justify-between items-center py-3 border-b border-border px-1 group"
                       >
-                        <span className="text-sm font-bold text-white/30 group-hover:text-white/50 transition-colors">{key}</span>
-                        <span className="text-sm font-black text-white/80">{value}</span>
+                        <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">{key}</span>
+                        <span className="text-sm font-black text-foreground/80">{value}</span>
                       </div>
                     ))}
                   </div>
@@ -156,7 +155,7 @@ export default function ProductPage() {
               <div className="mt-12 flex flex-wrap gap-4">
                 <button
                   onClick={() => setShowForm(true)}
-                  className="flex-1 min-w-[200px] h-14 bg-[#05C3D4] text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+                  className="flex-1 min-w-[200px] h-14 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/10"
                 >
                   Узнать наличие
                 </button>
@@ -164,7 +163,7 @@ export default function ProductPage() {
                   href="https://t.me/tech_aks"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-3 px-8 h-14 border border-white/10 text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-white/5 hover:border-[#05C3D4] transition-all active:scale-95"
+                  className="flex items-center justify-center gap-3 px-8 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-muted transition-all active:scale-95"
                 >
                   <MessageCircle size={18} className="text-[#05C3D4]" />
                   Вопрос
@@ -205,13 +204,13 @@ export default function ProductPage() {
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
-        <section className="py-24 bg-[#15171A] border-t border-white/5">
+        <section className="py-24 bg-card border-t border-border">
           <div className="container-main">
             <div className="flex items-end justify-between gap-6 mb-16">
               <div>
                 <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Рекомендации</span>
-                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-                  ПОХОЖИЕ <span className="text-white/20">ТОВАРЫ</span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  ПОХОЖИЕ <span className="text-muted-foreground/30">ТОВАРЫ</span>
                 </h2>
               </div>
             </div>

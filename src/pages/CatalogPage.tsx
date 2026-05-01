@@ -38,13 +38,14 @@ export default function CatalogPage() {
         <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
         <div className="container-main relative z-10">
           <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Витрина</span>
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-            КАТАЛОГ <span className="text-white/20">ТОВАРОВ</span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            КАТЕГОРИГ <span className="text-muted-foreground/30">ТОВАРОВ</span>
           </h1>
-          <p className="mt-6 text-base text-white/40 max-w-[500px] font-medium leading-relaxed">
+          <p className="mt-6 text-base text-muted-foreground max-w-[500px] font-medium leading-relaxed">
             Смартфоны, наушники, зарядка и аксессуары. Помогаем подобрать под вашу модель.
           </p>
         </div>
+
       </section>
 
       {/* Filters */}

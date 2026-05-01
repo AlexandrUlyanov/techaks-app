@@ -82,7 +82,7 @@ export default function HomePage() {
                 href="https://yandex.ru/maps/?text=%D0%BF%D1%80.+%D0%A1%D1%82%D1%80%D0%BE%D0%B8%D1%82%D0%B5%D0%BB%D0%B5%D0%B9%2C+50%D0%90+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 px-10 py-5 border border-white/10 bg-white/5 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-y-1 active:scale-95"
+                className="inline-flex items-center gap-3 px-10 py-5 border border-border bg-muted/50 text-foreground rounded-xl text-sm font-black uppercase tracking-widest hover:bg-muted transition-all hover:-translate-y-1 active:scale-95"
               >
                 <MapPin size={18} className="text-[#05C3D4]" />
                 Магазины
