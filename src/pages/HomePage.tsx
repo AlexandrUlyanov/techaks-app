@@ -49,7 +49,7 @@ export default function HomePage() {
   const latestPosts = posts.slice(0, 3);
 
   return (
-    <div className="pb-16 md:pb-0 bg-background text-foreground">
+    <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Background Effects */}
@@ -73,7 +73,7 @@ export default function HomePage() {
             <div className="mt-12 flex flex-wrap gap-5">
               <Link
                 to="/catalog"
-                className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan hover:-translate-y-1 active:scale-95"
+                className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan hover:-translate-y-1 active:scale-95"
               >
                 Смотреть каталог
                 <ArrowRight size={18} />
@@ -82,7 +82,7 @@ export default function HomePage() {
                 href="https://yandex.ru/maps/?text=%D0%BF%D1%80.+%D0%A1%D1%82%D1%80%D0%BE%D0%B8%D1%82%D0%B5%D0%BB%D0%B5%D0%B9%2C+50%D0%90+%D0%9F%D0%B5%D0%BD%D0%B7%D0%B0"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 px-10 py-5 border border-border bg-muted/50 text-foreground rounded-xl text-sm font-black uppercase tracking-widest hover:bg-muted transition-all hover:-translate-y-1 active:scale-95"
+                className="inline-flex items-center gap-3 px-10 py-5 border border-border bg-card/50 text-foreground rounded-xl text-sm font-black uppercase tracking-widest hover:bg-card transition-all hover:-translate-y-1 active:scale-95"
               >
                 <MapPin size={18} className="text-[#05C3D4]" />
                 Магазины
@@ -157,8 +157,7 @@ export default function HomePage() {
             <div className="flex flex-col lg:flex-row gap-16 items-center">
               {/* Image */}
               <div className="flex-1 w-full">
-                <div className="relative group bg-background border border-border rounded-3xl p-16 flex items-center justify-center overflow-hidden shadow-2xl">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#05C3D4]/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                <div className="relative group bg-white border border-border rounded-3xl p-16 flex items-center justify-center overflow-hidden shadow-2xl">
                   <img
                     src={productWeek.image}
                     alt={productWeek.name}
@@ -196,7 +195,7 @@ export default function HomePage() {
                 </div>
                 <Link
                   to={`/product/${productWeek.slug}`}
-                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/20"
                 >
                   Узнать наличие
                   <ArrowRight size={18} />
@@ -222,7 +221,7 @@ export default function HomePage() {
               {activeBanners.map((promo) => (
                 <div
                   key={promo.id}
-                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-card border border-border rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300"
+                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-card border border-border rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl"
                 >
                   <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#05C3D4]/5 blur-[60px] rounded-full" />
                   <div className="relative z-10 flex-1">
@@ -239,7 +238,7 @@ export default function HomePage() {
                       <ArrowRight size={14} />
                     </Link>
                   </div>
-                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-background p-4 border border-border group-hover:border-[#05C3D4]/20 transition-all duration-500 transform group-hover:scale-105">
+                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-white p-4 border border-border group-hover:border-[#05C3D4]/10 transition-all duration-500 transform group-hover:scale-105">
                     <img
                       src={promo.image}
                       alt={promo.title}
@@ -286,7 +285,7 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Обратная связь</span>
             <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-              ОТЗЫВЫ <span className="text-foreground/20">ПОКУПАТЕЛЕЙ</span>
+              ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
             </h2>
           </div>
 
@@ -348,7 +347,7 @@ export default function HomePage() {
                   СОВЕТЫ <span className="text-foreground/20">И ОБЗОРЫ</span>
                 </h2>
               </div>
-              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
+              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
                 Читать все статьи
               </Link>
             </div>
