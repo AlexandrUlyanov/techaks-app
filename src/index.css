@@ -16,7 +16,7 @@
     --secondary: 210 10% 94%;
     --secondary-foreground: 216 25% 10%;
     --muted: 210 10% 96%;
-    --muted-foreground: 216 10% 35%; /* Optimized for contrast */
+    --muted-foreground: 216 15% 30%; /* Darker for better contrast on light backgrounds */
     --accent: 185 95% 43%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;

@@ -63,10 +63,10 @@ export default function HomePage() {
             <span className="inline-block text-[#05C3D4] text-xs md:text-sm font-black uppercase tracking-[0.3em] mb-6">
               Технологичный Retail • Пенза
             </span>
-            <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black leading-[0.9] tracking-tighter uppercase font-heading">
+            <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black leading-[0.9] tracking-tighter uppercase font-heading text-foreground">
               ТЕХНИКА <br /> И АКСЕСС<span className="text-[#05C3D4]">УАРЫ</span>
             </h1>
-            <p className="mt-8 text-lg md:text-xl text-white/50 max-w-[580px] leading-relaxed font-medium">
+            <p className="mt-8 text-lg md:text-xl text-muted-foreground max-w-[580px] leading-relaxed font-medium">
               Помогаем быстро подобрать нужную технику и аксессуары без лишней сложности. Чистая визуальная система, два современных магазина.
             </p>
             
@@ -90,15 +90,15 @@ export default function HomePage() {
             </div>
 
             {/* Trust Badges */}
-            <div className="mt-16 flex flex-wrap gap-x-10 gap-y-6 border-t border-white/5 pt-10">
+            <div className="mt-16 flex flex-wrap gap-x-10 gap-y-6 border-t border-border pt-10">
               {[
                 { label: "Официально", value: "Партнёры брендов" },
                 { label: "В наличии", value: "Более 5000 товаров" },
                 { label: "Рейтинг", value: "4.9 Яндекс Карты" },
               ].map((item) => (
                 <div key={item.label} className="flex flex-col gap-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{item.label}</span>
-                  <span className="text-sm font-bold text-white/80">{item.value}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{item.label}</span>
+                  <span className="text-sm font-bold text-foreground/90">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -116,7 +116,7 @@ export default function HomePage() {
                 КАТЕГОРИИ <span className="text-foreground/20">ТОВАРОВ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
               Смотреть все разделы
             </Link>
           </div>
@@ -138,7 +138,7 @@ export default function HomePage() {
                       <Icon size={28} />
                     </div>
                     <h3 className="text-xl font-black uppercase font-heading tracking-tight text-foreground">{cat.name}</h3>
-                    <p className="mt-3 text-sm text-foreground/40 font-medium leading-relaxed line-clamp-2">{cat.description}</p>
+                    <p className="mt-3 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{cat.description}</p>
                     <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4] opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                       Перейти <ArrowRight size={12} />
                     </div>
@@ -175,20 +175,20 @@ export default function HomePage() {
                 <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                   {productWeek.name}
                 </h3>
-                <p className="mt-6 text-lg text-foreground/50 leading-relaxed font-medium">
+                <p className="mt-6 text-lg text-muted-foreground leading-relaxed font-medium">
                   {productWeek.description}
                 </p>
                 <div className="mt-10 flex items-center gap-8">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-1">Цена сегодня</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Цена сегодня</span>
                     <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
                       {productWeek.price.toLocaleString("ru-RU")} ₽
                     </span>
                   </div>
                   {productWeek.oldPrice && (
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-1">Старая цена</span>
-                      <span className="text-2xl text-foreground/20 line-through font-bold">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Старая цена</span>
+                      <span className="text-2xl text-foreground/30 line-through font-bold">
                         {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
                       </span>
                     </div>
@@ -230,7 +230,7 @@ export default function HomePage() {
                       {promo.badge || "Акция"}
                     </span>
                     <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">{promo.title}</h3>
-                    <p className="mt-4 text-sm text-foreground/40 font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
+                    <p className="mt-4 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
                     <Link
                       to={`/promotions/${promo.slug}`}
                       className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground hover:text-[#05C3D4] transition-colors"
@@ -297,7 +297,7 @@ export default function HomePage() {
               { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
             ].map((item) => (
               <div key={item.platform} className="text-center group">
-                <div className="text-[10px] font-black uppercase tracking-widest text-foreground/30 mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
                 <div className="flex items-center gap-4 justify-center">
                   <div className="flex gap-1">
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -306,7 +306,7 @@ export default function HomePage() {
                   </div>
                   <span className="text-4xl font-black font-heading text-foreground">{item.rating}</span>
                 </div>
-                <div className="mt-3 text-xs font-bold text-foreground/40 uppercase tracking-widest">{item.count}</div>
+                <div className="mt-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">{item.count}</div>
               </div>
             ))}
           </div>
@@ -410,7 +410,7 @@ export default function HomePage() {
                       {post.title}
                     </h3>
                     <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
-                      <span className="text-[10px] font-bold text-foreground/30 uppercase tracking-widest">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                         {new Date(post.createdAt).toLocaleDateString("ru-RU")}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] group-hover:translate-x-1 transition-transform">
@@ -425,7 +425,6 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Popular Products */}
       <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
@@ -435,7 +434,7 @@ export default function HomePage() {
                 ПОПУЛЯРНЫЕ <span className="text-foreground/20">ТОВАРЫ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-foreground/40 hover:text-[#05C3D4] transition-colors mb-2">
+            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
               Смотреть весь каталог
             </Link>
           </div>

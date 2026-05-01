@@ -62,14 +62,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             {formatPrice(product.price)}
           </span>
           {product.oldPrice && (
-            <span className="text-sm text-foreground/20 line-through font-bold">
+            <span className="text-sm text-muted-foreground/60 line-through font-bold">
               {formatPrice(product.oldPrice)}
             </span>
           )}
         </div>
         
         <div className="mt-6">
-          <span className="flex items-center justify-center w-full py-3.5 bg-foreground/5 border border-foreground/10 rounded-xl text-[11px] font-black uppercase tracking-widest text-foreground group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black group-hover:border-[#05C3D4] transition-all">
+          <span className="flex items-center justify-center w-full py-3.5 bg-muted border border-border rounded-xl text-[11px] font-black uppercase tracking-widest text-foreground group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black group-hover:border-[#05C3D4] transition-all">
             Подробнее
           </span>
         </div>
