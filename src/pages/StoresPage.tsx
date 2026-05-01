@@ -11,21 +11,21 @@ export default function StoresPage() {
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Hero */}
-      <section className="relative py-20 md:py-32 overflow-hidden border-b border-white/5">
+      <section className="relative py-20 md:py-32 overflow-hidden border-b border-border">
         <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
         <div className="container-main relative z-10">
           <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Локации</span>
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-            МАГАЗИНЫ <span className="text-white/20">ТЕХАКС</span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            МАГАЗИНЫ <span className="text-muted-foreground/30">ТЕХАКС</span>
           </h1>
-          <p className="mt-8 text-lg text-white/40 max-w-xl font-medium leading-relaxed">
+          <p className="mt-8 text-lg text-muted-foreground max-w-xl font-medium leading-relaxed">
             Два современных магазина в Пензе. Аккуратные витрины, профессиональная помощь и поклейка стекол на месте.
           </p>
         </div>
       </section>
 
       {/* Store Cards */}
-      <section className="py-24 bg-[#15171A]">
+      <section className="py-24 bg-card">
         <div className="container-main">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {stores.map((store) => (
@@ -46,22 +46,22 @@ export default function StoresPage() {
       </section>
 
       {/* Map Section */}
-      <section className="py-24 bg-[#24272B] border-t border-white/5">
+      <section className="py-24 bg-background border-t border-border">
         <div className="container-main">
           <div className="text-center mb-16">
             <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Навигация</span>
-            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-              КАК <span className="text-white/20">ДОБРАТЬСЯ</span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              КАК <span className="text-muted-foreground/30">ДОБРАТЬСЯ</span>
             </h2>
           </div>
           
-          <div className="relative group bg-[#15171A] border border-white/5 rounded-[2.5rem] h-[500px] flex items-center justify-center overflow-hidden">
+          <div className="relative group bg-card border border-border rounded-[2.5rem] h-[500px] flex items-center justify-center overflow-hidden shadow-sm">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5" />
             <div className="relative z-10 text-center px-6">
-              <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center text-[#05C3D4] mx-auto mb-8 border border-white/5">
+              <div className="w-20 h-20 rounded-2xl bg-foreground/5 flex items-center justify-center text-[#05C3D4] mx-auto mb-8 border border-border">
                 <MapPin size={40} />
               </div>
-              <p className="text-xl font-black uppercase font-heading text-white/20 tracking-[0.2em] mb-10">
+              <p className="text-xl font-black uppercase font-heading text-foreground/20 tracking-[0.2em] mb-10">
                 Интерактивная карта ТЕХАКС
               </p>
               <div className="flex flex-wrap justify-center gap-5">
@@ -71,7 +71,7 @@ export default function StoresPage() {
                     href={store.mapUrl || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-xs font-black uppercase tracking-widest text-white hover:bg-[#05C3D4] hover:text-black hover:border-[#05C3D4] transition-all active:scale-95 shadow-xl"
+                    className="flex items-center gap-3 px-8 py-4 bg-background border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground hover:bg-[#05C3D4] hover:text-white dark:hover:text-black hover:border-[#05C3D4] transition-all active:scale-95 shadow-xl"
                   >
                     <MapPin size={16} />
                     {store.name}
