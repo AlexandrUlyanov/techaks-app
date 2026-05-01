@@ -337,39 +337,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Lead Form: Needs Help Section */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[#05C3D4] z-0" />
-        {/* Visual pattern for energy/tech */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none z-[1]" 
-             style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-        
-        <div className="container-main relative z-10 max-w-[900px] mx-auto text-center px-4">
-          <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-black/10 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
-            <span className="text-black text-[10px] font-black uppercase tracking-[0.3em]">Консультация эксперта</span>
-          </div>
-          <h2 className="text-4xl md:text-7xl font-black uppercase font-heading leading-[0.9] tracking-tighter text-black">
-            СЛОЖНО <br /> <span className="text-white">ВЫБРАТЬ?</span>
-          </h2>
-          <p className="mt-8 text-lg md:text-xl text-black/60 font-bold max-w-[600px] mx-auto leading-relaxed">
-            Напишите нам — мы подберем идеальный аксессуар под вашу модель устройства за 5 минут.
-          </p>
-          <div className="mt-12 max-w-[500px] mx-auto">
-            <LeadForm
-              dark={false}
-              buttonText="Подобрать аксессуар"
-            />
-          </div>
-          
-          <div className="mt-12 flex flex-wrap justify-center gap-8 text-black/40 text-[10px] font-black uppercase tracking-widest">
-            <div className="flex items-center gap-2">✓ Подбор под модель</div>
-            <div className="flex items-center gap-2">✓ Проверка наличия</div>
-            <div className="flex items-center gap-2">✓ Профессиональный совет</div>
-          </div>
-        </div>
-      </section>
-
       {/* Blog Preview */}
       {latestPosts.length > 0 && (
         <section id="blog" className="py-24 bg-background">
