@@ -2,10 +2,34 @@ import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-...
+
+interface ProductCardProps {
+  product: {
+    id: number;
+    slug: string;
+    name: string;
+    price: number;
+    oldPrice?: number | null;
+    badge?: string | null;
+    image: string;
+    categoryId: number;
+    categoryName?: string;
+  };
+}
+
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
-...
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+  };
+
+  const badgeColors: Record<string, string> = {
+    "Акция": "bg-[#05C3D4] text-black",
+    "Хит": "bg-white text-black",
+    "Новинка": "bg-[#05C3D4] text-black",
+  };
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
