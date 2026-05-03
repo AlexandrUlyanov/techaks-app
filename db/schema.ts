@@ -122,3 +122,10 @@ export const orderItems = mysqlTable("order_items", {
   quantity: int("quantity").notNull().default(1),
   price: int("price").notNull(), // capture price at time of order
 });
+
+export const productStocks = mysqlTable("product_stocks", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  storeId: int("store_id").notNull(),
+  quantity: int("quantity").notNull().default(0),
+});

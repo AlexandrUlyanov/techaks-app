@@ -2,77 +2,54 @@ import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
+import { Label } from "@/components/ui/label";
 
 export default function CatalogPage() {
   const [searchParams] = useSearchParams();
-  const initialCat = searchParams.get("cat") || "all";
-  const [activeCategory, setActiveCategory] = useState(initialCat);
+  const activeCategory = searchParams.get("cat") || "all";
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">("default");
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
-  const { data: products = [], isLoading } = trpc.product.getByCategory.useQuery({ 
-    categorySlug: activeCategory 
-  });
+  const { data: products = [], isLoading } = trpc.product.getByCategory.useQuery(
+    { categorySlug: activeCategory },
+    { placeholderData: (prev) => prev }
+  );
 
   const sortedProducts = useMemo(() => {
     let result = [...products];
-
     if (sortBy === "price-asc") {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-desc") {
       result.sort((a, b) => b.price - a.price);
     }
-
     return result;
   }, [products, sortBy]);
 
-  const allCategories = useMemo(() => [
-    { slug: "all", name: "Все" },
-    ...categories
-  ], [categories]);
+  const activeCategoryName = useMemo(() => {
+    if (activeCategory === "all") return "Все";
+    return categories.find(c => c.slug === activeCategory)?.name || "Каталог";
+  }, [categories, activeCategory]);
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
-      {/* Hero */}
-      <section className="relative py-20 overflow-hidden border-b border-white/5">
-        <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
-        <div className="container-main relative z-10">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Витрина</span>
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-            КАТЕГОРИИ <span className="text-muted-foreground/30">ТОВАРОВ</span>
-          </h1>
-          <p className="mt-6 text-base text-muted-foreground max-w-[500px] font-medium leading-relaxed">
-            Смартфоны, наушники, зарядка и аксессуары. Помогаем подобрать под вашу модель.
-          </p>
-        </div>
-
-      </section>
-
-      {/* Filters */}
-      <section className="bg-[#15171A]/80 backdrop-blur-md border-b border-white/5 py-6 sticky top-20 z-30">
-        <div className="container-main flex flex-wrap items-center gap-6">
-          <div className="flex flex-wrap gap-2">
-            {allCategories.map((cat) => (
-              <button
-                key={cat.slug}
-                onClick={() => setActiveCategory(cat.slug)}
-                className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeCategory === cat.slug
-                    ? "bg-[#05C3D4] text-black glow-cyan"
-                    : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+      {/* Header Info & Sort */}
+      <section className="pt-12 pb-8 border-b border-border">
+        <div className="container-main flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div>
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Категория</span>
+            <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              {activeCategoryName} <span className="text-muted-foreground/30">ТОВАРОВ</span>
+            </h1>
           </div>
-          <div className="ml-auto min-w-[200px]">
+          
+          <div className="min-w-[240px]">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">Сортировка</Label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="w-full px-5 h-11 bg-white/5 border border-white/10 rounded-xl text-[11px] font-black uppercase tracking-widest text-white outline-none focus:border-[#05C3D4] appearance-none cursor-pointer"
+              className="w-full px-5 h-12 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
             >
-              <option value="default">По умолчанию</option>
+              <option value="default">По популярности</option>
               <option value="price-asc">Цена: по возрастанию</option>
               <option value="price-desc">Цена: по убыванию</option>
             </select>
@@ -81,7 +58,7 @@ export default function CatalogPage() {
       </section>
 
       {/* Products Grid */}
-      <section className="py-20">
+      <section className="py-16">
         <div className="container-main">
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -24,13 +24,25 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
   };
 
+  const FREE_SHIPPING_THRESHOLD = 2000;
+  const totalPrice = getTotalPrice();
+  const progress = Math.min((totalPrice / FREE_SHIPPING_THRESHOLD) * 100, 100);
+  const remaining = FREE_SHIPPING_THRESHOLD - totalPrice;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-background border-l border-border">
         <SheetHeader className="p-6 border-b border-border">
-          <SheetTitle className="flex items-center gap-3 text-xl font-black uppercase font-heading tracking-tight">
-            <ShoppingBag className="text-[#05C3D4]" />
-            Корзина ({getItemCount()})
+          <SheetTitle className="flex items-center justify-between gap-3 text-xl font-black uppercase font-heading tracking-tight">
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="text-[#05C3D4]" />
+              Корзина ({getItemCount()})
+            </div>
+            {totalPrice > 0 && totalPrice < FREE_SHIPPING_THRESHOLD && (
+              <span className="text-[9px] font-black bg-[#05C3D4]/10 text-[#05C3D4] px-2 py-1 rounded-md animate-pulse">
+                ЕЩЕ {formatPrice(remaining)} ДО БЕСПЛАТНОЙ ДОСТАВКИ
+              </span>
+            )}
           </SheetTitle>
         </SheetHeader>
 
@@ -51,6 +63,22 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
           </div>
         ) : (
           <>
+            {/* CRO: Free Delivery Progress Bar */}
+            <div className="px-6 py-4 bg-muted/20 border-b border-border">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  {totalPrice >= FREE_SHIPPING_THRESHOLD ? "🎉 Бесплатная доставка ваша!" : "До бесплатной доставки"}
+                </span>
+                <span className="text-[10px] font-black text-[#05C3D4]">{Math.round(progress)}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-[#05C3D4] transition-all duration-1000 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
             <ScrollArea className="flex-1 px-6">
               <div className="py-6 space-y-6">
                 {items.map((item) => (

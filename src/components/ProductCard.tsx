@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProductCardProps {
@@ -41,6 +41,8 @@ export default function ProductCard({ product }: ProductCardProps) {
       image: product.image,
     });
     toast.success("Товар добавлен в корзину");
+    // CRO: Redirect directly to checkout
+    window.location.href = "/checkout";
   };
 
   return (
@@ -68,12 +70,20 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Info */}
         <div className="p-6 flex-1 flex flex-col">
-          {product.categoryName && (
-            <span className="text-[10px] font-black uppercase text-[#05C3D4] tracking-[0.2em]">
-              {product.categoryName}
-            </span>
-          )}
-          <h3 className="mt-2 text-base font-bold text-foreground line-clamp-2 leading-snug min-h-[3rem]">
+          <div className="flex items-center justify-between mb-2">
+            {product.categoryName && (
+              <span className="text-[10px] font-black uppercase text-[#05C3D4] tracking-[0.2em]">
+                {product.categoryName}
+              </span>
+            )}
+            {product.rating && (
+              <div className="flex items-center gap-1">
+                <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
+                <span className="text-[10px] font-black text-foreground">{product.rating}</span>
+              </div>
+            )}
+          </div>
+          <h3 className="text-base font-bold text-foreground line-clamp-2 leading-snug min-h-[3rem]">
             {product.name}
           </h3>
           <div className="mt-auto pt-4 flex items-center gap-4">

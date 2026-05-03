@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { products, categories, reviews } from "@db/schema";
+import { products, categories, reviews, productStocks, stores } from "@db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 
 const productSchema = z.object({
@@ -62,6 +62,29 @@ export const productRouter = createRouter({
         .select()
         .from(products)
         .where(eq(products.categoryId, category[0].id));
+    }),
+
+  getStockBySlug: publicQuery
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const product = await db
+        .select()
+        .from(products)
+        .where(eq(products.slug, input.slug))
+        .limit(1);
+      
+      if (!product[0]) return [];
+
+      return await db
+        .select({
+          storeName: stores.name,
+          storeAddress: stores.address,
+          quantity: productStocks.quantity,
+        })
+        .from(productStocks)
+        .innerJoin(stores, eq(productStocks.storeId, stores.id))
+        .where(eq(productStocks.productId, product[0].id));
     }),
 
   getReviews: publicQuery

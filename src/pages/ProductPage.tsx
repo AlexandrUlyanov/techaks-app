@@ -14,6 +14,7 @@ export default function ProductPage() {
   const { addItem } = useCart();
 
   const { data: product, isLoading } = trpc.product.getBySlug.useQuery({ slug: slug || "" });
+  const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({ slug: slug || "" });
   const { data: allProducts = [] } = trpc.product.getAll.useQuery();
 
   if (isLoading) {
@@ -53,6 +54,8 @@ export default function ProductPage() {
       image: product.image,
     });
     toast.success("Товар добавлен в корзину");
+    // CRO: Redirecting directly to checkout/cart page to reduce steps
+    window.location.href = "/checkout";
   };
 
   return (
@@ -132,12 +135,45 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Stock */}
-              <div className="mt-8 flex items-center gap-3 px-4 py-3 bg-muted rounded-xl border border-border w-fit">
-                <div className={`w-2 h-2 rounded-full ${product.inStock ? "bg-[#22c55e] animate-pulse" : "bg-muted-foreground/30"}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  {product.inStock ? "В наличии в магазинах" : "Нет в наличии"}
-                </span>
+              {/* Stock & FOMO */}
+              <div className="mt-10 space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Наличие в магазинах</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {stock.length > 0 ? (
+                    stock.map((s, i) => (
+                      <div key={i} className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1">{s.storeName}</span>
+                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`} />
+                            <span className="text-[10px] font-black">{s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">{s.storeAddress}</p>
+                        
+                        {s.quantity > 0 && s.quantity <= 3 && (
+                          <div className="absolute top-0 right-0">
+                            <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">Мало</div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
+                      <span className="text-xs font-bold text-muted-foreground uppercase">Информацию о наличии уточняйте у менеджера</span>
+                    </div>
+                  )}
+                </div>
+
+                {product.inStock && stock.some(s => s.quantity > 0 && s.quantity <= 3) && (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
+                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
+                      Товар заканчивается в некоторых магазинах!
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
@@ -178,20 +214,14 @@ export default function ProductPage() {
                 </Button>
                 
                 <div className="flex flex-wrap gap-4">
-                  <button
-                    onClick={() => setShowForm(true)}
-                    className="flex-1 min-w-[180px] h-14 bg-muted border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted/80 transition-all active:scale-95"
-                  >
-                    Узнать наличие
-                  </button>
                   <a
                     href="https://t.me/tech_aks"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-3 px-8 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted transition-all active:scale-95"
+                    className="flex-1 flex items-center justify-center gap-3 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted transition-all active:scale-95"
                   >
                     <MessageCircle size={18} className="text-[#05C3D4]" />
-                    Вопрос
+                    ЗАДАТЬ ВОПРОС В TELEGRAM
                   </a>
                 </div>
               </div>

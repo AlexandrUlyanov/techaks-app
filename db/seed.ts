@@ -114,6 +114,23 @@ async function seed() {
     await db.insert(schema.banners).values(banner).onDuplicateKeyUpdate({ set: banner });
   }
 
+  // Seed Stocks
+  console.log("Seeding stocks...");
+  const allProducts = await db.select().from(schema.products);
+  const allStores = await db.select().from(schema.stores);
+
+  for (const product of allProducts) {
+    for (const store of allStores) {
+      // Random stock quantity between 0 and 15
+      const quantity = Math.floor(Math.random() * 16);
+      await db.insert(schema.productStocks).values({
+        productId: product.id,
+        storeId: store.id,
+        quantity,
+      });
+    }
+  }
+
   console.log("Seed completed.");
   process.exit(0);
 }
