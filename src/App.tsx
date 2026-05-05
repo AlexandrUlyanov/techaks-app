@@ -15,6 +15,7 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
+import CatalogMenu from "@/components/Catalog/CatalogMenu";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -33,6 +34,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
+      <CatalogMenu />
       {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
         <Routes>

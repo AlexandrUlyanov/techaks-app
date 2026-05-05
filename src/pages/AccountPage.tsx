@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, User as UserIcon, LogOut, Loader2, ChevronRight, Clock, MapPin } from "lucide-react";
+import { ShoppingBag, Package, User as UserIcon, LogOut, Loader2, ChevronRight, Clock, MapPin, Star } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 import { useState } from "react";
 import { Separator } from "@/components/ui/separator";

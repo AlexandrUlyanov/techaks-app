@@ -1,15 +1,23 @@
 import { getDb } from "../api/queries/connection";
 import * as schema from "./schema";
 import { products as staticProducts, categories as staticCategories, homeCategories } from "../src/data/products";
+import { sql } from "drizzle-orm";
 
 async function seed() {
   const db = getDb();
   console.log("Seeding database...");
 
+  // Clear existing data to prevent duplicates
+  console.log("Cleaning up old data...");
+  await db.execute(sql`DELETE FROM product_stocks`);
+  await db.execute(sql`DELETE FROM banners`);
+  await db.execute(sql`DELETE FROM stores`);
+  await db.execute(sql`DELETE FROM categories`);
+
   // 1. Seed Categories
   console.log("Seeding categories...");
   const categoriesToSeed = [
-    ...staticCategories.filter(c => c.slug !== "all"),
+    ...staticCategories,
     ...homeCategories.filter(hc => !staticCategories.find(sc => sc.slug === hc.slug))
   ];
 
@@ -23,17 +31,54 @@ async function seed() {
       description: homeCat?.description || null,
       icon: homeCat?.icon || "Smartphone",
       sortOrder: i,
-    }).onDuplicateKeyUpdate({ 
-      set: { 
-        name: cat.name, 
-        description: homeCat?.description || null,
-        icon: homeCat?.icon || "Smartphone",
-        sortOrder: i 
-      } 
     });
   }
 
-  // Get categories with IDs
+  // Add subcategories
+  const dbCats = await db.select().from(schema.categories);
+  const autoMotoCatId = dbCats.find(c => c.slug === "auto-moto")?.id;
+  if (autoMotoCatId) {
+    const autoSubs = [
+      { slug: "fm-transmitters", name: "FM трансмиттеры и Bluetooth адаптеры" },
+      { slug: "autocosmetics", name: "Автокосметика" },
+      { slug: "car-holders", name: "Автомобильные держатели" },
+      { slug: "car-chargers", name: "Автомобильные зарядные устройства" },
+      { slug: "car-pumps", name: "Автомобильные насосы" },
+      { slug: "car-vacuums", name: "Автомобильные пылесосы" },
+      { slug: "car-fragrances", name: "Ароматизаторы в авто" },
+      { slug: "moto-acc", name: "Вело/мото аксессуары" },
+      { slug: "dash-cams", name: "Видеорегистраторы" },
+      { slug: "parking-cards", name: "Парковочные автовизитки" },
+      { slug: "portable-lighter", name: "Портативный прикуриватель" },
+      { slug: "jump-starters", name: "Пуско-зарядные устройства" },
+      { slug: "car-care", name: "Уход за авто" },
+    ];
+    for (const sub of autoSubs) {
+      await db.insert(schema.categories).values({
+        ...sub,
+        parentId: autoMotoCatId,
+        sortOrder: 100,
+      });
+    }
+
+    const holdersId = (await db.select().from(schema.categories)).find(c => c.slug === "car-holders")?.id;
+    if (holdersId) {
+      const holderSubs = [
+        { slug: "phone-holders", name: "Держатели для телефонов" },
+        { slug: "wireless-chargers-holders", name: "Держатели с беспроводной зарядкой" },
+        { slug: "holder-plates", name: "Пластина для автодержателей" },
+      ];
+      for (const sub of holderSubs) {
+        await db.insert(schema.categories).values({
+          ...sub,
+          parentId: holdersId,
+          sortOrder: 100,
+        });
+      }
+    }
+  }
+
+  // Refresh categories with IDs
   const dbCategories = await db.select().from(schema.categories);
   const categoryMap = new Map(dbCategories.map(c => [c.slug, c.id]));
 
@@ -127,7 +172,7 @@ async function seed() {
         productId: product.id,
         storeId: store.id,
         quantity,
-      });
+      }).onDuplicateKeyUpdate({ set: { quantity } });
     }
   }
 

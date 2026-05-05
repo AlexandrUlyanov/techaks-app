@@ -5,6 +5,7 @@ import superjson from "superjson";
 import type { AppRouter } from "../../api/router";
 import { type ReactNode, useState } from "react";
 import { ThemeProvider } from "next-themes";
+import { CatalogProvider } from "./CatalogProvider";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -31,7 +32,9 @@ export function TRPCProvider({ children }: { children: ReactNode }) {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          {children}
+          <CatalogProvider>
+            {children}
+          </CatalogProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>

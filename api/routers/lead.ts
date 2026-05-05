@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
 import { leads } from "@db/schema";
-import { desc, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export const leadRouter = createRouter({
   create: publicQuery

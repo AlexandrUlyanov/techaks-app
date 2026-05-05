@@ -190,7 +190,6 @@ export const products: Product[] = [
 ];
 
 export const categories = [
-  { slug: "all", name: "Все" },
   { slug: "home-acc", name: "Аксессуары для дома" },
   { slug: "auto-moto", name: "Авто/Вело/Мототовары" },
   { slug: "pc-acc", name: "Аксессуары для компьютеров/ноутбуков" },

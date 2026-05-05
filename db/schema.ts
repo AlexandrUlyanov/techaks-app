@@ -24,6 +24,7 @@ export const leads = mysqlTable("leads", {
 
 export const categories = mysqlTable("categories", {
   id: serial("id").primaryKey(),
+  parentId: int("parent_id"), // Added for subcategories
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),

@@ -19,6 +19,7 @@ import LeadForm from "@/components/LeadForm";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
 import HeroInteractive from "@/components/HeroInteractive";
+import QuickShortcuts from "@/components/QuickShortcuts";
 
 const iconMap: Record<string, React.ElementType> = {
   Smartphone,
@@ -39,7 +40,8 @@ const defaultReviews = [
 
 export default function HomePage() {
   const { data: products = [] } = trpc.product.getAll.useQuery();
-  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: dbCategories = [] } = trpc.product.getCategories.useQuery();
+  const categories = dbCategories.filter(c => !c.parentId);
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
   const { data: posts = [] } = trpc.blog.getPublished.useQuery();
@@ -53,14 +55,14 @@ export default function HomePage() {
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
       <Hero />
+      <QuickShortcuts />
       {/* <HeroInteractive /> */}
 
       {/* Category Grid */}
-      <section className="py-24 bg-card border-t border-border">
+      <section className="py-16 bg-card border-t border-border">
         <div className="container-main">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div>
-              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Направления</span>
               <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                 КАТЕГОРИИ <span className="text-foreground/20">ТОВАРОВ</span>
               </h2>

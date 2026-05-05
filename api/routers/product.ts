@@ -127,6 +127,7 @@ export const productRouter = createRouter({
     .input(z.object({
       id: z.number().optional(),
       data: z.object({
+        parentId: z.number().nullable().optional(),
         slug: z.string(),
         name: z.string(),
         description: z.string().nullable(),
