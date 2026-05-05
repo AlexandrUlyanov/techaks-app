@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
-import { Loader2, Calendar, User, ArrowRight, BookOpen } from "lucide-react";
+import { Loader2, Calendar, ArrowRight, BookOpen } from "lucide-react";
 
 export default function BlogPage() {
   const { data: posts = [], isLoading } = trpc.blog.getPublished.useQuery();

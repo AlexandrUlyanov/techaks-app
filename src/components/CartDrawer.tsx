@@ -7,7 +7,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";

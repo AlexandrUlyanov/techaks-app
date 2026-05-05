@@ -3,12 +3,10 @@ import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, User as UserIcon, LogOut, Loader2, ChevronRight, Clock, MapPin, Star } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
-import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
 
 export default function AccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
-  const [showAuth, setShowAuth] = useState(false);
 
   const { data: orders = [], isLoading } = trpc.ecommerce.getUserOrders.useQuery(
     { phone: user?.phone || "" },
@@ -20,7 +18,7 @@ export default function AccountPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 bg-background">
-        <AuthModal onSuccess={() => setShowAuth(false)} />
+        <AuthModal />
       </div>
     );
   }

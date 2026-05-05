@@ -6,10 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   ArrowLeft, 
-  MapPin, 
   CreditCard, 
   CheckCircle2, 
-  ChevronRight,
   Truck,
   Building2,
   ShieldCheck,

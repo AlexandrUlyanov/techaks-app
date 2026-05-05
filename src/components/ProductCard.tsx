@@ -14,6 +14,7 @@ interface ProductCardProps {
     image: string;
     categoryId: number;
     categoryName?: string;
+    rating?: string | number | null;
   };
 }
 

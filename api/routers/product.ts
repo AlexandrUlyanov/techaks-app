@@ -22,7 +22,27 @@ const productSchema = z.object({
 export const productRouter = createRouter({
   getAll: publicQuery.query(async () => {
     const db = getDb();
-    return await db.select().from(products).orderBy(desc(products.createdAt));
+    return await db
+      .select({
+        id: products.id,
+        slug: products.slug,
+        name: products.name,
+        categoryId: products.categoryId,
+        price: products.price,
+        oldPrice: products.oldPrice,
+        badge: products.badge,
+        image: products.image,
+        description: products.description,
+        specs: products.specs as any,
+        inStock: products.inStock,
+        rating: products.rating,
+        reviewCount: products.reviewCount,
+        createdAt: products.createdAt,
+        categoryName: categories.name,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .orderBy(desc(products.createdAt));
   }),
 
   getBySlug: publicQuery
@@ -30,8 +50,25 @@ export const productRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const result = await db
-        .select()
+        .select({
+          id: products.id,
+          slug: products.slug,
+          name: products.name,
+          categoryId: products.categoryId,
+          price: products.price,
+          oldPrice: products.oldPrice,
+          badge: products.badge,
+          image: products.image,
+          description: products.description,
+          specs: products.specs as any,
+          inStock: products.inStock,
+          rating: products.rating,
+          reviewCount: products.reviewCount,
+          createdAt: products.createdAt,
+          categoryName: categories.name,
+        })
         .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(eq(products.slug, input.slug))
         .limit(1);
       return result[0] || null;

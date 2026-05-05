@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import {
   ArrowRight,
-  MapPin,
   Smartphone,
   Headphones,
   BatteryCharging,
@@ -15,10 +14,8 @@ import {
 import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
-import LeadForm from "@/components/LeadForm";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
-import HeroInteractive from "@/components/HeroInteractive";
 import QuickShortcuts from "@/components/QuickShortcuts";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -177,7 +174,7 @@ export default function HomePage() {
                   <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#05C3D4]/5 blur-[60px] rounded-full" />
                   <div className="relative z-10 flex-1">
                     <span className="inline-block px-3 py-1 bg-[#05C3D4]/10 text-[#05C3D4] text-[10px] font-black uppercase tracking-widest rounded-md mb-4">
-                      {promo.badge || "Акция"}
+                      Акция
                     </span>
                     <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">{promo.title}</h3>
                     <p className="mt-4 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
@@ -270,6 +267,7 @@ export default function HomePage() {
                 rating={review.rating} 
                 text={review.text} 
                 date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
+                source="Яндекс Карты"
               />
             ))}
           </div>

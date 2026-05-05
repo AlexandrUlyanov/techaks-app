@@ -22,7 +22,7 @@ interface Banner {
   link: string | null;
   active: boolean;
   sortOrder: number;
-  createdAt?: string;
+  createdAt?: string | Date;
 }
 
 export default function AdminBanners() {
@@ -218,12 +218,12 @@ export default function AdminBanners() {
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Краткое описание (подзаголовок)</label>
-                <textarea name="subtitle" defaultValue={editingBanner.subtitle} rows={2} placeholder="Краткое описание акции для списка..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] resize-none" />
+                <textarea name="subtitle" defaultValue={editingBanner.subtitle || undefined} rows={2} placeholder="Краткое описание акции для списка..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] resize-none" />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Полный текст акции (HTML поддерживается)</label>
-                <textarea name="content" defaultValue={editingBanner.content} rows={6} placeholder="Подробные условия, текст, списки..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] font-mono text-sm" />
+                <textarea name="content" defaultValue={editingBanner.content || undefined} rows={6} placeholder="Подробные условия, текст, списки..." className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-[#05C3D4] font-mono text-sm" />
               </div>
 
               <div className="space-y-1">

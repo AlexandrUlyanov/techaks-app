@@ -1,11 +1,10 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { 
   X, Search, ChevronRight, ChevronLeft, ArrowRight, LayoutGrid,
-  Smartphone, Car, Home, Laptop, Tv, Watch, Heart, Wrench, Wind, Gamepad2, Star, Tag,
-  ExternalLink
+  Smartphone, Car, Home, Laptop, Tv, Watch, Heart, Wrench, Wind, Gamepad2, Star, Tag
 } from "lucide-react";
-import type { Category, CategoryGroup, CategoryItem, PromoBlock, Brand } from "@/contracts/catalog.types";
+import type { CategoryGroup, CategoryItem, PromoBlock, Brand } from "@/contracts/catalog.types";
 import { catalogData } from "@/contracts/catalog.data";
 import { useCatalog } from "@/providers/CatalogProvider";
 import { useMediaQuery, useBodyScrollLock } from "@/hooks/use-catalog-menu";

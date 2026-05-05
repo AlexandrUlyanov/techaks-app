@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
+import { Phone, Mail, MapPin, Send } from "lucide-react";
 
 const catalogLinks = [
   { label: "Смартфоны", href: "/catalog?cat=smartfony" },

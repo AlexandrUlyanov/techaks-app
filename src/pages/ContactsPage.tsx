@@ -1,4 +1,4 @@
-import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
+import { Phone, Mail, MapPin, Send } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
 
 export default function ContactsPage() {

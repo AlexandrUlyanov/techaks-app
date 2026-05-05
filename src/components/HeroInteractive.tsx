@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { Phone, ArrowRight, MapPin, Send, Instagram } from "lucide-react";
+import { MapPin, Send, Instagram } from "lucide-react";
 
 export default function HeroInteractive() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,7 +59,7 @@ export default function HeroInteractive() {
       requestAnimationFrame(animateCursor);
     };
 
-    const cursorFrame = requestAnimationFrame(animateCursor);
+    requestAnimationFrame(animateCursor);
 
     const handleTouch = (e: TouchEvent) => {
       mx = e.touches[0].clientX;

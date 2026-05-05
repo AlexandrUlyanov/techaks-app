@@ -8,8 +8,7 @@ import {
   X,
   Eye,
   EyeOff,
-  Search,
-  FileText
+  Search
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,7 +21,7 @@ interface Post {
   category: string;
   image: string;
   published: boolean;
-  createdAt?: string;
+  createdAt?: string | Date;
 }
 
 export default function AdminBlog() {
@@ -56,7 +55,32 @@ export default function AdminBlog() {
     }
   });
 
-  // ... (handleFileUpload remains unchanged) ...
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.url) {
+        setEditingPost(prev => prev ? { ...prev, image: data.url } : { image: data.url });
+        toast.success("Изображение загружено");
+      } else {
+        throw new Error(data.error || "Ошибка загрузки");
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -154,7 +178,7 @@ export default function AdminBlog() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {new Date(post.createdAt).toLocaleDateString("ru-RU")}
+                  {post.createdAt ? new Date(post.createdAt).toLocaleDateString("ru-RU") : "-"}
                 </td>
                 <td className="px-6 py-4">
                   {post.published ? (
