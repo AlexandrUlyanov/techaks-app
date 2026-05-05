@@ -57,7 +57,7 @@ export default function Header() {
             </div>
 
             {/* Search */}
-            <div className="hidden md:flex items-center flex-1 max-w-xl h-12 bg-muted/50 border border-border rounded-2xl px-5 text-muted-foreground hover:border-[#05C3D4]/50 transition-all cursor-text group">
+            <div className="hidden md:flex items-center flex-1 max-w-xl h-11 bg-muted/50 border border-border rounded-xl px-4 text-muted-foreground hover:border-[#05C3D4]/50 transition-all cursor-text group">
               <Search size={18} className="mr-3 group-hover:text-[#05C3D4] transition-colors" />
               <input 
                 type="text" 
@@ -67,13 +67,13 @@ export default function Header() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 md:gap-4 ml-auto shrink-0">
-              <a href="tel:+79273750555" className="hidden lg:flex flex-col items-end mr-2">
+            <div className="flex items-center gap-2 md:gap-4 ml-auto shrink-0 h-11">
+              <a href="tel:+79273750555" className="hidden lg:flex flex-col items-end mr-2 justify-center">
                 <span className="text-xs font-black text-foreground">+7 (927) 375-05-55</span>
                 <span className="text-[9px] font-bold text-[#05C3D4] uppercase tracking-wider">Ежедневно 9-21</span>
               </a>
 
-              <div className="flex items-center gap-1 md:gap-2">
+              <div className="flex items-center gap-1 md:gap-2 h-full">
                 <button onClick={toggleTheme} className="p-2.5 text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted" aria-label="Toggle theme">
                   {mounted && theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
@@ -88,16 +88,13 @@ export default function Header() {
                   </button>
                 )}
 
-                <Link to="/checkout" className="flex items-center gap-3 px-3 md:px-4 h-11 bg-[#05C3D4] text-white dark:text-black rounded-xl hover:bg-[#27E6F2] transition-all group">
-                  <div className="relative">
-                    <ShoppingBag size={20} />
-                    {mounted && getItemCount() > 0 && (
-                      <span className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white text-black text-[10px] font-black flex items-center justify-center rounded-full border-2 border-[#05C3D4]">
-                        {getItemCount()}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">Корзина</span>
+                <Link to="/checkout" className="p-2.5 text-foreground/40 hover:text-[#05C3D4] transition-colors rounded-xl hover:bg-muted relative" aria-label="Корзина">
+                  <ShoppingBag size={22} />
+                  {mounted && getItemCount() > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#05C3D4] text-white dark:text-black text-[8px] font-black flex items-center justify-center rounded-full border border-background">
+                      {getItemCount()}
+                    </span>
+                  )}
                 </Link>
 
                 {/* Mobile Catalog Trigger */}
@@ -111,7 +108,7 @@ export default function Header() {
       </header>
 
       {/* Spacer */}
-      <div className="h-[80px] md:h-[90px]" />
+      <div className="h-[76px] md:h-[86px]" />
 
       {/* Auth Modal Overlay */}
       {authOpen && (

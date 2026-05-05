@@ -38,11 +38,11 @@ export function CatalogTrigger({ className = "" }: { className?: string }) {
   return (
     <button
       onClick={toggle}
-      className={`flex items-center gap-3 h-12 px-5 sm:px-6 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] transition-all active:scale-95 ${
+      className={`flex items-center gap-3 h-11 px-5 sm:px-6 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/10 ${
         isOpen 
-          ? "bg-[#05C3D4] text-white dark:text-black shadow-[0_0_30px_rgba(5,195,212,0.4)]" 
-          : "bg-muted text-foreground hover:bg-[#05C3D4]/10 hover:text-[#05C3D4] border border-border"
-      } ${className}`}
+          ? "bg-white text-[#05C3D4] dark:bg-background border-border" 
+          : "bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] border-transparent"
+      } border ${className}`}
     >
       <div className="relative w-5 h-5 flex items-center justify-center">
         {isOpen ? <X size={20} strokeWidth={2.5} /> : <LayoutGrid size={20} strokeWidth={2.5} />}
