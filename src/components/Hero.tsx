@@ -1,10 +1,19 @@
 import { useRef } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Smartphone, Watch, Headphones } from "lucide-react";
+import { ArrowRight, Smartphone, Watch, Headphones, Sparkles, Tag, Shield, Box } from "lucide-react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 
 gsap.registerPlugin(useGSAP);
+
+const shortcuts = [
+  { label: "Все новинки", icon: Sparkles, href: "/catalog?sort=new", color: "text-orange-500", bg: "bg-orange-500/10" },
+  { label: "Акции %", icon: Tag, href: "/promotions", color: "text-[#05C3D4]", bg: "bg-[#05C3D4]/10" },
+  { label: "Чехлы iPhone", icon: Shield, href: "/catalog?cat=cases", color: "text-blue-500", bg: "bg-blue-500/10" },
+  { label: "Наушники", icon: Headphones, href: "/catalog?cat=audio", color: "text-purple-500", bg: "bg-purple-500/10" },
+  { label: "Защита", icon: Smartphone, href: "/catalog?cat=glass", color: "text-green-500", bg: "bg-green-500/10" },
+  { label: "Уценка", icon: Box, href: "/catalog?cat=outlet", color: "text-red-500", bg: "bg-red-500/10" },
+];
 
 export default function Hero() {
   const container = useRef<HTMLDivElement>(null);
@@ -67,7 +76,7 @@ export default function Hero() {
           
           <h1 className="text-[clamp(3.5rem,8vw,6.5rem)] font-black leading-[0.92] tracking-[-0.04em] uppercase text-slate-900 dark:text-white font-heading m-0 flex flex-col">
             <span className="overflow-hidden pb-2"><span className="hero-title-line block">Техника</span></span>
-            <span className="overflow-hidden pb-2"><span className="hero-title-line block">и Аксесс<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#05C3D4] to-[#27E6F2]">уары</span></span></span>
+            <span className="overflow-hidden pb-2"><span className="hero-title-line block">и <span className="text-[#05C3D4]">Аксессуары</span></span></span>
           </h1>
           
           <p className="hero-sub mt-8 text-[clamp(1rem,2vw,1.25rem)] text-slate-600 dark:text-white/60 max-w-[500px] leading-relaxed font-medium">
@@ -90,18 +99,25 @@ export default function Hero() {
             </Link>
           </div>
 
-          {/* Trust Badges */}
-          <div className="hero-badges mt-20 flex flex-wrap gap-x-12 gap-y-6">
-            {[
-              { label: "Официально", value: "Партнёры брендов" },
-              { label: "В наличии", value: "Более 5000 товаров" },
-              { label: "Рейтинг", value: "4.9 Яндекс Карты" },
-            ].map((item, i) => (
-              <div key={i} className="badge-item flex flex-col gap-1.5 relative pl-4 border-l border-black/10 dark:border-white/10">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-white/40">{item.label}</span>
-                <span className="text-[13px] font-bold text-slate-900 dark:text-white tracking-tight">{item.value}</span>
-              </div>
-            ))}
+          {/* Quick Shortcuts */}
+          <div className="hero-badges mt-16 flex flex-wrap gap-3 max-w-[550px]">
+            {shortcuts.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={i}
+                  to={item.href}
+                  className="badge-item group flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/50 dark:bg-white/5 backdrop-blur-md border border-black/5 dark:border-white/10 hover:border-[#05C3D4]/40 hover:bg-white/80 dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-md active:scale-95"
+                >
+                  <div className={`w-8 h-8 rounded-xl ${item.bg} ${item.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                    <Icon size={16} />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
@@ -113,28 +129,66 @@ export default function Hero() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#05C3D4] to-blue-500 flex items-center justify-center text-white shadow-lg">
                 <Smartphone size={24} />
               </div>
-              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 bg-black/5 dark:bg-white/10 rounded-full text-slate-900 dark:text-white">Top</span>
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 bg-[#05C3D4]/10 text-[#05C3D4] rounded-full border border-[#05C3D4]/20">Хит продаж</span>
             </div>
-            <div className="translate-z-8">
-              <div className="h-2 w-1/3 bg-black/10 dark:bg-white/20 rounded-full mb-3" />
-              <div className="h-4 w-3/4 bg-black/20 dark:bg-white/40 rounded-full" />
+            
+            <div className="translate-z-8 flex flex-col gap-3 mt-auto">
+              <div className="flex flex-col gap-1">
+                 <span className="text-xs text-slate-500 dark:text-white/50 font-semibold">Смартфоны</span>
+                 <span className="text-lg font-bold text-slate-900 dark:text-white leading-tight">HONOR X8b 8GB/128GB</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                 <span className="text-yellow-500 text-sm">★</span> 4.8 <span className="text-slate-400 font-normal">(12 отзывов)</span>
+              </div>
+              <div className="flex items-end justify-between mt-2 pt-4 border-t border-black/5 dark:border-white/10">
+                 <div className="flex flex-col">
+                   <span className="text-sm text-slate-400 line-through decoration-slate-400/50">22 990 ₽</span>
+                   <span className="text-2xl font-black text-[#05C3D4]">19 990 ₽</span>
+                 </div>
+                 <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center hover:scale-110 hover:bg-[#05C3D4] dark:hover:bg-[#05C3D4] hover:text-white transition-all shadow-md cursor-pointer">
+                    <ArrowRight size={18} />
+                 </div>
+              </div>
             </div>
           </div>
           
           {/* Secondary Card 1 */}
-          <div className="floating-card absolute top-[45%] right-[40%] w-[200px] h-[220px] bg-white/40 dark:bg-black/40 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-3xl p-5 shadow-2xl flex flex-col justify-between transform rotate-y-[15deg] rotate-x-[-10deg] z-30" style={{ animationDelay: '0.2s', transformStyle: 'preserve-3d' }}>
-            <div className="w-10 h-10 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center text-[#05C3D4] translate-z-12">
-              <Watch size={20} />
+          <div className="floating-card absolute top-[45%] right-[40%] w-[220px] h-[240px] bg-white/40 dark:bg-[#15171A]/80 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-3xl p-5 shadow-2xl flex flex-col justify-between transform rotate-y-[15deg] rotate-x-[-10deg] z-30" style={{ animationDelay: '0.2s', transformStyle: 'preserve-3d' }}>
+            <div className="flex justify-between items-start translate-z-12">
+              <div className="w-10 h-10 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center text-[#05C3D4]">
+                <Watch size={20} />
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full border border-red-500/20">-15%</span>
             </div>
-            <div className="translate-z-8">
-              <div className="h-1.5 w-1/2 bg-black/10 dark:bg-white/10 rounded-full mb-2" />
-              <div className="h-3 w-full bg-black/20 dark:bg-white/20 rounded-full" />
+            
+            <div className="translate-z-8 flex flex-col gap-2 mt-auto">
+               <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Смарт-часы ISA SW-1</span>
+               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-900 dark:text-white">
+                 <span className="text-yellow-500">★</span> 4.5 <span className="text-slate-400 font-normal">в наличии</span>
+               </div>
+               <div className="flex items-center justify-between mt-2 pt-3 border-t border-black/5 dark:border-white/10">
+                 <span className="text-lg font-black text-slate-900 dark:text-white">4 990 ₽</span>
+                 <div className="px-3 py-1.5 rounded-lg bg-[#05C3D4] text-white text-[10px] font-bold uppercase tracking-wider hover:bg-[#27E6F2] transition-colors cursor-pointer shadow-sm">
+                   В корзину
+                 </div>
+               </div>
             </div>
           </div>
 
           {/* Secondary Card 2 */}
-          <div className="floating-card absolute top-[10%] right-[45%] w-[160px] h-[160px] bg-gradient-to-br from-[#05C3D4]/10 dark:from-[#05C3D4]/20 to-transparent backdrop-blur-md border border-[#05C3D4]/30 rounded-full p-4 shadow-xl flex items-center justify-center transform rotate-y-[-20deg] z-10" style={{ animationDelay: '0.4s', transformStyle: 'preserve-3d' }}>
-            <Headphones size={48} className="text-[#05C3D4] opacity-80 dark:opacity-50 translate-z-12" />
+          <div className="floating-card absolute top-[10%] right-[45%] w-[180px] h-[180px] bg-gradient-to-br from-[#05C3D4]/10 dark:from-[#05C3D4]/20 to-transparent backdrop-blur-xl border border-[#05C3D4]/30 rounded-3xl p-4 shadow-xl flex flex-col items-center justify-center gap-3 transform rotate-y-[-20deg] z-10" style={{ animationDelay: '0.4s', transformStyle: 'preserve-3d' }}>
+            <div className="w-12 h-12 rounded-full bg-white/50 dark:bg-black/20 flex items-center justify-center translate-z-12 shadow-inner">
+              <Headphones size={24} className="text-[#05C3D4] opacity-90" />
+            </div>
+            <div className="translate-z-8 text-center flex flex-col items-center gap-1 mt-1">
+              <span className="text-[10px] font-bold text-slate-700 dark:text-white/80 uppercase tracking-wider">HOCO EW81</span>
+              <span className="text-xs font-black text-[#05C3D4]">2 490 ₽</span>
+              <div className="mt-1 flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-500"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-[#05C3D4]"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-slate-200"></div>
+              </div>
+            </div>
           </div>
         </div>
 

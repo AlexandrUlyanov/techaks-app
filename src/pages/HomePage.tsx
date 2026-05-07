@@ -16,7 +16,6 @@ import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
-import QuickShortcuts from "@/components/QuickShortcuts";
 
 const iconMap: Record<string, React.ElementType> = {
   Smartphone,
@@ -52,7 +51,6 @@ export default function HomePage() {
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
       <Hero />
-      <QuickShortcuts />
       {/* <HeroInteractive /> */}
 
       {/* Category Grid */}
