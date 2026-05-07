@@ -45,16 +45,6 @@ module.exports = {
           "cyan-dark": "#0099A8",
           black: "#15171A",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
       },
       fontFamily: {
         heading: ['"Exo 2"', 'sans-serif'],
@@ -68,10 +58,45 @@ module.exports = {
         'md': "calc(var(--radius) - 2px)",
         'sm': "calc(var(--radius) - 4px)",
       },
-      boxShadow: {
-        xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-      },
       keyframes: {
+        "hero-blob": {
+          "0%, 100%": { 
+            transform: "translate(0, 0) scale(1)",
+            backgroundColor: "rgba(5, 195, 212, 0.15)" 
+          },
+          "33%": { 
+            transform: "translate(30px, -50px) scale(1.1)",
+            backgroundColor: "rgba(39, 230, 242, 0.2)" 
+          },
+          "66%": { 
+            transform: "translate(-20px, 20px) scale(0.9)",
+            backgroundColor: "rgba(0, 153, 168, 0.1)" 
+          },
+        },
+        "hero-blob-slow": {
+          "0%, 100%": { 
+            transform: "translate(0, 0) scale(1)",
+            backgroundColor: "rgba(70, 74, 80, 0.2)" 
+          },
+          "50%": { 
+            transform: "translate(-40px, 40px) scale(1.2)",
+            backgroundColor: "rgba(21, 23, 26, 0.3)" 
+          },
+        },
+        "hero-blob-reverse": {
+          "0%, 100%": { 
+            transform: "translate(0, 0) scale(1)",
+            backgroundColor: "rgba(5, 195, 212, 0.05)" 
+          },
+          "40%": { 
+            transform: "translate(50px, 30px) scale(0.8)",
+            backgroundColor: "rgba(0, 153, 168, 0.15)" 
+          },
+          "75%": { 
+            transform: "translate(-30px, -20px) scale(1.1)",
+            backgroundColor: "rgba(39, 230, 242, 0.05)" 
+          },
+        },
         "accordion-down": {
           from: { height: "0" },
           to: { height: "var(--radix-accordion-content-height)" },
@@ -86,6 +111,9 @@ module.exports = {
         },
       },
       animation: {
+        "hero-blob": "hero-blob 20s infinite ease-in-out",
+        "hero-blob-slow": "hero-blob-slow 25s infinite ease-in-out",
+        "hero-blob-reverse": "hero-blob-reverse 18s infinite ease-in-out",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite",

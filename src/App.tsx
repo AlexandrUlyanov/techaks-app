@@ -15,6 +15,7 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
+import SearchPage from "@/pages/SearchPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 
 // Admin Pages
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/search" element={<SearchPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>

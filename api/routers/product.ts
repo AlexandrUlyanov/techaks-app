@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
 import { products, categories, reviews, productStocks, stores } from "@db/schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc, desc, like, or } from "drizzle-orm";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -20,6 +20,42 @@ const productSchema = z.object({
 });
 
 export const productRouter = createRouter({
+  search: publicQuery
+    .input(z.object({ 
+      query: z.string(),
+      limit: z.number().optional().default(10)
+    }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const searchTerm = `%${input.query}%`;
+      return await db
+        .select({
+          id: products.id,
+          slug: products.slug,
+          name: products.name,
+          categoryId: products.categoryId,
+          price: products.price,
+          oldPrice: products.oldPrice,
+          badge: products.badge,
+          image: products.image,
+          description: products.description,
+          specs: products.specs as any,
+          inStock: products.inStock,
+          rating: products.rating,
+          reviewCount: products.reviewCount,
+          createdAt: products.createdAt,
+          categoryName: categories.name,
+        })
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(
+          or(
+            like(products.name, searchTerm),
+            like(products.description, searchTerm)
+          )
+        )
+        .limit(input.limit);
+    }),
   getAll: publicQuery.query(async () => {
     const db = getDb();
     return await db

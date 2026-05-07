@@ -3,11 +3,13 @@ import { ArrowRight } from "lucide-react";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-background">
       {/* Background Effects */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#05C3D4]/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#464A50]/20 blur-[100px] rounded-full" />
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        {/* Blobs with CSS animation */}
+        <div className="hero-blob blob-1" />
+        <div className="hero-blob blob-2" />
+        <div className="hero-blob blob-3" />
       </div>
 
       <div className="container-main relative z-10 py-24 md:py-32">
@@ -47,6 +49,63 @@ export default function Hero() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .hero-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(120px);
+          z-index: -1;
+          opacity: 0.35;
+          mix-blend-mode: soft-light;
+          pointer-events: none;
+        }
+
+        .blob-1 {
+          top: -10%;
+          right: -5%;
+          width: 60%;
+          height: 60%;
+          background: #05C3D4;
+          animation: float-1 20s infinite alternate ease-in-out;
+        }
+
+        .blob-2 {
+          bottom: -15%;
+          left: -5%;
+          width: 50%;
+          height: 50%;
+          background: #464A50;
+          animation: float-2 25s infinite alternate ease-in-out;
+        }
+
+        .blob-3 {
+          top: 20%;
+          left: 10%;
+          width: 30%;
+          height: 30%;
+          background: #05C3D4;
+          opacity: 0.15;
+          animation: float-3 18s infinite alternate ease-in-out;
+        }
+
+        @keyframes float-1 {
+          0% { transform: translate(0, 0) scale(1); background: #05C3D4; }
+          50% { transform: translate(50px, -40px) scale(1.1); background: #27E6F2; }
+          100% { transform: translate(-20px, 20px) scale(0.9); background: #0099A8; }
+        }
+
+        @keyframes float-2 {
+          0% { transform: translate(0, 0) scale(1); background: #464A50; }
+          50% { transform: translate(-60px, 50px) scale(1.15); background: #15171A; }
+          100% { transform: translate(30px, -20px) scale(0.95); background: #24272B; }
+        }
+
+        @keyframes float-3 {
+          0% { transform: translate(0, 0); opacity: 0.15; }
+          100% { transform: translate(40px, 60px); opacity: 0.25; }
+        }
+      `}</style>
     </section>
   );
 }
