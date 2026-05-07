@@ -203,7 +203,7 @@ export default function Header() {
       </header>
 
       {/* Spacer */}
-      <div className="h-[76px] md:h-[86px]" />
+      <div className="h-[76px]" />
 
       {/* Auth Modal Overlay */}
       {authOpen && (
