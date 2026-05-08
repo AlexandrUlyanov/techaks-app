@@ -160,9 +160,6 @@ export default function CatalogPage() {
               </h2>
               
               <div className="min-w-[240px]">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">
-                  Сортировка
-                </Label>
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as typeof sortBy)}
