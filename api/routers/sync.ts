@@ -35,15 +35,19 @@ function slugify(text: string): string {
 async function downloadImage(
   downloadUrl: string,
   authHeader: string,
-  imageId: string
+  imageId: string,
+  folderName: string = "general"
 ): Promise<string> {
-  const imagesDir = path.join(process.cwd(), "public", "images");
-  if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
+  const baseDir = process.env.NODE_ENV === "production" 
+    ? path.join(process.cwd(), "dist", "client", "images", folderName)
+    : path.join(process.cwd(), "public", "images", folderName);
+
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true });
   }
 
-  const filePath = path.join(imagesDir, `${imageId}.jpg`);
-  const relativePath = `/images/${imageId}.jpg`;
+  const filePath = path.join(baseDir, `${imageId}.jpg`);
+  const relativePath = `/images/${folderName}/${imageId}.jpg`;
 
   if (fs.existsSync(filePath)) {
     return relativePath;
@@ -105,7 +109,9 @@ export const syncRouter = createRouter({
         const res = await moyskladApi.get("/entity/productfolder", { headers: { Authorization: authHeader } });
         return res.data.rows.map((r: any) => {
           let parentId = null;
-          if (r.productFolder?.meta?.href) parentId = r.productFolder.meta.href.split("/").pop();
+          if (r.productFolder?.meta?.href) {
+            parentId = r.productFolder.meta.href.split("/").pop()?.split("?")[0];
+          }
           return { id: r.id, name: r.name, parentId };
         });
       } catch (error: any) {
@@ -286,11 +292,22 @@ export const syncRouter = createRouter({
           for (const item of items) {
             if (item.meta.type !== "product") continue;
             const msId = item.id;
-            const folderId = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
+            const folderIdRaw = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
+            const folderId = folderIdRaw ? folderIdRaw.split("?")[0] : null;
 
             if (input.selectedCategories && folderId && !input.selectedCategories.includes(folderId)) continue;
 
-            let categoryId = folderId ? allCategoryMap.get(folderId) : null;
+            let categoryId: number | null = null;
+            let folderSlug = "general";
+
+            if (folderId) {
+                const dbCategory = allCategories.find(c => c.msId === folderId);
+                if (dbCategory) {
+                    categoryId = dbCategory.id;
+                    folderSlug = dbCategory.slug;
+                }
+            }
+
             if (!categoryId && allCategories.length > 0) categoryId = allCategories[0].id;
 
             const price = input.syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
@@ -311,7 +328,7 @@ export const syncRouter = createRouter({
                 const imagesRes = await axios.get(item.images.meta.href, { headers: { Authorization: authHeader } });
                 if (imagesRes.data.rows?.length > 0) {
                   const mainImage = imagesRes.data.rows[0];
-                  if (mainImage.meta.downloadHref) imagePath = await downloadImage(mainImage.meta.downloadHref, authHeader, mainImage.id || msId);
+                  if (mainImage.meta.downloadHref) imagePath = await downloadImage(mainImage.meta.downloadHref, authHeader, mainImage.id || msId, folderSlug);
                 }
               } catch (err) {}
             }
