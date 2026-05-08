@@ -146,11 +146,11 @@ export default function Hero() {
 
           <h1 className="text-[clamp(3.5rem,8vw,6.5rem)] font-black leading-[0.92] tracking-[-0.04em] uppercase text-slate-900 dark:text-white font-heading m-0 flex flex-col">
             <span className="overflow-hidden pb-2">
-              <span className="hero-title-line block">Техника</span>
+              <span className="hero-title-line block">Техника и</span>
             </span>
             <span className="overflow-hidden pb-2">
               <span className="hero-title-line block">
-                и <span className="text-[#05C3D4]">Аксессуары</span>
+                <span className="text-[#05C3D4]">Аксессуары</span>
               </span>
             </span>
           </h1>
