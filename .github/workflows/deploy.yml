@@ -1,17 +1,14 @@
-name: Deploy to Google Cloud Run
+name: Deploy to REG.RU VPS
 
 on:
   push:
     branches:
       - master
-      - dev
-      - preprod
-      - prod
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: europe-west1
-  INSTANCE_NAME: marketing-461904:europe-west1:techaks-db-eu
+  SERVER_IP: "195.208.2.100"
+  SERVER_USER: "root"
+  APP_DIR: "/var/www/techaks"
 
 jobs:
   deploy:
@@ -21,73 +18,48 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set Environment Variables
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/prod" || "${{ github.ref }}" == "refs/heads/master" ]]; then
-            echo "SERVICE_NAME=techaks-app" >> $GITHUB_ENV
-            echo "DB_NAME=techaks_prod" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == "refs/heads/preprod" ]]; then
-            echo "SERVICE_NAME=techaks-app-preprod" >> $GITHUB_ENV
-            echo "DB_NAME=techaks_preprod" >> $GITHUB_ENV
-          else
-            echo "SERVICE_NAME=techaks-app-dev" >> $GITHUB_ENV
-            echo "DB_NAME=techaks_dev" >> $GITHUB_ENV
-          fi
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          host: ${{ env.SERVER_IP }}
+          username: ${{ env.SERVER_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            # 1. Ensure directory exists and clone/pull repository
+            if [ ! -d "${{ env.APP_DIR }}/.git" ]; then
+              echo "Initial clone..."
+              git clone https://github.com/AlexandrUlyanov/techaks-app.git ${{ env.APP_DIR }}
+            else
+              echo "Pulling latest changes..."
+              cd ${{ env.APP_DIR }}
+              git reset --hard
+              git pull origin master
+            fi
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+            # 2. Setup environment variables
+            cd ${{ env.APP_DIR }}/app
+            
+            # Create/Update .env file
+            cat << 'EOF' > .env
+            DATABASE_URL="mysql://techaks:TechAks_DB_Secure123!@127.0.0.1:3306/techaks_prod"
+            PORT=3000
+            NODE_ENV=production
+            EOF
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+            # 3. Install dependencies and Build
+            echo "Installing dependencies..."
+            npm ci
 
-      - name: Install Dependencies
-        run: npm ci
+            echo "Running database migrations..."
+            npm run db:push
 
-      - name: Start Cloud SQL Proxy & Run Migrations
-        run: |
-          # Download the Cloud SQL Auth Proxy
-          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.11.0/cloud-sql-proxy.linux.amd64
-          chmod +x cloud-sql-proxy
+            echo "Building application..."
+            npm run build
 
-          # Start the proxy in the background
-          ./cloud-sql-proxy ${{ env.INSTANCE_NAME }} --port 3306 &
-          PROXY_PID=$!
-          
-          # Wait a few seconds for the proxy to initialize
-          sleep 5
+            # 4. Restart PM2
+            echo "Restarting PM2 process..."
+            pm2 restart techaks || pm2 start dist/server/index.js --name "techaks"
+            
+            # Save PM2 state to start on boot
+            pm2 save
 
-          # Set the DATABASE_URL to use the local proxy
-          export DATABASE_URL="mysql://techaks_user:${{ secrets.DB_PASSWORD }}@127.0.0.1:3306/${{ env.DB_NAME }}"
-          
-          # Run the schema push
-          npm run db:push
-          
-          # Kill the proxy
-          kill $PROXY_PID
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
-
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-lib/$SERVICE_NAME:${{ github.sha }} .
-          docker push europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-lib/$SERVICE_NAME:${{ github.sha }}
-
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.SERVICE_NAME }}
-          image: europe-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-lib/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          region: ${{ env.REGION }}
-          flags: |
-            --allow-unauthenticated
-            --add-cloudsql-instances=${{ env.INSTANCE_NAME }}
-          env_vars: |
-            DATABASE_URL=mysql://techaks_user:${{ secrets.DB_PASSWORD }}@localhost/${{ env.DB_NAME }}?socketPath=/cloudsql/${{ env.INSTANCE_NAME }}
