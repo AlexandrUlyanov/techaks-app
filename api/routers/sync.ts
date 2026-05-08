@@ -4,6 +4,7 @@ import { getDb } from "../queries/connection";
 import * as schema from "../../db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import axios from "axios";
+import axiosRetry from 'axios-retry';
 import fs from "fs";
 import path from "path";
 
@@ -13,6 +14,20 @@ const moyskladApi = axios.create({
     "Accept-Encoding": "gzip",
   },
 });
+
+// Auto-retry for rate limits (429)
+axiosRetry(moyskladApi, { 
+  retries: 5, 
+  retryDelay: (retryCount) => {
+    console.log(`[Rate Limit] Retrying request... Attempt: ${retryCount}`);
+    return retryCount * 2000; // 2s, 4s, 6s...
+  },
+  retryCondition: (error) => {
+    return error.response?.status === 429 || error.response?.status === 500;
+  }
+});
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 function slugify(text: string): string {
     const ru: Record<string, string> = {
@@ -52,10 +67,23 @@ async function downloadImage(
   }
 
   try {
-    const res302 = await axios.get(downloadUrl, {
+    // Retry wrapper for image downloads
+    const getWithRetry = async (url: string, config: any, retries = 3): Promise<any> => {
+      try {
+        return await axios.get(url, config);
+      } catch (err: any) {
+        if (err.response?.status === 429 && retries > 0) {
+           await delay(3000);
+           return getWithRetry(url, config, retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    const res302 = await getWithRetry(downloadUrl, {
       headers: { Authorization: authHeader },
       maxRedirects: 0,
-      validateStatus: status => status >= 200 && status < 400,
+      validateStatus: (status: number) => status >= 200 && status < 400,
     });
 
     let finalUrl = downloadUrl;
@@ -66,7 +94,7 @@ async function downloadImage(
       useConfig = { headers: {} }; 
     }
 
-    const res = await axios.get(finalUrl, {
+    const res = await getWithRetry(finalUrl, {
       ...useConfig,
       responseType: "stream",
     });
@@ -206,7 +234,7 @@ export const syncRouter = createRouter({
               await db.update(schema.categories).set({ name: msFolder.name }).where(eq(schema.categories.id, existing[0].id));
               categoryMap.set(msFolder.id, existing[0].id);
             } else {
-              let baseSlug = slugify(msFolder.name).substring(0, 200);
+              const baseSlug = slugify(msFolder.name).substring(0, 200);
               let slug = baseSlug;
               let counter = 1;
               while ((await db.select().from(schema.categories).where(eq(schema.categories.slug, slug)).limit(1)).length > 0) {
@@ -288,6 +316,9 @@ export const syncRouter = createRouter({
           offset += limit;
 
           for (const item of items) {
+            // Respect API rate limits
+            await delay(100);
+
             if (item.meta.type !== "product") continue;
             const msId = item.id;
             const folderIdRaw = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
@@ -343,7 +374,7 @@ export const syncRouter = createRouter({
               if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
-              let baseSlug = slugify(item.name).substring(0, 200);
+              const baseSlug = slugify(item.name).substring(0, 200);
               let slug = baseSlug;
               let counter = 1;
               while ((await db.select().from(schema.products).where(eq(schema.products.slug, slug)).limit(1)).length > 0) {
