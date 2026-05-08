@@ -8,6 +8,7 @@ import {
   Store,
   FolderTree,
   Package,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
@@ -60,6 +61,13 @@ export default function AdminSyncMoySklad() {
     onSuccess: (data: any) => {
       toast.success(data.message);
       setStep(1); // Reset after success
+    },
+    onError: (error: any) => toast.error(error.message),
+  });
+
+  const wipeCatalogMutation = trpc.sync.wipeCatalog.useMutation({
+    onSuccess: (data: any) => {
+      toast.success(data.message);
     },
     onError: (error: any) => toast.error(error.message),
   });
@@ -389,6 +397,33 @@ export default function AdminSyncMoySklad() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Danger Zone */}
+      <div className="mt-12 pt-8 border-t border-red-100">
+        <h3 className="text-lg font-bold text-red-600 mb-4 flex items-center gap-2">
+          <Trash2 size={20} />
+          Опасная зона
+        </h3>
+        <div className="bg-red-50 border border-red-100 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <h4 className="font-bold text-red-900">Полная очистка каталога</h4>
+            <p className="text-sm text-red-700 mt-1">
+              Это действие удалит все товары, категории, отзывы и остатки из базы данных. Отменить это действие невозможно.
+            </p>
+          </div>
+          <button 
+            onClick={() => {
+              if (window.confirm("Вы уверены, что хотите ПОЛНОСТЬЮ очистить каталог? Все товары и категории будут удалены.")) {
+                wipeCatalogMutation.mutate();
+              }
+            }}
+            disabled={wipeCatalogMutation.isPending}
+            className="whitespace-nowrap px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all disabled:opacity-50"
+          >
+            {wipeCatalogMutation.isPending ? "Удаление..." : "Удалить всё и очистить базу"}
+          </button>
+        </div>
       </div>
     </div>
   );

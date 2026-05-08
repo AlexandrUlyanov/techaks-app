@@ -100,6 +100,21 @@ export const syncRouter = createRouter({
     return await db.select().from(schema.syncLogs).orderBy(desc(schema.syncLogs.createdAt)).limit(50);
   }),
 
+  wipeCatalog: publicQuery.mutation(async () => {
+    const db = getDb();
+    try {
+      // Delete in order to respect dependencies
+      await db.execute(sql`DELETE FROM product_stocks`);
+      await db.execute(sql`DELETE FROM reviews`);
+      await db.execute(sql`DELETE FROM order_items`);
+      await db.execute(sql`DELETE FROM products`);
+      await db.execute(sql`DELETE FROM categories`);
+      return { success: true, message: "Каталог успешно очищен" };
+    } catch (error: any) {
+      throw new Error("Ошибка при очистке каталога: " + error.message);
+    }
+  }),
+
   runSync: publicQuery
     .input(z.object({
       login: z.string(),
