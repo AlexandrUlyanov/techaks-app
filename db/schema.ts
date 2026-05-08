@@ -12,7 +12,7 @@ import {
 
 export const leads = mysqlTable("leads", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 512 }).notNull(),
   phone: varchar("phone", { length: 20 }).notNull(),
   message: text("message"),
   type: varchar("type", { length: 50 }).notNull().default("callback"),
@@ -26,7 +26,7 @@ export const categories = mysqlTable("categories", {
   parentId: int("parent_id"), // Added for subcategories
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
   slug: varchar("slug", { length: 255 }).notNull().unique(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 512 }).notNull(),
   description: text("description"),
   icon: varchar("icon", { length: 50 }),
   sortOrder: int("sort_order").notNull().default(0),
@@ -36,7 +36,7 @@ export const products = mysqlTable("products", {
   id: serial("id").primaryKey(),
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
   slug: varchar("slug", { length: 255 }).notNull().unique(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 512 }).notNull(),
   categoryId: int("category_id").notNull(),
   price: int("price").notNull(),
   oldPrice: int("old_price"),
@@ -54,7 +54,7 @@ export const products = mysqlTable("products", {
 
 export const stores = mysqlTable("stores", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 512 }).notNull(),
   address: varchar("address", { length: 255 }).notNull(),
   hours: varchar("hours", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
