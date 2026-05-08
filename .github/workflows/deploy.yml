@@ -37,7 +37,7 @@ jobs:
             fi
 
             # 2. Setup environment variables
-            cd ${{ env.APP_DIR }}/app
+            cd ${{ env.APP_DIR }}
             
             # Create/Update .env file
             cat << 'EOF' > .env
