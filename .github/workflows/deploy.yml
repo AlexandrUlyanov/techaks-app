@@ -42,6 +42,36 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Start Cloud SQL Proxy & Run Migrations
+        run: |
+          # Download the Cloud SQL Auth Proxy
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.11.0/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+          # Start the proxy in the background
+          ./cloud-sql-proxy ${{ env.INSTANCE_NAME }} --port 3306 &
+          PROXY_PID=$!
+          
+          # Wait a few seconds for the proxy to initialize
+          sleep 5
+
+          # Set the DATABASE_URL to use the local proxy
+          export DATABASE_URL="mysql://techaks_user:${{ secrets.DB_PASSWORD }}@127.0.0.1:3306/${{ env.DB_NAME }}"
+          
+          # Run the schema push
+          npm run db:push
+          
+          # Kill the proxy
+          kill $PROXY_PID
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev
 
