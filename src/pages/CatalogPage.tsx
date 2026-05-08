@@ -184,8 +184,8 @@ export default function CatalogPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {sortedProducts.map(product => (
-                    <ProductCard key={product.id} product={product as any} />
+                  {sortedProducts.map((product: any) => (
+                    <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
                 {sortedProducts.length === 0 && (

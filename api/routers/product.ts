@@ -69,6 +69,7 @@ export const productRouter = createRouter({
     return await db
       .select({
         id: products.id,
+        msId: products.msId,
         slug: products.slug,
         name: products.name,
         categoryId: products.categoryId,
@@ -215,8 +216,31 @@ export const productRouter = createRouter({
     .input(z.object({ categorySlug: z.string() }))
     .query(async ({ input }) => {
       const db = getDb();
+
+      const selectFields = {
+        id: products.id,
+        msId: products.msId,
+        slug: products.slug,
+        name: products.name,
+        categoryId: products.categoryId,
+        price: products.price,
+        oldPrice: products.oldPrice,
+        badge: products.badge,
+        image: products.image,
+        description: products.description,
+        specs: products.specs,
+        inStock: products.inStock,
+        rating: products.rating,
+        reviewCount: products.reviewCount,
+        createdAt: products.createdAt,
+        categoryName: categories.name,
+      };
+
       if (input.categorySlug === "all") {
-        return await db.select().from(products);
+        return await db
+          .select(selectFields)
+          .from(products)
+          .leftJoin(categories, eq(products.categoryId, categories.id));
       }
 
       const allCats = await db.select().from(categories);
@@ -236,8 +260,9 @@ export const productRouter = createRouter({
       const targetIds = [targetCat.id, ...getDescendants(targetCat.id)];
 
       return await db
-        .select()
+        .select(selectFields)
         .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`);
     }),
 
