@@ -74,17 +74,6 @@ export default app;
 if (env.isProduction) {
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");
-  const { migrate } = await import("drizzle-orm/mysql2/migrator");
-  const { getDb } = await import("./queries/connection");
-
-  // Run migrations
-  try {
-    console.log("Running database migrations...");
-    await migrate(getDb() as any, { migrationsFolder: "./db/migrations" });
-    console.log("Migrations completed successfully.");
-  } catch (error) {
-    console.error("Migration failed:", error);
-  }
 
   serveStaticFiles(app);
 
