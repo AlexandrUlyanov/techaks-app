@@ -115,11 +115,8 @@ export default function ProductPage() {
       </section>
 
       {/* Header Title */}
-      <section className="pt-12 pb-8 border-b border-border">
+      <section className="pt-12 pb-4">
         <div className="container-main">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-            {product.categoryName || "Товар"}
-          </span>
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
             {product.name}
           </h1>
