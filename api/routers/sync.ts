@@ -39,7 +39,7 @@ async function downloadImage(
   folderName: string = "general"
 ): Promise<string> {
   const baseDir = process.env.NODE_ENV === "production" 
-    ? path.join(process.cwd(), "dist", "client", "images", folderName)
+    ? path.join(process.cwd(), "dist", "public", "images", folderName)
     : path.join(process.cwd(), "public", "images", folderName);
 
   if (!fs.existsSync(baseDir)) {
