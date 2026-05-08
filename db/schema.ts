@@ -38,7 +38,6 @@ export const products = mysqlTable("products", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   categoryId: int("category_id").notNull(),
-...
   price: int("price").notNull(),
   oldPrice: int("old_price"),
   badge: varchar("badge", { length: 50 }),
