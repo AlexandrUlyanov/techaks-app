@@ -258,15 +258,15 @@ export const syncRouter = createRouter({
           for (const item of items) {
             if (item.meta.type !== "product") continue;
             const msId = item.id;
-            let folderId = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
+            const folderId = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
 
             if (input.selectedCategories && folderId && !input.selectedCategories.includes(folderId)) continue;
 
             let categoryId = folderId ? allCategoryMap.get(folderId) : null;
             if (!categoryId && allCategories.length > 0) categoryId = allCategories[0].id;
 
-            let price = input.syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
-            let inStock = input.syncStocks ? (item.stock || 0) > 0 : true;
+            const price = input.syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
+            const inStock = input.syncStocks ? (item.stock || 0) > 0 : true;
 
             const specs: Record<string, string> = {};
             if (item.attributes) {
