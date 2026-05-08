@@ -3,7 +3,8 @@ import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
 import { Label } from "@/components/ui/label";
-import { FolderTree, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { CategoryIcon } from "@/lib/category-icons";
 
 export default function CatalogPage() {
   const navigate = useNavigate();
@@ -118,7 +119,12 @@ export default function CatalogPage() {
                       className="flex flex-col p-6 bg-white/5 border border-border rounded-2xl hover:border-[#05C3D4] hover:bg-white/10 transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3 mb-4">
-                        <FolderTree size={24} className="text-muted-foreground group-hover:text-[#05C3D4] transition-colors" />
+                        <CategoryIcon 
+                          name={cat.name} 
+                          slug={cat.slug} 
+                          size={24} 
+                          className="text-muted-foreground group-hover:text-[#05C3D4] transition-colors" 
+                        />
                         <span className="text-sm font-bold uppercase tracking-wider group-hover:text-[#05C3D4] transition-colors line-clamp-2">
                           {cat.name}
                         </span>
