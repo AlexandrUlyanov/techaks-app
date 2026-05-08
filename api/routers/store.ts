@@ -23,10 +23,12 @@ export const storeRouter = createRouter({
   }),
 
   upsert: publicQuery
-    .input(z.object({
-      id: z.number().optional(),
-      data: storeSchema
-    }))
+    .input(
+      z.object({
+        id: z.number().optional(),
+        data: storeSchema,
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb();
       if (input.id) {

@@ -8,12 +8,15 @@ export default function ContactsPage() {
       <section className="relative py-20 md:py-32 overflow-hidden border-b border-white/5">
         <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
         <div className="container-main relative z-10">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Связь</span>
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">
+            Связь
+          </span>
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-white">
             КОНТАКТЫ <span className="text-white/20">ТЕХАКС</span>
           </h1>
           <p className="mt-8 text-lg text-white/40 max-w-xl font-medium leading-relaxed">
-            Мы на связи ежедневно. Выбирайте удобный способ общения или заходите в гости.
+            Мы на связи ежедневно. Выбирайте удобный способ общения или заходите
+            в гости.
           </p>
         </div>
       </section>
@@ -30,14 +33,18 @@ export default function ContactsPage() {
                   <Phone size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">Телефон</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                    Телефон
+                  </span>
                   <a
                     href="tel:+79273750555"
                     className="text-2xl md:text-3xl font-black text-white hover:text-[#05C3D4] transition-colors font-heading tracking-tight"
                   >
                     +7 (927) 375-05-55
                   </a>
-                  <p className="mt-2 text-sm font-bold text-white/40 uppercase tracking-widest">Ежедневно 9:00–21:00</p>
+                  <p className="mt-2 text-sm font-bold text-white/40 uppercase tracking-widest">
+                    Ежедневно 9:00–21:00
+                  </p>
                 </div>
               </div>
 
@@ -47,8 +54,12 @@ export default function ContactsPage() {
                   <Mail size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">E-mail</span>
-                  <span className="text-xl md:text-2xl font-bold text-white/80">info@techaks.ru</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                    E-mail
+                  </span>
+                  <span className="text-xl md:text-2xl font-bold text-white/80">
+                    info@techaks.ru
+                  </span>
                 </div>
               </div>
 
@@ -58,7 +69,9 @@ export default function ContactsPage() {
                   <Send size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">Telegram</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                    Telegram
+                  </span>
                   <a
                     href="https://t.me/tech_aks"
                     target="_blank"
@@ -78,12 +91,20 @@ export default function ContactsPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">Магазин 1</p>
-                      <p className="text-lg font-bold text-white/80 leading-tight">пр. Строителей, 50А</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
+                        Магазин 1
+                      </p>
+                      <p className="text-lg font-bold text-white/80 leading-tight">
+                        пр. Строителей, 50А
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">Магазин 2</p>
-                      <p className="text-lg font-bold text-white/80 leading-tight">ул. Генерала Глазунова, 1</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
+                        Магазин 2
+                      </p>
+                      <p className="text-lg font-bold text-white/80 leading-tight">
+                        ул. Генерала Глазунова, 1
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -91,7 +112,9 @@ export default function ContactsPage() {
 
               {/* Messengers */}
               <div className="pt-12 border-t border-white/5">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mb-6">Быстрые сообщения</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mb-6">
+                  Быстрые сообщения
+                </h3>
                 <div className="flex flex-wrap gap-4">
                   <a
                     href="https://t.me/tech_aks"

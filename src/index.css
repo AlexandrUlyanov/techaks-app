@@ -57,10 +57,17 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
-    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-    transition: background-color 0.4s ease, color 0.4s ease;
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    transition:
+      background-color 0.4s ease,
+      color 0.4s ease;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading tracking-tight;
   }
 }
@@ -69,11 +76,11 @@
   .container-main {
     @apply max-w-[1320px] mx-auto px-4 md:px-6 lg:px-8;
   }
-  
+
   .glow-cyan {
     box-shadow: 0 0 20px rgba(5, 195, 212, 0.15);
   }
-  
+
   .glow-cyan-hover:hover {
     box-shadow: 0 0 25px rgba(5, 195, 212, 0.25);
   }

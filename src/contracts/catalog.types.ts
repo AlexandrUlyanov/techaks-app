@@ -42,7 +42,7 @@ export type Category = {
   promo?: PromoBlock[];
 };
 
-export type CatalogAnalyticsEvent = 
+export type CatalogAnalyticsEvent =
   | "catalog_open"
   | "catalog_close"
   | "catalog_category_hover"

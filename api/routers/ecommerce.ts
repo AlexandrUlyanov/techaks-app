@@ -7,29 +7,37 @@ import { eq } from "drizzle-orm";
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
-    .input(z.object({
-      customer: z.object({
-        phone: z.string().min(10),
-        fullName: z.string().min(2),
-        email: z.string().email().optional().nullable(),
-      }),
-      items: z.array(z.object({
-        productId: z.number(),
-        quantity: z.number().min(1),
-        price: z.number(),
-      })),
-      deliveryType: z.enum(["pickup", "delivery"]),
-      address: z.string().optional().nullable(),
-      paymentType: z.enum(["cash", "card", "sbp"]),
-      totalPrice: z.number(),
-    }))
+    .input(
+      z.object({
+        customer: z.object({
+          phone: z.string().min(10),
+          fullName: z.string().min(2),
+          email: z.string().email().optional().nullable(),
+        }),
+        items: z.array(
+          z.object({
+            productId: z.number(),
+            quantity: z.number().min(1),
+            price: z.number(),
+          })
+        ),
+        deliveryType: z.enum(["pickup", "delivery"]),
+        address: z.string().optional().nullable(),
+        paymentType: z.enum(["cash", "card", "sbp"]),
+        totalPrice: z.number(),
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb();
-      
+
       // 1. Find or create user
       let userId: number | null = null;
-      const existingUser = await db.select().from(users).where(eq(users.phone, input.customer.phone)).limit(1);
-      
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.phone, input.customer.phone))
+        .limit(1);
+
       if (existingUser[0]) {
         userId = existingUser[0].id;
       } else {
@@ -73,9 +81,16 @@ export const ecommerceRouter = createRouter({
     .input(z.object({ phone: z.string() }))
     .query(async ({ input }) => {
       const db = getDb();
-      const user = await db.select().from(users).where(eq(users.phone, input.phone)).limit(1);
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.phone, input.phone))
+        .limit(1);
       if (!user[0]) return [];
 
-      return await db.select().from(orders).where(eq(orders.userId, user[0].id));
+      return await db
+        .select()
+        .from(orders)
+        .where(eq(orders.userId, user[0].id));
     }),
 });

@@ -19,16 +19,23 @@ export default function SearchPage() {
         <div className="container-main">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/50">
-              <Link to="/" className="hover:text-[#05C3D4] transition-colors">Главная</Link>
+              <Link to="/" className="hover:text-[#05C3D4] transition-colors">
+                Главная
+              </Link>
               <span>/</span>
               <span>Поиск</span>
             </div>
             <h1 className="text-3xl md:text-5xl font-black uppercase font-heading tracking-tighter text-foreground">
-              РЕЗУЛЬТАТЫ <span className="text-muted-foreground/30">ПОИСКА</span>
+              РЕЗУЛЬТАТЫ{" "}
+              <span className="text-muted-foreground/30">ПОИСКА</span>
             </h1>
             <p className="text-muted-foreground font-medium">
               {query ? (
-                <>Найдено товаров по запросу «<span className="text-foreground font-black">{query}</span>»: {results.length}</>
+                <>
+                  Найдено товаров по запросу «
+                  <span className="text-foreground font-black">{query}</span>»:{" "}
+                  {results.length}
+                </>
               ) : (
                 "Введите запрос для поиска товаров"
               )}
@@ -43,11 +50,13 @@ export default function SearchPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
-              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Ищем лучшие предложения...</p>
+              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Ищем лучшие предложения...
+              </p>
             </div>
           ) : results.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {results.map((product) => (
+              {results.map(product => (
                 <ProductCard key={product.id} product={product as any} />
               ))}
             </div>
@@ -57,9 +66,12 @@ export default function SearchPage() {
                 <Search size={48} />
               </div>
               <div className="space-y-4">
-                <h2 className="text-2xl font-black uppercase font-heading tracking-tight">Ничего не нашли</h2>
+                <h2 className="text-2xl font-black uppercase font-heading tracking-tight">
+                  Ничего не нашли
+                </h2>
                 <p className="text-muted-foreground font-medium">
-                  К сожалению, по вашему запросу товаров не найдено. Попробуйте изменить запрос или поискать в каталоге.
+                  К сожалению, по вашему запросу товаров не найдено. Попробуйте
+                  изменить запрос или поискать в каталоге.
                 </p>
               </div>
               <div className="pt-8 flex flex-col gap-4">

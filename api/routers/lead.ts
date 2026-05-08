@@ -11,7 +11,9 @@ export const leadRouter = createRouter({
         name: z.string().min(1, "Имя обязательно").max(255),
         phone: z.string().min(5, "Телефон обязателен").max(20),
         message: z.string().max(1000).optional(),
-        type: z.enum(["callback", "availability", "question", "service"]).default("callback"),
+        type: z
+          .enum(["callback", "availability", "question", "service"])
+          .default("callback"),
         source: z.string().max(100).default("website"),
         metadata: z.any().optional(),
       })
@@ -32,10 +34,12 @@ export const leadRouter = createRouter({
 
   list: publicQuery
     .input(
-      z.object({
-        limit: z.number().min(1).max(100).default(50),
-        offset: z.number().min(0).default(0),
-      }).optional()
+      z
+        .object({
+          limit: z.number().min(1).max(100).default(50),
+          offset: z.number().min(0).default(0),
+        })
+        .optional()
     )
     .query(async ({ input }) => {
       const db = getDb();
@@ -60,13 +64,18 @@ export const leadRouter = createRouter({
     }),
 
   updateStatus: publicQuery
-    .input(z.object({ 
-      id: z.number(), 
-      status: z.enum(["new", "processing", "completed", "cancelled"]) 
-    }))
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.enum(["new", "processing", "completed", "cancelled"]),
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb();
-      await db.update(leads).set({ status: input.status }).where(eq(leads.id, input.id));
+      await db
+        .update(leads)
+        .set({ status: input.status })
+        .where(eq(leads.id, input.id));
       return { success: true };
     }),
 

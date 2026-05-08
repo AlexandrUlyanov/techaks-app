@@ -43,14 +43,19 @@ export const bannerRouter = createRouter({
     }),
 
   upsert: publicQuery
-    .input(z.object({
-      id: z.number().optional(),
-      data: bannerSchema
-    }))
+    .input(
+      z.object({
+        id: z.number().optional(),
+        data: bannerSchema,
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb();
       if (input.id) {
-        await db.update(banners).set(input.data).where(eq(banners.id, input.id));
+        await db
+          .update(banners)
+          .set(input.data)
+          .where(eq(banners.id, input.id));
         return { success: true, id: input.id };
       } else {
         const result = await db.insert(banners).values(input.data);

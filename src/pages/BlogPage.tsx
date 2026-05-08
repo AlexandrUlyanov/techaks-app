@@ -12,12 +12,15 @@ export default function BlogPage() {
         <div className="absolute inset-0 bg-[#15171A] z-0" />
         <div className="absolute top-0 right-0 w-[50%] h-full bg-[#05C3D4]/5 blur-[120px] rounded-full" />
         <div className="container-main relative z-10 text-center">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Блог ТЕХАКС</span>
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">
+            Блог ТЕХАКС
+          </span>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase font-heading leading-none tracking-tighter text-white">
             СОВЕТЫ <span className="text-white/20">И ОБЗОРЫ</span>
           </h1>
           <p className="mt-8 text-lg text-white/40 max-w-2xl mx-auto font-medium">
-            Обзоры новинок, советы по выбору аксессуаров и последние новости магазинов ТЕХАКС.
+            Обзоры новинок, советы по выбору аксессуаров и последние новости
+            магазинов ТЕХАКС.
           </p>
         </div>
       </section>
@@ -32,22 +35,27 @@ export default function BlogPage() {
           ) : posts.length === 0 ? (
             <div className="text-center py-24 bg-[#24272B] rounded-[2rem] border border-white/5">
               <BookOpen size={64} className="mx-auto text-white/10 mb-6" />
-              <p className="text-xl font-black uppercase font-heading text-white/20 tracking-widest">Статей пока нет</p>
-              <Link to="/catalog" className="mt-8 inline-flex items-center gap-3 px-8 py-4 bg-[#05C3D4] text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan">
+              <p className="text-xl font-black uppercase font-heading text-white/20 tracking-widest">
+                Статей пока нет
+              </p>
+              <Link
+                to="/catalog"
+                className="mt-8 inline-flex items-center gap-3 px-8 py-4 bg-[#05C3D4] text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan"
+              >
                 В каталог
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {posts.map((post) => (
-                <Link 
-                  key={post.id} 
+              {posts.map(post => (
+                <Link
+                  key={post.id}
                   to={`/blog/${post.slug}`}
                   className="group bg-[#24272B] border border-white/5 rounded-[2rem] overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 flex flex-col h-full"
                 >
                   <div className="h-64 overflow-hidden relative">
-                    <img 
-                      src={post.image} 
+                    <img
+                      src={post.image}
                       alt={post.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />

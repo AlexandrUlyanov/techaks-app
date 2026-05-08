@@ -26,6 +26,10 @@ import AdminStores from "@/pages/admin/AdminStores";
 import AdminLeads from "@/pages/admin/AdminLeads";
 import AdminBanners from "@/pages/admin/AdminBanners";
 import AdminBlog from "@/pages/admin/AdminBlog";
+import AdminCategories from "@/pages/admin/AdminCategories";
+import SyncLayout from "@/pages/admin/sync/SyncLayout";
+import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
+import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
 
 export default function App() {
   const location = useLocation();
@@ -57,11 +61,21 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="leads" element={<AdminLeads />} />
+            <Route path="categories" element={<AdminCategories />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="stores" element={<AdminStores />} />
             <Route path="banners" element={<AdminBanners />} />
             <Route path="blog" element={<AdminBlog />} />
-            <Route path="settings" element={<div>Настройки системы (в разработке)</div>} />
+
+            <Route path="sync" element={<SyncLayout />}>
+              <Route index element={<AdminSyncMenu />} />
+              <Route path="moysklad" element={<AdminSyncMoySklad />} />
+            </Route>
+
+            <Route
+              path="settings"
+              element={<div>Настройки системы (в разработке)</div>}
+            />
           </Route>
         </Routes>
       </main>

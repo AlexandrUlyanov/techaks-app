@@ -30,7 +30,8 @@ export default function HeroInteractive() {
     let mx = window.innerWidth / 2,
       my = window.innerHeight / 2;
 
-    let rx = mx, ry = my;
+    let rx = mx,
+      ry = my;
 
     const handleMouseMove = (e: MouseEvent) => {
       mx = e.clientX;
@@ -40,7 +41,7 @@ export default function HeroInteractive() {
         cursorRef.current.style.left = `${e.clientX}px`;
         cursorRef.current.style.top = `${e.clientY}px`;
       }
-      
+
       // Parallax effect
       if (!isMob() && heroContentRef.current) {
         const x = (e.clientX / window.innerWidth - 0.5) * 8;
@@ -113,7 +114,14 @@ export default function HeroInteractive() {
         });
     };
 
-    const drawHex = (cx: number, cy: number, sz: number, a: number, col: string, rot: number) => {
+    const drawHex = (
+      cx: number,
+      cy: number,
+      sz: number,
+      a: number,
+      col: string,
+      rot: number
+    ) => {
       ctx.save();
       ctx.globalAlpha = a;
       ctx.strokeStyle = col;
@@ -123,7 +131,9 @@ export default function HeroInteractive() {
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
         const ang = (Math.PI / 3) * i;
-        i === 0 ? ctx.moveTo(sz * Math.cos(ang), sz * Math.sin(ang)) : ctx.lineTo(sz * Math.cos(ang), sz * Math.sin(ang));
+        i === 0
+          ? ctx.moveTo(sz * Math.cos(ang), sz * Math.sin(ang))
+          : ctx.lineTo(sz * Math.cos(ang), sz * Math.sin(ang));
       }
       ctx.closePath();
       ctx.stroke();
@@ -136,21 +146,35 @@ export default function HeroInteractive() {
     const animate = () => {
       animationFrame = requestAnimationFrame(animate);
       ctx.clearRect(0, 0, W, H);
-      const g = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.45, W * 0.75);
+      const g = ctx.createRadialGradient(
+        W * 0.5,
+        H * 0.45,
+        0,
+        W * 0.5,
+        H * 0.45,
+        W * 0.75
+      );
       g.addColorStop(0, "rgba(21,43,96,0.55)");
       g.addColorStop(0.5, "rgba(15,30,66,0.3)");
       g.addColorStop(1, "rgba(11,22,48,0)");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
 
-      hexes.forEach((h) => {
+      hexes.forEach(h => {
         h.phase += h.speed * 60;
         h.rot += h.rotV;
         const x = (h.cx + Math.sin(h.phase) * 0.06) * W,
           y = (h.cy + Math.cos(h.phase * 0.65) * 0.05) * H;
         const a = (0.05 + 0.04 * Math.sin(h.phase)) * (h.gold ? 1.5 : 1);
         drawHex(x, y, h.size, a, h.gold ? "#F5A623" : "#1A3A80", h.rot);
-        drawHex(x, y, h.size * 0.55, a * 0.5, h.gold ? "#F5A623" : "#1A3A80", h.rot + Math.PI / 6);
+        drawHex(
+          x,
+          y,
+          h.size * 0.55,
+          a * 0.5,
+          h.gold ? "#F5A623" : "#1A3A80",
+          h.rot + Math.PI / 6
+        );
       });
 
       const sk = isMob() ? 2 : 1;
@@ -177,7 +201,7 @@ export default function HeroInteractive() {
         }
       }
 
-      particles.forEach((p) => {
+      particles.forEach(p => {
         p.pulse += 0.025;
         const md = Math.hypot(p.x - mx, p.y - my),
           pull = md < 140 ? 1 - md / 140 : 0;
@@ -190,7 +214,10 @@ export default function HeroInteractive() {
         if (p.x < -5) p.x = W + 5;
         if (p.x > W + 5) p.x = -5;
         ctx.save();
-        ctx.globalAlpha = Math.min(p.alpha * (0.75 + 0.25 * Math.sin(p.pulse)) + pull * 0.35, 1);
+        ctx.globalAlpha = Math.min(
+          p.alpha * (0.75 + 0.25 * Math.sin(p.pulse)) + pull * 0.35,
+          1
+        );
         if (p.gold) {
           ctx.shadowBlur = 10 + pull * 18;
           ctx.shadowColor = "#F5A623";
@@ -292,18 +319,36 @@ export default function HeroInteractive() {
             }
           `}</style>
 
-          <div ref={cursorRef} className="hero-interactive-cursor hidden md:block" />
-          <div ref={cursorRingRef} className="hero-interactive-cursor-ring hidden md:block" />
+          <div
+            ref={cursorRef}
+            className="hero-interactive-cursor hidden md:block"
+          />
+          <div
+            ref={cursorRingRef}
+            className="hero-interactive-cursor-ring hidden md:block"
+          />
 
-          <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
-          
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 z-0 pointer-events-none"
+          />
+
           {/* Overlays */}
-          <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03] bg-repeat" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize: '200px 200px' }} />
+          <div
+            className="absolute inset-0 z-1 pointer-events-none opacity-[0.03] bg-repeat"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+              backgroundSize: "200px 200px",
+            }}
+          />
           <div className="absolute inset-0 z-2 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(11,22,48,0.88)_100%)]" />
           <div className="absolute left-0 w-full h-[1px] z-20 pointer-events-none bg-[linear-gradient(90deg,transparent_0%,rgba(245,166,35,0.55)_40%,rgba(255,107,53,0.9)_50%,rgba(245,166,35,0.55)_60%,transparent_100%)] scan-line-anim" />
 
           <div className="relative z-30 container-main min-h-screen flex flex-col items-center justify-center text-center px-4 md:px-8">
-            <div ref={heroContentRef} className="transition-transform duration-200 ease-out flex flex-col items-center">
+            <div
+              ref={heroContentRef}
+              className="transition-transform duration-200 ease-out flex flex-col items-center"
+            >
               {/* Tagline */}
               <div className="flex items-center gap-3 md:gap-4 mb-6 animate-fade-up [animation-delay:0.6s]">
                 <div className="w-6 md:w-9 h-[1px] bg-[#F5A623] opacity-50" />
@@ -316,14 +361,19 @@ export default function HeroInteractive() {
               {/* Title */}
               <h1 className="text-[36px] sm:text-[48px] md:text-[72px] lg:text-[88px] font-black leading-[1.0] text-white uppercase mb-6 animate-fade-up [animation-delay:0.85s]">
                 Техника и<br />
-                <span className="hero-title-shimmer">аксессуары</span><br />
+                <span className="hero-title-shimmer">аксессуары</span>
+                <br />
                 для жизни
               </h1>
 
               {/* Subtitle */}
               <p className="max-w-[500px] text-sm md:text-lg font-light leading-relaxed text-white/55 mb-8 animate-fade-up [animation-delay:1.1s]">
-                Смартфоны, наушники, зарядки, гаджеты.<br />
-                <strong className="text-white/90 font-semibold">HOCO · Remax · ISA.</strong> Поклейка стёкол на месте.
+                Смартфоны, наушники, зарядки, гаджеты.
+                <br />
+                <strong className="text-white/90 font-semibold">
+                  HOCO · Remax · ISA.
+                </strong>{" "}
+                Поклейка стёкол на месте.
               </p>
 
               {/* Badges */}
@@ -332,9 +382,13 @@ export default function HeroInteractive() {
                   { label: "Рейтинг", value: "4.9 ★" },
                   { label: "Товаров", value: "500+" },
                   { label: "Цены", value: "от производителей" },
-                ].map((badge) => (
-                  <div key={badge.label} className="px-3 py-1.5 border border-[#F5A623]/30 rounded-full bg-[#F5A623]/5 backdrop-blur-md text-[10px] font-semibold tracking-wider text-white/65 uppercase">
-                    {badge.label} <span className="text-[#F5A623]">{badge.value}</span>
+                ].map(badge => (
+                  <div
+                    key={badge.label}
+                    className="px-3 py-1.5 border border-[#F5A623]/30 rounded-full bg-[#F5A623]/5 backdrop-blur-md text-[10px] font-semibold tracking-wider text-white/65 uppercase"
+                  >
+                    {badge.label}{" "}
+                    <span className="text-[#F5A623]">{badge.value}</span>
                   </div>
                 ))}
               </div>
@@ -347,9 +401,7 @@ export default function HeroInteractive() {
                 >
                   Каталог
                 </Link>
-                <button
-                  className="flex-1 min-w-[160px] py-4 bg-white/5 border border-white/20 text-white rounded-full text-xs font-semibold uppercase tracking-widest backdrop-blur-md transition-all hover:border-[#F5A623] hover:bg-[#F5A623]/10 hover:-translate-y-1 active:scale-95"
-                >
+                <button className="flex-1 min-w-[160px] py-4 bg-white/5 border border-white/20 text-white rounded-full text-xs font-semibold uppercase tracking-widest backdrop-blur-md transition-all hover:border-[#F5A623] hover:bg-[#F5A623]/10 hover:-translate-y-1 active:scale-95">
                   Узнать наличие
                 </button>
               </div>
@@ -363,8 +415,12 @@ export default function HeroInteractive() {
                 <MapPin size={16} className="text-[#F5A623]" />
               </div>
               <div className="text-left">
-                <div className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">Магазин №1</div>
-                <div className="text-[11px] text-white/55">пр. Строителей, 50А</div>
+                <div className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">
+                  Магазин №1
+                </div>
+                <div className="text-[11px] text-white/55">
+                  пр. Строителей, 50А
+                </div>
               </div>
             </div>
             <div className="bg-[#0B1630]/75 backdrop-blur-md border border-[#F5A623]/15 rounded-xl p-4 flex items-center gap-3 min-w-[260px] hover:border-[#F5A623]/40 hover:-translate-x-1 transition-all cursor-pointer">
@@ -372,8 +428,12 @@ export default function HeroInteractive() {
                 <MapPin size={16} className="text-[#F5A623]" />
               </div>
               <div className="text-left">
-                <div className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">Магазин №2</div>
-                <div className="text-[11px] text-white/55">ул. Ген. Глазунова, 1</div>
+                <div className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">
+                  Магазин №2
+                </div>
+                <div className="text-[11px] text-white/55">
+                  ул. Ген. Глазунова, 1
+                </div>
               </div>
             </div>
           </div>
@@ -382,21 +442,28 @@ export default function HeroInteractive() {
             {[
               { icon: Send, label: "Telegram", color: "#27A7E5" },
               { icon: Instagram, label: "Instagram", color: "#E1306C" },
-            ].map((social) => (
+            ].map(social => (
               <a
                 key={social.label}
                 href="#"
                 className="flex items-center gap-3 px-4 py-2 bg-[#0B1630]/65 backdrop-blur-md border border-white/10 rounded-full hover:border-[#F5A623] hover:translate-x-1 transition-all"
               >
-                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: social.color }} />
-                <span className="text-[11px] font-bold text-white/55 uppercase tracking-widest">{social.label}</span>
+                <div
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: social.color }}
+                />
+                <span className="text-[11px] font-bold text-white/55 uppercase tracking-widest">
+                  {social.label}
+                </span>
               </a>
             ))}
           </div>
 
           {/* Scroll Hint */}
           <div className="hidden md:flex flex-col items-center gap-3 absolute bottom-10 left-1/2 -translate-x-1/2 z-30 opacity-40 animate-fade-up [animation-delay:2.2s]">
-            <span className="font-['Space_Mono'] text-[9px] tracking-[0.2em] text-white/55 uppercase">Прокрутите вниз</span>
+            <span className="font-['Space_Mono'] text-[9px] tracking-[0.2em] text-white/55 uppercase">
+              Прокрутите вниз
+            </span>
             <div className="w-[22px] h-[36px] border border-white/20 rounded-xl flex justify-center p-1.5">
               <div className="w-[3px] h-[7px] bg-[#F5A623] rounded-full animate-bounce" />
             </div>

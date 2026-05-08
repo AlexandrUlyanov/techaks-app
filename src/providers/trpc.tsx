@@ -31,10 +31,12 @@ export function TRPCProvider({ children }: { children: ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <CatalogProvider>
-            {children}
-          </CatalogProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+        >
+          <CatalogProvider>{children}</CatalogProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>

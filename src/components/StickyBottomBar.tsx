@@ -13,24 +13,36 @@ export default function StickyBottomBar() {
     { label: "Главная", icon: Home, href: "/" },
     { label: "Каталог", icon: LayoutGrid, onClick: toggle, isActive: isOpen },
     { label: "Поиск", icon: Search, href: "#search", isAction: true },
-    { label: "Корзина", icon: ShoppingBag, href: "/checkout", count: itemCount },
+    {
+      label: "Корзина",
+      icon: ShoppingBag,
+      href: "/checkout",
+      count: itemCount,
+    },
     { label: "Профиль", icon: User, href: "/account" },
   ];
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-background/80 backdrop-blur-2xl border-t border-border px-2 pb-safe-offset-2 pt-2 flex justify-around shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300">
-      {navItems.map((item) => {
+      {navItems.map(item => {
         const Icon = item.icon;
-        const isActive = item.isActive !== undefined ? item.isActive : location.pathname === item.href;
-        
+        const isActive =
+          item.isActive !== undefined
+            ? item.isActive
+            : location.pathname === item.href;
+
         const content = (
-          <div className={`p-1 rounded-xl transition-all ${isActive ? "bg-[#05C3D4]/10 scale-110" : ""}`}>
+          <div
+            className={`p-1 rounded-xl transition-all ${isActive ? "bg-[#05C3D4]/10 scale-110" : ""}`}
+          >
             <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
           </div>
         );
 
         const label = (
-          <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? "opacity-100" : "opacity-60"}`}>
+          <span
+            className={`text-[9px] font-black uppercase tracking-wider ${isActive ? "opacity-100" : "opacity-60"}`}
+          >
             {item.label}
           </span>
         );
@@ -41,7 +53,11 @@ export default function StickyBottomBar() {
 
         if (item.onClick) {
           return (
-            <button key={item.label} onClick={item.onClick} className={className}>
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className={className}
+            >
               {content}
               {label}
             </button>

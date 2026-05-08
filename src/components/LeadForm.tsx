@@ -32,7 +32,7 @@ export default function LeadForm({
       setPhone("");
       setMessage("");
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(error.message || "Произошла ошибка. Попробуйте позже.");
     },
   });
@@ -60,7 +60,13 @@ export default function LeadForm({
     : `${inputBase} bg-black/5 border-black/10 text-black focus:border-black/30 placeholder:text-black/30`;
 
   return (
-    <div className={dark ? "bg-[#15171A] border border-white/5 rounded-3xl p-10" : "bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-10"}>
+    <div
+      className={
+        dark
+          ? "bg-[#15171A] border border-white/5 rounded-3xl p-10"
+          : "bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-10"
+      }
+    >
       <h3
         className={`text-2xl font-black font-heading uppercase tracking-tight leading-none ${dark ? "text-white" : "text-black"}`}
       >
@@ -77,7 +83,7 @@ export default function LeadForm({
           type="text"
           placeholder="Ваше имя"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={e => setName(e.target.value)}
           className={inputClass}
           required
         />
@@ -85,14 +91,14 @@ export default function LeadForm({
           type="tel"
           placeholder="Телефон"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={e => setPhone(e.target.value)}
           className={inputClass}
           required
         />
         <textarea
           placeholder="Сообщение (опционально)"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={e => setMessage(e.target.value)}
           rows={3}
           className={`${inputClass} py-4 h-auto resize-none`}
         />
@@ -100,8 +106,8 @@ export default function LeadForm({
           type="submit"
           disabled={createLead.isPending}
           className={`w-full h-14 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all glow-cyan active:scale-95 disabled:opacity-50 ${
-            dark 
-              ? "bg-[#05C3D4] text-black hover:bg-[#27E6F2]" 
+            dark
+              ? "bg-[#05C3D4] text-black hover:bg-[#27E6F2]"
               : "bg-black text-white hover:bg-black/90"
           }`}
         >

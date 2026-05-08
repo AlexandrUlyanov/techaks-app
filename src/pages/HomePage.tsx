@@ -29,9 +29,24 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 const defaultReviews = [
-  { author: "Анна К.", rating: 5, text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.", createdAt: new Date("2024-04-15").toISOString() },
-  { author: "Михаил С.", rating: 5, text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!", createdAt: new Date("2024-04-10").toISOString() },
-  { author: "Елена В.", rating: 5, text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!", createdAt: new Date("2024-04-05").toISOString() },
+  {
+    author: "Анна К.",
+    rating: 5,
+    text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.",
+    createdAt: new Date("2024-04-15").toISOString(),
+  },
+  {
+    author: "Михаил С.",
+    rating: 5,
+    text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!",
+    createdAt: new Date("2024-04-10").toISOString(),
+  },
+  {
+    author: "Елена В.",
+    rating: 5,
+    text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!",
+    createdAt: new Date("2024-04-05").toISOString(),
+  },
 ];
 
 export default function HomePage() {
@@ -41,7 +56,7 @@ export default function HomePage() {
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
   const { data: posts = [] } = trpc.blog.getPublished.useQuery();
-  
+
   const productWeek = products.find(p => p.badge === "Акция") || products[0];
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
@@ -62,13 +77,16 @@ export default function HomePage() {
                 КАТЕГОРИИ <span className="text-foreground/20">ТОВАРОВ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
+            <Link
+              to="/catalog"
+              className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+            >
               Смотреть все разделы
             </Link>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {categories.slice(0, 8).map((cat) => {
+            {categories.slice(0, 8).map(cat => {
               const Icon = iconMap[cat.icon || "Smartphone"] || Smartphone;
               return (
                 <Link
@@ -83,8 +101,12 @@ export default function HomePage() {
                     <div className="w-14 h-14 rounded-xl bg-foreground/5 flex items-center justify-center text-[#05C3D4] mb-8 group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black transition-all duration-300">
                       <Icon size={28} />
                     </div>
-                    <h3 className="text-xl font-black uppercase font-heading tracking-tight text-foreground">{cat.name}</h3>
-                    <p className="mt-3 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{cat.description}</p>
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight text-foreground">
+                      {cat.name}
+                    </h3>
+                    <p className="mt-3 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">
+                      {cat.description}
+                    </p>
                     <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4] opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                       Перейти <ArrowRight size={12} />
                     </div>
@@ -115,7 +137,9 @@ export default function HomePage() {
               <div className="flex-1 w-full">
                 <div className="inline-flex items-center gap-2 mb-6">
                   <span className="w-2 h-2 rounded-full bg-[#05C3D4] animate-pulse" />
-                  <span className="text-[#05C3D4] text-xs font-black uppercase tracking-[0.3em]">Товар недели</span>
+                  <span className="text-[#05C3D4] text-xs font-black uppercase tracking-[0.3em]">
+                    Товар недели
+                  </span>
                 </div>
                 <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                   {productWeek.name}
@@ -125,14 +149,18 @@ export default function HomePage() {
                 </p>
                 <div className="mt-10 flex items-center gap-8">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Цена сегодня</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                      Цена сегодня
+                    </span>
                     <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
                       {productWeek.price.toLocaleString("ru-RU")} ₽
                     </span>
                   </div>
                   {productWeek.oldPrice && (
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Старая цена</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
+                        Старая цена
+                      </span>
                       <span className="text-2xl text-foreground/30 line-through font-bold">
                         {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
                       </span>
@@ -157,14 +185,17 @@ export default function HomePage() {
         <section id="promos" className="py-24 bg-background">
           <div className="container-main">
             <div className="text-center mb-16">
-              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Digital Витрина</span>
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                Digital Витрина
+              </span>
               <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                АКЦИИ <span className="text-foreground/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
+                АКЦИИ{" "}
+                <span className="text-foreground/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
               </h2>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {activeBanners.map((promo) => (
+              {activeBanners.map(promo => (
                 <div
                   key={promo.id}
                   className="group relative flex flex-col sm:flex-row items-center gap-10 bg-card border border-border rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl"
@@ -174,8 +205,12 @@ export default function HomePage() {
                     <span className="inline-block px-3 py-1 bg-[#05C3D4]/10 text-[#05C3D4] text-[10px] font-black uppercase tracking-widest rounded-md mb-4">
                       Акция
                     </span>
-                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">{promo.title}</h3>
-                    <p className="mt-4 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">{promo.subtitle}</p>
+                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">
+                      {promo.title}
+                    </h3>
+                    <p className="mt-4 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">
+                      {promo.subtitle}
+                    </p>
                     <Link
                       to={`/promotions/${promo.slug}`}
                       className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground hover:text-[#05C3D4] transition-colors"
@@ -202,13 +237,15 @@ export default function HomePage() {
       <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
           <div className="text-center mb-16">
-            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Локации</span>
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+              Локации
+            </span>
             <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
               НАШИ <span className="text-foreground/20">МАГАЗИНЫ</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {stores.map((store) => (
+            {stores.map(store => (
               <StoreCard
                 key={store.id}
                 name={store.name}
@@ -229,7 +266,9 @@ export default function HomePage() {
       <section id="reviews" className="py-24 bg-background">
         <div className="container-main">
           <div className="text-center mb-16">
-            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Обратная связь</span>
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+              Обратная связь
+            </span>
             <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
               ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
             </h2>
@@ -240,18 +279,28 @@ export default function HomePage() {
             {[
               { platform: "Яндекс Карты", rating: "4.9", count: "59 отзывов" },
               { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
-            ].map((item) => (
+            ].map(item => (
               <div key={item.platform} className="text-center group">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 group-hover:text-[#05C3D4] transition-colors">{item.platform}</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 group-hover:text-[#05C3D4] transition-colors">
+                  {item.platform}
+                </div>
                 <div className="flex items-center gap-4 justify-center">
                   <div className="flex gap-1">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={20} className="fill-[#05C3D4] text-[#05C3D4]" />
+                      <Star
+                        key={i}
+                        size={20}
+                        className="fill-[#05C3D4] text-[#05C3D4]"
+                      />
                     ))}
                   </div>
-                  <span className="text-4xl font-black font-heading text-foreground">{item.rating}</span>
+                  <span className="text-4xl font-black font-heading text-foreground">
+                    {item.rating}
+                  </span>
                 </div>
-                <div className="mt-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">{item.count}</div>
+                <div className="mt-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  {item.count}
+                </div>
               </div>
             ))}
           </div>
@@ -259,11 +308,11 @@ export default function HomePage() {
           {/* Review Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {defaultReviews.map((review, i) => (
-              <ReviewCard 
-                key={i} 
-                name={review.author} 
-                rating={review.rating} 
-                text={review.text} 
+              <ReviewCard
+                key={i}
+                name={review.author}
+                rating={review.rating}
+                text={review.text}
                 date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
                 source="Яндекс Карты"
               />
@@ -289,18 +338,23 @@ export default function HomePage() {
           <div className="container-main">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
               <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Блог ТЕХАКС</span>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Блог ТЕХАКС
+                </span>
                 <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                   СОВЕТЫ <span className="text-foreground/20">И ОБЗОРЫ</span>
                 </h2>
               </div>
-              <Link to="/blog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
+              <Link
+                to="/blog"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+              >
                 Читать все статьи
               </Link>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {latestPosts.map((post) => (
+              {latestPosts.map(post => (
                 <Link
                   key={post.id}
                   to={`/blog/${post.slug}`}
@@ -342,18 +396,23 @@ export default function HomePage() {
         <div className="container-main">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div>
-              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Витрина</span>
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                Витрина
+              </span>
               <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
                 ПОПУЛЯРНЫЕ <span className="text-foreground/20">ТОВАРЫ</span>
               </h2>
             </div>
-            <Link to="/catalog" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2">
+            <Link
+              to="/catalog"
+              className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+            >
               Смотреть весь каталог
             </Link>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.slice(0, 8).map((product) => (
+            {products.slice(0, 8).map(product => (
               <ProductCard key={product.id} product={product as any} />
             ))}
           </div>

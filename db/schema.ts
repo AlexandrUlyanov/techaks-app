@@ -44,7 +44,9 @@ export const products = mysqlTable("products", {
   description: text("description").notNull(),
   specs: json("specs").notNull(),
   inStock: boolean("in_stock").notNull().default(true),
-  rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("0.0"),
+  rating: decimal("rating", { precision: 2, scale: 1 })
+    .notNull()
+    .default("0.0"),
   reviewCount: int("review_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -55,7 +57,9 @@ export const stores = mysqlTable("stores", {
   address: varchar("address", { length: 255 }).notNull(),
   hours: varchar("hours", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
-  rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("0.0"),
+  rating: decimal("rating", { precision: 2, scale: 1 })
+    .notNull()
+    .default("0.0"),
   reviewCount: int("review_count").notNull().default(0),
   image: varchar("image", { length: 255 }).notNull(),
   mapUrl: text("map_url"),
@@ -109,10 +113,16 @@ export const orders = mysqlTable("orders", {
   userId: int("user_id"),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
   totalPrice: int("total_price").notNull(),
-  deliveryType: varchar("delivery_type", { length: 20 }).notNull().default("pickup"), // pickup, delivery
+  deliveryType: varchar("delivery_type", { length: 20 })
+    .notNull()
+    .default("pickup"), // pickup, delivery
   address: text("address"),
-  paymentType: varchar("payment_type", { length: 20 }).notNull().default("cash"), // cash, card, sbp
-  paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("unpaid"), // unpaid, paid
+  paymentType: varchar("payment_type", { length: 20 })
+    .notNull()
+    .default("cash"), // cash, card, sbp
+  paymentStatus: varchar("payment_status", { length: 20 })
+    .notNull()
+    .default("unpaid"), // unpaid, paid
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -129,4 +139,13 @@ export const productStocks = mysqlTable("product_stocks", {
   productId: int("product_id").notNull(),
   storeId: int("store_id").notNull(),
   quantity: int("quantity").notNull().default(0),
+});
+
+export const syncLogs = mysqlTable("sync_logs", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 50 }).notNull(), // 'moysklad', etc.
+  status: varchar("status", { length: 20 }).notNull(), // 'success', 'error', 'running'
+  message: text("message"),
+  details: json("details"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });

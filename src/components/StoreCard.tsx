@@ -45,11 +45,15 @@ export default function StoreCard({
 
       {/* Info */}
       <div className="p-8">
-        <h3 className="text-2xl font-black uppercase font-heading tracking-tight text-foreground">{address}</h3>
-        
+        <h3 className="text-2xl font-black uppercase font-heading tracking-tight text-foreground">
+          {address}
+        </h3>
+
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-border">
           <div className="space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 block">Время работы</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 block">
+              Время работы
+            </span>
             <div className="flex items-center gap-2 text-foreground/80">
               <Clock size={16} className="text-[#05C3D4]" />
               <span className="text-sm font-bold">{hours}</span>
@@ -57,7 +61,9 @@ export default function StoreCard({
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 block">Телефон</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 block">
+              Телефон
+            </span>
             <div className="flex items-center gap-2 text-foreground/80">
               <Phone size={16} className="text-[#05C3D4]" />
               <span className="text-sm font-bold">{phone}</span>
@@ -69,11 +75,15 @@ export default function StoreCard({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 bg-foreground/5 px-3 py-1.5 rounded-lg">
               <Star size={16} className="fill-[#05C3D4] text-[#05C3D4]" />
-              <span className="text-sm font-black text-foreground">{rating}</span>
+              <span className="text-sm font-black text-foreground">
+                {rating}
+              </span>
             </div>
-            <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest">{reviews}</span>
+            <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest">
+              {reviews}
+            </span>
           </div>
-          
+
           <div className="flex gap-3">
             <a
               href={`https://yandex.ru/maps/?text=${encodeURIComponent(address + " Пенза")}`}

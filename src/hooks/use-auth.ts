@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface User {
   id: number;
@@ -19,16 +19,16 @@ interface AuthStore {
 
 export const useAuth = create<AuthStore>()(
   persist(
-    (set) => ({
+    set => ({
       user: null,
       token: null,
       isAuthenticated: false,
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-      setToken: (token) => set({ token }),
+      setUser: user => set({ user, isAuthenticated: !!user }),
+      setToken: token => set({ token }),
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
     }),
     {
-      name: 'techaks-auth',
+      name: "techaks-auth",
     }
   )
 );

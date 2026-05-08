@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -47,54 +47,54 @@ module.exports = {
         },
       },
       fontFamily: {
-        heading: ['"Exo 2"', 'sans-serif'],
-        sans: ['Manrope', 'sans-serif'],
-        mono: ['"Space Mono"', 'monospace'],
+        heading: ['"Exo 2"', "sans-serif"],
+        sans: ["Manrope", "sans-serif"],
+        mono: ['"Space Mono"', "monospace"],
       },
       borderRadius: {
-        '2xl': '28px',
-        'xl': '18px',
-        'lg': "var(--radius)",
-        'md': "calc(var(--radius) - 2px)",
-        'sm': "calc(var(--radius) - 4px)",
+        "2xl": "28px",
+        xl: "18px",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "hero-blob": {
-          "0%, 100%": { 
+          "0%, 100%": {
             transform: "translate(0, 0) scale(1)",
-            backgroundColor: "rgba(5, 195, 212, 0.15)" 
+            backgroundColor: "rgba(5, 195, 212, 0.15)",
           },
-          "33%": { 
+          "33%": {
             transform: "translate(30px, -50px) scale(1.1)",
-            backgroundColor: "rgba(39, 230, 242, 0.2)" 
+            backgroundColor: "rgba(39, 230, 242, 0.2)",
           },
-          "66%": { 
+          "66%": {
             transform: "translate(-20px, 20px) scale(0.9)",
-            backgroundColor: "rgba(0, 153, 168, 0.1)" 
+            backgroundColor: "rgba(0, 153, 168, 0.1)",
           },
         },
         "hero-blob-slow": {
-          "0%, 100%": { 
+          "0%, 100%": {
             transform: "translate(0, 0) scale(1)",
-            backgroundColor: "rgba(70, 74, 80, 0.2)" 
+            backgroundColor: "rgba(70, 74, 80, 0.2)",
           },
-          "50%": { 
+          "50%": {
             transform: "translate(-40px, 40px) scale(1.2)",
-            backgroundColor: "rgba(21, 23, 26, 0.3)" 
+            backgroundColor: "rgba(21, 23, 26, 0.3)",
           },
         },
         "hero-blob-reverse": {
-          "0%, 100%": { 
+          "0%, 100%": {
             transform: "translate(0, 0) scale(1)",
-            backgroundColor: "rgba(5, 195, 212, 0.05)" 
+            backgroundColor: "rgba(5, 195, 212, 0.05)",
           },
-          "40%": { 
+          "40%": {
             transform: "translate(50px, 30px) scale(0.8)",
-            backgroundColor: "rgba(0, 153, 168, 0.15)" 
+            backgroundColor: "rgba(0, 153, 168, 0.15)",
           },
-          "75%": { 
+          "75%": {
             transform: "translate(-30px, -20px) scale(1.1)",
-            backgroundColor: "rgba(39, 230, 242, 0.05)" 
+            backgroundColor: "rgba(39, 230, 242, 0.05)",
           },
         },
         "accordion-down": {
@@ -121,4 +121,4 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-}
+};

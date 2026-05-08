@@ -42,10 +42,12 @@ export const blogRouter = createRouter({
     }),
 
   upsert: publicQuery
-    .input(z.object({
-      id: z.number().optional(),
-      data: postSchema
-    }))
+    .input(
+      z.object({
+        id: z.number().optional(),
+        data: postSchema,
+      })
+    )
     .mutation(async ({ input }) => {
       const db = getDb();
       if (input.id) {

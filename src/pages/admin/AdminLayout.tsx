@@ -1,24 +1,28 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { 
-  LayoutDashboard, 
-  Package, 
-  Store, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Package,
+  Store,
+  Settings,
+  LogOut,
   Home,
   ChevronRight,
   MessageSquare,
   Gift,
-  FileText
+  FileText,
+  RefreshCw,
+  FolderTree,
 } from "lucide-react";
 
 const navItems = [
   { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
   { name: "Заявки", href: "/admin/leads", icon: MessageSquare },
+  { name: "Категории", href: "/admin/categories", icon: FolderTree },
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Магазины", href: "/admin/stores", icon: Store },
   { name: "Акции", href: "/admin/banners", icon: Gift },
   { name: "Блог", href: "/admin/blog", icon: FileText },
+  { name: "Синхронизации", href: "/admin/sync", icon: RefreshCw },
   { name: "Настройки", href: "/admin/settings", icon: Settings },
 ];
 
@@ -41,16 +45,19 @@ export default function AdminLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 mt-4">
-          {navItems.map((item) => {
+          {navItems.map(item => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.href;
+            const isActive =
+              location.pathname === item.href ||
+              (item.href === "/admin/sync" &&
+                location.pathname.startsWith("/admin/sync"));
             return (
               <Link
                 key={item.href}
                 to={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  isActive 
-                    ? "bg-[#05C3D4] text-black shadow-[0_0_15px_rgba(5,195,212,0.15)]" 
+                  isActive
+                    ? "bg-[#05C3D4] text-black shadow-[0_0_15px_rgba(5,195,212,0.15)]"
                     : "text-white/40 hover:bg-white/5 hover:text-white"
                 }`}
               >
@@ -84,12 +91,15 @@ export default function AdminLayout() {
             <span>Администрирование</span>
             <ChevronRight size={12} className="text-gray-300" />
             <span className="text-black">
-              {navItems.find(n => n.href === location.pathname)?.name || "Профиль"}
+              {navItems.find(n => n.href === location.pathname)?.name ||
+                "Профиль"}
             </span>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <div className="text-sm font-semibold text-[#0a0a0a]">Администратор</div>
+              <div className="text-sm font-semibold text-[#0a0a0a]">
+                Администратор
+              </div>
               <div className="text-xs text-gray-500">admin@techaks.ru</div>
             </div>
             <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-bold">

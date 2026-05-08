@@ -1,14 +1,22 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import type { Category, CatalogAnalyticsEvent, CatalogEventData } from "@/contracts/catalog.types";
+import type {
+  Category,
+  CatalogAnalyticsEvent,
+  CatalogEventData,
+} from "@/contracts/catalog.types";
 
 export function useCatalogMenu(initialCategories: Category[]) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(initialCategories[0]?.id || "");
+  const [activeCategoryId, setActiveCategoryId] = useState<string>(
+    initialCategories[0]?.id || ""
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [mobilePath, setMobilePath] = useState<string[]>([]); // Array of category IDs
 
-  const activeCategory = useMemo(() => 
-    initialCategories.find(c => c.id === activeCategoryId) || initialCategories[0],
+  const activeCategory = useMemo(
+    () =>
+      initialCategories.find(c => c.id === activeCategoryId) ||
+      initialCategories[0],
     [activeCategoryId, initialCategories]
   );
 
@@ -19,13 +27,16 @@ export function useCatalogMenu(initialCategories: Category[]) {
     setSearchTerm("");
   }, []);
 
-  const track = useCallback((event: CatalogAnalyticsEvent, data: Partial<CatalogEventData> = {}) => {
-    console.log(`[Analytics] ${event}`, {
-      ...data,
-      timestamp: Date.now(),
-      source: window.innerWidth < 1280 ? "mobile" : "desktop"
-    });
-  }, []);
+  const track = useCallback(
+    (event: CatalogAnalyticsEvent, data: Partial<CatalogEventData> = {}) => {
+      console.log(`[Analytics] ${event}`, {
+        ...data,
+        timestamp: Date.now(),
+        source: window.innerWidth < 1280 ? "mobile" : "desktop",
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -42,13 +53,16 @@ export function useCatalogMenu(initialCategories: Category[]) {
     if (!searchTerm) return [];
     const term = searchTerm.toLowerCase();
     const results: any[] = [];
-    
+
     initialCategories.forEach(cat => {
-      if (cat.title.toLowerCase().includes(term)) results.push({ ...cat, type: "category" });
+      if (cat.title.toLowerCase().includes(term))
+        results.push({ ...cat, type: "category" });
       cat.children?.forEach(group => {
-        if (group.title.toLowerCase().includes(term)) results.push({ ...group, type: "group", parentHref: cat.href });
+        if (group.title.toLowerCase().includes(term))
+          results.push({ ...group, type: "group", parentHref: cat.href });
         group.items?.forEach(item => {
-          if (item.title.toLowerCase().includes(term)) results.push({ ...item, type: "item" });
+          if (item.title.toLowerCase().includes(term))
+            results.push({ ...item, type: "item" });
         });
       });
     });
@@ -67,7 +81,7 @@ export function useCatalogMenu(initialCategories: Category[]) {
     filteredCategories,
     mobilePath,
     setMobilePath,
-    track
+    track,
   };
 }
 
@@ -90,7 +104,9 @@ export function useBodyScrollLock(lock: boolean) {
     if (lock) {
       const originalStyle = window.getComputedStyle(document.body).overflow;
       document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = originalStyle; };
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
     }
   }, [lock]);
 }

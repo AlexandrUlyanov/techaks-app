@@ -26,9 +26,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   const badgeColors: Record<string, string> = {
-    "Акция": "bg-[#05C3D4] text-black",
-    "Хит": "bg-white text-black",
-    "Новинка": "bg-[#05C3D4] text-black",
+    Акция: "bg-[#05C3D4] text-black",
+    Хит: "bg-white text-black",
+    Новинка: "bg-[#05C3D4] text-black",
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -48,10 +48,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="group bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 hover:-translate-y-1 shadow-sm hover:shadow-xl relative flex flex-col h-full">
-      <Link
-        to={`/product/${product.slug}`}
-        className="flex-1 flex flex-col"
-      >
+      <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
         {/* Image */}
         <div className="relative h-[220px] bg-white flex items-center justify-center p-6 transition-all duration-500 overflow-hidden">
           {product.badge && (
@@ -80,7 +77,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.rating && (
               <div className="flex items-center gap-1">
                 <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
-                <span className="text-[10px] font-black text-foreground">{product.rating}</span>
+                <span className="text-[10px] font-black text-foreground">
+                  {product.rating}
+                </span>
               </div>
             )}
           </div>
@@ -106,8 +105,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           onClick={handleAddToCart}
           className="flex items-center justify-center gap-3 w-full py-4 bg-[#05C3D4] text-white dark:text-black rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
         >
-          <ShoppingCart size={16} />
-          В корзину
+          <ShoppingCart size={16} />В корзину
         </button>
       </div>
     </div>

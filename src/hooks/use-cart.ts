@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface CartItem {
   id: number;
@@ -12,7 +12,7 @@ export interface CartItem {
 
 interface CartStore {
   items: CartItem[];
-  addItem: (product: Omit<CartItem, 'quantity'>) => void;
+  addItem: (product: Omit<CartItem, "quantity">) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
@@ -24,13 +24,13 @@ export const useCart = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product) => {
+      addItem: product => {
         const currentItems = get().items;
-        const existingItem = currentItems.find((item) => item.id === product.id);
+        const existingItem = currentItems.find(item => item.id === product.id);
 
         if (existingItem) {
           set({
-            items: currentItems.map((item) =>
+            items: currentItems.map(item =>
               item.id === product.id
                 ? { ...item, quantity: item.quantity + 1 }
                 : item
@@ -40,9 +40,9 @@ export const useCart = create<CartStore>()(
           set({ items: [...currentItems, { ...product, quantity: 1 }] });
         }
       },
-      removeItem: (productId) => {
+      removeItem: productId => {
         set({
-          items: get().items.filter((item) => item.id !== productId),
+          items: get().items.filter(item => item.id !== productId),
         });
       },
       updateQuantity: (productId, quantity) => {
@@ -51,7 +51,7 @@ export const useCart = create<CartStore>()(
           return;
         }
         set({
-          items: get().items.map((item) =>
+          items: get().items.map(item =>
             item.id === productId ? { ...item, quantity } : item
           ),
         });
@@ -68,7 +68,7 @@ export const useCart = create<CartStore>()(
       },
     }),
     {
-      name: 'techaks-cart',
+      name: "techaks-cart",
     }
   )
 );

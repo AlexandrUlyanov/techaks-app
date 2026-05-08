@@ -13,14 +13,20 @@ export default function ProductPage() {
   const [showForm, setShowForm] = useState(false);
   const { addItem } = useCart();
 
-  const { data: product, isLoading } = trpc.product.getBySlug.useQuery({ slug: slug || "" });
-  const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({ slug: slug || "" });
+  const { data: product, isLoading } = trpc.product.getBySlug.useQuery({
+    slug: slug || "",
+  });
+  const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
+    slug: slug || "",
+  });
   const { data: allProducts = [] } = trpc.product.getAll.useQuery();
 
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Загрузка товара...</div>
+        <div className="animate-pulse text-muted-foreground">
+          Загрузка товара...
+        </div>
       </div>
     );
   }
@@ -29,8 +35,13 @@ export default function ProductPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Товар не найден</h1>
-          <Link to="/catalog" className="mt-4 inline-flex items-center gap-2 text-[#05C3D4] hover:underline">
+          <h1 className="text-2xl font-bold text-foreground">
+            Товар не найден
+          </h1>
+          <Link
+            to="/catalog"
+            className="mt-4 inline-flex items-center gap-2 text-[#05C3D4] hover:underline"
+          >
             <ArrowLeft size={16} />
             Вернуться в каталог
           </Link>
@@ -40,10 +51,11 @@ export default function ProductPage() {
   }
 
   const relatedProducts = allProducts
-    .filter((p) => p.categoryId === product.categoryId && p.id !== product.id)
+    .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
     .slice(0, 4);
 
-  const formatPrice = (price: number) => new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
   const handleAddToCart = () => {
     addItem({
@@ -64,9 +76,16 @@ export default function ProductPage() {
       <section className="bg-muted/30 py-4 border-b border-border">
         <div className="container-main">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
-            <Link to="/catalog" className="hover:text-[#05C3D4] transition-colors">Каталог</Link>
+            <Link
+              to="/catalog"
+              className="hover:text-[#05C3D4] transition-colors"
+            >
+              Каталог
+            </Link>
             <span className="text-muted-foreground/20">/</span>
-            <span className="text-muted-foreground truncate max-w-[200px]">{product.name}</span>
+            <span className="text-muted-foreground truncate max-w-[200px]">
+              {product.name}
+            </span>
           </div>
         </div>
       </section>
@@ -103,20 +122,30 @@ export default function ProductPage() {
                       <Star
                         key={i}
                         size={14}
-                        className={i < Math.round(Number(product.rating)) ? "fill-[#05C3D4] text-[#05C3D4]" : "text-muted-foreground/20"}
+                        className={
+                          i < Math.round(Number(product.rating))
+                            ? "fill-[#05C3D4] text-[#05C3D4]"
+                            : "text-muted-foreground/20"
+                        }
                       />
                     ))}
                   </div>
-                  <span className="ml-2 text-sm font-black text-foreground">{product.rating}</span>
+                  <span className="ml-2 text-sm font-black text-foreground">
+                    {product.rating}
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">({product.reviewCount} отзывов)</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  ({product.reviewCount} отзывов)
+                </span>
               </div>
 
               {/* Price */}
               <div className="mt-10 p-8 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#05C3D4]/5 blur-3xl rounded-full" />
                 <div className="relative z-10">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Актуальная цена</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">
+                    Актуальная цена
+                  </span>
                   <div className="flex items-center gap-6">
                     <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
                       {formatPrice(product.price)}
@@ -137,65 +166,95 @@ export default function ProductPage() {
 
               {/* Stock & FOMO */}
               <div className="mt-10 space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Наличие в магазинах</h3>
-                
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
+                  Наличие в магазинах
+                </h3>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {stock.length > 0 ? (
                     stock.map((s, i) => (
-                      <div key={i} className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all">
+                      <div
+                        key={i}
+                        className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all"
+                      >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1">{s.storeName}</span>
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`} />
-                            <span className="text-[10px] font-black">{s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}</span>
+                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1" title={s.storeName}>
+                            {s.storeName}
+                          </span>
+                          <div
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
+                          >
+                            <div
+                              className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`}
+                            />
+                            <span className="text-[10px] font-black">
+                              {s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}
+                            </span>
                           </div>
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">{s.storeAddress}</p>
-                        
+                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">
+                          {s.storeAddress}
+                        </p>
+
                         {s.quantity > 0 && s.quantity <= 3 && (
                           <div className="absolute top-0 right-0">
-                            <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">Мало</div>
+                            <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
+                              Мало
+                            </div>
                           </div>
                         )}
                       </div>
                     ))
                   ) : (
                     <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
-                      <span className="text-xs font-bold text-muted-foreground uppercase">Информацию о наличии уточняйте у менеджера</span>
+                      <span className="text-xs font-bold text-muted-foreground uppercase">
+                        Информацию о наличии уточняйте у менеджера
+                      </span>
                     </div>
                   )}
                 </div>
 
-                {product.inStock && stock.some(s => s.quantity > 0 && s.quantity <= 3) && (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
-                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                      Товар заканчивается в некоторых магазинах!
-                    </span>
-                  </div>
-                )}
+                {product.inStock &&
+                  stock.some(s => s.quantity > 0 && s.quantity <= 3) && (
+                    <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
+                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
+                        Товар заканчивается в некоторых магазинах!
+                      </span>
+                    </div>
+                  )}
               </div>
 
               {/* Description */}
               <div className="mt-10">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Описание</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
+                  Описание
+                </h3>
                 <p className="text-base text-muted-foreground leading-relaxed font-medium">
                   {product.description}
                 </p>
               </div>
 
               {/* Specs */}
-              {product.specs && typeof product.specs === 'object' && (
+              {product.specs && typeof product.specs === "object" && (
                 <div className="mt-10">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">Характеристики</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
+                    Характеристики
+                  </h3>
                   <div className="grid grid-cols-1 gap-1">
-                    {Object.entries(product.specs as Record<string, string>).map(([key, value]) => (
+                    {Object.entries(
+                      product.specs as Record<string, string>
+                    ).map(([key, value]) => (
                       <div
                         key={key}
                         className="flex justify-between items-center py-3 border-b border-border px-1 group"
                       >
-                        <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">{key}</span>
-                        <span className="text-sm font-black text-foreground/80">{value}</span>
+                        <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+                          {key}
+                        </span>
+                        <span className="text-sm font-black text-foreground/80">
+                          {value}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -204,15 +263,15 @@ export default function ProductPage() {
 
               {/* CTA */}
               <div className="mt-12 flex flex-col gap-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   onClick={handleAddToCart}
                   className="w-full h-16 text-sm tracking-[0.2em] glow-cyan"
                 >
                   <ShoppingBag size={20} className="mr-2" />
                   ДОБАВИТЬ В КОРЗИНУ
                 </Button>
-                
+
                 <div className="flex flex-wrap gap-4">
                   <a
                     href="https://t.me/tech_aks"
@@ -233,7 +292,10 @@ export default function ProductPage() {
       {/* Lead Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowForm(false)} />
+          <div
+            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            onClick={() => setShowForm(false)}
+          />
           <div className="relative w-full max-w-xl">
             <button
               onClick={() => setShowForm(false)}
@@ -247,10 +309,10 @@ export default function ProductPage() {
               subtitle="Оставьте контакты — мы проверим наличие и свяжемся с вами в течение 5 минут."
               type="availability"
               source="product_page"
-              metadata={{ 
-                productName: product.name, 
+              metadata={{
+                productName: product.name,
                 productSlug: product.slug,
-                productId: product.id 
+                productId: product.id,
               }}
               buttonText="ПРОВЕРИТЬ НАЛИЧИЕ"
             />
@@ -264,14 +326,17 @@ export default function ProductPage() {
           <div className="container-main">
             <div className="flex items-end justify-between gap-6 mb-16">
               <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Рекомендации</span>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Рекомендации
+                </span>
                 <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  ПОХОЖИЕ <span className="text-muted-foreground/30">ТОВАРЫ</span>
+                  ПОХОЖИЕ{" "}
+                  <span className="text-muted-foreground/30">ТОВАРЫ</span>
                 </h2>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((p) => (
+              {relatedProducts.map(p => (
                 <ProductCard key={p.id} product={p as any} />
               ))}
             </div>

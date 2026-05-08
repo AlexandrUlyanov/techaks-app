@@ -12,12 +12,15 @@ export default function PromotionsPage() {
         <div className="absolute inset-0 bg-background z-0" />
         <div className="absolute top-0 right-0 w-[50%] h-full bg-[#05C3D4]/5 blur-[120px] rounded-full" />
         <div className="container-main relative z-10 text-center">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">Digital Витрина</span>
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">
+            Digital Витрина
+          </span>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
             АКЦИИ <span className="text-muted-foreground/30">И ВЫГОДА</span>
           </h1>
           <p className="mt-8 text-lg text-muted-foreground max-w-2xl mx-auto font-medium">
-            Следите за нашими новостями, чтобы не пропустить лучшие цены на любимую технику и аксессуары.
+            Следите за нашими новостями, чтобы не пропустить лучшие цены на
+            любимую технику и аксессуары.
           </p>
         </div>
       </section>
@@ -31,23 +34,31 @@ export default function PromotionsPage() {
             </div>
           ) : banners.length === 0 ? (
             <div className="text-center py-24 bg-card rounded-[2rem] border border-border">
-              <Gift size={64} className="mx-auto text-muted-foreground/20 mb-6" />
-              <p className="text-xl font-black uppercase font-heading text-muted-foreground/40 tracking-widest">Активных акций сейчас нет</p>
-              <Link to="/catalog" className="mt-8 inline-flex items-center gap-3 px-8 py-4 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan">
+              <Gift
+                size={64}
+                className="mx-auto text-muted-foreground/20 mb-6"
+              />
+              <p className="text-xl font-black uppercase font-heading text-muted-foreground/40 tracking-widest">
+                Активных акций сейчас нет
+              </p>
+              <Link
+                to="/catalog"
+                className="mt-8 inline-flex items-center gap-3 px-8 py-4 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan"
+              >
                 В каталог
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {banners.map((promo) => (
-                <Link 
-                  key={promo.id} 
+              {banners.map(promo => (
+                <Link
+                  key={promo.id}
                   to={promo.slug ? `/promotions/${promo.slug}` : "#"}
                   className="group bg-card border border-border rounded-[2rem] overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 flex flex-col h-full shadow-sm hover:shadow-xl"
                 >
                   <div className="h-72 overflow-hidden bg-foreground/5 relative">
-                    <img 
-                      src={promo.image} 
+                    <img
+                      src={promo.image}
                       alt={promo.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
@@ -80,21 +91,23 @@ export default function PromotionsPage() {
         <div className="bg-[#05C3D4] rounded-[2.5rem] p-12 md:p-20 text-black overflow-hidden relative group">
           <div className="relative z-10 max-w-2xl">
             <h2 className="text-4xl md:text-6xl font-black uppercase font-heading leading-[0.9] tracking-tighter mb-8 text-black">
-              ДАРИМ СКИДКУ 5% <br /> <span className="text-black/40">ЗА ВАШ ОТЗЫВ</span>
+              ДАРИМ СКИДКУ 5% <br />{" "}
+              <span className="text-black/40">ЗА ВАШ ОТЗЫВ</span>
             </h2>
             <p className="text-lg md:text-xl text-black/70 mb-10 leading-relaxed font-bold">
-              Оставьте отзыв на Яндекс Картах или 2ГИС, покажите его продавцу и получите скидку на любую покупку аксессуаров.
+              Оставьте отзыв на Яндекс Картах или 2ГИС, покажите его продавцу и
+              получите скидку на любую покупку аксессуаров.
             </p>
             <div className="flex flex-wrap gap-4">
-              <a 
-                href="https://yandex.ru/maps/org/techaks/" 
+              <a
+                href="https://yandex.ru/maps/org/techaks/"
                 target="_blank"
                 className="px-10 py-5 bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black/90 transition-all active:scale-95"
               >
                 Яндекс Карты
               </a>
-              <a 
-                href="https://2gis.ru/penza/search/techaks" 
+              <a
+                href="https://2gis.ru/penza/search/techaks"
                 target="_blank"
                 className="px-10 py-5 border border-black/10 bg-black/5 text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black/10 transition-all active:scale-95"
               >

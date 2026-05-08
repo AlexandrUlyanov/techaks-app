@@ -15,14 +15,17 @@ const app = new Hono<{ Bindings: HttpBindings }>();
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
 // Serve uploaded images in dev mode
-app.use("/images/*", serveStatic({ root: env.isProduction ? "./dist/public" : "./public" }));
+app.use(
+  "/images/*",
+  serveStatic({ root: env.isProduction ? "./dist/public" : "./public" })
+);
 
 // File Upload Endpoint
-app.post("/api/upload", async (c) => {
+app.post("/api/upload", async c => {
   try {
     const body = await c.req.parseBody();
     const file = body["file"] as any;
-    
+
     if (!file || typeof file === "string") {
       return c.json({ error: "No file uploaded" }, 400);
     }
@@ -31,26 +34,26 @@ app.post("/api/upload", async (c) => {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileName = String(file.name || "unnamed-file").replace(/\s+/g, "-");
-    
+
     // Create unique filename
     const filename = `${Date.now()}-${fileName}`;
-    
+
     // Determine public path based on environment
-    const publicPath = env.isProduction 
+    const publicPath = env.isProduction
       ? join(process.cwd(), "dist", "public", "images")
       : join(process.cwd(), "public", "images");
-      
+
     const filePath = join(publicPath, filename);
 
     // Ensure directory exists
     await mkdir(publicPath, { recursive: true });
-    
+
     // Write file
     await writeFile(filePath, buffer);
-    
-    return c.json({ 
+
+    return c.json({
       url: `/images/${filename}`,
-      success: true 
+      success: true,
     });
   } catch (error: any) {
     console.error("Upload error:", error);
@@ -58,7 +61,7 @@ app.post("/api/upload", async (c) => {
   }
 });
 
-app.use("/api/trpc/*", async (c) => {
+app.use("/api/trpc/*", async c => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
@@ -66,7 +69,7 @@ app.use("/api/trpc/*", async (c) => {
     createContext,
   });
 });
-app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
+app.all("/api/*", c => c.json({ error: "Not Found" }, 404));
 
 export default app;
 

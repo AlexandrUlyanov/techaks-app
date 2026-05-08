@@ -8,10 +8,15 @@ interface ReviewCardProps {
   source: string;
 }
 
-export default function ReviewCard({ name, date, rating, text }: ReviewCardProps) {
+export default function ReviewCard({
+  name,
+  date,
+  rating,
+  text,
+}: ReviewCardProps) {
   const initials = name
     .split(" ")
-    .map((w) => w[0])
+    .map(w => w[0])
     .join("")
     .toUpperCase();
 
@@ -23,8 +28,12 @@ export default function ReviewCard({ name, date, rating, text }: ReviewCardProps
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-black text-foreground uppercase tracking-tight truncate">{name}</div>
-          <div className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mt-1">{date}</div>
+          <div className="text-sm font-black text-foreground uppercase tracking-tight truncate">
+            {name}
+          </div>
+          <div className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mt-1">
+            {date}
+          </div>
         </div>
       </div>
 
@@ -34,7 +43,11 @@ export default function ReviewCard({ name, date, rating, text }: ReviewCardProps
           <Star
             key={i}
             size={14}
-            className={i < rating ? "fill-[#05C3D4] text-[#05C3D4]" : "text-foreground/10 dark:text-white/10"}
+            className={
+              i < rating
+                ? "fill-[#05C3D4] text-[#05C3D4]"
+                : "text-foreground/10 dark:text-white/10"
+            }
           />
         ))}
       </div>
@@ -47,7 +60,9 @@ export default function ReviewCard({ name, date, rating, text }: ReviewCardProps
       {/* Source */}
       <div className="mt-8 flex items-center gap-2">
         <span className="w-4 h-px bg-border" />
-        <span className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em]">Яндекс Карты</span>
+        <span className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em]">
+          Яндекс Карты
+        </span>
       </div>
     </div>
   );
