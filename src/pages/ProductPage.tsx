@@ -114,6 +114,18 @@ export default function ProductPage() {
         </div>
       </section>
 
+      {/* Header Title */}
+      <section className="pt-12 pb-8 border-b border-border">
+        <div className="container-main">
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+            {product.categoryName || "Товар"}
+          </span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            {product.name}
+          </h1>
+        </div>
+      </section>
+
       {/* Product Detail */}
       <section className="py-12 md:py-20">
         <div className="container-main">
@@ -131,15 +143,8 @@ export default function ProductPage() {
 
             {/* Info */}
             <div className="flex-1">
-              <span className="inline-block text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4">
-                {product.categoryName || "Аксессуар"}
-              </span>
-              <h1 className="text-3xl md:text-5xl font-black uppercase font-heading leading-[1.1] tracking-tighter text-foreground">
-                {product.name}
-              </h1>
-
               {/* Rating */}
-              <div className="mt-6 flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1 bg-muted px-3 py-1.5 rounded-lg border border-border">
                   <div className="flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (

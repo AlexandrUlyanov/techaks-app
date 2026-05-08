@@ -64,27 +64,35 @@ export default function CatalogPage() {
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
+      {/* Breadcrumbs */}
+      <section className="bg-muted/30 py-4 border-b border-border">
+        <div className="container-main">
+          <div className="flex items-center flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+            <Link to="/catalog?cat=all" className="hover:text-[#05C3D4] transition-colors">
+              Каталог
+            </Link>
+            {breadcrumbs.map(bc => (
+              <div key={bc.id} className="flex items-center gap-2">
+                <span className="text-muted-foreground/20">/</span>
+                <Link 
+                  to={`/catalog?cat=${bc.slug}`}
+                  className={bc.id === currentCategory?.id ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
+                >
+                  {bc.name}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Header Info & Sort */}
       <section className="pt-12 pb-8 border-b border-border">
         <div className="container-main flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div>
-            {/* Breadcrumbs */}
-            <div className="flex items-center flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.3em] mb-3 text-muted-foreground">
-              <Link to="/catalog?cat=all" className="hover:text-[#05C3D4] transition-colors">
-                Каталог
-              </Link>
-              {breadcrumbs.map(bc => (
-                <div key={bc.id} className="flex items-center gap-2">
-                  <ChevronRight size={12} />
-                  <Link 
-                    to={`/catalog?cat=${bc.slug}`}
-                    className={bc.id === currentCategory?.id ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
-                  >
-                    {bc.name}
-                  </Link>
-                </div>
-              ))}
-            </div>
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+              Категория
+            </span>
             <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
               {activeCategoryName}
             </h1>
