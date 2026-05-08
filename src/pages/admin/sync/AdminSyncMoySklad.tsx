@@ -92,6 +92,15 @@ export default function AdminSyncMoySklad() {
     }
   };
 
+  const getDescendants = (parentId: string): string[] => {
+    const children = categories.filter(c => c.parentId === parentId).map(c => c.id);
+    let descendants = [...children];
+    for (const childId of children) {
+      descendants = [...descendants, ...getDescendants(childId)];
+    }
+    return descendants;
+  };
+
   const handleRunSync = () => {
     syncMutation.mutate({
       login,
@@ -123,8 +132,12 @@ export default function AdminSyncMoySklad() {
                   type="checkbox" 
                   checked={isSelected}
                   onChange={(e) => {
-                    if (e.target.checked) setSelectedCategories([...selectedCategories, cat.id]);
-                    else setSelectedCategories(selectedCategories.filter(id => id !== cat.id));
+                    if (e.target.checked) {
+                      const descendants = getDescendants(cat.id);
+                      setSelectedCategories(prev => Array.from(new Set([...prev, cat.id, ...descendants])));
+                    } else {
+                      setSelectedCategories(prev => prev.filter(id => id !== cat.id));
+                    }
                   }}
                   className="w-4 h-4 accent-[#05C3D4] rounded" 
                 />
