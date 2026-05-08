@@ -86,32 +86,15 @@ export default function CatalogPage() {
         </div>
       </section>
 
-      {/* Header Info & Sort */}
+      {/* Header Info */}
       <section className="pt-12 pb-8 border-b border-border">
-        <div className="container-main flex flex-col md:flex-row md:items-end justify-between gap-8">
-          <div>
-            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-              Категория
-            </span>
-            <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-              {activeCategoryName}
-            </h1>
-          </div>
-
-          <div className="min-w-[240px]">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">
-              Сортировка
-            </Label>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              className="w-full px-5 h-12 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
-            >
-              <option value="default">По популярности</option>
-              <option value="price-asc">Цена: по возрастанию</option>
-              <option value="price-desc">Цена: по убыванию</option>
-            </select>
-          </div>
+        <div className="container-main">
+          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+            Категория
+          </span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            {activeCategoryName}
+          </h1>
         </div>
       </section>
 
@@ -170,10 +153,28 @@ export default function CatalogPage() {
           )}
 
           {/* Products Grid */}
-          <div className={displayCategories.length > 0 ? "pt-8 border-t border-border" : ""}>
-            <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
-              Товары
-            </h2>
+          <div className={displayCategories.length > 0 ? "pt-12 border-t border-border" : ""}>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+              <h2 className="text-xl font-black uppercase tracking-widest text-foreground leading-none">
+                Товары
+              </h2>
+              
+              <div className="min-w-[240px]">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-2 block">
+                  Сортировка
+                </Label>
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                  className="w-full px-5 h-12 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
+                >
+                  <option value="default">По популярности</option>
+                  <option value="price-asc">Цена: по возрастанию</option>
+                  <option value="price-desc">Цена: по убыванию</option>
+                </select>
+              </div>
+            </div>
+
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
