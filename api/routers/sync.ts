@@ -14,6 +14,24 @@ const moyskladApi = axios.create({
   },
 });
 
+function slugify(text: string): string {
+    const ru: Record<string, string> = {
+      'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh',
+      'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+      'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'c',
+      'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ы': 'y', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+      ' ': '-', 'ъ': '', 'ь': ''
+    };
+  
+    return text
+      .toLowerCase()
+      .split('')
+      .map(char => ru[char] || (/[a-z0-9-]/.test(char) ? char : ''))
+      .join('')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+}
+
 async function downloadImage(
   downloadUrl: string,
   authHeader: string,
@@ -179,12 +197,22 @@ export const syncRouter = createRouter({
 
           for (const msFolder of msFolders) {
             if (!input.selectedCategories.includes(msFolder.id)) continue;
-            const existing = await db.select().from(schema.categories).where(eq(schema.categories.slug, msFolder.id)).limit(1);
+            const existing = await db.select().from(schema.categories).where(eq(schema.categories.msId, msFolder.id)).limit(1);
             if (existing.length > 0) {
               await db.update(schema.categories).set({ name: msFolder.name }).where(eq(schema.categories.id, existing[0].id));
               categoryMap.set(msFolder.id, existing[0].id);
             } else {
-              const [res] = await db.insert(schema.categories).values({ slug: msFolder.id, name: msFolder.name });
+              let baseSlug = slugify(msFolder.name);
+              let slug = baseSlug;
+              let counter = 1;
+              while ((await db.select().from(schema.categories).where(eq(schema.categories.slug, slug)).limit(1)).length > 0) {
+                slug = `${baseSlug}-${counter++}`;
+              }
+              const [res] = await db.insert(schema.categories).values({ 
+                msId: msFolder.id,
+                slug: slug, 
+                name: msFolder.name 
+              });
               categoryMap.set(msFolder.id, res.insertId);
             }
             logDetails.stats.categories++;
@@ -288,7 +316,7 @@ export const syncRouter = createRouter({
               } catch (err) {}
             }
 
-            const existingProd = await db.select().from(schema.products).where(eq(schema.products.slug, msId)).limit(1);
+            const existingProd = await db.select().from(schema.products).where(eq(schema.products.msId, msId)).limit(1);
             let dbProductId: number;
 
             if (existingProd.length > 0) {
@@ -300,8 +328,23 @@ export const syncRouter = createRouter({
               if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
+              let baseSlug = slugify(item.name);
+              let slug = baseSlug;
+              let counter = 1;
+              while ((await db.select().from(schema.products).where(eq(schema.products.slug, slug)).limit(1)).length > 0) {
+                slug = `${baseSlug}-${counter++}`;
+              }
+
               const [res] = await db.insert(schema.products).values({
-                slug: msId, name: item.name, categoryId: categoryId || 1, price, description: item.description || "", image: imagePath, specs, inStock,
+                msId,
+                slug: slug, 
+                name: item.name, 
+                categoryId: categoryId || 1, 
+                price, 
+                description: item.description || "", 
+                image: imagePath, 
+                specs, 
+                inStock,
               });
               dbProductId = res.insertId;
             }

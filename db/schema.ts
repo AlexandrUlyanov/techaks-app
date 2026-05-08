@@ -21,10 +21,10 @@ export const leads = mysqlTable("leads", {
   metadata: json("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-
 export const categories = mysqlTable("categories", {
   id: serial("id").primaryKey(),
   parentId: int("parent_id"), // Added for subcategories
+  msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
@@ -34,9 +34,11 @@ export const categories = mysqlTable("categories", {
 
 export const products = mysqlTable("products", {
   id: serial("id").primaryKey(),
+  msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   categoryId: int("category_id").notNull(),
+...
   price: int("price").notNull(),
   oldPrice: int("old_price"),
   badge: varchar("badge", { length: 50 }),

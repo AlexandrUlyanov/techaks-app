@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/providers/trpc";
+import { slugify } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -18,6 +19,18 @@ export default function AdminProducts() {
   const limit = 20;
 
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [slugValue, setSlugValue] = useState("");
+  const [manualSlug, setManualSlug] = useState(false);
+
+  useEffect(() => {
+    if (editingProduct) {
+      setSlugValue(editingProduct.slug || "");
+      setManualSlug(!!editingProduct.slug);
+    } else {
+      setSlugValue("");
+      setManualSlug(false);
+    }
+  }, [editingProduct]);
 
   const utils = trpc.useUtils();
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
@@ -292,6 +305,11 @@ export default function AdminProducts() {
                   <input
                     name="name"
                     defaultValue={editingProduct.name}
+                    onChange={(e) => {
+                      if (!manualSlug) {
+                        setSlugValue(slugify(e.target.value));
+                      }
+                    }}
                     required
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
                   />
@@ -302,7 +320,11 @@ export default function AdminProducts() {
                   </label>
                   <input
                     name="slug"
-                    defaultValue={editingProduct.slug}
+                    value={slugValue}
+                    onChange={(e) => {
+                      setSlugValue(e.target.value);
+                      setManualSlug(true);
+                    }}
                     required
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
                   />
