@@ -424,9 +424,23 @@ export const syncRouter = createRouter({
           
           let stockOffset = 0;
           let stockHasMore = true;
+
+          const fetchStockWithRetry = async (currentOffset: number, retries = 5): Promise<any> => {
+            try {
+              return await moyskladApi.get(`/report/stock/bystore?offset=${currentOffset}&limit=1000`, { headers: { Authorization: authHeader } });
+            } catch (err: any) {
+              if (err.response?.status === 429 && retries > 0) {
+                 writeLog(`[Rate Limit] 429 hitting stock fetch. Retrying in 5 seconds... (${retries} left)`);
+                 await delay(5000);
+                 return fetchStockWithRetry(currentOffset, retries - 1);
+              }
+              throw err;
+            }
+          };
+
           while (stockHasMore) {
             writeLog(`Fetching stocks offset ${stockOffset}...`);
-            const stockRes = await moyskladApi.get(`/report/stock/bystore?offset=${stockOffset}&limit=1000`, { headers: { Authorization: authHeader } });
+            const stockRes = await fetchStockWithRetry(stockOffset);
             const stockItems = stockRes.data.rows;
             writeLog(`Got ${stockItems.length} stock items from API.`);
             if (stockItems.length < 1000) stockHasMore = false;
