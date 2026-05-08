@@ -316,8 +316,8 @@ export const syncRouter = createRouter({
           offset += limit;
 
           for (const item of items) {
-            // Respect API rate limits
-            await delay(100);
+            // Respect API rate limits (approx 3 req/sec max)
+            await delay(333);
 
             if (item.meta.type !== "product") continue;
             const msId = item.id;
@@ -354,12 +354,15 @@ export const syncRouter = createRouter({
             let imagePath = "/images/placeholder.jpg";
             if (item.images?.meta?.href) {
               try {
-                const imagesRes = await axios.get(item.images.meta.href, { headers: { Authorization: authHeader } });
+                // Must use moyskladApi to get the 429 retry protection
+                const imagesRes = await moyskladApi.get(item.images.meta.href, { headers: { Authorization: authHeader } });
                 if (imagesRes.data.rows?.length > 0) {
                   const mainImage = imagesRes.data.rows[0];
                   if (mainImage.meta.downloadHref) imagePath = await downloadImage(mainImage.meta.downloadHref, authHeader, mainImage.id || msId, folderSlug);
                 }
-              } catch (err) {}
+              } catch (err: any) {
+                writeLog(`Error fetching image meta for product ${msId}: ${err.message}`);
+              }
             }
 
             const existingProd = await db.select().from(schema.products).where(eq(schema.products.msId, msId)).limit(1);
