@@ -1,90 +1,93 @@
-# ТЕХАКС — Магазин техники и аксессуаров
+# TechAks E-commerce Platform
 
-Полнофункциональное веб-приложение для сети магазинов аксессуаров в Пензе.
+Modern, high-performance e-commerce platform with deep MoySklad (МойСклад) synchronization, built with React, Hono, tRPC, and Drizzle ORM.
 
-## 🚀 Стек технологий
+## 🚀 Tech Stack
 
-- **Frontend:** React 19 + TypeScript + Vite
-- **Styling:** Tailwind CSS + shadcn/ui (Radix UI)
-- **Backend:** Node.js + Hono
-- **API:** tRPC (полная типизация между фронтом и беком)
-- **Database:** MySQL + Drizzle ORM
-- **Icons:** Lucide React
+### Frontend
+- **Framework:** React 19 + Vite
+- **Routing:** React Router v7
+- **Styling:** Tailwind CSS + UI components (Radix UI, Lucide icons)
+- **State/Data Fetching:** tRPC (React Query) + Zustand
+- **Animations:** GSAP
 
-## 📂 Структура проекта
+### Backend
+- **Framework:** Hono (Node.js Adapter)
+- **API:** tRPC
+- **Database:** MySQL
+- **ORM:** Drizzle ORM
 
-```text
-app/
-├── api/             # Исходный код бэкенда (Hono + tRPC)
-│   ├── routers/     # Модули API (продукты, акции, лиды)
-│   ├── boot.ts      # Точка входа сервера и REST-эндпоинты
-│   └── router.ts    # Главный tRPC роутер
-├── db/              # База данных
-│   ├── schema.ts    # Описание таблиц (Drizzle)
-│   └── migrations/  # SQL миграции
-├── src/             # Исходный код фронтенда (React)
-│   ├── components/  # Общие компоненты
-│   ├── pages/       # Страницы (Home, Catalog, Promotions и др.)
-│   ├── pages/admin/ # Админ-панель
-│   └── providers/   # Провайдеры (tRPC/React Query)
-└── public/          # Статические файлы и загруженные изображения
-```
+---
 
-## 🛠 Установка и запуск
+## 🛠️ Local Development Setup
 
-1. **Установка зависимостей:**
-
+1. **Clone & Install:**
    ```bash
+   git clone https://github.com/AlexandrUlyanov/techaks-app.git
+   cd techaks-app/app
    npm install
    ```
 
-2. **Настройка окружения:**
-   Создайте файл `.env` в папке `app/` на основе `.env.example`. Обязательно укажите:
-   - `DATABASE_URL`: Строка подключения к MySQL.
+2. **Environment Variables:**
+   Create a `.env` file in the `app` directory:
+   ```env
+   DATABASE_URL="mysql://root:root@localhost:3306/tehax"
+   PORT=3000
+   NODE_ENV=development
+   ```
 
-3. **Запуск в режиме разработки:**
+3. **Database Setup:**
+   Ensure MySQL is running locally and the database exists. Then push the schema:
+   ```bash
+   npm run db:push
+   ```
 
+4. **Start Development Server:**
    ```bash
    npm run dev
    ```
+   The app will be available at `http://localhost:3000`.
 
-4. **Миграции базы данных:**
-   - Генерация: `npm run db:generate`
-   - Применение: `npm run db:push`
+---
 
-## 📦 Сборка и Деплой
+## 🔄 MoySklad (МойСклад) Synchronization
 
-Приложение оптимизировано для деплоя на Google Cloud Run через Docker.
+The platform includes a robust, 4-step wizard in the Admin Panel (`/admin/sync`) for pulling data from MoySklad API v1.2.
 
-- **Build:** `npm run build`
-- **Start:** `npm run start`
+### Features
+1. **Hierarchical Categories:** Preserves nested folders from MoySklad. Parent logic is linked via 2-pass DB updating.
+2. **Auto-Slugs:** Converts Cyrillic names to Latin SEO-friendly URLs (`slugify`). Uses `ms_id` to prevent duplication on re-sync.
+3. **Images Persistence:** Images are downloaded into category-specific folders under `public/images/`. This ensures files survive backend rebuilds.
+4. **Fuzzy Store Matching:** Accurately maps MoySklad warehouses/stores to local DB stores by analyzing `name` and `address` strings.
+5. **Detailed Logging:** Sync operations log deeply to both the DB (`sync_logs` table) and local `.log` files in `public/logs/`.
 
-## 🧩 Функциональные возможности
+---
 
-### Публичная часть
+## 🌍 Production Deployment (REG.RU VPS)
 
-- **Каталог:** Фильтрация по категориям, просмотр товаров.
-- **Акции:** Динамический список действующих предложений с детальными страницами.
-- **Лиды:** Формы обратной связи с отправкой в БД.
-- **Магазины:** Информация об адресах, режиме работы и рейтинге.
+The application is deployed on an **Ubuntu VPS** via **GitHub Actions**.
 
-### Админ-панель (`/admin`)
+### Architecture
+- **Process Manager:** PM2 keeps the Node.js compiled script (`dist/boot.js`) running.
+- **Reverse Proxy:** Nginx listens on port 80 and proxies requests to `127.0.0.1:3000`.
+- **Database:** MySQL 8 running natively on the VPS.
 
-- Управление товарами и категориями.
-- Управление акциями (баннерами):
-  - **Загрузка изображений:** Подгрузка файлов через веб-интерфейс сразу на сервер.
-  - **Интеграция с каталогом:** Выбор ссылки на категорию или товар из выпадающего списка.
-  - **Управление статусом:** Возможность скрывать акции (черновики).
+### CI/CD Workflow
+Located in `.github/workflows/deploy.yml`. On every push to `master`:
+1. SSH into the VPS (`195.208.2.100`).
+2. Pull latest code from GitHub.
+3. `npm ci` and `npm run db:push` (Schema migrations).
+4. `npm run build` (Vite compiles frontend to `dist/public` and backend to `dist/boot.js`).
+5. `pm2 restart techaks` applies the new build.
 
-## ⚠️ Важные нюансы
+### Useful Server Commands (SSH)
+```bash
+# Check app logs
+pm2 logs techaks
 
-- **Хранение изображений:** Текущая реализация использует локальную файловую систему. На Cloud Run изображения будут сбрасываться при каждом новом деплое или перезапуске контейнера. Для продакшена рекомендуется переход на S3/Google Cloud Storage.
-- **API Типизация:** При изменении бэкенд-роутеров фронтенд автоматически подхватывает изменения типов благодаря tRPC.
+# Restart app
+pm2 restart techaks
 
-## 🤝 Разработка
-
-При добавлении новых функций следуйте установленным паттернам:
-
-- UI компоненты берем из `src/components/ui`.
-- Все запросы к данным только через tRPC хуки.
-- Новые таблицы описываем в `db/schema.ts`.
+# Check Nginx config
+nginx -t
+```
