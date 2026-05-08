@@ -308,9 +308,22 @@ export const syncRouter = createRouter({
         let hasMore = true;
         const msProductIdToLocalId = new Map<string, number>();
 
+        const fetchAssortmentWithRetry = async (currentOffset: number, retries = 5): Promise<any> => {
+          try {
+            return await moyskladApi.get(`/entity/assortment?offset=${currentOffset}&limit=${limit}`, { headers: { Authorization: authHeader } });
+          } catch (err: any) {
+            if (err.response?.status === 429 && retries > 0) {
+               writeLog(`[Rate Limit] 429 hitting assortment fetch. Retrying in 5 seconds... (${retries} left)`);
+               await delay(5000);
+               return fetchAssortmentWithRetry(currentOffset, retries - 1);
+            }
+            throw err;
+          }
+        };
+
         while (hasMore) {
           writeLog(`Fetching assortment offset ${offset}...`);
-          const assortmentRes = await moyskladApi.get(`/entity/assortment?offset=${offset}&limit=${limit}`, { headers: { Authorization: authHeader } });
+          const assortmentRes = await fetchAssortmentWithRetry(offset);
           const items = assortmentRes.data.rows;
           if (items.length < limit) hasMore = false;
           offset += limit;
