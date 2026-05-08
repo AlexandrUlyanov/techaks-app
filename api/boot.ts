@@ -14,10 +14,10 @@ const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
-// Serve uploaded images in dev mode
+// Serve uploaded images (persist across builds)
 app.use(
   "/images/*",
-  serveStatic({ root: env.isProduction ? "./dist/public" : "./public" })
+  serveStatic({ root: "./public" })
 );
 
 // File Upload Endpoint
@@ -38,10 +38,8 @@ app.post("/api/upload", async c => {
     // Create unique filename
     const filename = `${Date.now()}-${fileName}`;
 
-    // Determine public path based on environment
-    const publicPath = env.isProduction
-      ? join(process.cwd(), "dist", "public", "images")
-      : join(process.cwd(), "public", "images");
+    // Determine public path
+    const publicPath = join(process.cwd(), "public", "images");
 
     const filePath = join(publicPath, filename);
 
