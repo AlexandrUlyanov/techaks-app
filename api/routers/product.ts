@@ -219,18 +219,26 @@ export const productRouter = createRouter({
         return await db.select().from(products);
       }
 
-      const category = await db
-        .select()
-        .from(categories)
-        .where(eq(categories.slug, input.categorySlug))
-        .limit(1);
+      const allCats = await db.select().from(categories);
+      const targetCat = allCats.find((c: any) => c.slug === input.categorySlug);
 
-      if (!category[0]) return [];
+      if (!targetCat) return [];
+
+      const getDescendants = (parentId: number): number[] => {
+        const children = allCats.filter((c: any) => c.parentId === parentId).map((c: any) => c.id);
+        let descendants = [...children];
+        for (const childId of children) {
+          descendants = [...descendants, ...getDescendants(childId)];
+        }
+        return descendants;
+      };
+
+      const targetIds = [targetCat.id, ...getDescendants(targetCat.id)];
 
       return await db
         .select()
         .from(products)
-        .where(eq(products.categoryId, category[0].id));
+        .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`);
     }),
 
   getStockBySlug: publicQuery

@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { useSearchParams, Link } from "react-router";
+import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
 import { Label } from "@/components/ui/label";
 import { FolderTree, ChevronRight } from "lucide-react";
 
 export default function CatalogPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeCategory = searchParams.get("cat") || "all";
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
@@ -52,11 +53,11 @@ export default function CatalogPage() {
   const breadcrumbs = useMemo(() => {
     if (activeCategory === "all" || !currentCategory) return [];
     const trail = [];
-    let curr = currentCategory;
+    let curr: any = currentCategory;
     while (curr) {
       trail.unshift(curr);
       const pid = curr.parentId;
-      curr = categories.find(c => c.id === pid) as any;
+      curr = categories.find(c => c.id === pid);
     }
     return trail;
   }, [categories, currentCategory, activeCategory]);
@@ -68,7 +69,7 @@ export default function CatalogPage() {
         <div className="container-main flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div>
             {/* Breadcrumbs */}
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] mb-3 text-muted-foreground">
+            <div className="flex items-center flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.3em] mb-3 text-muted-foreground">
               <Link to="/catalog?cat=all" className="hover:text-[#05C3D4] transition-colors">
                 Каталог
               </Link>
@@ -116,56 +117,81 @@ export default function CatalogPage() {
               <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
                 {activeCategory === "all" ? "Категории" : "Подкатегории"}
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {displayCategories.map(cat => (
-                  <Link
-                    key={cat.id}
-                    to={`/catalog?cat=${cat.slug}`}
-                    className="flex flex-col items-center justify-center gap-3 p-6 bg-white/5 border border-border rounded-2xl hover:border-[#05C3D4] hover:bg-white/10 transition-all text-center group"
-                  >
-                    <FolderTree size={28} className="text-muted-foreground group-hover:text-[#05C3D4] transition-colors" />
-                    <span className="text-sm font-bold uppercase tracking-wider line-clamp-2">
-                      {cat.name}
-                    </span>
-                  </Link>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {displayCategories.map(cat => {
+                  const subCats = categories.filter(c => c.parentId === cat.id);
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
+                      className="flex flex-col p-6 bg-white/5 border border-border rounded-2xl hover:border-[#05C3D4] hover:bg-white/10 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <FolderTree size={24} className="text-muted-foreground group-hover:text-[#05C3D4] transition-colors" />
+                        <span className="text-sm font-bold uppercase tracking-wider group-hover:text-[#05C3D4] transition-colors line-clamp-2">
+                          {cat.name}
+                        </span>
+                      </div>
+                      
+                      {subCats.length > 0 && (
+                        <ul className="space-y-2 mt-auto border-t border-white/5 pt-4">
+                          {subCats.slice(0, 6).map(sub => (
+                            <li key={sub.id}>
+                              <Link
+                                to={`/catalog?cat=${sub.slug}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center gap-2"
+                              >
+                                <span className="w-1 h-1 rounded-full bg-[#05C3D4]/50 shrink-0" />
+                                <span className="truncate">{sub.name}</span>
+                              </Link>
+                            </li>
+                          ))}
+                          {subCats.length > 6 && (
+                            <li className="text-[10px] text-muted-foreground italic mt-2 uppercase tracking-wider">
+                              и еще {subCats.length - 6}...
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Products Grid */}
-          {(!displayCategories.length || activeCategory !== "all") && (
-            <div>
-              <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
-                Товары
-              </h2>
-              {isLoading ? (
+          <div className={displayCategories.length > 0 ? "pt-8 border-t border-border" : ""}>
+            <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
+              Товары
+            </h2>
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white/5 border border-white/5 rounded-2xl h-[400px] animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {[...Array(8)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white/5 border border-white/5 rounded-2xl h-[400px] animate-pulse"
-                    />
+                  {sortedProducts.map(product => (
+                    <ProductCard key={product.id} product={product as any} />
                   ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {sortedProducts.map(product => (
-                      <ProductCard key={product.id} product={product as any} />
-                    ))}
+                {sortedProducts.length === 0 && (
+                  <div className="text-center py-24">
+                    <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
+                      Товары скоро появятся
+                    </p>
                   </div>
-                  {sortedProducts.length === 0 && (
-                    <div className="text-center py-24">
-                      <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
-                        Товары в этой категории скоро появятся
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+                )}
+              </>
+            )}
+          </div>
         </div>
       </section>
     </div>
