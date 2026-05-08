@@ -206,7 +206,7 @@ export const syncRouter = createRouter({
               await db.update(schema.categories).set({ name: msFolder.name }).where(eq(schema.categories.id, existing[0].id));
               categoryMap.set(msFolder.id, existing[0].id);
             } else {
-              let baseSlug = slugify(msFolder.name);
+              let baseSlug = slugify(msFolder.name).substring(0, 200);
               let slug = baseSlug;
               let counter = 1;
               while ((await db.select().from(schema.categories).where(eq(schema.categories.slug, slug)).limit(1)).length > 0) {
@@ -343,7 +343,7 @@ export const syncRouter = createRouter({
               if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
-              let baseSlug = slugify(item.name);
+              let baseSlug = slugify(item.name).substring(0, 200);
               let slug = baseSlug;
               let counter = 1;
               while ((await db.select().from(schema.products).where(eq(schema.products.slug, slug)).limit(1)).length > 0) {

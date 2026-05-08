@@ -25,7 +25,7 @@ export const categories = mysqlTable("categories", {
   id: serial("id").primaryKey(),
   parentId: int("parent_id"), // Added for subcategories
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   icon: varchar("icon", { length: 50 }),
@@ -35,7 +35,7 @@ export const categories = mysqlTable("categories", {
 export const products = mysqlTable("products", {
   id: serial("id").primaryKey(),
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   categoryId: int("category_id").notNull(),
   price: int("price").notNull(),
@@ -78,7 +78,7 @@ export const reviews = mysqlTable("reviews", {
 
 export const banners = mysqlTable("banners", {
   id: serial("id").primaryKey(),
-  slug: varchar("slug", { length: 100 }).notNull().default("").unique(),
+  slug: varchar("slug", { length: 255 }).notNull().default("").unique(),
   title: varchar("title", { length: 255 }).notNull(),
   subtitle: varchar("subtitle", { length: 255 }),
   content: text("content"),
@@ -91,7 +91,7 @@ export const banners = mysqlTable("banners", {
 
 export const posts = mysqlTable("posts", {
   id: serial("id").primaryKey(),
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
   title: varchar("title", { length: 255 }).notNull(),
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
