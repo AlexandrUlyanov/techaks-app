@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router";
 import { Star, MessageCircle, ArrowLeft, ShoppingBag } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
@@ -20,6 +20,19 @@ export default function ProductPage() {
     slug: slug || "",
   });
   const { data: allProducts = [] } = trpc.product.getAll.useQuery();
+  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+
+  const breadcrumbs = useMemo(() => {
+    if (!product || !categories.length) return [];
+    const trail = [];
+    let curr: any = categories.find(c => c.id === product.categoryId);
+    while (curr) {
+      trail.unshift(curr);
+      const pid = curr.parentId;
+      curr = categories.find(c => c.id === pid);
+    }
+    return trail;
+  }, [categories, product]);
 
   if (isLoading) {
     return (
@@ -75,15 +88,26 @@ export default function ProductPage() {
       {/* Breadcrumbs */}
       <section className="bg-muted/30 py-4 border-b border-border">
         <div className="container-main">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+          <div className="flex items-center flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
             <Link
               to="/catalog"
               className="hover:text-[#05C3D4] transition-colors"
             >
               Каталог
             </Link>
+            {breadcrumbs.map(bc => (
+              <div key={bc.id} className="flex items-center gap-2">
+                <span className="text-muted-foreground/20">/</span>
+                <Link 
+                  to={`/catalog?cat=${bc.slug}`}
+                  className="hover:text-[#05C3D4] transition-colors"
+                >
+                  {bc.name}
+                </Link>
+              </div>
+            ))}
             <span className="text-muted-foreground/20">/</span>
-            <span className="text-muted-foreground truncate max-w-[200px]">
+            <span className="text-muted-foreground truncate max-w-[150px] sm:max-w-[300px]">
               {product.name}
             </span>
           </div>
