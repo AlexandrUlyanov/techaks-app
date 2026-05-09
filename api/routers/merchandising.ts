@@ -16,7 +16,9 @@ export const merchandisingRouter = createRouter({
     .input(
       z
         .object({
-          placement: z.enum(["home_weekly", "product_related", "admin"]).default("home_weekly"),
+          placement: z
+            .enum(["home_weekly", "home_popular", "product_related", "admin"])
+            .default("home_weekly"),
           limit: z.number().min(1).max(50).default(10),
           categoryId: z.number().optional(),
           excludeProductId: z.number().optional(),

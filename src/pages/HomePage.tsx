@@ -45,6 +45,11 @@ export default function HomePage() {
       placement: "home_weekly",
       limit: 10,
     });
+  const { data: popularMerchandisingProducts = [] } =
+    trpc.merchandising.recommendations.useQuery({
+      placement: "home_popular",
+      limit: 8,
+    });
   const { data: dbCategories = [] } = trpc.product.getCategories.useQuery();
   const categories = dbCategories.filter(c => !c.parentId);
   const { data: stores = [] } = trpc.store.getAll.useQuery();
@@ -59,6 +64,10 @@ export default function HomePage() {
       return badgeScore(a) - badgeScore(b);
     })
     .slice(0, 10);
+  const popularProducts =
+    popularMerchandisingProducts.length > 0
+      ? popularMerchandisingProducts
+      : products.slice(0, 8);
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const activeBanners = banners.slice(0, 2);
@@ -393,7 +402,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.slice(0, 8).map(product => (
+            {popularProducts.map(product => (
               <ProductCard key={product.id} product={product as any} />
             ))}
           </div>
