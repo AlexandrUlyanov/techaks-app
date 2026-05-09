@@ -173,9 +173,9 @@ const DesktopCatalog = () => {
                 Все товары в категории <ArrowRight size={14} />
               </Link>
             </div>
-            <div className="grid grid-cols-3 xl:grid-cols-4 gap-12">
+            <div className="columns-3 xl:columns-4 gap-12">
               {menu.activeCategory.children?.map((group: CategoryGroup) => (
-                <div key={group.id} className="space-y-4">
+                <div key={group.id} className="break-inside-avoid mb-10 space-y-4">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground hover:text-[#05C3D4] transition-colors">
                     <Link to={group.href || "#"} onClick={menu.close}>
                       {group.title}
