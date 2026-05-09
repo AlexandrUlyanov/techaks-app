@@ -26,17 +26,50 @@ const productSchema = z.object({
   reviewCount: z.number(),
 });
 
+const specFilterSchema = z.object({
+  normalizedKey: z.string(),
+  normalizedValue: z.string(),
+});
+
+function buildSpecFilterConditions(specFilters?: z.infer<typeof specFilterSchema>[]) {
+  if (!specFilters?.length) return undefined;
+
+  const grouped = new Map<string, string[]>();
+  for (const filter of specFilters) {
+    if (!filter.normalizedKey || !filter.normalizedValue) continue;
+    const values = grouped.get(filter.normalizedKey) ?? [];
+    if (!values.includes(filter.normalizedValue)) values.push(filter.normalizedValue);
+    grouped.set(filter.normalizedKey, values);
+  }
+
+  const conditions = Array.from(grouped.entries()).map(([key, values]) => sql`EXISTS (
+    SELECT 1 FROM ${productSpecValues}
+    WHERE ${productSpecValues.productId} = ${products.id}
+      AND ${productSpecValues.normalizedKey} = ${key}
+      AND ${productSpecValues.normalizedValue} IN (${sql.join(values, sql`, `)})
+  )`);
+
+  if (conditions.length === 0) return undefined;
+  return sql.join(conditions, sql` AND `);
+}
+
 export const productRouter = createRouter({
   search: publicQuery
     .input(
       z.object({
         query: z.string(),
         limit: z.number().optional().default(10),
+        specFilters: z.array(specFilterSchema).optional().default([]),
       })
     )
     .query(async ({ input }) => {
       const db = getDb();
       const searchTerm = `%${input.query}%`;
+      const searchCondition = or(
+        like(products.name, searchTerm),
+        like(products.description, searchTerm)
+      );
+      const specCondition = buildSpecFilterConditions(input.specFilters);
       return await db
         .select({
           id: products.id,
@@ -57,12 +90,7 @@ export const productRouter = createRouter({
         })
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(
-          or(
-            like(products.name, searchTerm),
-            like(products.description, searchTerm)
-          )
-        )
+        .where(specCondition ? sql`${searchCondition} AND ${specCondition}` : searchCondition)
         .limit(input.limit);
     }),
   getAll: publicQuery.query(async () => {
@@ -214,7 +242,12 @@ export const productRouter = createRouter({
   }),
 
   getByCategory: publicQuery
-    .input(z.object({ categorySlug: z.string() }))
+    .input(
+      z.object({
+        categorySlug: z.string(),
+        specFilters: z.array(specFilterSchema).optional().default([]),
+      })
+    )
     .query(async ({ input }) => {
       const db = getDb();
 
@@ -238,10 +271,12 @@ export const productRouter = createRouter({
       };
 
       if (input.categorySlug === "all") {
+        const specCondition = buildSpecFilterConditions(input.specFilters);
         return await db
           .select(selectFields)
           .from(products)
-          .leftJoin(categories, eq(products.categoryId, categories.id));
+          .leftJoin(categories, eq(products.categoryId, categories.id))
+          .where(specCondition);
       }
 
       const allCats = await db.select().from(categories);
@@ -260,11 +295,14 @@ export const productRouter = createRouter({
 
       const targetIds = [targetCat.id, ...getDescendants(targetCat.id)];
 
+      const specCondition = buildSpecFilterConditions(input.specFilters);
+      const categoryCondition = sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`;
+
       return await db
         .select(selectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`);
+        .where(specCondition ? sql`${categoryCondition} AND ${specCondition}` : categoryCondition);
     }),
 
   getSpecFilters: publicQuery

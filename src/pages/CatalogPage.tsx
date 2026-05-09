@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
+import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
 
@@ -10,6 +11,18 @@ export default function CatalogPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeCategory = searchParams.get("cat") || "all";
+  const selectedFilterKey = searchParams.getAll("filter").join("|");
+  const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
+    return searchParams
+      .getAll("filter")
+      .map(value => {
+        const [normalizedKey, normalizedValue] = value.split(":");
+        return normalizedKey && normalizedValue
+          ? { normalizedKey, normalizedValue }
+          : null;
+      })
+      .filter(Boolean) as SelectedSpecFilter[];
+  }, [searchParams, selectedFilterKey]);
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
     "default"
   );
@@ -17,11 +30,46 @@ export default function CatalogPage() {
     useState(PRODUCT_PAGE_SIZE);
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: specFilters = [] } = trpc.product.getSpecFilters.useQuery(
+    { categorySlug: activeCategory },
+    { placeholderData: prev => prev }
+  );
   const { data: products = [], isLoading } =
     trpc.product.getByCategory.useQuery(
-      { categorySlug: activeCategory },
+      { categorySlug: activeCategory, specFilters: selectedFilters },
       { placeholderData: prev => prev }
     );
+
+  const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("filter");
+    nextFilters.forEach(filter => {
+      nextParams.append(
+        "filter",
+        `${filter.normalizedKey}:${filter.normalizedValue}`
+      );
+    });
+    navigate(`/catalog?${nextParams.toString()}`, { replace: true });
+  };
+
+  const toggleFilter = (filter: SelectedSpecFilter) => {
+    const exists = selectedFilters.some(
+      item =>
+        item.normalizedKey === filter.normalizedKey &&
+        item.normalizedValue === filter.normalizedValue
+    );
+    updateFilters(
+      exists
+        ? selectedFilters.filter(
+            item =>
+              item.normalizedKey !== filter.normalizedKey ||
+              item.normalizedValue !== filter.normalizedValue
+          )
+        : [...selectedFilters, filter]
+    );
+  };
+
+  const clearFilters = () => updateFilters([]);
 
   const sortedProducts = useMemo(() => {
     const result = [...products];
@@ -35,7 +83,7 @@ export default function CatalogPage() {
 
   useEffect(() => {
     setVisibleProductCount(PRODUCT_PAGE_SIZE);
-  }, [activeCategory, sortBy]);
+  }, [activeCategory, sortBy, selectedFilterKey]);
 
   const visibleProducts = useMemo(
     () => sortedProducts.slice(0, visibleProductCount),
@@ -201,39 +249,47 @@ export default function CatalogPage() {
                 ))}
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {visibleProducts.map((product: any) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-                {hasMoreProducts && (
-                  <div className="mt-12 flex flex-col items-center gap-4">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      Показано {visibleProducts.length} из{" "}
-                      {sortedProducts.length}
+              <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
+                <ProductFilters
+                  filters={specFilters}
+                  selected={selectedFilters}
+                  onToggle={toggleFilter}
+                  onClear={clearFilters}
+                />
+                <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                    {visibleProducts.map((product: any) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                  {hasMoreProducts && (
+                    <div className="mt-12 flex flex-col items-center gap-4">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Показано {visibleProducts.length} из{" "}
+                        {sortedProducts.length}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleProductCount(count =>
+                            Math.min(count + PRODUCT_PAGE_SIZE, sortedProducts.length)
+                          )
+                        }
+                        className="px-10 py-4 rounded-xl bg-[#05C3D4] text-white dark:text-black text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/20"
+                      >
+                        Загрузить еще
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setVisibleProductCount(count =>
-                          Math.min(count + PRODUCT_PAGE_SIZE, sortedProducts.length)
-                        )
-                      }
-                      className="px-10 py-4 rounded-xl bg-[#05C3D4] text-white dark:text-black text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/20"
-                    >
-                      Загрузить еще
-                    </button>
-                  </div>
-                )}
-                {sortedProducts.length === 0 && (
-                  <div className="text-center py-24">
-                    <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
-                      Товары скоро появятся
-                    </p>
-                  </div>
-                )}
-              </>
+                  )}
+                  {sortedProducts.length === 0 && (
+                    <div className="text-center py-24">
+                      <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
+                        Товары скоро появятся
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
