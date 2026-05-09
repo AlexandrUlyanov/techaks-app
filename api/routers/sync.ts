@@ -29,6 +29,56 @@ axiosRetry(moyskladApi, {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+function getMsIdFromHref(href?: string | null): string | null {
+  return href?.split("/").pop()?.split("?")[0] ?? null;
+}
+
+async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000): Promise<any[]> {
+  const rows: any[] = [];
+  let offset = 0;
+
+  while (true) {
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const res = await moyskladApi.get(
+      `${endpoint}${separator}offset=${offset}&limit=${limit}`,
+      { headers: { Authorization: authHeader } }
+    );
+    const batch = res.data.rows || [];
+    rows.push(...batch);
+
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+
+  return rows;
+}
+
+function normalizeStoreText(value?: string | null): string {
+  return (value || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function findMatchingLocalStore(msStore: any, localStores: typeof schema.stores.$inferSelect[]) {
+  const msName = normalizeStoreText(msStore.name);
+  const msAddress = normalizeStoreText(msStore.address);
+
+  return localStores.find(localStore => {
+    const localName = normalizeStoreText(localStore.name);
+    const localAddress = normalizeStoreText(localStore.address);
+
+    if (msName && localName && msName === localName) return true;
+    if (msAddress && localAddress && (msAddress.includes(localAddress) || localAddress.includes(msAddress))) return true;
+    if (msName && localName && (msName.includes(localName) || localName.includes(msName))) return true;
+    if (msName && localAddress && localAddress.includes(msName)) return true;
+    if (msAddress && localName && msAddress.includes(localName)) return true;
+
+    return false;
+  });
+}
+
 function slugify(text: string): string {
     const ru: Record<string, string> = {
       'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh',
@@ -120,8 +170,8 @@ export const syncRouter = createRouter({
     .query(async ({ input }) => {
       const authHeader = `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
       try {
-        const res = await moyskladApi.get("/entity/store", { headers: { Authorization: authHeader } });
-        return res.data.rows.map((r: any) => ({ id: r.id, name: r.name }));
+        const rows = await fetchAllRows("/entity/store", authHeader);
+        return rows.map((r: any) => ({ id: r.id, name: r.name }));
       } catch (error: any) {
         throw new Error(error.response?.data?.errors?.[0]?.error || "Ошибка получения складов");
       }
@@ -132,12 +182,9 @@ export const syncRouter = createRouter({
     .query(async ({ input }) => {
       const authHeader = `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
       try {
-        const res = await moyskladApi.get("/entity/productfolder", { headers: { Authorization: authHeader } });
-        return res.data.rows.map((r: any) => {
-          let parentId = null;
-          if (r.productFolder?.meta?.href) {
-            parentId = r.productFolder.meta.href.split("/").pop()?.split("?")[0];
-          }
+        const rows = await fetchAllRows("/entity/productfolder", authHeader);
+        return rows.map((r: any) => {
+          const parentId = getMsIdFromHref(r.productFolder?.meta?.href);
           return { id: r.id, name: r.name, parentId };
         });
       } catch (error: any) {
@@ -223,8 +270,7 @@ export const syncRouter = createRouter({
           await updateLog('running', 'Синхронизация категорий...');
           writeLog("Fetching folders...");
           
-          const foldersRes = await moyskladApi.get("/entity/productfolder", { headers: { Authorization: authHeader } });
-          const msFolders = foldersRes.data.rows;
+          const msFolders = await fetchAllRows("/entity/productfolder", authHeader);
           writeLog(`Found ${msFolders.length} folders in MoySklad`);
 
           for (const msFolder of msFolders) {
@@ -253,7 +299,8 @@ export const syncRouter = createRouter({
           for (const msFolder of msFolders) {
             if (!input.selectedCategories.includes(msFolder.id)) continue;
             if (msFolder.productFolder?.meta?.href) {
-              const msParentId = msFolder.productFolder.meta.href.split("/").pop();
+              const msParentId = getMsIdFromHref(msFolder.productFolder.meta.href);
+              if (!msParentId) continue;
               const dbParentId = categoryMap.get(msParentId);
               const dbChildId = categoryMap.get(msFolder.id);
               if (dbParentId && dbChildId) {
@@ -264,7 +311,6 @@ export const syncRouter = createRouter({
         }
 
         const allCategories = await db.select().from(schema.categories);
-        const allCategoryMap = new Map(allCategories.map(c => [c.slug, c.id]));
 
         // 2. Склады (Магазины)
         logDetails.steps.push("Синхронизация складов");
@@ -273,14 +319,13 @@ export const syncRouter = createRouter({
         
         let localStores = await db.select().from(schema.stores);
         const msStoreIdToLocalId = new Map<string, number>();
-        const storesRes = await moyskladApi.get("/entity/store", { headers: { Authorization: authHeader } });
-        const allMsStores = storesRes.data.rows;
+        const allMsStores = await fetchAllRows("/entity/store", authHeader);
         writeLog(`Found ${allMsStores.length} stores in MoySklad`);
 
         if (input.selectedStores && input.selectedStores.length > 0) {
           const selectedMsStores = allMsStores.filter((s: any) => input.selectedStores!.includes(s.id));
           for (const msStore of selectedMsStores) {
-            let existing = localStores.find(ls => ls.name === msStore.name);
+            let existing = findMatchingLocalStore(msStore, localStores);
             if (!existing) {
               const [insertRes] = await db.insert(schema.stores).values({
                 name: msStore.name,
@@ -294,7 +339,7 @@ export const syncRouter = createRouter({
         }
 
         for (const msStore of allMsStores) {
-          const matched = localStores.find(ls => ls.name === msStore.name);
+          const matched = findMatchingLocalStore(msStore, localStores);
           if (matched) msStoreIdToLocalId.set(msStore.id, matched.id);
         }
         writeLog(`Mapped MS stores to local DB stores: ${Array.from(msStoreIdToLocalId.entries()).map(([k,v]) => `${k}=>${v}`).join(', ')}`);
@@ -417,6 +462,15 @@ export const syncRouter = createRouter({
 
         // 4. Остатки
         if (input.syncStocks) {
+          const existingProducts = await db
+            .select({ id: schema.products.id, msId: schema.products.msId })
+            .from(schema.products);
+          for (const product of existingProducts) {
+            if (product.msId && !msProductIdToLocalId.has(product.msId)) {
+              msProductIdToLocalId.set(product.msId, product.id);
+            }
+          }
+
           logDetails.steps.push("Синхронизация остатков");
           await updateLog('running', 'Синхронизация остатков...');
           writeLog("Fetching detailed stock report by store...");
@@ -448,9 +502,10 @@ export const syncRouter = createRouter({
 
             for (const item of stockItems) {
               // meta.href might look like "https://.../entity/product/cbfcce03-9560-11f0-0a80-10030006c3a6?expand=supplier"
-              let msProductId = item.meta.href.split("/").pop();
-              if (msProductId && msProductId.includes("?")) {
-                  msProductId = msProductId.split("?")[0];
+              const msProductId = getMsIdFromHref(item.meta?.href);
+              if (!msProductId) {
+                writeLog(`[DEBUG SKIP] stock item has no product href: ${JSON.stringify(item.meta)}`);
+                continue;
               }
 
               const localProductId = msProductIdToLocalId.get(msProductId);
@@ -466,7 +521,7 @@ export const syncRouter = createRouter({
                 
                 let msStoreId = "";
                 if (storeStock.meta?.href) {
-                  msStoreId = storeStock.meta.href.split("/").pop();
+                  msStoreId = getMsIdFromHref(storeStock.meta.href) || "";
                 }
 
                 if (!msStoreId) {

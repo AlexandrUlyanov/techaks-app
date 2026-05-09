@@ -157,7 +157,6 @@ export default function Hero() {
 
           <p className="hero-sub mt-8 text-[clamp(1rem,2vw,1.25rem)] text-slate-600 dark:text-white/60 max-w-[500px] leading-relaxed font-medium">
             Помогаем быстро подобрать нужную технику без лишней сложности.
-            Чистая визуальная система, два современных магазина.
           </p>
 
           <div className="hero-ctas mt-12 flex flex-wrap gap-5 items-center">

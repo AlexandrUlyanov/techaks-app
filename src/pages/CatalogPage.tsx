@@ -2,8 +2,6 @@ import { useState, useMemo } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
-import { Label } from "@/components/ui/label";
-import { ChevronRight } from "lucide-react";
 import { CategoryIcon } from "@/lib/category-icons";
 
 export default function CatalogPage() {
