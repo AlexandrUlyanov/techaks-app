@@ -185,3 +185,64 @@ export const productSpecValues = mysqlTable("product_spec_values", {
   categoryKeyIdx: index("product_spec_values_category_key_idx").on(table.categoryId, table.normalizedKey),
   lookupIdx: index("product_spec_values_lookup_idx").on(table.normalizedKey, table.normalizedValue),
 }));
+
+export const productMerchandising = mysqlTable("product_merchandising", {
+  productId: int("product_id").primaryKey(),
+  totalScore: int("total_score").notNull().default(0),
+  priceScore: int("price_score").notNull().default(0),
+  stockScore: int("stock_score").notNull().default(0),
+  marginScore: int("margin_score").notNull().default(50),
+  contentScore: int("content_score").notNull().default(0),
+  newnessScore: int("newness_score").notNull().default(0),
+  categoryPriorityScore: int("category_priority_score").notNull().default(50),
+  manualPriority: int("manual_priority").notNull().default(0),
+  penaltyScore: int("penalty_score").notNull().default(0),
+  badges: json("badges").notNull(),
+  status: varchar("status", { length: 40 }).notNull().default("manual_review"),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  isHiddenFromPromo: boolean("is_hidden_from_promo").notNull().default(false),
+  comment: text("comment"),
+  updatedBy: varchar("updated_by", { length: 255 }),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  totalScoreIdx: index("product_merchandising_score_idx").on(table.totalScore),
+  statusIdx: index("product_merchandising_status_idx").on(table.status),
+}));
+
+export const merchandisingRules = mysqlTable("merchandising_rules", {
+  id: serial("id").primaryKey(),
+  scopeType: varchar("scope_type", { length: 20 }).notNull().default("global"),
+  scopeId: int("scope_id"),
+  priceWeight: int("price_weight").notNull().default(25),
+  stockWeight: int("stock_weight").notNull().default(20),
+  marginWeight: int("margin_weight").notNull().default(15),
+  contentWeight: int("content_weight").notNull().default(15),
+  newnessWeight: int("newness_weight").notNull().default(10),
+  categoryWeight: int("category_weight").notNull().default(10),
+  manualWeight: int("manual_weight").notNull().default(5),
+  minScoreForTop: int("min_score_for_top").notNull().default(75),
+  minScoreForRecommend: int("min_score_for_recommend").notNull().default(70),
+  excellentPriceThreshold: int("excellent_price_threshold").notNull().default(90),
+  newProductDays: int("new_product_days").notNull().default(30),
+  minPromoStock: int("min_promo_stock").notNull().default(1),
+  minMarginPercent: int("min_margin_percent").notNull().default(20),
+  maxTopPercent: int("max_top_percent").notNull().default(15),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  scopeIdx: index("merchandising_rules_scope_idx").on(table.scopeType, table.scopeId),
+}));
+
+export const merchandisingHistory = mysqlTable("merchandising_history", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull().default("admin"),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+  oldValue: json("old_value"),
+  newValue: json("new_value"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  productIdx: index("merchandising_history_product_idx").on(table.productId),
+  createdAtIdx: index("merchandising_history_created_at_idx").on(table.createdAt),
+}));
