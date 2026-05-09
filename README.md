@@ -68,9 +68,14 @@ The platform includes a robust, 4-step wizard in the Admin Panel (`/admin/sync`)
 The application is deployed on an **Ubuntu VPS** via **GitHub Actions**.
 
 ### Architecture
+- **Server size:** 1 vCPU, 1 GB RAM, 10 GB disk.
 - **Process Manager:** PM2 keeps the Node.js compiled script (`dist/boot.js`) running.
 - **Reverse Proxy:** Nginx listens on port 80 and proxies requests to `127.0.0.1:3000`.
 - **Database:** MySQL 8 running natively on the VPS.
+
+Production maintenance jobs must account for the small VPS size: keep them
+sequential, use explicit batch limits, and avoid loading the whole catalog into
+memory at once.
 
 ### CI/CD Workflow
 Located in `.github/workflows/deploy.yml`. On every push to `master`:

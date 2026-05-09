@@ -117,3 +117,9 @@ without re-reading JSON specs from every product.
 4. Implement apply endpoint with logs. Done.
 5. Add filter index table and rebuild job. Done.
 6. Add scheduled/after-sync automation. Done through post-sync normalization.
+
+## Production constraints
+
+The production VPS has 1 vCPU, 1 GB RAM, and 10 GB disk. Normalization and
+index rebuild jobs must stay sequential, use explicit limits, and avoid
+parallel workers or full-catalog in-memory transforms.
