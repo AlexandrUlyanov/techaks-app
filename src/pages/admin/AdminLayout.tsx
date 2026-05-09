@@ -13,6 +13,7 @@ import {
   RefreshCw,
   FolderTree,
   SlidersHorizontal,
+  TrendingUp,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Магазины", href: "/admin/stores", icon: Store },
   { name: "Акции", href: "/admin/banners", icon: Gift },
+  { name: "Мерчендайзинг", href: "/admin/merchandising", icon: TrendingUp },
   { name: "Блог", href: "/admin/blog", icon: FileText },
   { name: "Синхронизации", href: "/admin/sync", icon: RefreshCw },
   { name: "Нормализация", href: "/admin/normalize-specs", icon: SlidersHorizontal },

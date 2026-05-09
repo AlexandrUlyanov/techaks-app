@@ -40,13 +40,19 @@ const defaultReviews = [
 
 export default function HomePage() {
   const { data: products = [] } = trpc.product.getAll.useQuery();
+  const { data: merchandisingProducts = [] } =
+    trpc.merchandising.recommendations.useQuery({
+      placement: "home_weekly",
+      limit: 10,
+    });
   const { data: dbCategories = [] } = trpc.product.getCategories.useQuery();
   const categories = dbCategories.filter(c => !c.parentId);
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
   const { data: posts = [] } = trpc.blog.getPublished.useQuery();
 
-  const weekProducts = [...products]
+  const weekProductsSource = merchandisingProducts.length > 0 ? merchandisingProducts : products;
+  const weekProducts = [...weekProductsSource]
     .sort((a, b) => {
       const badgeScore = (item: typeof a) =>
         item.badge === "Акция" ? 0 : item.badge === "Хит" ? 1 : item.badge === "Новинка" ? 2 : 3;

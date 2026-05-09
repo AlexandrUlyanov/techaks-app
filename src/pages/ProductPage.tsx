@@ -19,8 +19,17 @@ export default function ProductPage() {
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
   });
-  const { data: allProducts = [] } = trpc.product.getAll.useQuery();
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: merchandisingRelated = [] } =
+    trpc.merchandising.recommendations.useQuery(
+      {
+        placement: "product_related",
+        limit: 4,
+        categoryId: product?.categoryId,
+        excludeProductId: product?.id,
+      },
+      { enabled: Boolean(product) }
+    );
 
   const breadcrumbs = useMemo(() => {
     if (!product || !categories.length) return [];
@@ -63,9 +72,7 @@ export default function ProductPage() {
     );
   }
 
-  const relatedProducts = allProducts
-    .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
-    .slice(0, 4);
+  const relatedProducts = merchandisingRelated.slice(0, 4);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
