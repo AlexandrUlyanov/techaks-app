@@ -11,6 +11,7 @@ import {
   normalizeProductDescriptions,
   rebuildProductSpecIndex,
 } from "../lib/product-normalization-service";
+import { previewProductNormalization } from "../lib/product-normalization";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -32,6 +33,16 @@ axiosRetry(moyskladApi, {
 });
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function asSpecRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, specValue]) => [
+      key,
+      String(specValue ?? ""),
+    ])
+  );
+}
 
 function getMsIdFromHref(href?: string | null): string | null {
   return href?.split("/").pop()?.split("?")[0] ?? null;
@@ -432,7 +443,29 @@ export const syncRouter = createRouter({
 
             if (existingProd.length > 0) {
               dbProductId = existingProd[0].id;
-              const updateData: any = { name: item.name, description: item.description || "", specs };
+              const normalizedLog = await db
+                .select({ id: schema.productNormalizationLogs.id })
+                .from(schema.productNormalizationLogs)
+                .where(sql`${schema.productNormalizationLogs.productId} = ${dbProductId} AND ${schema.productNormalizationLogs.status} = 'applied'`)
+                .limit(1);
+              const wasNormalized = normalizedLog.length > 0;
+              const incomingDescription = item.description || "";
+              const localSpecs = asSpecRecord(existingProd[0].specs);
+              const updateData: any = { name: item.name };
+
+              if (wasNormalized) {
+                const preview = previewProductNormalization(incomingDescription, {
+                  ...localSpecs,
+                  ...specs,
+                });
+                updateData.description = existingProd[0].description;
+                updateData.specs = preview.mergedSpecs;
+                logDetails.stats.preservedDescriptions = (logDetails.stats.preservedDescriptions || 0) + 1;
+              } else {
+                updateData.description = incomingDescription;
+                updateData.specs = specs;
+              }
+
               if (input.syncPrices) updateData.price = price;
               if (input.syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
