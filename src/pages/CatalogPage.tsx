@@ -4,6 +4,14 @@ import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
+import { Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -26,6 +34,7 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
     "default"
   );
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
 
@@ -226,16 +235,61 @@ export default function CatalogPage() {
                 Товары
               </h2>
               
-              <div className="min-w-[240px]">
+              <div className="flex flex-wrap items-center gap-3">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button className="lg:hidden h-11 px-4 rounded-xl border border-border bg-card text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                      <SlidersHorizontal size={16} />
+                      Фильтры
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
+                    <SheetHeader className="px-0 pt-0">
+                      <SheetTitle className="text-sm font-black uppercase tracking-widest">
+                        Фильтры
+                      </SheetTitle>
+                    </SheetHeader>
+                    <ProductFilters
+                      filters={specFilters}
+                      selected={selectedFilters}
+                      onToggle={toggleFilter}
+                      onClear={clearFilters}
+                    />
+                  </SheetContent>
+                </Sheet>
+                <div className="h-11 rounded-xl border border-border bg-card p-1 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
+                      viewMode === "grid" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-label="Плитка"
+                  >
+                    <Grid2X2 size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
+                      viewMode === "list" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-label="Список"
+                  >
+                    <List size={17} />
+                  </button>
+                </div>
+                <div className="min-w-[220px]">
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                  className="w-full px-5 h-12 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
+                  className="w-full px-4 h-11 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
                 >
                   <option value="default">По популярности</option>
                   <option value="price-asc">Цена: по возрастанию</option>
                   <option value="price-desc">Цена: по убыванию</option>
                 </select>
+                </div>
               </div>
             </div>
 
@@ -249,17 +303,23 @@ export default function CatalogPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-                <ProductFilters
-                  filters={specFilters}
-                  selected={selectedFilters}
-                  onToggle={toggleFilter}
-                  onClear={clearFilters}
-                />
+              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
+                <div className="hidden lg:block">
+                  <ProductFilters
+                    filters={specFilters}
+                    selected={selectedFilters}
+                    onToggle={toggleFilter}
+                    onClear={clearFilters}
+                  />
+                </div>
                 <div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                  <div className={
+                    viewMode === "grid"
+                      ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"
+                      : "grid grid-cols-1 gap-4"
+                  }>
                     {visibleProducts.map((product: any) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard key={product.id} product={product} variant={viewMode} />
                     ))}
                   </div>
                   {hasMoreProducts && (

@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
-import { ShoppingCart, Star } from "lucide-react";
+import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProductCardProps {
@@ -15,11 +15,29 @@ interface ProductCardProps {
     categoryId: number;
     categoryName?: string;
     rating?: string | number | null;
+    reviewCount?: number | null;
+    inStock?: boolean | null;
+    specs?: Record<string, unknown> | null;
   };
+  variant?: "grid" | "list";
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart();
+const SPEC_KEYS = [
+  "Тип",
+  "Цвет",
+  "Материал",
+  "Мощность",
+  "Длина",
+  "Питание",
+  "Емкость",
+  "Разъем",
+  "Вход",
+  "Выход",
+];
+
+export default function ProductCard({ product, variant = "grid" }: ProductCardProps) {
+  const { items, addItem, updateQuantity } = useCart();
+  const cartItem = items.find(item => item.id === product.id);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -30,6 +48,17 @@ export default function ProductCard({ product }: ProductCardProps) {
     Хит: "bg-white text-black",
     Новинка: "bg-[#05C3D4] text-black",
   };
+
+  const specs = product.specs && typeof product.specs === "object" ? product.specs : {};
+  const shortSpecs = SPEC_KEYS
+    .map(key => specs[key])
+    .filter(Boolean)
+    .map(value => String(value).trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  const rating = Number(product.rating ?? 0);
+  const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -42,18 +71,134 @@ export default function ProductCard({ product }: ProductCardProps) {
       image: product.image,
     });
     toast.success("Товар добавлен в корзину");
-    // CRO: Redirect directly to checkout
-    window.location.href = "/checkout";
   };
 
+  const decreaseQuantity = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (cartItem) updateQuantity(product.id, cartItem.quantity - 1);
+  };
+
+  const increaseQuantity = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (cartItem) updateQuantity(product.id, cartItem.quantity + 1);
+  };
+
+  const cartControl = cartItem ? (
+    <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-lg border border-[#05C3D4]/40 bg-[#05C3D4]/10">
+      <button
+        type="button"
+        onClick={decreaseQuantity}
+        className="flex items-center justify-center text-[#047987] hover:bg-[#05C3D4]/15"
+        aria-label="Уменьшить количество"
+      >
+        <Minus size={14} />
+      </button>
+      <div className="flex items-center justify-center text-sm font-black text-foreground">
+        {cartItem.quantity}
+      </div>
+      <button
+        type="button"
+        onClick={increaseQuantity}
+        className="flex items-center justify-center text-[#047987] hover:bg-[#05C3D4]/15"
+        aria-label="Увеличить количество"
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={handleAddToCart}
+      className="flex h-10 items-center justify-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-[#27E6F2] active:scale-95"
+    >
+      <ShoppingCart size={14} />
+      В корзину
+    </button>
+  );
+
+  if (variant === "list") {
+    return (
+      <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm relative">
+        <Link to={`/product/${product.slug}`} className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4">
+          <div className="relative h-[112px] sm:h-[132px] bg-white rounded-lg flex items-center justify-center p-3 overflow-hidden">
+            {product.badge && (
+              <span
+                className={`absolute top-2 left-2 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[9px] font-black uppercase px-2 py-0.5 rounded`}
+              >
+                {product.badge}
+              </span>
+            )}
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+          </div>
+
+          <div className="min-w-0 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="truncate text-[11px] font-semibold text-muted-foreground">
+                {product.categoryName || "Каталог"}
+              </span>
+              <span className={product.inStock === false ? "text-[10px] font-bold text-muted-foreground" : "text-[10px] font-bold text-green-600"}>
+                {product.inStock === false ? "Нет в наличии" : "В наличии"}
+              </span>
+            </div>
+            <h3 className="line-clamp-2 text-sm sm:text-base font-bold leading-snug text-foreground">
+              {product.name}
+            </h3>
+            {shortSpecs.length > 0 && (
+              <div className="truncate text-xs font-medium text-muted-foreground">
+                {shortSpecs.join(" · ")}
+              </div>
+            )}
+            {hasRating && (
+              <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+                <Star size={12} className="fill-[#05C3D4] text-[#05C3D4]" />
+                {rating.toFixed(1)} · {product.reviewCount} отзывов
+              </div>
+            )}
+            <div className="mt-auto flex items-end justify-between gap-3">
+              <div>
+                <div className="text-lg sm:text-xl font-black text-[#05C3D4]">
+                  {formatPrice(product.price)}
+                </div>
+                {product.oldPrice && (
+                  <div className="text-xs text-muted-foreground/60 line-through font-bold">
+                    {formatPrice(product.oldPrice)}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {cartControl}
+                <button
+                  type="button"
+                  className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                  aria-label="В избранное"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  <Heart size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="group bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 hover:-translate-y-1 shadow-sm hover:shadow-xl relative flex flex-col h-full">
+    <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm hover:shadow-lg relative flex flex-col h-full">
       <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
-        {/* Image */}
-        <div className="relative h-[220px] bg-white flex items-center justify-center p-6 transition-all duration-500 overflow-hidden">
+        <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
           {product.badge && (
             <span
-              className={`absolute top-4 left-4 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-md shadow-lg`}
+              className={`absolute top-2 left-2 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm`}
             >
               {product.badge}
             </span>
@@ -61,37 +206,44 @@ export default function ProductCard({ product }: ProductCardProps) {
           <img
             src={product.image}
             alt={product.name}
-            className="max-w-[90%] max-h-[90%] object-contain group-hover:scale-110 transition-transform duration-500"
+            className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
         </div>
 
-        {/* Info */}
-        <div className="p-6 flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-2">
+        <div className="p-3 sm:p-4 flex-1 flex flex-col">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
             {product.categoryName && (
-              <span className="text-[10px] font-black uppercase text-[#05C3D4] tracking-[0.2em]">
+              <span className="truncate text-[11px] font-semibold text-muted-foreground">
                 {product.categoryName}
               </span>
             )}
-            {product.rating && (
-              <div className="flex items-center gap-1">
-                <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
-                <span className="text-[10px] font-black text-foreground">
-                  {product.rating}
-                </span>
-              </div>
-            )}
+            <span className={product.inStock === false ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
+              {product.inStock === false ? "Нет" : "В наличии"}
+            </span>
           </div>
-          <h3 className="text-base font-bold text-foreground line-clamp-2 leading-snug min-h-[3rem]">
+          <h3 className="text-sm sm:text-[15px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.55rem]">
             {product.name}
           </h3>
-          <div className="mt-auto pt-4 flex items-center gap-4">
-            <span className="text-xl font-black text-[#05C3D4]">
+          {shortSpecs.length > 0 && (
+            <div className="mt-2 truncate text-xs font-medium text-muted-foreground">
+              {shortSpecs.join(" · ")}
+            </div>
+          )}
+          {hasRating && (
+            <div className="mt-2 flex items-center gap-1">
+                <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  {rating.toFixed(1)} · {product.reviewCount}
+                </span>
+            </div>
+          )}
+          <div className="mt-auto pt-3 flex items-end gap-2">
+            <span className="text-lg sm:text-xl font-black text-[#05C3D4] leading-none">
               {formatPrice(product.price)}
             </span>
             {product.oldPrice && (
-              <span className="text-sm text-muted-foreground/60 line-through font-bold">
+              <span className="text-xs text-muted-foreground/60 line-through font-bold">
                 {formatPrice(product.oldPrice)}
               </span>
             )}
@@ -99,13 +251,18 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       </Link>
 
-      {/* CRO: Direct Add to Cart Button */}
-      <div className="px-6 pb-6">
+      <div className="p-3 sm:p-4 pt-0 grid grid-cols-[1fr_40px] gap-2">
+        {cartControl}
         <button
-          onClick={handleAddToCart}
-          className="flex items-center justify-center gap-3 w-full py-4 bg-[#05C3D4] text-white dark:text-black rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+          type="button"
+          className="flex h-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-[#05C3D4] hover:text-[#05C3D4] transition-colors"
+          aria-label="В избранное"
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
-          <ShoppingCart size={16} />В корзину
+          <Heart size={15} />
         </button>
       </div>
     </div>

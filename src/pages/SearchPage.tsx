@@ -3,7 +3,14 @@ import { useSearchParams, Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
-import { Loader2, Search, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Loader2, Search, ArrowLeft, ShoppingBag, Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -25,6 +32,7 @@ export default function SearchPage() {
   }, [searchParams, selectedFilterKey]);
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { data: specFilters = [] } = trpc.product.getSpecFilters.useQuery({
     categorySlug: "all",
@@ -111,6 +119,53 @@ export default function SearchPage() {
       {/* Results Grid */}
       <section className="py-16 md:py-24">
         <div className="container-main">
+          {query.length >= 2 && (
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="lg:hidden h-11 px-4 rounded-xl border border-border bg-card text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                    <SlidersHorizontal size={16} />
+                    Фильтры
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
+                  <SheetHeader className="px-0 pt-0">
+                    <SheetTitle className="text-sm font-black uppercase tracking-widest">
+                      Фильтры
+                    </SheetTitle>
+                  </SheetHeader>
+                  <ProductFilters
+                    filters={specFilters}
+                    selected={selectedFilters}
+                    onToggle={toggleFilter}
+                    onClear={clearFilters}
+                  />
+                </SheetContent>
+              </Sheet>
+              <div className="ml-auto h-11 rounded-xl border border-border bg-card p-1 flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
+                    viewMode === "grid" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  aria-label="Плитка"
+                >
+                  <Grid2X2 size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
+                    viewMode === "list" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  aria-label="Список"
+                >
+                  <List size={17} />
+                </button>
+              </div>
+            </div>
+          )}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
@@ -119,19 +174,25 @@ export default function SearchPage() {
               </p>
             </div>
           ) : query.length >= 2 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-              <ProductFilters
-                filters={specFilters}
-                selected={selectedFilters}
-                onToggle={toggleFilter}
-                onClear={clearFilters}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
+              <div className="hidden lg:block">
+                <ProductFilters
+                  filters={specFilters}
+                  selected={selectedFilters}
+                  onToggle={toggleFilter}
+                  onClear={clearFilters}
+                />
+              </div>
               <div>
                 {results.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <div className={
+                      viewMode === "grid"
+                        ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"
+                        : "grid grid-cols-1 gap-4"
+                    }>
                       {visibleResults.map(product => (
-                        <ProductCard key={product.id} product={product as any} />
+                        <ProductCard key={product.id} product={product as any} variant={viewMode} />
                       ))}
                     </div>
                     {hasMoreResults && (
