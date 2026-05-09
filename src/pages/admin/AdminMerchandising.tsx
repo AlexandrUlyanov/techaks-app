@@ -77,7 +77,9 @@ export default function AdminMerchandising() {
       categoryId: categoryId ? Number(categoryId) : undefined,
       badge: badge || undefined,
       status: status || undefined,
-      stockStatus: stockStatus as "in_stock" | "out_of_stock" | undefined,
+      stockStatus: stockStatus
+        ? (stockStatus as "in_stock" | "out_of_stock")
+        : undefined,
       scoreMin: scoreMin ? Number(scoreMin) : undefined,
       search: search.trim() || undefined,
     }
