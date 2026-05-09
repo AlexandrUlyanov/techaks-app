@@ -27,6 +27,7 @@ import AdminLeads from "@/pages/admin/AdminLeads";
 import AdminBanners from "@/pages/admin/AdminBanners";
 import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminCategories from "@/pages/admin/AdminCategories";
+import AdminNormalizeSpecs from "@/pages/admin/AdminNormalizeSpecs";
 import SyncLayout from "@/pages/admin/sync/SyncLayout";
 import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
 import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="stores" element={<AdminStores />} />
             <Route path="banners" element={<AdminBanners />} />
             <Route path="blog" element={<AdminBlog />} />
+            <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
             <Route path="sync" element={<SyncLayout />}>
               <Route index element={<AdminSyncMenu />} />

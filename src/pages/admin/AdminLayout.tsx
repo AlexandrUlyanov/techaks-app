@@ -12,6 +12,7 @@ import {
   FileText,
   RefreshCw,
   FolderTree,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { name: "Акции", href: "/admin/banners", icon: Gift },
   { name: "Блог", href: "/admin/blog", icon: FileText },
   { name: "Синхронизации", href: "/admin/sync", icon: RefreshCw },
+  { name: "Нормализация", href: "/admin/normalize-specs", icon: SlidersHorizontal },
   { name: "Настройки", href: "/admin/settings", icon: Settings },
 ];
 

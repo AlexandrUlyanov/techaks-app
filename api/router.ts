@@ -7,6 +7,7 @@ import { blogRouter } from "./routers/blog";
 import { ecommerceRouter } from "./routers/ecommerce";
 import { authRouter } from "./routers/auth";
 import { syncRouter } from "./routers/sync";
+import { normalizeRouter } from "./routers/normalize";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -18,6 +19,7 @@ export const appRouter = createRouter({
   ecommerce: ecommerceRouter,
   auth: authRouter,
   sync: syncRouter,
+  normalize: normalizeRouter,
 });
 
 export type AppRouter = typeof appRouter;
