@@ -9,6 +9,13 @@ import ReviewCard from "@/components/ReviewCard";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
 import { CategoryIcon } from "@/lib/category-icons";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 const defaultReviews = [
   {
@@ -39,7 +46,13 @@ export default function HomePage() {
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
   const { data: posts = [] } = trpc.blog.getPublished.useQuery();
 
-  const productWeek = products.find(p => p.badge === "Акция") || products[0];
+  const weekProducts = [...products]
+    .sort((a, b) => {
+      const badgeScore = (item: typeof a) =>
+        item.badge === "Акция" ? 0 : item.badge === "Хит" ? 1 : item.badge === "Новинка" ? 2 : 3;
+      return badgeScore(a) - badgeScore(b);
+    })
+    .slice(0, 10);
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const activeBanners = banners.slice(0, 2);
@@ -97,64 +110,47 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Product of the Week */}
-      {productWeek && (
-        <section className="py-24 bg-card/50 relative overflow-hidden">
+      {/* Products of the Week */}
+      {weekProducts.length > 0 && (
+        <section className="py-20 bg-card/50 relative overflow-hidden">
           <div className="container-main relative z-10">
-            <div className="flex flex-col lg:flex-row gap-16 items-center">
-              {/* Image */}
-              <div className="flex-1 w-full">
-                <div className="relative group bg-white border border-border rounded-3xl p-16 flex items-center justify-center overflow-hidden shadow-2xl">
-                  <img
-                    src={productWeek.image}
-                    alt={productWeek.name}
-                    className="relative z-10 max-h-[400px] object-contain transform group-hover:scale-110 transition-transform duration-700"
-                  />
-                </div>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Выбор недели
+                </span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  ТОВАРЫ <span className="text-foreground/20">НЕДЕЛИ</span>
+                </h2>
               </div>
-              {/* Info */}
-              <div className="flex-1 w-full">
-                <div className="inline-flex items-center gap-2 mb-6">
-                  <span className="w-2 h-2 rounded-full bg-[#05C3D4] animate-pulse" />
-                  <span className="text-[#05C3D4] text-xs font-black uppercase tracking-[0.3em]">
-                    Товар недели
-                  </span>
-                </div>
-                <h3 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  {productWeek.name}
-                </h3>
-                <p className="mt-6 text-lg text-muted-foreground leading-relaxed font-medium">
-                  {productWeek.description}
-                </p>
-                <div className="mt-10 flex items-center gap-8">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                      Цена сегодня
-                    </span>
-                    <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
-                      {productWeek.price.toLocaleString("ru-RU")} ₽
-                    </span>
-                  </div>
-                  {productWeek.oldPrice && (
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                        Старая цена
-                      </span>
-                      <span className="text-2xl text-foreground/30 line-through font-bold">
-                        {productWeek.oldPrice.toLocaleString("ru-RU")} ₽
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <Link
-                  to={`/product/${productWeek.slug}`}
-                  className="mt-12 inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95 shadow-lg shadow-[#05C3D4]/20"
-                >
-                  Узнать наличие
-                  <ArrowRight size={18} />
-                </Link>
-              </div>
+              <Link
+                to="/catalog"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+              >
+                Смотреть весь каталог
+              </Link>
             </div>
+
+            <Carousel
+              opts={{
+                align: "start",
+                loop: weekProducts.length > 4,
+              }}
+              className="relative"
+            >
+              <CarouselContent className="-ml-3 sm:-ml-5">
+                {weekProducts.map(product => (
+                  <CarouselItem
+                    key={product.id}
+                    className="pl-3 sm:pl-5 basis-[72%] min-[520px]:basis-1/2 md:basis-1/3 xl:basis-1/4"
+                  >
+                    <ProductCard product={product as any} />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="hidden md:flex -left-4 top-1/2 h-11 w-11 border border-border bg-background text-foreground hover:border-[#05C3D4] hover:bg-[#05C3D4] hover:text-black" />
+              <CarouselNext className="hidden md:flex -right-4 top-1/2 h-11 w-11 border border-border bg-background text-foreground hover:border-[#05C3D4] hover:bg-[#05C3D4] hover:text-black" />
+            </Carousel>
           </div>
         </section>
       )}
