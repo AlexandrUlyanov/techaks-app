@@ -1,5 +1,6 @@
-import { FolderTree, Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
+import { CategoryIcon } from "@/lib/category-icons";
 
 export default function AdminCategories() {
   const { data: categories = [], isLoading } =
@@ -30,7 +31,11 @@ export default function AdminCategories() {
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${level === 0 ? "bg-white text-[#05C3D4] shadow-sm" : "text-gray-400"}`}
                 >
-                  <FolderTree size={level === 0 ? 18 : 16} />
+                  <CategoryIcon
+                    name={cat.name}
+                    slug={cat.slug}
+                    size={level === 0 ? 18 : 16}
+                  />
                 </div>
                 <div>
                   <div

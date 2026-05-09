@@ -1,14 +1,6 @@
 import { Link } from "react-router";
 import {
   ArrowRight,
-  Smartphone,
-  Headphones,
-  BatteryCharging,
-  Shield,
-  Watch,
-  Home,
-  Gamepad2,
-  Wrench,
   Star,
 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
@@ -16,17 +8,7 @@ import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
-
-const iconMap: Record<string, React.ElementType> = {
-  Smartphone,
-  Headphones,
-  BatteryCharging,
-  Shield,
-  Watch,
-  Home,
-  Gamepad2,
-  Wrench,
-};
+import { CategoryIcon } from "@/lib/category-icons";
 
 const defaultReviews = [
   {
@@ -86,20 +68,18 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {categories.slice(0, 8).map(cat => {
-              const Icon = iconMap[cat.icon || "Smartphone"] || Smartphone;
-              return (
+            {categories.slice(0, 8).map(cat => (
                 <Link
                   key={cat.slug}
                   to={`/catalog?cat=${cat.slug}`}
                   className="group relative bg-background border border-border rounded-2xl p-8 overflow-hidden hover:border-[#05C3D4]/30 transition-all duration-300 shadow-sm hover:shadow-xl"
                 >
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-100 group-hover:text-[#05C3D4] transition-all duration-500 transform group-hover:scale-110 group-hover:-rotate-12 pointer-events-none">
-                    <Icon size={120} />
+                    <CategoryIcon name={cat.name} slug={cat.slug} size={120} />
                   </div>
                   <div className="relative z-10">
                     <div className="w-14 h-14 rounded-xl bg-foreground/5 flex items-center justify-center text-[#05C3D4] mb-8 group-hover:bg-[#05C3D4] group-hover:text-white dark:group-hover:text-black transition-all duration-300">
-                      <Icon size={28} />
+                      <CategoryIcon name={cat.name} slug={cat.slug} size={28} />
                     </div>
                     <h3 className="text-xl font-black uppercase font-heading tracking-tight text-foreground">
                       {cat.name}
@@ -112,8 +92,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 </Link>
-              );
-            })}
+              ))}
           </div>
         </div>
       </section>
