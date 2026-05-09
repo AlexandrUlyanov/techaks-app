@@ -7,18 +7,6 @@ import {
   ChevronLeft,
   ArrowRight,
   LayoutGrid,
-  Smartphone,
-  Car,
-  Home,
-  Laptop,
-  Tv,
-  Watch,
-  Heart,
-  Wrench,
-  Wind,
-  Gamepad2,
-  Star,
-  Tag,
 } from "lucide-react";
 import type {
   CategoryGroup,
@@ -26,36 +14,22 @@ import type {
   PromoBlock,
   Brand,
 } from "@/contracts/catalog.types";
-import { catalogData } from "@/contracts/catalog.data";
 import { useCatalog } from "@/providers/CatalogProvider";
 import { useMediaQuery, useBodyScrollLock } from "@/hooks/use-catalog-menu";
-
-const iconMap: any = {
-  Smartphone,
-  Car,
-  Home,
-  Laptop,
-  Tv,
-  Watch,
-  Heart,
-  Wrench,
-  Wind,
-  Gamepad2,
-  Star,
-  Tag,
-};
+import { CategoryIcon } from "@/lib/category-icons";
 
 const IconWrapper = ({
-  name,
+  title,
+  slug,
   size = 20,
   className = "",
 }: {
-  name?: string;
+  title: string;
+  slug: string;
   size?: number;
   className?: string;
 }) => {
-  const Icon = name ? iconMap[name] || Smartphone : Smartphone;
-  return <Icon size={size} className={className} />;
+  return <CategoryIcon name={title} slug={slug} size={size} className={className} />;
 };
 
 const Badge = ({ type }: { type?: string }) => {
@@ -114,6 +88,22 @@ const DesktopCatalog = () => {
     }, 100);
   };
 
+  if (menu.isLoading) {
+    return (
+      <>
+        <div
+          className="fixed inset-0 top-[80px] bg-black/40 backdrop-blur-sm z-[90] animate-in fade-in duration-300"
+          onClick={menu.close}
+        />
+        <div className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b border-border z-[100] p-12">
+          <div className="container-main text-sm font-bold text-muted-foreground">
+            Загружаем каталог...
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!menu.activeCategory) return null;
 
   return (
@@ -129,7 +119,7 @@ const DesktopCatalog = () => {
         <div className="container-main flex h-full p-0">
           <div className="w-[300px] border-r border-border bg-muted/20 overflow-y-auto custom-scrollbar">
             <div className="py-4">
-              {catalogData.map(cat => (
+              {menu.catalogCategories.map(cat => (
                 <div
                   key={cat.id}
                   onMouseEnter={() => handleCategoryHover(cat.id)}
@@ -145,7 +135,8 @@ const DesktopCatalog = () => {
                 >
                   <div className="flex items-center gap-4">
                     <IconWrapper
-                      name={cat.icon}
+                      title={cat.title}
+                      slug={cat.slug}
                       size={20}
                       className={
                         menu.activeCategoryId === cat.id
@@ -272,9 +263,9 @@ const MobileCatalog = () => {
   const currentCategory = useMemo(
     () =>
       menu.mobilePath.length > 0
-        ? catalogData.find(c => c.id === menu.mobilePath[0])
+        ? menu.catalogCategories.find(c => c.id === menu.mobilePath[0])
         : null,
-    [menu.mobilePath]
+    [menu.catalogCategories, menu.mobilePath]
   );
 
   const currentGroup = useMemo(
@@ -361,7 +352,7 @@ const MobileCatalog = () => {
           </div>
         ) : menu.mobilePath.length === 0 ? (
           <div className="divide-y divide-border">
-            {catalogData.map(cat => (
+            {menu.catalogCategories.map(cat => (
               <div
                 key={cat.id}
                 className="flex items-center justify-between py-5 px-6 active:bg-muted/50 transition-colors"
@@ -373,7 +364,8 @@ const MobileCatalog = () => {
               >
                 <div className="flex items-center gap-5">
                   <IconWrapper
-                    name={cat.icon}
+                    title={cat.title}
+                    slug={cat.slug}
                     size={22}
                     className="text-[#05C3D4]"
                   />
@@ -406,7 +398,11 @@ const MobileCatalog = () => {
                 <div
                   key={group.id}
                   className="flex items-center justify-between p-5 bg-card border border-border rounded-2xl active:bg-muted/50"
-                  onClick={() => navigateIn(group.id)}
+                  onClick={() =>
+                    group.items?.length
+                      ? navigateIn(group.id)
+                      : (window.location.href = group.href || "#")
+                  }
                 >
                   <span className="text-[13px] font-black uppercase tracking-wider">
                     {group.title}

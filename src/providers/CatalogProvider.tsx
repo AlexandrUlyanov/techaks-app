@@ -4,19 +4,23 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useEffect,
 } from "react";
 import type {
   Category,
   CatalogAnalyticsEvent,
   CatalogEventData,
+  CategoryItem,
 } from "@/contracts/catalog.types";
-import { catalogData } from "@/contracts/catalog.data";
+import { trpc } from "@/providers/trpc";
 
 interface CatalogContextType {
   isOpen: boolean;
   toggle: () => void;
   close: () => void;
   open: () => void;
+  catalogCategories: Category[];
+  isLoading: boolean;
   activeCategoryId: string;
   setActiveCategoryId: (id: string) => void;
   activeCategory: Category | undefined;
@@ -34,16 +38,79 @@ interface CatalogContextType {
 const CatalogContext = createContext<CatalogContextType | undefined>(undefined);
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
+  const { data: dbCategories = [], isLoading } =
+    trpc.product.getCategories.useQuery();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(
-    catalogData[0].id
-  );
+  const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [mobilePath, setMobilePath] = useState<string[]>([]);
 
+  const catalogCategories = useMemo<Category[]>(() => {
+    const byParent = new Map<number | null, typeof dbCategories>();
+    dbCategories.forEach(category => {
+      const key = category.parentId ?? null;
+      const siblings = byParent.get(key) ?? [];
+      siblings.push(category);
+      byParent.set(key, siblings);
+    });
+
+    byParent.forEach(siblings => {
+      siblings.sort((a, b) => {
+        const orderDiff = a.sortOrder - b.sortOrder;
+        return orderDiff || a.name.localeCompare(b.name, "ru");
+      });
+    });
+
+    const toItem = (category: (typeof dbCategories)[number]): CategoryItem => ({
+      id: String(category.id),
+      title: category.name,
+      href: `/catalog?cat=${category.slug}`,
+    });
+
+    const collectDescendants = (parentId: number): CategoryItem[] => {
+      const children = byParent.get(parentId) ?? [];
+      return children.flatMap(child => [
+        toItem(child),
+        ...collectDescendants(child.id),
+      ]);
+    };
+
+    return (byParent.get(null) ?? []).map(category => {
+      const children = (byParent.get(category.id) ?? []).map(group => ({
+        id: String(group.id),
+        title: group.name,
+        href: `/catalog?cat=${group.slug}`,
+        items: collectDescendants(group.id),
+      }));
+
+      return {
+        id: String(category.id),
+        title: category.name,
+        slug: category.slug,
+        icon: category.icon ?? undefined,
+        href: `/catalog?cat=${category.slug}`,
+        children,
+      };
+    });
+  }, [dbCategories]);
+
+  useEffect(() => {
+    if (!activeCategoryId && catalogCategories[0]) {
+      setActiveCategoryId(catalogCategories[0].id);
+      return;
+    }
+    if (
+      activeCategoryId &&
+      catalogCategories.length > 0 &&
+      !catalogCategories.some(category => category.id === activeCategoryId)
+    ) {
+      setActiveCategoryId(catalogCategories[0].id);
+    }
+  }, [activeCategoryId, catalogCategories]);
+
   const activeCategory = useMemo(
-    () => catalogData.find(c => c.id === activeCategoryId),
-    [activeCategoryId]
+    () => catalogCategories.find(c => c.id === activeCategoryId),
+    [activeCategoryId, catalogCategories]
   );
 
   const toggle = useCallback(() => setIsOpen(v => !v), []);
@@ -66,7 +133,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     const term = searchTerm.toLowerCase();
     const results: any[] = [];
 
-    catalogData.forEach(cat => {
+    catalogCategories.forEach(cat => {
       if (cat.title.toLowerCase().includes(term))
         results.push({ ...cat, type: "Категория" });
       cat.children?.forEach(group => {
@@ -79,7 +146,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       });
     });
     return results.slice(0, 10);
-  }, [searchTerm]);
+  }, [catalogCategories, searchTerm]);
 
   return (
     <CatalogContext.Provider
@@ -88,6 +155,8 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         toggle,
         close,
         open,
+        catalogCategories,
+        isLoading,
         activeCategoryId,
         setActiveCategoryId,
         activeCategory,
