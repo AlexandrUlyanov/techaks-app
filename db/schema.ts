@@ -152,6 +152,12 @@ export const syncLogs = mysqlTable("sync_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const appSettings = mysqlTable("app_settings", {
+  key: varchar("key", { length: 120 }).primaryKey(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const productNormalizationLogs = mysqlTable("product_normalization_logs", {
   id: serial("id").primaryKey(),
   productId: int("product_id").notNull(),

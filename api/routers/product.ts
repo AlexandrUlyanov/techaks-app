@@ -15,7 +15,9 @@ import {
   applyCategorySpecStandardization,
   getCategorySpecStandardization,
   upsertCategorySpecRule,
+  upsertCategorySpecRulesBulk,
 } from "../lib/product-spec-standardization";
+import { suggestCategorySpecRulesWithGemini } from "../lib/gemini-spec-standardization";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -421,6 +423,37 @@ export const productRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       return upsertCategorySpecRule(input);
+    }),
+
+  upsertSpecRulesBulk: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        rules: z.array(
+          z.object({
+            sourceKey: z.string(),
+            sourceNormalizedKey: z.string(),
+            targetKey: z.string(),
+            isVisible: z.boolean().default(true),
+            isFilterable: z.boolean().default(true),
+            sortOrder: z.number().default(0),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return upsertCategorySpecRulesBulk(input);
+    }),
+
+  suggestSpecRulesWithAi: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        limit: z.number().min(1).max(200).default(80),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return suggestCategorySpecRulesWithGemini(input);
     }),
 
   applySpecStandardization: publicQuery

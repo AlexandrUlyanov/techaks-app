@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Eye, EyeOff, RefreshCw, Save, Wand2 } from "lucide-react";
+import { Bot, Check, Eye, EyeOff, RefreshCw, Save, Wand2 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 
 type Category = {
@@ -13,6 +13,7 @@ type RuleEdit = {
   isVisible: boolean;
   isFilterable: boolean;
   sortOrder: number;
+  reason?: string;
 };
 
 export default function ProductSpecStandardizationPanel({
@@ -45,6 +46,28 @@ export default function ProductSpecStandardizationPanel({
       utils.product.getSpecFilters.invalidate();
     },
   });
+  const saveBulkRules = trpc.product.upsertSpecRulesBulk.useMutation({
+    onSuccess: data => {
+      standardization.refetch();
+      utils.product.getSpecFilters.invalidate();
+      alert(`Сохранено правил: ${data.saved}.`);
+    },
+  });
+  const suggestWithAi = trpc.product.suggestSpecRulesWithAi.useMutation({
+    onSuccess: suggestions => {
+      const nextEdits: Record<string, RuleEdit> = {};
+      for (const suggestion of suggestions) {
+        nextEdits[suggestion.sourceNormalizedKey] = {
+          targetKey: suggestion.targetKey,
+          isVisible: suggestion.isVisible,
+          isFilterable: suggestion.isFilterable,
+          sortOrder: suggestion.sortOrder,
+          reason: suggestion.reason,
+        };
+      }
+      setEdits(nextEdits);
+    },
+  });
 
   const applyRules = trpc.product.applySpecStandardization.useMutation({
     onSuccess: data => {
@@ -63,6 +86,7 @@ export default function ProductSpecStandardizationPanel({
       isVisible: row.isVisible,
       isFilterable: row.isFilterable,
       sortOrder: row.sortOrder,
+      reason: "",
     };
 
   const patchEdit = (
@@ -119,6 +143,61 @@ export default function ProductSpecStandardizationPanel({
           <button
             onClick={() => {
               if (!categoryId) return;
+              suggestWithAi.mutate({ categoryId, limit: 80 });
+            }}
+            disabled={suggestWithAi.isPending || !categoryId}
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 px-4 text-sm font-bold text-[#0a0a0a] disabled:opacity-50"
+          >
+            <Bot
+              size={16}
+              className={suggestWithAi.isPending ? "animate-pulse" : ""}
+            />
+            Предложить ИИ
+          </button>
+          <button
+            onClick={() => {
+              if (!categoryId) return;
+              const rules = Object.entries(edits)
+                .map(([sourceNormalizedKey, edit]) => {
+                  const row = rows.find(
+                    item => item.sourceNormalizedKey === sourceNormalizedKey
+                  );
+                  return row
+                    ? {
+                        sourceKey: row.sourceKey,
+                        sourceNormalizedKey,
+                        targetKey: edit.targetKey,
+                        isVisible: edit.isVisible,
+                        isFilterable: edit.isFilterable,
+                        sortOrder: edit.sortOrder,
+                      }
+                    : null;
+                })
+                .filter(Boolean) as Array<{
+                sourceKey: string;
+                sourceNormalizedKey: string;
+                targetKey: string;
+                isVisible: boolean;
+                isFilterable: boolean;
+                sortOrder: number;
+              }>;
+
+              if (rules.length === 0) return;
+              saveBulkRules.mutate({ categoryId, rules });
+            }}
+            disabled={
+              saveBulkRules.isPending ||
+              !categoryId ||
+              Object.keys(edits).length === 0
+            }
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+          >
+            <Save size={16} />
+            Сохранить все
+          </button>
+          <button
+            onClick={() => {
+              if (!categoryId) return;
               applyRules.mutate({ categoryId, limit: 10000 });
             }}
             disabled={applyRules.isPending || !categoryId}
@@ -130,10 +209,16 @@ export default function ProductSpecStandardizationPanel({
         </div>
       </div>
 
-      {(standardization.error || saveRule.error || applyRules.error) && (
+      {(standardization.error ||
+        saveRule.error ||
+        saveBulkRules.error ||
+        suggestWithAi.error ||
+        applyRules.error) && (
         <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
           {standardization.error?.message ||
             saveRule.error?.message ||
+            saveBulkRules.error?.message ||
+            suggestWithAi.error?.message ||
             applyRules.error?.message}
         </div>
       )}
@@ -207,6 +292,11 @@ export default function ProductSpecStandardizationPanel({
                         }
                         className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
                       />
+                      {edit.reason && (
+                        <div className="mt-1 text-[11px] leading-4 text-gray-400">
+                          ИИ: {edit.reason}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-bold text-[#15171A]">
                       {row.productCount}

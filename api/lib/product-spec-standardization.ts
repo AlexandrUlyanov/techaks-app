@@ -215,6 +215,29 @@ export async function upsertCategorySpecRule(input: {
   return { success: true, id: result[0].insertId };
 }
 
+export async function upsertCategorySpecRulesBulk(input: {
+  categoryId: number;
+  rules: Array<{
+    sourceKey: string;
+    sourceNormalizedKey: string;
+    targetKey: string;
+    isVisible: boolean;
+    isFilterable: boolean;
+    sortOrder?: number;
+  }>;
+}) {
+  let saved = 0;
+  for (const rule of input.rules) {
+    await upsertCategorySpecRule({
+      categoryId: input.categoryId,
+      ...rule,
+    });
+    saved++;
+  }
+
+  return { success: true, saved };
+}
+
 export async function applyCategorySpecStandardization(input: {
   categoryId: number;
   limit?: number;

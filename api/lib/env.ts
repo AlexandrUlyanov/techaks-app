@@ -15,6 +15,8 @@ function optional(name: string): string {
 export const env = {
   appId: optional("APP_ID"),
   appSecret: optional("APP_SECRET"),
+  geminiApiKey: optional("GEMINI_API_KEY"),
+  geminiModel: optional("GEMINI_MODEL") || "gemini-2.5-flash",
   isProduction: process.env.NODE_ENV === "production",
   databaseUrl: required("DATABASE_URL"),
 };

@@ -44,6 +44,7 @@ jobs:
             DATABASE_URL="mysql://techaks:TechAks_DB_Secure123!@127.0.0.1:3306/techaks_prod"
             PORT=3000
             NODE_ENV=production
+            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
             EOF
 
             # 3. Install dependencies and Build
@@ -62,4 +63,3 @@ jobs:
             
             # Save PM2 state to start on boot
             pm2 save
-

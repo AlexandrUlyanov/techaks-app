@@ -29,6 +29,7 @@ import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminCategories from "@/pages/admin/AdminCategories";
 import AdminNormalizeSpecs from "@/pages/admin/AdminNormalizeSpecs";
 import AdminMerchandising from "@/pages/admin/AdminMerchandising";
+import AdminSettings from "@/pages/admin/AdminSettings";
 import SyncLayout from "@/pages/admin/sync/SyncLayout";
 import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
 import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
@@ -76,10 +77,7 @@ export default function App() {
               <Route path="moysklad" element={<AdminSyncMoySklad />} />
             </Route>
 
-            <Route
-              path="settings"
-              element={<div>Настройки системы (в разработке)</div>}
-            />
+            <Route path="settings" element={<AdminSettings />} />
           </Route>
         </Routes>
       </main>
