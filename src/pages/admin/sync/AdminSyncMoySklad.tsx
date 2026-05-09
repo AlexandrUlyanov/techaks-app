@@ -34,6 +34,7 @@ export default function AdminSyncMoySklad() {
   const [syncProducts, setSyncProducts] = useState(true);
   const [syncStocks, setSyncStocks] = useState(true);
   const [syncPrices, setSyncPrices] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     const savedLogin = localStorage.getItem("ms_login");
@@ -74,22 +75,56 @@ export default function AdminSyncMoySklad() {
 
   const handleFetchStores = async () => {
     if (!login || !password) return toast.error("Укажите логин и пароль");
+    setConnectionError(null);
     saveCredentials();
     const res = await storesQuery.refetch();
+    if (res.error) {
+      setConnectionError(res.error.message);
+      toast.error(res.error.message);
+      return;
+    }
     if (res.data) {
+      if (res.data.length === 0) {
+        const message = "МойСклад ответил успешно, но склады не найдены";
+        setConnectionError(message);
+        toast.warning(message);
+        return;
+      }
       setStores(res.data);
       setSelectedStores(res.data.map((s: any) => s.id)); // Select all by default
       setStep(2);
+      toast.success(`Получено складов: ${res.data.length}`);
+      return;
     }
+    const message = "Не удалось получить склады из МойСклад";
+    setConnectionError(message);
+    toast.error(message);
   };
 
   const handleFetchCategories = async () => {
+    setConnectionError(null);
     const res = await categoriesQuery.refetch();
+    if (res.error) {
+      setConnectionError(res.error.message);
+      toast.error(res.error.message);
+      return;
+    }
     if (res.data) {
+      if (res.data.length === 0) {
+        const message = "МойСклад ответил успешно, но категории не найдены";
+        setConnectionError(message);
+        toast.warning(message);
+        return;
+      }
       setCategories(res.data);
       setSelectedCategories(res.data.map((c: any) => c.id)); // Select all by default
       setStep(3);
+      toast.success(`Получено категорий: ${res.data.length}`);
+      return;
     }
+    const message = "Не удалось получить категории из МойСклад";
+    setConnectionError(message);
+    toast.error(message);
   };
 
   const getDescendants = (parentId: string): string[] => {
@@ -241,6 +276,11 @@ export default function AdminSyncMoySklad() {
                 )}
               </button>
             </div>
+            {connectionError && (
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {connectionError}
+              </div>
+            )}
           </div>
         )}
 
@@ -298,6 +338,11 @@ export default function AdminSyncMoySklad() {
                 )}
               </button>
             </div>
+            {connectionError && (
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {connectionError}
+              </div>
+            )}
           </div>
         )}
 
