@@ -9,7 +9,13 @@ import {
   productSpecValues,
   stores,
 } from "@db/schema";
+import * as schema from "@db/schema";
 import { eq, asc, desc, like, or, sql } from "drizzle-orm";
+import {
+  applyCategorySpecStandardization,
+  getCategorySpecStandardization,
+  upsertCategorySpecRule,
+} from "../lib/product-spec-standardization";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -311,11 +317,13 @@ export const productRouter = createRouter({
       const db = getDb();
       const categorySlug = input?.categorySlug ?? "all";
       let categoryIds: number[] | null = null;
+      let rootCategoryId: number | null = null;
 
       if (categorySlug !== "all") {
         const allCats = await db.select().from(categories);
         const targetCat = allCats.find((c: any) => c.slug === categorySlug);
         if (!targetCat) return [];
+        rootCategoryId = targetCat.id;
 
         const getDescendants = (parentId: number): number[] => {
           const children = allCats.filter((c: any) => c.parentId === parentId).map((c: any) => c.id);
@@ -351,6 +359,17 @@ export const productRouter = createRouter({
         )
         .orderBy(productSpecValues.specKey, productSpecValues.specValue);
 
+      const rules =
+        rootCategoryId === null
+          ? []
+          : await db
+              .select()
+              .from(schema.productSpecRules)
+              .where(eq(schema.productSpecRules.categoryId, rootCategoryId));
+      const rulesByKey = new Map(
+        rules.map(rule => [rule.sourceNormalizedKey, rule])
+      );
+
       const filters = new Map<string, {
         key: string;
         normalizedKey: string;
@@ -358,9 +377,14 @@ export const productRouter = createRouter({
       }>();
 
       for (const row of rows) {
-        const current = filters.get(row.normalizedKey) ?? {
-          key: row.key,
-          normalizedKey: row.normalizedKey,
+        const rule = rulesByKey.get(row.normalizedKey);
+        if (rule && !rule.isFilterable) continue;
+
+        const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
+        const filterLabel = rule?.targetKey ?? row.key;
+        const current = filters.get(filterKey) ?? {
+          key: filterLabel,
+          normalizedKey: filterKey,
           values: [],
         };
         current.values.push({
@@ -368,13 +392,46 @@ export const productRouter = createRouter({
           normalizedValue: row.normalizedValue,
           count: Number(row.count),
         });
-        filters.set(row.normalizedKey, current);
+        filters.set(filterKey, current);
       }
 
       return Array.from(filters.values()).map(filter => ({
         ...filter,
         values: filter.values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value)),
       }));
+    }),
+
+  getSpecStandardization: publicQuery
+    .input(z.object({ categoryId: z.number() }))
+    .query(async ({ input }) => {
+      return getCategorySpecStandardization(input.categoryId);
+    }),
+
+  upsertSpecRule: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        sourceKey: z.string(),
+        sourceNormalizedKey: z.string(),
+        targetKey: z.string(),
+        isVisible: z.boolean().default(true),
+        isFilterable: z.boolean().default(true),
+        sortOrder: z.number().default(0),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return upsertCategorySpecRule(input);
+    }),
+
+  applySpecStandardization: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        limit: z.number().min(1).max(20000).default(10000),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return applyCategorySpecStandardization(input);
     }),
 
   getStockBySlug: publicQuery

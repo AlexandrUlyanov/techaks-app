@@ -186,6 +186,29 @@ export const productSpecValues = mysqlTable("product_spec_values", {
   lookupIdx: index("product_spec_values_lookup_idx").on(table.normalizedKey, table.normalizedValue),
 }));
 
+export const productSpecRules = mysqlTable("product_spec_rules", {
+  id: serial("id").primaryKey(),
+  categoryId: int("category_id").notNull(),
+  sourceKey: varchar("source_key", { length: 120 }).notNull(),
+  sourceNormalizedKey: varchar("source_normalized_key", { length: 120 }).notNull(),
+  targetKey: varchar("target_key", { length: 120 }).notNull(),
+  targetNormalizedKey: varchar("target_normalized_key", { length: 120 }).notNull(),
+  isVisible: boolean("is_visible").notNull().default(true),
+  isFilterable: boolean("is_filterable").notNull().default(true),
+  sortOrder: int("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  categorySourceIdx: index("product_spec_rules_category_source_idx").on(
+    table.categoryId,
+    table.sourceNormalizedKey
+  ),
+  categoryTargetIdx: index("product_spec_rules_category_target_idx").on(
+    table.categoryId,
+    table.targetNormalizedKey
+  ),
+}));
+
 export const productMerchandising = mysqlTable("product_merchandising", {
   productId: int("product_id").primaryKey(),
   totalScore: int("total_score").notNull().default(0),

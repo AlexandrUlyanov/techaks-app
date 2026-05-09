@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,6 +96,8 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-6">
+      <ProductSpecStandardizationPanel categories={categories as any} />
+
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative flex-1 max-w-md">
