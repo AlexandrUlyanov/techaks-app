@@ -119,7 +119,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
   if (variant === "list") {
     return (
-      <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm relative">
+      <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm relative after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
         <Link to={`/product/${product.slug}`} className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4">
           <div className="relative h-[112px] sm:h-[132px] bg-white rounded-lg flex items-center justify-center p-3 overflow-hidden">
             {product.badge && (
@@ -132,7 +132,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             <img
               src={product.image}
               alt={product.name}
-              className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+              className="h-full w-full object-contain"
               loading="lazy"
             />
           </div>
@@ -193,7 +193,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   }
 
   return (
-    <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm hover:shadow-lg relative flex flex-col h-full">
+    <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm hover:shadow-lg relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
       <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
         <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
           {product.badge && (
@@ -206,7 +206,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
           <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-contain"
             loading="lazy"
           />
         </div>

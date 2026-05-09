@@ -85,6 +85,24 @@
     box-shadow: 0 0 25px rgba(5, 195, 212, 0.25);
   }
 
+  @keyframes electric-border {
+    0% {
+      background-position:
+        -180% 0,
+        100% -180%;
+    }
+    50% {
+      background-position:
+        180% 0,
+        100% 180%;
+    }
+    100% {
+      background-position:
+        180% 100%,
+        0 180%;
+    }
+  }
+
   /* Specific styling for the brand identity in any theme */
   .brand-graphite {
     @apply bg-[#15171A] dark:bg-[#0A0B0D];
