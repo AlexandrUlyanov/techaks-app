@@ -1,16 +1,32 @@
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import ProductCard from "@/components/ProductCard";
 import { Loader2, Search, ArrowLeft, ShoppingBag } from "lucide-react";
 
+const PRODUCT_PAGE_SIZE = 28;
+
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const [visibleProductCount, setVisibleProductCount] =
+    useState(PRODUCT_PAGE_SIZE);
 
   const { data: results = [], isLoading } = trpc.product.search.useQuery(
-    { query, limit: 50 },
+    { query, limit: 500 },
     { enabled: query.length >= 2 }
   );
+
+  useEffect(() => {
+    setVisibleProductCount(PRODUCT_PAGE_SIZE);
+  }, [query]);
+
+  const visibleResults = useMemo(
+    () => results.slice(0, visibleProductCount),
+    [results, visibleProductCount]
+  );
+
+  const hasMoreResults = visibleProductCount < results.length;
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -55,11 +71,31 @@ export default function SearchPage() {
               </p>
             </div>
           ) : results.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {results.map(product => (
-                <ProductCard key={product.id} product={product as any} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {visibleResults.map(product => (
+                  <ProductCard key={product.id} product={product as any} />
+                ))}
+              </div>
+              {hasMoreResults && (
+                <div className="mt-12 flex flex-col items-center gap-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Показано {visibleResults.length} из {results.length}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleProductCount(count =>
+                        Math.min(count + PRODUCT_PAGE_SIZE, results.length)
+                      )
+                    }
+                    className="px-10 py-4 rounded-xl bg-[#05C3D4] text-white dark:text-black text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/20"
+                  >
+                    Загрузить еще
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="max-w-md mx-auto text-center py-24 space-y-8">
               <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto opacity-20">

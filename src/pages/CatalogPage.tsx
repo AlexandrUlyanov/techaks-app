@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
+
+const PRODUCT_PAGE_SIZE = 28;
 
 export default function CatalogPage() {
   const navigate = useNavigate();
@@ -11,6 +13,8 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
     "default"
   );
+  const [visibleProductCount, setVisibleProductCount] =
+    useState(PRODUCT_PAGE_SIZE);
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
   const { data: products = [], isLoading } =
@@ -28,6 +32,17 @@ export default function CatalogPage() {
     }
     return result;
   }, [products, sortBy]);
+
+  useEffect(() => {
+    setVisibleProductCount(PRODUCT_PAGE_SIZE);
+  }, [activeCategory, sortBy]);
+
+  const visibleProducts = useMemo(
+    () => sortedProducts.slice(0, visibleProductCount),
+    [sortedProducts, visibleProductCount]
+  );
+
+  const hasMoreProducts = visibleProductCount < sortedProducts.length;
 
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
@@ -188,10 +203,29 @@ export default function CatalogPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {sortedProducts.map((product: any) => (
+                  {visibleProducts.map((product: any) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
+                {hasMoreProducts && (
+                  <div className="mt-12 flex flex-col items-center gap-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Показано {visibleProducts.length} из{" "}
+                      {sortedProducts.length}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleProductCount(count =>
+                          Math.min(count + PRODUCT_PAGE_SIZE, sortedProducts.length)
+                        )
+                      }
+                      className="px-10 py-4 rounded-xl bg-[#05C3D4] text-white dark:text-black text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/20"
+                    >
+                      Загрузить еще
+                    </button>
+                  </div>
+                )}
                 {sortedProducts.length === 0 && (
                   <div className="text-center py-24">
                     <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
