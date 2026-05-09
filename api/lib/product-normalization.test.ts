@@ -43,6 +43,18 @@ describe("previewProductNormalization", () => {
     });
   });
 
+  it("strips bullet prefixes from spec keys", () => {
+    const result = previewProductNormalization(
+      "- Вход: Type-C\n• Выход: USB-A",
+      {}
+    );
+
+    expect(result.parsedSpecs).toEqual({
+      "Вход": "Type-C",
+      "Выход": "USB-A",
+    });
+  });
+
   it("reports conflicts without overwriting existing specs", () => {
     const result = previewProductNormalization("Цвет: Черный", {
       "Цвет": "Белый",

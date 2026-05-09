@@ -2,6 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import {
+  normalizeSpecKeyForDisplay,
   normalizeSpecToken,
   previewProductNormalization,
   type ProductNormalizationPreview,
@@ -56,14 +57,17 @@ export async function rebuildProductSpecIndexForProduct(product: ProductRow) {
   if (!isSpecsRecord(product.specs)) return 0;
 
   const rows = Object.entries(product.specs)
-    .map(([key, value]) => ({
-      productId: product.id,
-      categoryId: product.categoryId,
-      specKey: String(key).trim().slice(0, 120),
-      normalizedKey: normalizeSpecToken(key).slice(0, 120),
-      specValue: String(value ?? "").trim().slice(0, 512),
-      normalizedValue: normalizeSpecToken(value).slice(0, 512),
-    }))
+    .map(([key, value]) => {
+      const displayKey = normalizeSpecKeyForDisplay(String(key));
+      return {
+        productId: product.id,
+        categoryId: product.categoryId,
+        specKey: displayKey.slice(0, 120),
+        normalizedKey: normalizeSpecToken(displayKey).slice(0, 120),
+        specValue: String(value ?? "").trim().slice(0, 512),
+        normalizedValue: normalizeSpecToken(value).slice(0, 512),
+      };
+    })
     .filter(row => row.specKey && row.normalizedKey && row.specValue && row.normalizedValue);
 
   if (rows.length > 0) {

@@ -24,8 +24,11 @@ const KEY_ALIASES: Record<string, string> = {
   "тип устройства": "Тип",
 };
 
-function normalizeAliasKey(key: string): string {
-  const normalized = key.trim().replace(/\s+/g, " ");
+export function normalizeSpecKeyForDisplay(key: string): string {
+  const normalized = key
+    .trim()
+    .replace(/^[-–—•*]+\s*/, "")
+    .replace(/\s+/g, " ");
   return KEY_ALIASES[normalized.toLowerCase().replace(/ё/g, "е")] ?? normalized;
 }
 
@@ -45,7 +48,7 @@ function isSpecLine(line: string) {
   const match = line.match(/^\s*([^:]{2,80}):\s*(\S.*)\s*$/);
   if (!match) return null;
 
-  const key = normalizeAliasKey(match[1]);
+  const key = normalizeSpecKeyForDisplay(match[1]);
   const value = normalizeValue(match[2]);
   if (!key || !value) return null;
 
@@ -60,7 +63,7 @@ export function previewProductNormalization(
     existingSpecs && typeof existingSpecs === "object" && !Array.isArray(existingSpecs)
       ? Object.fromEntries(
           Object.entries(existingSpecs as Record<string, unknown>).map(([key, value]) => [
-            normalizeAliasKey(key),
+            normalizeSpecKeyForDisplay(key),
             normalizeValue(value),
           ])
         )
