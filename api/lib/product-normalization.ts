@@ -33,6 +33,14 @@ function normalizeValue(value: unknown): string {
   return String(value ?? "").trim().replace(/\s+/g, " ");
 }
 
+export function normalizeSpecToken(value: unknown): string {
+  return normalizeValue(value)
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 function isSpecLine(line: string) {
   const match = line.match(/^\s*([^:]{2,80}):\s*(\S.*)\s*$/);
   if (!match) return null;

@@ -7,6 +7,10 @@ import axios from "axios";
 import axiosRetry from 'axios-retry';
 import fs from "fs";
 import path from "path";
+import {
+  normalizeProductDescriptions,
+  rebuildProductSpecIndex,
+} from "../lib/product-normalization-service";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -545,6 +549,32 @@ export const syncRouter = createRouter({
               }
             }
           }
+        }
+
+        if (input.syncProducts) {
+          logDetails.steps.push("Нормализация характеристик");
+          await updateLog('running', 'Нормализация характеристик...');
+          writeLog("Normalizing description specs after MoySklad sync...");
+          const normalization = await normalizeProductDescriptions({
+            limit: 10000,
+            examplesLimit: 5,
+            source: "moysklad",
+            apply: true,
+            skipConflicts: true,
+            rebuildIndex: true,
+          });
+          logDetails.stats.normalizedProducts = normalization.appliedProducts;
+          logDetails.stats.normalizedSpecs = normalization.movedSpecs;
+          logDetails.stats.normalizationConflicts = normalization.conflictCount;
+          writeLog(
+            `Normalization completed. Applied products: ${normalization.appliedProducts}, moved specs: ${normalization.movedSpecs}, conflicts: ${normalization.conflictCount}`
+          );
+        } else {
+          logDetails.steps.push("Переиндексация характеристик");
+          await updateLog('running', 'Переиндексация характеристик...');
+          const indexResult = await rebuildProductSpecIndex(10000);
+          logDetails.stats.indexedSpecValues = indexResult.indexedValues;
+          writeLog(`Spec index rebuilt. Products: ${indexResult.indexedProducts}, values: ${indexResult.indexedValues}`);
         }
 
         writeLog(`Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}`);

@@ -80,18 +80,16 @@ It returns:
 
 ## Apply mode
 
-Apply mode will be added after preview is reviewed.
-
-Expected behavior:
+Behavior:
 
 - update only products with non-conflicting changes by default;
 - write normalization logs;
 - support batch size and dry-run flags;
 - preserve old values in logs for audit and rollback.
 
-## Future filter index
+## Filter index
 
-For fast category filters, add an index table after normalization stabilizes:
+For fast category filters, the normalized specs are copied into:
 
 ```text
 product_spec_values
@@ -107,11 +105,15 @@ product_spec_values
 The filter UI should read available keys/values from this table by category and
 descendant categories.
 
+The server exposes `product.getSpecFilters` for category-aware filter metadata.
+The current frontend product-list filter UI can be added on top of that endpoint
+without re-reading JSON specs from every product.
+
 ## Rollout plan
 
-1. Implement parser and preview tRPC endpoint.
-2. Add admin preview page/button.
-3. Review preview output on production data.
-4. Implement apply endpoint with logs.
-5. Add filter index table and rebuild job.
-6. Add scheduled/after-sync automation.
+1. Implement parser and preview tRPC endpoint. Done.
+2. Add admin preview page/button. Done.
+3. Review preview output on production data. Done.
+4. Implement apply endpoint with logs. Done.
+5. Add filter index table and rebuild job. Done.
+6. Add scheduled/after-sync automation. Done through post-sync normalization.

@@ -6,6 +6,7 @@ import {
   categories,
   reviews,
   productStocks,
+  productSpecValues,
   stores,
 } from "@db/schema";
 import { eq, asc, desc, like, or, sql } from "drizzle-orm";
@@ -264,6 +265,78 @@ export const productRouter = createRouter({
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`);
+    }),
+
+  getSpecFilters: publicQuery
+    .input(z.object({ categorySlug: z.string().default("all") }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const categorySlug = input?.categorySlug ?? "all";
+      let categoryIds: number[] | null = null;
+
+      if (categorySlug !== "all") {
+        const allCats = await db.select().from(categories);
+        const targetCat = allCats.find((c: any) => c.slug === categorySlug);
+        if (!targetCat) return [];
+
+        const getDescendants = (parentId: number): number[] => {
+          const children = allCats.filter((c: any) => c.parentId === parentId).map((c: any) => c.id);
+          let descendants = [...children];
+          for (const childId of children) {
+            descendants = [...descendants, ...getDescendants(childId)];
+          }
+          return descendants;
+        };
+
+        categoryIds = [targetCat.id, ...getDescendants(targetCat.id)];
+      }
+
+      const rows = await db
+        .select({
+          key: productSpecValues.specKey,
+          normalizedKey: productSpecValues.normalizedKey,
+          value: productSpecValues.specValue,
+          normalizedValue: productSpecValues.normalizedValue,
+          count: sql<number>`count(distinct ${productSpecValues.productId})`,
+        })
+        .from(productSpecValues)
+        .where(
+          categoryIds
+            ? sql`${productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)})`
+            : undefined
+        )
+        .groupBy(
+          productSpecValues.specKey,
+          productSpecValues.normalizedKey,
+          productSpecValues.specValue,
+          productSpecValues.normalizedValue
+        )
+        .orderBy(productSpecValues.specKey, productSpecValues.specValue);
+
+      const filters = new Map<string, {
+        key: string;
+        normalizedKey: string;
+        values: { value: string; normalizedValue: string; count: number }[];
+      }>();
+
+      for (const row of rows) {
+        const current = filters.get(row.normalizedKey) ?? {
+          key: row.key,
+          normalizedKey: row.normalizedKey,
+          values: [],
+        };
+        current.values.push({
+          value: row.value,
+          normalizedValue: row.normalizedValue,
+          count: Number(row.count),
+        });
+        filters.set(row.normalizedKey, current);
+      }
+
+      return Array.from(filters.values()).map(filter => ({
+        ...filter,
+        values: filter.values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value)),
+      }));
     }),
 
   getStockBySlug: publicQuery

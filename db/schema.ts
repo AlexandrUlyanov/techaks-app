@@ -8,6 +8,7 @@ import {
   boolean,
   decimal,
   json,
+  index,
 } from "drizzle-orm/mysql-core";
 
 export const leads = mysqlTable("leads", {
@@ -150,3 +151,37 @@ export const syncLogs = mysqlTable("sync_logs", {
   details: json("details"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const productNormalizationLogs = mysqlTable("product_normalization_logs", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  productName: varchar("product_name", { length: 512 }).notNull(),
+  source: varchar("source", { length: 50 }).notNull().default("manual"),
+  status: varchar("status", { length: 20 }).notNull(),
+  movedSpecCount: int("moved_spec_count").notNull().default(0),
+  conflictCount: int("conflict_count").notNull().default(0),
+  oldDescription: text("old_description"),
+  newDescription: text("new_description"),
+  oldSpecs: json("old_specs"),
+  newSpecs: json("new_specs"),
+  conflicts: json("conflicts"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  productIdx: index("product_normalization_logs_product_idx").on(table.productId),
+  createdAtIdx: index("product_normalization_logs_created_at_idx").on(table.createdAt),
+}));
+
+export const productSpecValues = mysqlTable("product_spec_values", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  categoryId: int("category_id").notNull(),
+  specKey: varchar("spec_key", { length: 120 }).notNull(),
+  normalizedKey: varchar("normalized_key", { length: 120 }).notNull(),
+  specValue: varchar("spec_value", { length: 512 }).notNull(),
+  normalizedValue: varchar("normalized_value", { length: 512 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  productIdx: index("product_spec_values_product_idx").on(table.productId),
+  categoryKeyIdx: index("product_spec_values_category_key_idx").on(table.categoryId, table.normalizedKey),
+  lookupIdx: index("product_spec_values_lookup_idx").on(table.normalizedKey, table.normalizedValue),
+}));
