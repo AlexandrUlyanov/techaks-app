@@ -247,7 +247,7 @@ export default function Header() {
                 {isAuthenticated ? (
                   <Link
                     to="/account"
-                    className="w-11 h-11 flex items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
+                    className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
                     aria-label="Личный кабинет"
                   >
                     <User size={20} />
@@ -255,7 +255,7 @@ export default function Header() {
                 ) : (
                   <button
                     onClick={() => setAuthOpen(true)}
-                    className="w-11 h-11 flex items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
+                    className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
                     aria-label="Войти"
                   >
                     <User size={20} />
@@ -264,7 +264,7 @@ export default function Header() {
 
                 <Link
                   to="/checkout"
-                  className="w-11 h-11 flex items-center justify-center text-foreground/40 hover:text-[#05C3D4] transition-colors rounded-xl hover:bg-muted relative"
+                  className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-[#05C3D4] transition-colors rounded-xl hover:bg-muted relative"
                   aria-label="Корзина"
                 >
                   <ShoppingBag size={22} />

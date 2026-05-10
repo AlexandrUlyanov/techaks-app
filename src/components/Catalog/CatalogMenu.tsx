@@ -62,14 +62,14 @@ export function CatalogTrigger({ className = "" }: { className?: string }) {
           : "bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] border-transparent"
       } border ${className}`}
     >
-      <div className="relative w-5 h-5 flex items-center justify-center">
+      <div className="relative hidden sm:flex w-5 h-5 items-center justify-center">
         {isOpen ? (
           <X size={20} strokeWidth={2.5} />
         ) : (
           <LayoutGrid size={20} strokeWidth={2.5} />
         )}
       </div>
-      <span className="hidden sm:inline">Каталог</span>
+      <span>Каталог</span>
     </button>
   );
 }

@@ -1,35 +1,29 @@
-import { Home, LayoutGrid, Search, ShoppingBag, User } from "lucide-react";
+import { Phone, Search, ShoppingCart, User } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useCart } from "@/hooks/use-cart";
-import { useCatalog } from "@/providers/CatalogProvider";
 
 export default function StickyBottomBar() {
   const location = useLocation();
   const { getItemCount } = useCart();
-  const { toggle, isOpen } = useCatalog();
   const itemCount = getItemCount();
 
   const navItems = [
-    { label: "Главная", icon: Home, href: "/" },
-    { label: "Каталог", icon: LayoutGrid, onClick: toggle, isActive: isOpen },
     { label: "Поиск", icon: Search, href: "#search", isAction: true },
     {
       label: "Корзина",
-      icon: ShoppingBag,
+      icon: ShoppingCart,
       href: "/checkout",
       count: itemCount,
     },
     { label: "Профиль", icon: User, href: "/account" },
+    { label: "Позвонить", icon: Phone, href: "tel:+79273750555", isExternal: true },
   ];
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-[60] bg-background/80 backdrop-blur-2xl border-t border-border px-2 pb-safe-offset-2 pt-2 flex justify-around shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300">
       {navItems.map(item => {
         const Icon = item.icon;
-        const isActive =
-          item.isActive !== undefined
-            ? item.isActive
-            : location.pathname === item.href;
+        const isActive = location.pathname === item.href;
 
         const content = (
           <div
@@ -51,16 +45,12 @@ export default function StickyBottomBar() {
           isActive ? "text-[#05C3D4]" : "text-muted-foreground"
         }`;
 
-        if (item.onClick) {
+        if ((item as any).isExternal) {
           return (
-            <button
-              key={item.label}
-              onClick={item.onClick}
-              className={className}
-            >
+            <a key={item.label} href={item.href || "#"} className={className}>
               {content}
               {label}
-            </button>
+            </a>
           );
         }
 
