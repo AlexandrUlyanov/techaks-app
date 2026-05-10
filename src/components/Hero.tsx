@@ -120,7 +120,7 @@ export default function Hero() {
   return (
     <section
       ref={container}
-      className="relative min-h-[100vh] flex items-center overflow-hidden bg-slate-50 dark:bg-[#15171A] transition-colors duration-500"
+      className="relative min-h-[72vh] md:min-h-[78vh] flex items-center overflow-hidden bg-slate-50 dark:bg-[#15171A] transition-colors duration-500"
     >
       {/* Background Layer: CSS Blobs */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -137,7 +137,7 @@ export default function Hero() {
         }}
       />
 
-      <div className="container-main relative z-10 w-full pt-32 pb-24 grid lg:grid-cols-[1.2fr_0.8fr] gap-12 items-center">
+      <div className="container-main relative z-10 w-full pt-20 md:pt-24 pb-14 md:pb-16 grid lg:grid-cols-[1.2fr_0.8fr] gap-10 items-center">
         {/* Content Layer: Left Aligned */}
         <div className="flex flex-col items-start perspective-[1000px]">
           <div className="hero-label inline-block text-[#05C3D4] text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] mb-6 px-3 py-1.5 border border-[#05C3D4]/20 rounded-full bg-[#05C3D4]/5 backdrop-blur-md">
