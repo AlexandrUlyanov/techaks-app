@@ -97,7 +97,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
       onClick={handleAddToCart}
       className="magnetic flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#05C3D4] px-4 text-[10px] font-black uppercase tracking-widest text-white dark:text-black transition-all duration-300 hover:bg-[#27E6F2] active:scale-95 relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_30px_rgba(5,195,212,0.3)]"
     >
-      <ShoppingCart size={14} />
+      <ShoppingCart size={14} className="hidden sm:block" />
       В корзину
     </button>
   );
