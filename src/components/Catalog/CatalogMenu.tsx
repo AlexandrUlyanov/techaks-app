@@ -83,16 +83,22 @@ const DesktopCatalog = () => {
   const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
-  const showTopProductsBlock = groupsWithChildren.length === 0;
-  const { data: topCategoryProducts = [] } = trpc.product.getTopByCategoryStock.useQuery(
+  const showLeafCategoryFilters = groupsWithChildren.length === 0;
+  const { data: leafCategoryFilters = [] } = trpc.product.getSpecFilters.useQuery(
     {
       categorySlug: menu.activeCategory?.slug ?? "",
-      limit: 3,
     },
     {
-      enabled: Boolean(menu.activeCategory?.slug) && showTopProductsBlock,
+      enabled: Boolean(menu.activeCategory?.slug) && showLeafCategoryFilters,
       placeholderData: prev => prev,
     }
+  );
+  const typeFilter = useMemo(
+    () =>
+      leafCategoryFilters.find(
+        filter => String(filter.normalizedKey).toLowerCase() === "тип"
+      ),
+    [leafCategoryFilters]
   );
 
   const handleCategoryHover = (id: string) => {
@@ -224,7 +230,7 @@ const DesktopCatalog = () => {
               <div className="rounded-2xl border border-border bg-muted/10 p-5">
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground">
-                    Топ товары
+                    Типы товаров
                   </h3>
                   <Link
                     to={menu.activeCategory.href}
@@ -234,35 +240,29 @@ const DesktopCatalog = () => {
                     Смотреть все товары
                   </Link>
                 </div>
-                {topCategoryProducts.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-                    {topCategoryProducts.map(product => (
+                {typeFilter && typeFilter.values.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                    {typeFilter.values.slice(0, 12).map(value => (
                       <Link
-                        key={product.id}
-                        to={`/product/${product.slug}`}
+                        key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
+                        to={`/catalog?cat=${menu.activeCategory?.slug ?? "all"}&filter=${encodeURIComponent(
+                          `${typeFilter.normalizedKey}:${value.normalizedValue}`
+                        )}`}
                         onClick={menu.close}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 hover:border-[#05C3D4]/60 transition-colors"
+                        className="rounded-xl border border-border bg-card px-3 py-2.5 hover:border-[#05C3D4]/60 transition-colors"
                       >
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-11 w-11 shrink-0 object-contain"
-                          loading="lazy"
-                        />
-                        <div className="min-w-0">
-                          <div className="line-clamp-2 text-[12px] font-bold leading-tight text-foreground">
-                            {product.name}
-                          </div>
-                          <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-[#05C3D4]">
-                            {new Intl.NumberFormat("ru-RU").format(product.price)} ₽
-                          </div>
+                        <div className="truncate text-[12px] font-bold text-foreground">
+                          {value.value}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                          {value.count} шт
                         </div>
                       </Link>
                     ))}
                   </div>
                 ) : (
                   <div className="text-sm font-semibold text-muted-foreground">
-                    Пока нет товаров в наличии для отображения.
+                    Для этой категории пока нет значений свойства "Тип".
                   </div>
                 )}
               </div>
