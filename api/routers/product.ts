@@ -13,9 +13,13 @@ import * as schema from "@db/schema";
 import { eq, asc, desc, like, or, sql } from "drizzle-orm";
 import {
   applyCategorySpecStandardization,
+  applyCategorySpecValueStandardization,
   getCategorySpecStandardization,
+  getCategorySpecValueStandardization,
   upsertCategorySpecRule,
   upsertCategorySpecRulesBulk,
+  upsertCategorySpecValueRule,
+  upsertCategorySpecValueRulesBulk,
 } from "../lib/product-spec-standardization";
 import { suggestCategorySpecRulesWithGemini } from "../lib/gemini-spec-standardization";
 
@@ -409,6 +413,17 @@ export const productRouter = createRouter({
       return getCategorySpecStandardization(input.categoryId);
     }),
 
+  getSpecValueStandardization: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        sourceNormalizedKey: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      return getCategorySpecValueStandardization(input);
+    }),
+
   upsertSpecRule: publicQuery
     .input(
       z.object({
@@ -445,6 +460,40 @@ export const productRouter = createRouter({
       return upsertCategorySpecRulesBulk(input);
     }),
 
+  upsertSpecValueRule: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        specNormalizedKey: z.string(),
+        sourceValue: z.string(),
+        sourceNormalizedValue: z.string(),
+        targetValue: z.string(),
+        sortOrder: z.number().default(0),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return upsertCategorySpecValueRule(input);
+    }),
+
+  upsertSpecValueRulesBulk: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        specNormalizedKey: z.string(),
+        rules: z.array(
+          z.object({
+            sourceValue: z.string(),
+            sourceNormalizedValue: z.string(),
+            targetValue: z.string(),
+            sortOrder: z.number().default(0),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return upsertCategorySpecValueRulesBulk(input);
+    }),
+
   suggestSpecRulesWithAi: publicQuery
     .input(
       z.object({
@@ -465,6 +514,18 @@ export const productRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       return applyCategorySpecStandardization(input);
+    }),
+
+  applySpecValueStandardization: publicQuery
+    .input(
+      z.object({
+        categoryId: z.number(),
+        sourceNormalizedKey: z.string(),
+        limit: z.number().min(1).max(20000).default(10000),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return applyCategorySpecValueStandardization(input);
     }),
 
   getStockBySlug: publicQuery
