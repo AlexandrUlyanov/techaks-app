@@ -394,19 +394,19 @@ export default function CatalogPage() {
           {catalogView === "categories" &&
             activeCategory !== "all" &&
             categoryManufacturers.length > 1 && (
-              <div className="pt-8 border-t border-border">
-                <div className="flex items-center justify-between gap-6 mb-5">
+              <div
+                className={
+                  displayCategories.length > 0
+                    ? "pt-8 border-t border-border"
+                    : "pt-1"
+                }
+              >
+                <div className="flex items-center justify-between gap-6 mb-4">
                   <h2 className="text-sm font-black uppercase tracking-widest text-foreground">
                     Производители в категории
                   </h2>
-                  <Link
-                    to="/catalog?view=brands"
-                    className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
-                  >
-                    Все бренды
-                  </Link>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="flex gap-3 overflow-x-auto pb-1">
                   {categoryManufacturers.map(manufacturer => {
                     const selected = selectedFilters.some(
                       filter =>
@@ -456,7 +456,7 @@ export default function CatalogPage() {
 
           {/* Products Grid */}
           {showProductSection && (
-          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-12 border-t border-border" : ""}>
+          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 || (catalogView === "categories" && activeCategory !== "all" && categoryManufacturers.length > 1) ? "pt-10 border-t border-border" : ""}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
               <h2 className="text-xl font-black uppercase tracking-widest text-foreground leading-none">
                 Товары

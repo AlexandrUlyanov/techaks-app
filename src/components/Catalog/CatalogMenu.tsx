@@ -201,9 +201,9 @@ const DesktopCatalog = () => {
               )}
             </div>
             {groupsWithChildren.length > 0 ? (
-              <div className="columns-3 xl:columns-4 gap-8">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6 xl:grid-cols-3">
                 {groupsWithChildren.map((group: CategoryGroup) => (
-                  <div key={group.id} className="break-inside-avoid mb-6 space-y-2.5">
+                  <div key={group.id} className="space-y-2.5">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                       <Link to={group.href || "#"} onClick={menu.close}>
                         {group.title}
@@ -264,7 +264,7 @@ const DesktopCatalog = () => {
               </div>
             ) : null}
             {singleCategories.length > 0 && (
-              <div className="mt-6 border-t border-border pt-5">
+              <div className={`${groupsWithChildren.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : ""}`}>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
                   {singleCategories.map((group: CategoryGroup) => (
                     <Link
@@ -280,7 +280,7 @@ const DesktopCatalog = () => {
               </div>
             )}
             {hasBottomSection && (
-            <div className="mt-10 pt-8 border-t border-border flex gap-12">
+            <div className={`${groupsWithChildren.length > 0 || singleCategories.length > 0 || showLeafCategoryFilters ? "mt-8 pt-6 border-t border-border" : ""} flex gap-12`}>
               {hasBrands && (
                 <div className="flex-1">
                   <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
