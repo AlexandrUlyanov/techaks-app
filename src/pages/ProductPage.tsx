@@ -181,10 +181,10 @@ export default function ProductPage() {
               </div>
 
               {/* Price */}
-              <div className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mt-10 grid grid-cols-1 md:grid-cols-20 gap-4">
                 <div
                   className={`p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm ${
-                    productManufacturer ? "md:col-span-3" : "md:col-span-4"
+                    productManufacturer ? "md:col-span-13" : "md:col-span-20"
                   }`}
                 >
                   <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
@@ -212,7 +212,7 @@ export default function ProductPage() {
                 {productManufacturer && (
                   <Link
                     to={productManufacturer.href}
-                    className="md:col-span-1 p-4 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex flex-col items-start justify-between gap-4 min-h-[160px]"
+                    className="md:col-span-7 p-4 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex flex-col items-start justify-between gap-4 min-h-[160px]"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-2.5 shrink-0">
                       {productManufacturer.logo ? (
