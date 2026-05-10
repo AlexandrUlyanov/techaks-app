@@ -241,6 +241,25 @@ export const productSpecValueRules = mysqlTable("product_spec_value_rules", {
   ),
 }));
 
+export const manufacturers = mysqlTable("manufacturers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  normalizedName: varchar("normalized_name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  logoUrl: varchar("logo_url", { length: 512 }),
+  website: varchar("website", { length: 255 }),
+  productCount: int("product_count").notNull().default(0),
+  isVisible: boolean("is_visible").notNull().default(true),
+  sortOrder: int("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  normalizedNameIdx: index("manufacturers_normalized_name_idx").on(
+    table.normalizedName
+  ),
+  visibleIdx: index("manufacturers_visible_idx").on(table.isVisible, table.sortOrder),
+}));
+
 export const productMerchandising = mysqlTable("product_merchandising", {
   productId: int("product_id").primaryKey(),
   totalScore: int("total_score").notNull().default(0),

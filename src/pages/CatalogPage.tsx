@@ -18,7 +18,9 @@ const PRODUCT_PAGE_SIZE = 28;
 export default function CatalogPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const catalogView = searchParams.get("view") === "brands" ? "brands" : "categories";
   const activeCategory = searchParams.get("cat") || "all";
+  const activeBrand = searchParams.get("brand") || "";
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
     return searchParams
@@ -39,15 +41,54 @@ export default function CatalogPage() {
     useState(PRODUCT_PAGE_SIZE);
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
-  const { data: specFilters = [] } = trpc.product.getSpecFilters.useQuery(
-    { categorySlug: activeCategory },
+  const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
+    { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
   );
-  const { data: products = [], isLoading } =
-    trpc.product.getByCategory.useQuery(
-      { categorySlug: activeCategory, specFilters: selectedFilters },
-      { placeholderData: prev => prev }
+  const currentManufacturerQuery = trpc.manufacturer.getBySlug.useQuery(
+    { slug: activeBrand },
+    { enabled: catalogView === "brands" && Boolean(activeBrand) }
+  );
+  const { data: categorySpecFilters = [] } = trpc.product.getSpecFilters.useQuery(
+    { categorySlug: activeCategory },
+    {
+      placeholderData: prev => prev,
+      enabled: catalogView === "categories",
+    }
+  );
+  const { data: manufacturerSpecFilters = [] } =
+    trpc.product.getManufacturerSpecFilters.useQuery(
+      { manufacturerSlug: activeBrand },
+      {
+        placeholderData: prev => prev,
+        enabled: catalogView === "brands" && Boolean(activeBrand),
+      }
     );
+  const categoryProductsQuery = trpc.product.getByCategory.useQuery(
+    { categorySlug: activeCategory, specFilters: selectedFilters },
+    {
+      placeholderData: prev => prev,
+      enabled: catalogView === "categories",
+    }
+  );
+  const manufacturerProductsQuery = trpc.product.getByManufacturer.useQuery(
+    { manufacturerSlug: activeBrand, specFilters: selectedFilters },
+    {
+      placeholderData: prev => prev,
+      enabled: catalogView === "brands" && Boolean(activeBrand),
+    }
+  );
+
+  const specFilters =
+    catalogView === "brands" ? manufacturerSpecFilters : categorySpecFilters;
+  const products =
+    catalogView === "brands"
+      ? manufacturerProductsQuery.data ?? []
+      : categoryProductsQuery.data ?? [];
+  const isLoading =
+    catalogView === "brands"
+      ? currentManufacturerQuery.isLoading || manufacturerProductsQuery.isLoading
+      : categoryProductsQuery.isLoading;
 
   const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -92,7 +133,7 @@ export default function CatalogPage() {
 
   useEffect(() => {
     setVisibleProductCount(PRODUCT_PAGE_SIZE);
-  }, [activeCategory, sortBy, selectedFilterKey]);
+  }, [activeCategory, activeBrand, catalogView, sortBy, selectedFilterKey]);
 
   const visibleProducts = useMemo(
     () => sortedProducts.slice(0, visibleProductCount),
@@ -105,12 +146,15 @@ export default function CatalogPage() {
     return categories.find(c => c.slug === activeCategory);
   }, [categories, activeCategory]);
 
+  const currentManufacturer = currentManufacturerQuery.data ?? null;
+
   const activeCategoryName = useMemo(() => {
     if (activeCategory === "all") return "Все";
     return currentCategory?.name || "Каталог";
   }, [currentCategory, activeCategory]);
 
   const displayCategories = useMemo(() => {
+    if (catalogView === "brands") return [];
     if (activeCategory === "all") {
       return categories.filter(c => !c.parentId);
     }
@@ -118,10 +162,18 @@ export default function CatalogPage() {
       return categories.filter(c => c.parentId === currentCategory.id);
     }
     return [];
-  }, [categories, activeCategory, currentCategory]);
+  }, [catalogView, categories, activeCategory, currentCategory]);
+
+  const displayManufacturers = useMemo(() => {
+    if (catalogView !== "brands" || activeBrand) return [];
+    return manufacturers;
+  }, [catalogView, activeBrand, manufacturers]);
 
   // Breadcrumbs
   const breadcrumbs = useMemo(() => {
+    if (catalogView === "brands") {
+      return [];
+    }
     if (activeCategory === "all" || !currentCategory) return [];
     const trail = [];
     let curr: any = currentCategory;
@@ -131,7 +183,17 @@ export default function CatalogPage() {
       curr = categories.find(c => c.id === pid);
     }
     return trail;
-  }, [categories, currentCategory, activeCategory]);
+  }, [catalogView, categories, currentCategory, activeCategory]);
+
+  const headerEyebrow = catalogView === "brands"
+    ? activeBrand
+      ? "Производитель"
+      : "Каталог производителей"
+    : "Категория";
+  const headerTitle = catalogView === "brands"
+    ? currentManufacturer?.name || "Производители"
+    : activeCategoryName;
+  const showProductSection = catalogView === "categories" || Boolean(activeBrand);
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
@@ -142,17 +204,35 @@ export default function CatalogPage() {
             <Link to="/catalog?cat=all" className="hover:text-[#05C3D4] transition-colors">
               Каталог
             </Link>
-            {breadcrumbs.map(bc => (
-              <div key={bc.id} className="flex items-center gap-2">
+            {catalogView === "brands" ? (
+              <>
                 <span className="text-muted-foreground/20">/</span>
-                <Link 
-                  to={`/catalog?cat=${bc.slug}`}
-                  className={bc.id === currentCategory?.id ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
+                <Link
+                  to="/catalog?view=brands"
+                  className={!activeBrand ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
                 >
-                  {bc.name}
+                  Производители
                 </Link>
-              </div>
-            ))}
+                {activeBrand && currentManufacturer && (
+                  <>
+                    <span className="text-muted-foreground/20">/</span>
+                    <span className="text-[#05C3D4]">{currentManufacturer.name}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              breadcrumbs.map(bc => (
+                <div key={bc.id} className="flex items-center gap-2">
+                  <span className="text-muted-foreground/20">/</span>
+                  <Link 
+                    to={`/catalog?cat=${bc.slug}`}
+                    className={bc.id === currentCategory?.id ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
+                  >
+                    {bc.name}
+                  </Link>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -161,11 +241,35 @@ export default function CatalogPage() {
       <section className="pt-12 pb-8 border-b border-border">
         <div className="container-main">
           <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-            Категория
+            {headerEyebrow}
           </span>
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-            {activeCategoryName}
+            {headerTitle}
           </h1>
+          <div className="mt-6 inline-flex rounded-2xl border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={() => navigate("/catalog?cat=all")}
+              className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                catalogView === "categories"
+                  ? "bg-[#05C3D4] text-black"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Категории
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/catalog?view=brands")}
+              className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                catalogView === "brands"
+                  ? "bg-[#05C3D4] text-black"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Производители
+            </button>
+          </div>
         </div>
       </section>
 
@@ -174,6 +278,44 @@ export default function CatalogPage() {
         <div className="container-main space-y-12">
           
           {/* Categories Grid */}
+          {displayManufacturers.length > 0 && (
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
+                Производители
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {displayManufacturers.map(manufacturer => (
+                  <button
+                    key={manufacturer.id}
+                    type="button"
+                    onClick={() => navigate(`/catalog?view=brands&brand=${manufacturer.slug}`)}
+                    className="flex min-h-[156px] flex-col items-center justify-center rounded-2xl border border-border bg-white/5 p-5 text-center transition-all hover:border-[#05C3D4] hover:bg-white/10"
+                  >
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-3">
+                      {manufacturer.logoUrl ? (
+                        <img
+                          src={manufacturer.logoUrl}
+                          alt={manufacturer.name}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs font-black text-[#05C3D4]">
+                          {manufacturer.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-4 line-clamp-2 text-sm font-bold uppercase tracking-wide">
+                      {manufacturer.name}
+                    </div>
+                    <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      {manufacturer.productCount} товаров
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {displayCategories.length > 0 && (
             <div>
               <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
@@ -229,7 +371,8 @@ export default function CatalogPage() {
           )}
 
           {/* Products Grid */}
-          <div className={displayCategories.length > 0 ? "pt-12 border-t border-border" : ""}>
+          {showProductSection && (
+          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-12 border-t border-border" : ""}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
               <h2 className="text-xl font-black uppercase tracking-widest text-foreground leading-none">
                 Товары
@@ -352,6 +495,7 @@ export default function CatalogPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </section>
     </div>

@@ -205,15 +205,29 @@ const DesktopCatalog = () => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-6">
                     Бренды
                   </span>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="grid max-h-[220px] grid-cols-4 gap-3 overflow-y-auto pr-2 xl:grid-cols-5">
                     {menu.activeCategory.brands.map((brand: Brand) => (
                       <Link
                         key={brand.id}
                         to={brand.href}
-                        className="px-5 py-2.5 bg-muted/50 rounded-xl text-[10px] font-black uppercase hover:bg-[#05C3D4] hover:text-white dark:hover:text-black transition-all"
+                        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center hover:border-[#05C3D4] hover:bg-[#05C3D4]/5 transition-all"
                         onClick={menu.close}
                       >
-                        {brand.title}
+                        {brand.logo ? (
+                          <img
+                            src={brand.logo}
+                            alt={brand.title}
+                            className="h-8 w-8 object-contain"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#05C3D4]/10 text-[10px] font-black text-[#05C3D4]">
+                            {brand.title.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="line-clamp-2 text-[10px] font-black uppercase leading-tight text-foreground">
+                          {brand.title}
+                        </span>
                       </Link>
                     ))}
                   </div>

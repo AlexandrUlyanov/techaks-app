@@ -8,6 +8,7 @@ import {
   productStocks,
   productSpecValues,
   stores,
+  manufacturers,
 } from "@db/schema";
 import * as schema from "@db/schema";
 import { eq, asc, desc, like, or, sql } from "drizzle-orm";
@@ -22,6 +23,10 @@ import {
   upsertCategorySpecValueRulesBulk,
 } from "../lib/product-spec-standardization";
 import { suggestCategorySpecRulesWithGemini } from "../lib/gemini-spec-standardization";
+import {
+  getManufacturerFilterKeys,
+  getManufacturerNameFromProductSpecs,
+} from "../lib/manufacturers";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -63,6 +68,37 @@ function buildSpecFilterConditions(specFilters?: z.infer<typeof specFilterSchema
 
   if (conditions.length === 0) return undefined;
   return sql.join(conditions, sql` AND `);
+}
+
+function collectDescendantCategoryIds(
+  allCategories: Array<typeof categories.$inferSelect>,
+  categoryId: number
+) {
+  const ids = [categoryId];
+  const stack = [categoryId];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const children = allCategories
+      .filter(category => category.parentId === current)
+      .map(category => category.id);
+    for (const childId of children) {
+      ids.push(childId);
+      stack.push(childId);
+    }
+  }
+
+  return ids;
+}
+
+function buildManufacturerCondition(normalizedName: string) {
+  const keys = getManufacturerFilterKeys();
+  return sql`EXISTS (
+    SELECT 1 FROM ${productSpecValues}
+    WHERE ${productSpecValues.productId} = ${products.id}
+      AND ${productSpecValues.normalizedKey} IN (${sql.join(keys, sql`, `)})
+      AND ${productSpecValues.normalizedValue} = ${normalizedName}
+  )`;
 }
 
 export const productRouter = createRouter({
@@ -253,6 +289,56 @@ export const productRouter = createRouter({
       .orderBy(asc(categories.sortOrder));
   }),
 
+  getByManufacturer: publicQuery
+    .input(
+      z.object({
+        manufacturerSlug: z.string(),
+        specFilters: z.array(specFilterSchema).optional().default([]),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [manufacturer] = await db
+        .select()
+        .from(manufacturers)
+        .where(eq(manufacturers.slug, input.manufacturerSlug))
+        .limit(1);
+
+      if (!manufacturer) return [];
+
+      const specCondition = buildSpecFilterConditions(input.specFilters);
+      const manufacturerCondition = buildManufacturerCondition(
+        manufacturer.normalizedName
+      );
+
+      return await db
+        .select({
+          id: products.id,
+          msId: products.msId,
+          slug: products.slug,
+          name: products.name,
+          categoryId: products.categoryId,
+          price: products.price,
+          oldPrice: products.oldPrice,
+          badge: products.badge,
+          image: products.image,
+          description: products.description,
+          specs: products.specs,
+          inStock: products.inStock,
+          rating: products.rating,
+          reviewCount: products.reviewCount,
+          createdAt: products.createdAt,
+          categoryName: categories.name,
+        })
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(
+          specCondition
+            ? sql`${manufacturerCondition} AND ${specCondition}`
+            : manufacturerCondition
+        );
+    }),
+
   getByCategory: publicQuery
     .input(
       z.object({
@@ -296,16 +382,7 @@ export const productRouter = createRouter({
 
       if (!targetCat) return [];
 
-      const getDescendants = (parentId: number): number[] => {
-        const children = allCats.filter((c: any) => c.parentId === parentId).map((c: any) => c.id);
-        let descendants = [...children];
-        for (const childId of children) {
-          descendants = [...descendants, ...getDescendants(childId)];
-        }
-        return descendants;
-      };
-
-      const targetIds = [targetCat.id, ...getDescendants(targetCat.id)];
+      const targetIds = collectDescendantCategoryIds(allCats, targetCat.id);
 
       const specCondition = buildSpecFilterConditions(input.specFilters);
       const categoryCondition = sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`;
@@ -330,17 +407,7 @@ export const productRouter = createRouter({
         const targetCat = allCats.find((c: any) => c.slug === categorySlug);
         if (!targetCat) return [];
         rootCategoryId = targetCat.id;
-
-        const getDescendants = (parentId: number): number[] => {
-          const children = allCats.filter((c: any) => c.parentId === parentId).map((c: any) => c.id);
-          let descendants = [...children];
-          for (const childId of children) {
-            descendants = [...descendants, ...getDescendants(childId)];
-          }
-          return descendants;
-        };
-
-        categoryIds = [targetCat.id, ...getDescendants(targetCat.id)];
+        categoryIds = collectDescendantCategoryIds(allCats, targetCat.id);
       }
 
       const rows = await db
@@ -405,6 +472,79 @@ export const productRouter = createRouter({
         ...filter,
         values: filter.values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value)),
       }));
+    }),
+
+  getManufacturerSpecFilters: publicQuery
+    .input(z.object({ manufacturerSlug: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [manufacturer] = await db
+        .select()
+        .from(manufacturers)
+        .where(eq(manufacturers.slug, input.manufacturerSlug))
+        .limit(1);
+
+      if (!manufacturer) return [];
+
+      const matchingProducts = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(buildManufacturerCondition(manufacturer.normalizedName));
+
+      if (matchingProducts.length === 0) return [];
+
+      const productIds = matchingProducts.map(product => product.id);
+      const rows = await db
+        .select({
+          key: productSpecValues.specKey,
+          normalizedKey: productSpecValues.normalizedKey,
+          value: productSpecValues.specValue,
+          normalizedValue: productSpecValues.normalizedValue,
+          count: sql<number>`count(distinct ${productSpecValues.productId})`,
+        })
+        .from(productSpecValues)
+        .where(
+          sql`${productSpecValues.productId} IN (${sql.join(productIds, sql`, `)})`
+        )
+        .groupBy(
+          productSpecValues.specKey,
+          productSpecValues.normalizedKey,
+          productSpecValues.specValue,
+          productSpecValues.normalizedValue
+        )
+        .orderBy(productSpecValues.specKey, productSpecValues.specValue);
+
+      const filters = new Map<
+        string,
+        {
+          key: string;
+          normalizedKey: string;
+          values: { value: string; normalizedValue: string; count: number }[];
+        }
+      >();
+
+      for (const row of rows) {
+        const current = filters.get(row.normalizedKey) ?? {
+          key: row.key,
+          normalizedKey: row.normalizedKey,
+          values: [],
+        };
+        current.values.push({
+          value: row.value,
+          normalizedValue: row.normalizedValue,
+          count: Number(row.count),
+        });
+        filters.set(row.normalizedKey, current);
+      }
+
+      return Array.from(filters.values())
+        .filter(filter => !getManufacturerFilterKeys().includes(filter.normalizedKey))
+        .map(filter => ({
+          ...filter,
+          values: filter.values.sort(
+            (a, b) => b.count - a.count || a.value.localeCompare(b.value)
+          ),
+        }));
     }),
 
   getSpecStandardization: publicQuery
@@ -591,6 +731,27 @@ export const productRouter = createRouter({
       await db.delete(products).where(eq(products.id, input.id));
       return { success: true };
     }),
+
+  getManufacturersFromProducts: publicQuery.query(async () => {
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: products.id,
+        specs: products.specs,
+      })
+      .from(products);
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      const name = getManufacturerNameFromProductSpecs(row.specs);
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .map(([name, productCount]) => ({ name, productCount }))
+      .sort((a, b) => b.productCount - a.productCount || a.name.localeCompare(b.name, "ru"));
+  }),
 
   upsertCategory: publicQuery
     .input(

@@ -40,6 +40,10 @@ const CatalogContext = createContext<CatalogContextType | undefined>(undefined);
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { data: dbCategories = [], isLoading } =
     trpc.product.getCategories.useQuery();
+  const { data: manufacturerEntries = [] } = trpc.manufacturer.getAll.useQuery({
+    onlyVisible: true,
+    withProductsOnly: true,
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,9 +94,15 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         icon: category.icon ?? undefined,
         href: `/catalog?cat=${category.slug}`,
         children,
+        brands: manufacturerEntries.map(manufacturer => ({
+          id: String(manufacturer.id),
+          title: manufacturer.name,
+          href: `/catalog?view=brands&brand=${manufacturer.slug}`,
+          logo: manufacturer.logoUrl ?? undefined,
+        })),
       };
     });
-  }, [dbCategories]);
+  }, [dbCategories, manufacturerEntries]);
 
   useEffect(() => {
     if (!activeCategoryId && catalogCategories[0]) {

@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
+import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -96,6 +97,7 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-6">
+      <ManufacturerCatalogPanel />
       <ProductSpecStandardizationPanel categories={categories as any} />
 
       {/* Action Bar */}
