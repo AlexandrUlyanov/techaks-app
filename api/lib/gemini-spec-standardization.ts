@@ -31,9 +31,7 @@ export async function suggestCategorySpecRulesWithGemini(input: {
 }) {
   const config = await getGeminiConfig();
 
-  if (!config.apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured");
-  }
+  assertGeminiAccess(config);
 
   const db = getDb();
   const [category] = await db
@@ -75,54 +73,44 @@ export async function suggestCategorySpecRulesWithGemini(input: {
     JSON.stringify(rows, null, 2),
   ].join("\n");
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": config.apiKey,
+  const response = await executeGeminiGenerateContent(config, {
+    contents: [
+      {
+        parts: [{ text: prompt }],
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json",
-          responseJsonSchema: {
-            type: "object",
-            properties: {
-              suggestions: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    sourceNormalizedKey: { type: "string" },
-                    targetKey: { type: "string" },
-                    isVisible: { type: "boolean" },
-                    isFilterable: { type: "boolean" },
-                    sortOrder: { type: "integer" },
-                    reason: { type: "string" },
-                  },
-                  required: [
-                    "sourceNormalizedKey",
-                    "targetKey",
-                    "isVisible",
-                    "isFilterable",
-                    "sortOrder",
-                  ],
-                },
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+      responseJsonSchema: {
+        type: "object",
+        properties: {
+          suggestions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                sourceNormalizedKey: { type: "string" },
+                targetKey: { type: "string" },
+                isVisible: { type: "boolean" },
+                isFilterable: { type: "boolean" },
+                sortOrder: { type: "integer" },
+                reason: { type: "string" },
               },
+              required: [
+                "sourceNormalizedKey",
+                "targetKey",
+                "isVisible",
+                "isFilterable",
+                "sortOrder",
+              ],
             },
-            required: ["suggestions"],
           },
         },
-      }),
-    }
-  );
+        required: ["suggestions"],
+      },
+    },
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -173,50 +161,59 @@ export async function getGeminiConfig() {
   const settings = await getAppSettings([
     "gemini_api_key",
     "gemini_model",
+    "ai_proxy_base_url",
+    "ai_proxy_token",
   ]);
 
   return {
+    proxyBaseUrl:
+      settings.ai_proxy_base_url?.trim() || env.aiProxyBaseUrl || "",
+    proxyToken: settings.ai_proxy_token?.trim() || env.aiProxyToken || "",
     apiKey: settings.gemini_api_key?.trim() || env.geminiApiKey || "",
     model: settings.gemini_model?.trim() || env.geminiModel,
-    source: settings.gemini_api_key?.trim() ? "database" : "env",
+    source: settings.gemini_api_key?.trim()
+      ? "database"
+      : env.geminiApiKey
+        ? "env"
+        : "unset",
+    proxySource: settings.ai_proxy_base_url?.trim()
+      ? "database"
+      : env.aiProxyBaseUrl
+        ? "env"
+        : "unset",
   } as const;
 }
 
 export async function testGeminiConnection(input?: {
   apiKey?: string;
   model?: string;
+  proxyBaseUrl?: string;
+  proxyToken?: string;
 }) {
-  const config = input?.apiKey?.trim()
+  const config =
+    input?.proxyBaseUrl?.trim() || input?.apiKey?.trim()
     ? {
-        apiKey: input.apiKey.trim(),
+        proxyBaseUrl: input.proxyBaseUrl?.trim() || "",
+        proxyToken: input.proxyToken?.trim() || "",
+        apiKey: input.apiKey?.trim() || "",
         model: input.model?.trim() || env.geminiModel,
+        source: input.apiKey?.trim() ? "manual" : "unset",
+        proxySource: input.proxyBaseUrl?.trim() ? "manual" : "unset",
       }
     : await getGeminiConfig();
 
-  if (!config.apiKey) {
-    throw new Error("Ключ Gemini не заполнен");
-  }
+  assertGeminiAccess(config);
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": config.apiKey,
+  const response = await executeGeminiGenerateContent(config, {
+    contents: [
+      {
+        parts: [{ text: "Ответь одним словом: ok" }],
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: "Ответь одним словом: ok" }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0,
-        },
-      }),
-    }
-  );
+    ],
+    generationConfig: {
+      temperature: 0,
+    },
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -226,5 +223,64 @@ export async function testGeminiConnection(input?: {
   return {
     success: true,
     model: config.model,
+    transport: config.proxyBaseUrl ? "proxy" : "direct",
   };
+}
+
+function assertGeminiAccess(config: {
+  apiKey?: string;
+  proxyBaseUrl?: string;
+}) {
+  if (!config.proxyBaseUrl && !config.apiKey) {
+    throw new Error("Нужно указать либо Gemini API key, либо AI Proxy URL");
+  }
+}
+
+async function executeGeminiGenerateContent(
+  config: {
+    model: string;
+    apiKey?: string;
+    proxyBaseUrl?: string;
+    proxyToken?: string;
+  },
+  body: Record<string, unknown>
+) {
+  if (config.proxyBaseUrl) {
+    const proxyUrl = `${config.proxyBaseUrl.replace(/\/+$/, "")}/v1/gemini/generate-content`;
+    const response = await fetch(proxyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.proxyToken
+          ? {
+              Authorization: `Bearer ${config.proxyToken}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify({
+        model: config.model,
+        apiKey: config.apiKey || "",
+        body,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AI proxy failed: ${response.status} ${errorText}`);
+    }
+
+    return response;
+  }
+
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": config.apiKey || "",
+      },
+      body: JSON.stringify(body),
+    }
+  );
 }

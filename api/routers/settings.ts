@@ -6,20 +6,35 @@ import { getGeminiConfig, testGeminiConnection } from "../lib/gemini-spec-standa
 
 export const settingsRouter = createRouter({
   getGemini: publicQuery.query(async () => {
-    const settings = await getAppSettings(["gemini_api_key", "gemini_model"]);
+    const settings = await getAppSettings([
+      "gemini_api_key",
+      "gemini_model",
+      "ai_proxy_base_url",
+      "ai_proxy_token",
+    ]);
     const config = await getGeminiConfig();
     const storedKey = settings.gemini_api_key?.trim() || "";
+    const storedProxyToken = settings.ai_proxy_token?.trim() || "";
 
     return {
       provider: "gemini",
       model: settings.gemini_model?.trim() || env.geminiModel,
       hasApiKey: Boolean(config.apiKey),
+      isConfigured: Boolean(config.proxyBaseUrl || config.apiKey),
+      proxyBaseUrl: settings.ai_proxy_base_url?.trim() || env.aiProxyBaseUrl || "",
+      hasProxy: Boolean(config.proxyBaseUrl),
+      proxyTokenMasked: storedProxyToken
+        ? `${storedProxyToken.slice(0, 4)}••••••••${storedProxyToken.slice(-4)}`
+        : config.proxySource === "env" && env.aiProxyToken
+          ? "Используется токен из .env"
+          : "",
       apiKeyMasked: storedKey
         ? `${storedKey.slice(0, 4)}••••••••${storedKey.slice(-4)}`
         : config.source === "env" && env.geminiApiKey
           ? "Используется ключ из .env"
           : "",
       source: config.source,
+      proxySource: config.proxySource,
     };
   }),
 
@@ -28,6 +43,8 @@ export const settingsRouter = createRouter({
       z.object({
         apiKey: z.string().trim().optional().default(""),
         model: z.string().trim().min(1).max(120).default("gemini-2.5-flash"),
+        proxyBaseUrl: z.string().trim().optional().default(""),
+        proxyToken: z.string().trim().optional().default(""),
       })
     )
     .mutation(async ({ input }) => {
@@ -35,6 +52,10 @@ export const settingsRouter = createRouter({
         await setAppSetting("gemini_api_key", input.apiKey);
       }
       await setAppSetting("gemini_model", input.model);
+      await setAppSetting("ai_proxy_base_url", input.proxyBaseUrl || "");
+      if (input.proxyToken) {
+        await setAppSetting("ai_proxy_token", input.proxyToken);
+      }
 
       return { success: true };
     }),
@@ -44,11 +65,18 @@ export const settingsRouter = createRouter({
     return { success: true };
   }),
 
+  clearAiProxyToken: publicQuery.mutation(async () => {
+    await setAppSetting("ai_proxy_token", "");
+    return { success: true };
+  }),
+
   testGemini: publicQuery
     .input(
       z.object({
         apiKey: z.string().trim().optional(),
         model: z.string().trim().optional(),
+        proxyBaseUrl: z.string().trim().optional(),
+        proxyToken: z.string().trim().optional(),
       }).optional()
     )
     .mutation(async ({ input }) => {

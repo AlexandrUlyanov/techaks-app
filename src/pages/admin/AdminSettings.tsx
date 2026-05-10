@@ -1,4 +1,4 @@
-import { KeyRound, Loader2, PlugZap, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { KeyRound, Loader2, PlugZap, Route, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/providers/trpc";
 
@@ -7,11 +7,15 @@ export default function AdminSettings() {
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
+  const [proxyBaseUrl, setProxyBaseUrl] = useState("");
+  const [proxyToken, setProxyToken] = useState("");
 
   useEffect(() => {
     if (!data) return;
     setApiKey("");
     setModel(data.model || "gemini-2.5-flash");
+    setProxyBaseUrl(data.proxyBaseUrl || "");
+    setProxyToken("");
   }, [data]);
 
   const saveMutation = trpc.settings.saveGemini.useMutation({
@@ -19,6 +23,7 @@ export default function AdminSettings() {
       utils.settings.getGemini.invalidate();
       alert("Настройки Gemini сохранены.");
       setApiKey("");
+      setProxyToken("");
     },
   });
 
@@ -33,6 +38,13 @@ export default function AdminSettings() {
       utils.settings.getGemini.invalidate();
       alert("Сохраненный API-ключ удален.");
       setApiKey("");
+    },
+  });
+  const clearProxyMutation = trpc.settings.clearAiProxyToken.useMutation({
+    onSuccess: () => {
+      utils.settings.getGemini.invalidate();
+      alert("Сохраненный токен роутера удален.");
+      setProxyToken("");
     },
   });
 
@@ -58,7 +70,7 @@ export default function AdminSettings() {
               Статус
             </div>
             <div className="mt-2 text-lg font-black">
-              {data?.hasApiKey ? "Подключено" : "Не подключено"}
+              {data?.isConfigured ? "Подключено" : "Не подключено"}
             </div>
           </div>
         </div>
@@ -106,6 +118,48 @@ export default function AdminSettings() {
                 </div>
               </div>
 
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-[#15171A]">
+                    AI Proxy URL
+                  </label>
+                  <div className="relative">
+                    <Route
+                      size={16}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      value={proxyBaseUrl}
+                      onChange={e => setProxyBaseUrl(e.target.value)}
+                      placeholder="https://your-ai-router-xxxx.run.app"
+                      className="h-11 w-full rounded-lg border border-gray-200 pl-10 pr-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-[#15171A]">
+                    Токен роутера
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="password"
+                      value={proxyToken}
+                      onChange={e => setProxyToken(e.target.value)}
+                      placeholder={
+                        data?.proxyTokenMasked
+                          ? "Оставьте пустым, чтобы сохранить текущий токен"
+                          : "Bearer token для AI Router"
+                      }
+                      className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                    <div className="text-xs text-gray-500">
+                      {data?.proxyTokenMasked || "Токен роутера пока не задан"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-[#15171A]">
                   Новый API-ключ
@@ -131,11 +185,13 @@ export default function AdminSettings() {
 
               {(saveMutation.error ||
                 testMutation.error ||
-                clearMutation.error) && (
+                clearMutation.error ||
+                clearProxyMutation.error) && (
                 <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                   {saveMutation.error?.message ||
                     testMutation.error?.message ||
-                    clearMutation.error?.message}
+                    clearMutation.error?.message ||
+                    clearProxyMutation.error?.message}
                 </div>
               )}
 
@@ -145,6 +201,8 @@ export default function AdminSettings() {
                     saveMutation.mutate({
                       apiKey,
                       model,
+                      proxyBaseUrl,
+                      proxyToken,
                     })
                   }
                   disabled={saveMutation.isPending || !model.trim()}
@@ -163,6 +221,8 @@ export default function AdminSettings() {
                     testMutation.mutate({
                       apiKey: apiKey.trim() || undefined,
                       model,
+                      proxyBaseUrl: proxyBaseUrl.trim() || undefined,
+                      proxyToken: proxyToken.trim() || undefined,
                     })
                   }
                   disabled={testMutation.isPending || !model.trim()}
@@ -191,6 +251,23 @@ export default function AdminSettings() {
                   )}
                   Удалить ключ
                 </button>
+                <button
+                  onClick={() => {
+                    if (!confirm("Удалить сохраненный токен AI Router?")) return;
+                    clearProxyMutation.mutate();
+                  }}
+                  disabled={
+                    clearProxyMutation.isPending || data?.proxySource === "env"
+                  }
+                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 disabled:opacity-50"
+                >
+                  {clearProxyMutation.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+                  Удалить токен роутера
+                </button>
               </div>
             </div>
           )}
@@ -202,11 +279,15 @@ export default function AdminSettings() {
               Источник
             </div>
             <div className="mt-2 text-base font-black text-[#15171A]">
-              {data?.source === "database" ? "База данных" : ".env fallback"}
+              {data?.proxyBaseUrl
+                ? `Через AI Router (${data?.proxySource === "database" ? "База данных" : ".env"})`
+                : data?.source === "database"
+                  ? "Прямой доступ из базы данных"
+                  : ".env fallback"}
             </div>
             <p className="mt-2 text-sm leading-6 text-gray-500">
-              Если ключ сохранен в настройках, система берет его оттуда. Если
-              нет, используется значение из `.env`.
+              Если указан `AI Proxy URL`, запросы к Gemini идут через Cloud Run
+              роутер. Если нет, система ходит напрямую по ключу Gemini.
             </p>
           </div>
 
