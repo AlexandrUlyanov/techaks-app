@@ -9,6 +9,8 @@ import {
   FolderTree,
   Package,
   Trash2,
+  Lock,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
@@ -36,6 +38,8 @@ export default function AdminSyncMoySklad() {
   const [syncPrices, setSyncPrices] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
+  const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
+
   useEffect(() => {
     const savedLogin = localStorage.getItem("ms_login");
     const savedPassword = localStorage.getItem("ms_password");
@@ -44,18 +48,19 @@ export default function AdminSyncMoySklad() {
   }, []);
 
   const saveCredentials = () => {
-    localStorage.setItem("ms_login", login);
-    localStorage.setItem("ms_password", password);
-    toast.success("Данные для входа сохранены");
+    if (login && password) {
+      localStorage.setItem("ms_login", login);
+      localStorage.setItem("ms_password", password);
+    }
   };
 
   // tRPC Hooks
   const storesQuery = trpc.sync.getStores.useQuery(
-    { login, password },
+    { login: login || undefined, password: password || undefined },
     { enabled: false }
   );
   const categoriesQuery = trpc.sync.getCategories.useQuery(
-    { login, password },
+    { login: login || undefined, password: password || undefined },
     { enabled: false }
   );
   const syncMutation = trpc.sync.runSync.useMutation({
@@ -74,7 +79,9 @@ export default function AdminSyncMoySklad() {
   });
 
   const handleFetchStores = async () => {
-    if (!login || !password) return toast.error("Укажите логин и пароль");
+    if (!msSettings?.hasToken && (!login || !password)) {
+      return toast.error("Укажите логин/пароль или настройте токен в настройках");
+    }
     setConnectionError(null);
     saveCredentials();
     const res = await storesQuery.refetch();
@@ -138,8 +145,8 @@ export default function AdminSyncMoySklad() {
 
   const handleRunSync = () => {
     syncMutation.mutate({
-      login,
-      password,
+      login: login || undefined,
+      password: password || undefined,
       syncProducts,
       syncStocks,
       syncPrices,
@@ -237,10 +244,38 @@ export default function AdminSyncMoySklad() {
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <h3 className="text-xl font-bold">Шаг 1. Параметры подключения</h3>
+            
+            {msSettings?.hasToken ? (
+              <div className="flex items-center gap-4 p-5 rounded-2xl bg-green-50 border border-green-100 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-green-500 shadow-sm">
+                  <CheckCircle size={24} />
+                </div>
+                <div>
+                  <div className="font-bold text-green-900">API токен настроен</div>
+                  <div className="text-sm text-green-700">
+                    Используется сохраненный токен {msSettings.tokenMasked}. 
+                    Вы можете оставить логин и пароль пустыми.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 p-5 rounded-2xl bg-amber-50 border border-amber-100 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-amber-500 shadow-sm">
+                  <Lock size={24} />
+                </div>
+                <div>
+                  <div className="font-bold text-amber-900">Токен не настроен</div>
+                  <div className="text-sm text-amber-700">
+                    Рекомендуем настроить API токен в <Link to="/admin/settings" className="underline font-bold">настройках</Link> для безопасного подключения.
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">
-                  Логин (e-mail)
+                  Логин (e-mail) <span className="text-gray-400 font-normal">(опционально, если есть токен)</span>
                 </label>
                 <input
                   type="text"
@@ -252,7 +287,7 @@ export default function AdminSyncMoySklad() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">
-                  Пароль
+                  Пароль <span className="text-gray-400 font-normal">(опционально, если есть токен)</span>
                 </label>
                 <input
                   type="password"

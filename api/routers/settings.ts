@@ -101,6 +101,29 @@ export const settingsRouter = createRouter({
     return { success: true };
   }),
 
+  getMoySklad: publicQuery.query(async () => {
+    const settings = await getAppSettings(["moysklad_token"]);
+    const token = settings.moysklad_token?.trim() || "";
+    return {
+      hasToken: Boolean(token),
+      tokenMasked: token
+        ? `${token.slice(0, 4)}••••••••${token.slice(-4)}`
+        : "",
+    };
+  }),
+
+  saveMoySklad: publicQuery
+    .input(z.object({ token: z.string().trim().min(1) }))
+    .mutation(async ({ input }) => {
+      await setAppSetting("moysklad_token", input.token);
+      return { success: true };
+    }),
+
+  clearMoySkladToken: publicQuery.mutation(async () => {
+    await setAppSetting("moysklad_token", "");
+    return { success: true };
+  }),
+
   testGemini: publicQuery
     .input(
       z.object({

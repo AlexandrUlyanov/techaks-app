@@ -12,6 +12,7 @@ import {
   rebuildProductSpecIndex,
 } from "../lib/product-normalization-service";
 import { previewProductNormalization } from "../lib/product-normalization";
+import { getAppSetting } from "../lib/app-settings";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -19,6 +20,17 @@ const moyskladApi = axios.create({
     "Accept-Encoding": "gzip",
   },
 });
+
+async function getAuthHeader(input: { login?: string; password?: string }): Promise<string> {
+  if (input.login && input.password) {
+    return `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
+  }
+  const storedToken = await getAppSetting("moysklad_token");
+  if (storedToken) {
+    return storedToken;
+  }
+  throw new Error("Не указаны учетные данные и токен МойСклад не найден в настройках");
+}
 
 // Auto-retry for rate limits (429)
 axiosRetry(moyskladApi, { 
@@ -181,9 +193,9 @@ async function downloadImage(
 
 export const syncRouter = createRouter({
   getStores: publicQuery
-    .input(z.object({ login: z.string(), password: z.string() }))
+    .input(z.object({ login: z.string().optional(), password: z.string().optional() }))
     .query(async ({ input }) => {
-      const authHeader = `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
+      const authHeader = await getAuthHeader(input);
       try {
         const rows = await fetchAllRows("/entity/store", authHeader);
         return rows.map((r: any) => ({ id: r.id, name: r.name }));
@@ -193,9 +205,9 @@ export const syncRouter = createRouter({
     }),
 
   getCategories: publicQuery
-    .input(z.object({ login: z.string(), password: z.string() }))
+    .input(z.object({ login: z.string().optional(), password: z.string().optional() }))
     .query(async ({ input }) => {
-      const authHeader = `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
+      const authHeader = await getAuthHeader(input);
       try {
         const rows = await fetchAllRows("/entity/productfolder", authHeader);
         return rows.map((r: any) => {
@@ -229,8 +241,8 @@ export const syncRouter = createRouter({
 
   runSync: publicQuery
     .input(z.object({
-      login: z.string(),
-      password: z.string(),
+      login: z.string().optional(),
+      password: z.string().optional(),
       syncProducts: z.boolean(),
       syncStocks: z.boolean(),
       syncPrices: z.boolean(),
@@ -245,7 +257,7 @@ export const syncRouter = createRouter({
       };
 
       writeLog("Starting filtered MoySklad sync...");
-      const authHeader = `Basic ${Buffer.from(`${input.login}:${input.password}`).toString("base64")}`;
+      const authHeader = await getAuthHeader(input);
       const db = getDb();
       
       const logDetails: any = { steps: [], errors: [], stats: { categories: 0, products: 0, stocks: 0 }, logFileUrl: null };

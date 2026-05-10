@@ -13,6 +13,7 @@ import { trpc } from "@/providers/trpc";
 export default function AdminSettings() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
+  const { data: msData, isLoading: isMsLoading } = trpc.settings.getMoySklad.useQuery();
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
@@ -20,6 +21,7 @@ export default function AdminSettings() {
   const [manufacturerLogoProvider, setManufacturerLogoProvider] =
     useState("logo_dev");
   const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
+  const [msToken, setMsToken] = useState("");
 
   useEffect(() => {
     if (!data) return;
@@ -37,6 +39,22 @@ export default function AdminSettings() {
       alert("Настройки Gemini сохранены.");
       setApiKey("");
       setProxyToken("");
+    },
+  });
+
+  const saveMsMutation = trpc.settings.saveMoySklad.useMutation({
+    onSuccess: () => {
+      utils.settings.getMoySklad.invalidate();
+      alert("Токен МойСклад сохранен.");
+      setMsToken("");
+    },
+  });
+
+  const clearMsMutation = trpc.settings.clearMoySkladToken.useMutation({
+    onSuccess: () => {
+      utils.settings.getMoySklad.invalidate();
+      alert("Токен МойСклад удален.");
+      setMsToken("");
     },
   });
 
@@ -333,6 +351,82 @@ export default function AdminSettings() {
           </div>
         </aside>
       </div>
+
+      <section className="rounded-2xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-black text-[#15171A]">МойСклад</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            API токен используется для синхронизации товаров, остатков и цен.
+          </p>
+        </div>
+
+        <div className="space-y-5 px-6 py-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Сохраненный токен
+              </label>
+              <div className="flex h-11 items-center rounded-lg border border-gray-200 px-3 text-sm text-gray-500">
+                {msData?.tokenMasked || "Токен пока не задан"}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Новый API-токен
+              </label>
+              <input
+                type="password"
+                value={msToken}
+                onChange={e => setMsToken(e.target.value)}
+                placeholder={
+                  msData?.hasToken
+                    ? "Оставьте пустым, чтобы сохранить текущий токен"
+                    : "Вставьте API-токен МойСклад"
+                }
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              />
+            </div>
+          </div>
+
+          {(saveMsMutation.error || clearMsMutation.error) && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveMsMutation.error?.message || clearMsMutation.error?.message}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => saveMsMutation.mutate({ token: msToken })}
+              disabled={saveMsMutation.isPending || !msToken.trim()}
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+            >
+              {saveMsMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              Сохранить токен МойСклад
+            </button>
+
+            <button
+              onClick={() => {
+                if (!confirm("Удалить сохраненный токен МойСклад?")) return;
+                clearMsMutation.mutate();
+              }}
+              disabled={clearMsMutation.isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 disabled:opacity-50"
+            >
+              {clearMsMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              Удалить токен
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white">
         <div className="border-b border-gray-100 px-6 py-5">
