@@ -15,9 +15,12 @@ import {
 
 export default function AdminStores() {
   const [editingStore, setEditingStore] = useState<any>(null);
+  const [bindingStoreId, setBindingStoreId] = useState<number | null>(null);
+  const [selectedMsStoreId, setSelectedMsStoreId] = useState<Record<number, string>>({});
 
   const utils = trpc.useUtils();
   const { data: stores = [], isLoading } = trpc.store.getAll.useQuery();
+  const { data: msStores = [] } = trpc.sync.getStores.useQuery({});
 
   const upsertMutation = trpc.store.upsert.useMutation({
     onSuccess: () => {
@@ -42,6 +45,7 @@ export default function AdminStores() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
+      msId: (formData.get("msId") as string) || null,
       name: formData.get("name") as string,
       address: formData.get("address") as string,
       hours: formData.get("hours") as string,
@@ -57,6 +61,28 @@ export default function AdminStores() {
       id: editingStore?.id,
       data,
     });
+  };
+
+  const handleBindStore = (store: any) => {
+    const nextMsId = selectedMsStoreId[store.id] || store.msId || "";
+    if (!nextMsId) return;
+
+    upsertMutation.mutate({
+      id: store.id,
+      data: {
+        msId: nextMsId,
+        name: store.name,
+        address: store.address,
+        hours: store.hours,
+        phone: store.phone,
+        rating: String(store.rating),
+        reviewCount: Number(store.reviewCount || 0),
+        image: store.image,
+        mapUrl: store.mapUrl || null,
+        sortOrder: Number(store.sortOrder || 0),
+      },
+    });
+    setBindingStoreId(null);
   };
 
   return (
@@ -111,7 +137,9 @@ export default function AdminStores() {
                         }`}
                       >
                         {store.msId
-                          ? `Склад привязан: ${store.msId}`
+                          ? `Склад: ${
+                              msStores.find(ms => ms.id === store.msId)?.name || store.msId
+                            }`
                           : "Склад не привязан"}
                       </span>
                     </div>
@@ -134,7 +162,7 @@ export default function AdminStores() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <button
                       onClick={() => setEditingStore(store)}
                       className="p-2 text-gray-400 hover:text-[#00_bcd4] hover:bg-gray-50 rounded-lg transition-colors"
@@ -147,6 +175,14 @@ export default function AdminStores() {
                     >
                       <Trash2 size={18} />
                     </button>
+                    <button
+                      onClick={() =>
+                        setBindingStoreId(prev => (prev === store.id ? null : store.id))
+                      }
+                      className="ml-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:border-[#05C3D4] hover:text-[#05C3D4] transition-colors"
+                    >
+                      Привязать склад
+                    </button>
                   </div>
                   {store.mapUrl && (
                     <a
@@ -158,6 +194,34 @@ export default function AdminStores() {
                     </a>
                   )}
                 </div>
+                {bindingStoreId === store.id && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <select
+                      value={selectedMsStoreId[store.id] ?? store.msId ?? ""}
+                      onChange={e =>
+                        setSelectedMsStoreId(prev => ({
+                          ...prev,
+                          [store.id]: e.target.value,
+                        }))
+                      }
+                      className="min-w-[260px] flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#05C3D4]"
+                    >
+                      <option value="">Выберите склад МойСклад</option>
+                      {msStores.map(msStore => (
+                        <option key={msStore.id} value={msStore.id}>
+                          {msStore.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleBindStore(store)}
+                      disabled={upsertMutation.isPending}
+                      className="rounded-lg bg-[#05C3D4] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0097a7] disabled:opacity-50"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -189,6 +253,11 @@ export default function AdminStores() {
                 <label className="text-sm font-medium text-gray-700">
                   Название
                 </label>
+                <input
+                  name="msId"
+                  defaultValue={editingStore.msId || ""}
+                  className="hidden"
+                />
                 <input
                   name="name"
                   defaultValue={editingStore.name}

@@ -5,6 +5,7 @@ import { stores } from "@db/schema";
 import { asc, eq } from "drizzle-orm";
 
 const storeSchema = z.object({
+  msId: z.string().nullable().optional(),
   name: z.string(),
   address: z.string(),
   hours: z.string(),
