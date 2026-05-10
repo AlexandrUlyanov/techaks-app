@@ -94,7 +94,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         icon: category.icon ?? undefined,
         href: `/catalog?cat=${category.slug}`,
         children,
-        brands: manufacturerEntries.map(manufacturer => ({
+        brands: manufacturerEntries.slice(0, 20).map(manufacturer => ({
           id: String(manufacturer.id),
           title: manufacturer.name,
           href: `/catalog?view=brands&brand=${manufacturer.slug}`,

@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import { getAppSettings } from "./app-settings";
@@ -398,6 +398,166 @@ export async function getManufacturerBySlug(slug: string) {
   return row ?? null;
 }
 
+function getDescendantCategoryIds(
+  allCategories: Array<typeof schema.categories.$inferSelect>,
+  categoryId: number
+) {
+  const ids = [categoryId];
+  const stack = [categoryId];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const children = allCategories
+      .filter(category => category.parentId === current)
+      .map(category => category.id);
+
+    for (const childId of children) {
+      ids.push(childId);
+      stack.push(childId);
+    }
+  }
+
+  return ids;
+}
+
+export async function getManufacturersByCategory(input: {
+  categorySlug: string;
+  limit?: number;
+}) {
+  if (input.categorySlug === "all") {
+    return getVisibleManufacturerCatalogEntries(input.limit ?? 18);
+  }
+
+  const db = getDb();
+  const allCategories = await db.select().from(schema.categories);
+  const category = allCategories.find(item => item.slug === input.categorySlug);
+  if (!category) return [];
+
+  const categoryIds = getDescendantCategoryIds(allCategories, category.id);
+  const keys = getManufacturerFilterKeys();
+  const rows = await db
+    .select({
+      normalizedName: schema.productSpecValues.normalizedValue,
+      sourceNormalizedKey: schema.productSpecValues.normalizedKey,
+      productCount: sql<number>`count(distinct ${schema.productSpecValues.productId})`,
+    })
+    .from(schema.productSpecValues)
+    .where(
+      and(
+        inArray(schema.productSpecValues.categoryId, categoryIds),
+        inArray(schema.productSpecValues.normalizedKey, keys)
+      )
+    )
+    .groupBy(
+      schema.productSpecValues.normalizedValue,
+      schema.productSpecValues.normalizedKey
+    )
+    .orderBy(desc(sql`count(distinct ${schema.productSpecValues.productId})`));
+
+  if (rows.length === 0) return [];
+
+  const manufacturerRows = await getManufacturers({
+    onlyVisible: true,
+    withProductsOnly: true,
+  });
+  const manufacturersByName = new Map(
+    manufacturerRows.map(row => [row.normalizedName, row])
+  );
+  const resultByName = new Map<
+    string,
+    {
+      id: number;
+      title: string;
+      slug: string;
+      href: string;
+      logo: string;
+      productCount: number;
+      normalizedName: string;
+      sourceNormalizedKey: string;
+    }
+  >();
+
+  for (const row of rows) {
+    const manufacturer = manufacturersByName.get(row.normalizedName);
+    if (!manufacturer) continue;
+
+    const existing = resultByName.get(row.normalizedName);
+    const productCount = Number(row.productCount || 0);
+    if (existing) {
+      existing.productCount += productCount;
+      if (existing.sourceNormalizedKey !== "производитель") {
+        existing.sourceNormalizedKey = row.sourceNormalizedKey;
+      }
+      continue;
+    }
+
+    resultByName.set(row.normalizedName, {
+      id: manufacturer.id,
+      title: manufacturer.name,
+      slug: manufacturer.slug,
+      href: `/catalog?view=brands&brand=${manufacturer.slug}`,
+      logo: manufacturer.logoUrl || buildPlaceholderLogoDataUrl(manufacturer.name),
+      productCount,
+      normalizedName: manufacturer.normalizedName,
+      sourceNormalizedKey: row.sourceNormalizedKey,
+    });
+  }
+
+  return Array.from(resultByName.values())
+    .sort(
+      (a, b) =>
+        b.productCount - a.productCount || a.title.localeCompare(b.title, "ru")
+    )
+    .slice(0, input.limit ?? 12);
+}
+
+export async function getManufacturerByProductSlug(slug: string) {
+  const db = getDb();
+  const [product] = await db
+    .select({
+      slug: schema.products.slug,
+      specs: schema.products.specs,
+    })
+    .from(schema.products)
+    .where(eq(schema.products.slug, slug))
+    .limit(1);
+
+  if (!product) return null;
+
+  const manufacturerName = getManufacturerNameFromSpecs(product.specs);
+  if (!manufacturerName) return null;
+
+  const normalizedName = normalizeSpecToken(manufacturerName).slice(0, 255);
+  const [manufacturer] = await db
+    .select()
+    .from(schema.manufacturers)
+    .where(eq(schema.manufacturers.normalizedName, normalizedName))
+    .limit(1);
+
+  if (manufacturer) {
+    return {
+      id: manufacturer.id,
+      title: manufacturer.name,
+      slug: manufacturer.slug,
+      href: `/catalog?view=brands&brand=${manufacturer.slug}`,
+      logo: manufacturer.logoUrl || buildPlaceholderLogoDataUrl(manufacturer.name),
+      productCount: manufacturer.productCount,
+      normalizedName: manufacturer.normalizedName,
+    };
+  }
+
+  const slugValue = slugify(manufacturerName);
+  return {
+    id: 0,
+    title: manufacturerName,
+    slug: slugValue,
+    href: `/catalog?view=brands&brand=${slugValue}`,
+    logo: buildPlaceholderLogoDataUrl(manufacturerName),
+    productCount: 0,
+    normalizedName,
+  };
+}
+
 export async function getManufacturers(input?: {
   onlyVisible?: boolean;
   withProductsOnly?: boolean;
@@ -464,18 +624,22 @@ export function getManufacturerFilterKeys() {
   return Array.from(MANUFACTURER_KEYS);
 }
 
-export async function getVisibleManufacturerCatalogEntries() {
+export async function getVisibleManufacturerCatalogEntries(limit?: number) {
   const rows = await getManufacturers({
     onlyVisible: true,
     withProductsOnly: true,
   });
 
-  return rows.map(row => ({
-    id: row.id,
-    title: row.name,
-    slug: row.slug,
-    href: `/catalog?view=brands&brand=${row.slug}`,
-    logo: row.logoUrl || buildPlaceholderLogoDataUrl(row.name),
-    productCount: row.productCount,
-  }));
+  return rows
+    .slice(0, limit ?? rows.length)
+    .map(row => ({
+      id: row.id,
+      title: row.name,
+      slug: row.slug,
+      href: `/catalog?view=brands&brand=${row.slug}`,
+      logo: row.logoUrl || buildPlaceholderLogoDataUrl(row.name),
+      productCount: row.productCount,
+      normalizedName: row.normalizedName,
+      sourceNormalizedKey: "производитель",
+    }));
 }

@@ -19,6 +19,11 @@ export default function ProductPage() {
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
   });
+  const { data: productManufacturer } =
+    trpc.manufacturer.getByProductSlug.useQuery(
+      { slug: slug || "" },
+      { enabled: Boolean(slug) }
+    );
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
   const { data: merchandisingRelated = [] } =
     trpc.merchandising.recommendations.useQuery(
@@ -77,6 +82,9 @@ export default function ProductPage() {
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
+  const isManufacturerSpec = (key: string) =>
+    ["производитель", "бренд"].includes(key.trim().toLowerCase());
+
   const handleAddToCart = () => {
     addItem({
       id: product.id,
@@ -127,6 +135,34 @@ export default function ProductPage() {
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
             {product.name}
           </h1>
+          {productManufacturer && (
+            <Link
+              to={productManufacturer.href}
+              className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-2">
+                {productManufacturer.logo ? (
+                  <img
+                    src={productManufacturer.logo}
+                    alt={productManufacturer.title}
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-xs font-black text-[#05C3D4]">
+                    {productManufacturer.title.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </span>
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Производитель
+                </span>
+                <span className="block text-sm font-black text-foreground">
+                  {productManufacturer.title}
+                </span>
+              </span>
+            </Link>
+          )}
         </div>
       </section>
 
@@ -277,19 +313,48 @@ export default function ProductPage() {
                   <div className="grid grid-cols-1 gap-1">
                     {Object.entries(
                       product.specs as Record<string, string>
-                    ).map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex justify-between items-center py-3 border-b border-border px-1 group"
-                      >
-                        <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                          {key}
-                        </span>
-                        <span className="text-sm font-black text-foreground/80">
-                          {value}
-                        </span>
-                      </div>
-                    ))}
+                    ).map(([key, value]) => {
+                      const showLogoValue =
+                        productManufacturer && isManufacturerSpec(key);
+                      return (
+                        <div
+                          key={key}
+                          className="flex justify-between items-center gap-6 py-3 border-b border-border px-1 group"
+                        >
+                          <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+                            {key}
+                          </span>
+                          {showLogoValue ? (
+                            <Link
+                              to={productManufacturer.href}
+                              className="inline-flex min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-sm font-black text-foreground/80 transition-colors hover:bg-[#05C3D4]/10 hover:text-[#05C3D4]"
+                            >
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white p-1">
+                                {productManufacturer.logo ? (
+                                  <img
+                                    src={productManufacturer.logo}
+                                    alt={productManufacturer.title}
+                                    className="h-full w-full object-contain"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <span className="text-[8px] font-black text-[#05C3D4]">
+                                    {productManufacturer.title
+                                      .slice(0, 2)
+                                      .toUpperCase()}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="truncate">{value}</span>
+                            </Link>
+                          ) : (
+                            <span className="text-right text-sm font-black text-foreground/80">
+                              {value}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

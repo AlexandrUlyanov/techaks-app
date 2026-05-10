@@ -3,7 +3,9 @@ import { createRouter, publicQuery } from "../middleware";
 import {
   collectManufacturerLogos,
   getManufacturerBySlug,
+  getManufacturerByProductSlug,
   getManufacturers,
+  getManufacturersByCategory,
   syncManufacturersFromProducts,
   updateManufacturer,
 } from "../lib/manufacturers";
@@ -26,6 +28,23 @@ export const manufacturerRouter = createRouter({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       return getManufacturerBySlug(input.slug);
+    }),
+
+  getByProductSlug: publicQuery
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      return getManufacturerByProductSlug(input.slug);
+    }),
+
+  getByCategory: publicQuery
+    .input(
+      z.object({
+        categorySlug: z.string(),
+        limit: z.number().min(1).max(40).default(12),
+      })
+    )
+    .query(async ({ input }) => {
+      return getManufacturersByCategory(input);
     }),
 
   syncCatalog: publicQuery.mutation(async () => {

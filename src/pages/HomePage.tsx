@@ -55,6 +55,10 @@ export default function HomePage() {
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const { data: banners = [] } = trpc.banner.getActive.useQuery();
   const { data: posts = [] } = trpc.blog.getPublished.useQuery();
+  const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
+    { onlyVisible: true, withProductsOnly: true },
+    { placeholderData: prev => prev }
+  );
 
   const weekProductsSource = merchandisingProducts.length > 0 ? merchandisingProducts : products;
   const weekProducts = [...weekProductsSource]
@@ -72,6 +76,7 @@ export default function HomePage() {
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const activeBanners = banners.slice(0, 2);
   const latestPosts = posts.slice(0, 3);
+  const featuredManufacturers = manufacturers.slice(0, 18);
 
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
@@ -124,6 +129,61 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Manufacturers */}
+      {featuredManufacturers.length > 0 && (
+        <section className="py-14 bg-background border-t border-border">
+          <div className="container-main">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Производители
+                </span>
+                <h2 className="text-3xl md:text-4xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  БРЕНДЫ <span className="text-foreground/20">В НАЛИЧИИ</span>
+                </h2>
+              </div>
+              <Link
+                to="/catalog?view=brands"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+              >
+                Все производители
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {featuredManufacturers.map(manufacturer => (
+                <Link
+                  key={manufacturer.id}
+                  to={`/catalog?view=brands&brand=${manufacturer.slug}`}
+                  className="group flex min-h-[122px] flex-col items-center justify-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-2.5">
+                    {manufacturer.logoUrl ? (
+                      <img
+                        src={manufacturer.logoUrl}
+                        alt={manufacturer.name}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-xs font-black text-[#05C3D4]">
+                        {manufacturer.name.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-3 line-clamp-1 text-xs font-black text-foreground transition-colors group-hover:text-[#05C3D4]">
+                    {manufacturer.name}
+                  </span>
+                  <span className="mt-1 text-[10px] font-bold text-muted-foreground">
+                    {manufacturer.productCount} товаров
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Products of the Week */}
       {weekProducts.length > 0 && (

@@ -231,6 +231,13 @@ const DesktopCatalog = () => {
                       </Link>
                     ))}
                   </div>
+                  <Link
+                    to="/catalog?view=brands"
+                    className="mt-5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                    onClick={menu.close}
+                  >
+                    Все производители <ArrowRight size={12} />
+                  </Link>
                 </div>
               )}
               {menu.activeCategory.promo && (
