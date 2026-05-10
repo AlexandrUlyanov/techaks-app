@@ -4,7 +4,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
-import { Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Grid2X2, List, SlidersHorizontal } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,13 +12,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -43,6 +36,7 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
     "default"
   );
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
@@ -148,6 +142,12 @@ export default function CatalogPage() {
   );
 
   const hasMoreProducts = visibleProductCount < sortedProducts.length;
+  const sortLabel =
+    sortBy === "price-asc"
+      ? "Цена: по возрастанию"
+      : sortBy === "price-desc"
+      ? "Цена: по убыванию"
+      : "По популярности";
 
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
@@ -391,41 +391,49 @@ export default function CatalogPage() {
                     <List size={17} />
                   </button>
                 </div>
-                <div className="min-w-[220px]">
-                  <Select
-                    value={sortBy}
-                    onValueChange={value =>
-                      setSortBy(value as "default" | "price-asc" | "price-desc")
-                    }
+                <div className="relative min-w-[220px]">
+                  <button
+                    type="button"
+                    onClick={() => setIsSortOpen(prev => !prev)}
+                    className="h-11 w-full rounded-xl border border-border bg-card px-4 text-left text-xs font-black uppercase tracking-widest text-foreground shadow-none transition-colors hover:border-[#05C3D4]/50"
                   >
-                    <SelectTrigger className="h-11 w-full rounded-xl border-border bg-card px-4 text-xs font-black uppercase tracking-widest text-foreground shadow-none">
-                      <SelectValue placeholder="По популярности" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="z-[80] min-w-[220px] rounded-xl border-border bg-card shadow-xl"
-                      position="popper"
-                      align="start"
-                    >
-                      <SelectItem
-                        value="default"
-                        className="text-xs font-black uppercase tracking-wider"
-                      >
-                        По популярности
-                      </SelectItem>
-                      <SelectItem
-                        value="price-asc"
-                        className="text-xs font-black uppercase tracking-wider"
-                      >
-                        Цена: по возрастанию
-                      </SelectItem>
-                      <SelectItem
-                        value="price-desc"
-                        className="text-xs font-black uppercase tracking-wider"
-                      >
-                        Цена: по убыванию
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="truncate">{sortLabel}</span>
+                      <ChevronDown
+                        size={16}
+                        className={`shrink-0 text-muted-foreground transition-transform ${
+                          isSortOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </span>
+                  </button>
+                  {isSortOpen && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 rounded-xl border border-border bg-card p-1 shadow-xl">
+                      {[
+                        { value: "default", label: "По популярности" },
+                        { value: "price-asc", label: "Цена: по возрастанию" },
+                        { value: "price-desc", label: "Цена: по убыванию" },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(
+                              option.value as "default" | "price-asc" | "price-desc"
+                            );
+                            setIsSortOpen(false);
+                          }}
+                          className={`flex h-9 w-full items-center rounded-lg px-3 text-left text-[11px] font-black uppercase tracking-wider transition-colors ${
+                            sortBy === option.value
+                              ? "bg-[#05C3D4] text-black"
+                              : "text-foreground hover:bg-muted/70"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
