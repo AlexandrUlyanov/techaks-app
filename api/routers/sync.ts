@@ -355,11 +355,17 @@ export const syncRouter = createRouter({
             let existing = findMatchingLocalStore(msStore, localStores);
             if (!existing) {
               const [insertRes] = await db.insert(schema.stores).values({
+                msId: msStore.id,
                 name: msStore.name,
                 address: msStore.address || msStore.name,
                 hours: "Ежедневно", phone: "+7 (000) 000-00-00", image: "/images/store-placeholder.jpg",
               });
               existing = { id: insertRes.insertId } as any;
+            } else if (!existing.msId || existing.msId !== msStore.id) {
+              await db
+                .update(schema.stores)
+                .set({ msId: msStore.id })
+                .where(eq(schema.stores.id, existing.id));
             }
           }
           localStores = await db.select().from(schema.stores);
@@ -367,7 +373,15 @@ export const syncRouter = createRouter({
 
         for (const msStore of allMsStores) {
           const matched = findMatchingLocalStore(msStore, localStores);
-          if (matched) msStoreIdToLocalId.set(msStore.id, matched.id);
+          if (matched) {
+            msStoreIdToLocalId.set(msStore.id, matched.id);
+            if (!matched.msId || matched.msId !== msStore.id) {
+              await db
+                .update(schema.stores)
+                .set({ msId: msStore.id })
+                .where(eq(schema.stores.id, matched.id));
+            }
+          }
         }
         writeLog(`Mapped MS stores to local DB stores: ${Array.from(msStoreIdToLocalId.entries()).map(([k,v]) => `${k}=>${v}`).join(', ')}`);
 

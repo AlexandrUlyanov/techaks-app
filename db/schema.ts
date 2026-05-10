@@ -55,6 +55,7 @@ export const products = mysqlTable("products", {
 
 export const stores = mysqlTable("stores", {
   id: serial("id").primaryKey(),
+  msId: varchar("ms_id", { length: 100 }),
   name: varchar("name", { length: 512 }).notNull(),
   address: varchar("address", { length: 255 }).notNull(),
   hours: varchar("hours", { length: 255 }).notNull(),

@@ -98,9 +98,22 @@ export default function AdminStores() {
                     <h3 className="font-bold text-lg text-[#0a0a0a]">
                       {store.name}
                     </h3>
-                    <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                      <Star size={14} className="fill-current" />
-                      <span className="text-sm">{store.rating}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1 text-yellow-500 font-bold">
+                        <Star size={14} className="fill-current" />
+                        <span className="text-sm">{store.rating}</span>
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          store.msId
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {store.msId
+                          ? `Склад привязан: ${store.msId}`
+                          : "Склад не привязан"}
+                      </span>
                     </div>
                   </div>
 
