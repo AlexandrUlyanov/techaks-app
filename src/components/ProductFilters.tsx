@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
+import { trpc } from "@/providers/trpc";
 
 type FilterValue = {
   value: string;
@@ -56,6 +57,21 @@ export default function ProductFilters({
   onToggle,
   onClear,
 }: ProductFiltersProps) {
+  const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
+    { onlyVisible: true, withProductsOnly: true },
+    { placeholderData: prev => prev }
+  );
+
+  const manufacturerLogoByName = useMemo(() => {
+    const map = new Map<string, string>();
+    manufacturers.forEach(item => {
+      if (item.logoUrl) {
+        map.set(item.name.trim().toLowerCase(), item.logoUrl);
+      }
+    });
+    return map;
+  }, [manufacturers]);
+
   const visibleFilters = useMemo(() => {
     return filters
       .map(group => ({
@@ -114,6 +130,12 @@ export default function ProductFilters({
                   normalizedValue: value.normalizedValue,
                 };
                 const checked = isSelected(selected, filter);
+                const isManufacturerGroup =
+                  group.normalizedKey === "производитель" ||
+                  group.normalizedKey === "бренд";
+                const manufacturerLogo = isManufacturerGroup
+                  ? manufacturerLogoByName.get(value.value.trim().toLowerCase())
+                  : undefined;
 
                 return (
                   <button
@@ -130,6 +152,16 @@ export default function ProductFilters({
                             : "border-border bg-background"
                         }`}
                       />
+                      {manufacturerLogo && (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-border/60">
+                          <img
+                            src={manufacturerLogo}
+                            alt={value.value}
+                            className="h-4 w-4 object-contain"
+                            loading="lazy"
+                          />
+                        </span>
+                      )}
                       <span className="truncate text-sm font-semibold text-foreground">
                         {value.value}
                       </span>

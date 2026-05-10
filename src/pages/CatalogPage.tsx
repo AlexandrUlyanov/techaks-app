@@ -56,14 +56,6 @@ export default function CatalogPage() {
     { slug: activeBrand },
     { enabled: catalogView === "brands" && Boolean(activeBrand) }
   );
-  const { data: categoryManufacturers = [] } =
-    trpc.manufacturer.getByCategory.useQuery(
-      { categorySlug: activeCategory, limit: 12 },
-      {
-        placeholderData: prev => prev,
-        enabled: catalogView === "categories" && activeCategory !== "all",
-      }
-    );
   const { data: categorySpecFilters = [] } = trpc.product.getSpecFilters.useQuery(
     { categorySlug: activeCategory },
     {
@@ -135,19 +127,6 @@ export default function CatalogPage() {
   };
 
   const clearFilters = () => updateFilters([]);
-
-  const selectCategoryManufacturer = (manufacturer: {
-    normalizedName: string;
-    sourceNormalizedKey: string;
-  }) => {
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("filter");
-    nextParams.append(
-      "filter",
-      `${manufacturer.sourceNormalizedKey}:${manufacturer.normalizedName}`
-    );
-    navigate(`/catalog?${nextParams.toString()}`, { replace: true });
-  };
 
   const sortedProducts = useMemo(() => {
     const result = [...products];
@@ -360,72 +339,9 @@ export default function CatalogPage() {
             </div>
           )}
 
-          {catalogView === "categories" &&
-            activeCategory !== "all" &&
-            categoryManufacturers.length > 1 && (
-              <div
-                className={
-                  (displayCategories.length > 0
-                    ? "pt-8 border-t border-border"
-                    : "pt-1") + " hidden md:block"
-                }
-              >
-                <div className="flex items-center justify-between gap-6 mb-4">
-                  <h2 className="text-sm font-black uppercase tracking-widest text-foreground">
-                    Производители в категории
-                  </h2>
-                </div>
-                <div className="flex gap-3 overflow-x-auto pb-1">
-                  {categoryManufacturers.map(manufacturer => {
-                    const selected = selectedFilters.some(
-                      filter =>
-                        filter.normalizedKey ===
-                          manufacturer.sourceNormalizedKey &&
-                        filter.normalizedValue === manufacturer.normalizedName
-                    );
-                    return (
-                      <button
-                        key={manufacturer.id}
-                        type="button"
-                        onClick={() => selectCategoryManufacturer(manufacturer)}
-                        className={`flex min-w-[154px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all ${
-                          selected
-                            ? "border-[#05C3D4] bg-[#05C3D4]/10"
-                            : "border-border bg-card hover:border-[#05C3D4]/50"
-                        }`}
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white p-1.5">
-                          {manufacturer.logo ? (
-                            <img
-                              src={manufacturer.logo}
-                              alt={manufacturer.title}
-                              className="h-full w-full object-contain"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="text-[10px] font-black text-[#05C3D4]">
-                              {manufacturer.title.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-black text-foreground">
-                            {manufacturer.title}
-                          </span>
-                          <span className="mt-0.5 block text-[10px] font-bold text-muted-foreground">
-                            {manufacturer.productCount} товаров
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
           {/* Products Grid */}
           {showProductSection && (
-          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 || (catalogView === "categories" && activeCategory !== "all" && categoryManufacturers.length > 1) ? "pt-10 border-t border-border" : ""}>
+          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-10 border-t border-border" : ""}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
               <h2 className="hidden md:block text-xl font-black uppercase tracking-widest text-foreground leading-none">
                 Товары
