@@ -230,12 +230,9 @@ export default function CatalogPage() {
             {catalogView === "brands" ? (
               <>
                 <span className="text-muted-foreground/20">/</span>
-                <Link
-                  to="/catalog?view=brands"
-                  className={!activeBrand ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
-                >
+                <span className={!activeBrand ? "text-[#05C3D4]" : ""}>
                   Производители
-                </Link>
+                </span>
                 {activeBrand && currentManufacturer && (
                   <>
                     <span className="text-muted-foreground/20">/</span>
@@ -263,30 +260,6 @@ export default function CatalogPage() {
       {/* Header Info */}
       <section className="pt-12 pb-8 border-b border-border">
         <div className="container-main">
-          <div className="mb-4 inline-flex rounded-2xl border border-border bg-card p-1">
-            <button
-              type="button"
-              onClick={() => navigate("/catalog?cat=all")}
-              className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors ${
-                catalogView === "categories"
-                  ? "bg-[#05C3D4] text-black"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Категории
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/catalog?view=brands")}
-              className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-colors ${
-                catalogView === "brands"
-                  ? "bg-[#05C3D4] text-black"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Производители
-            </button>
-          </div>
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
             {headerTitle}
           </h1>
