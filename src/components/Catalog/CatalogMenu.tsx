@@ -173,20 +173,20 @@ const DesktopCatalog = () => {
                 Все товары в категории <ArrowRight size={14} />
               </Link>
             </div>
-            <div className="columns-3 xl:columns-4 gap-12">
+            <div className="columns-3 xl:columns-4 gap-8">
               {menu.activeCategory.children?.map((group: CategoryGroup) => (
-                <div key={group.id} className="break-inside-avoid mb-10 space-y-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground hover:text-[#05C3D4] transition-colors">
+                <div key={group.id} className="break-inside-avoid mb-6 space-y-2.5">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                     <Link to={group.href || "#"} onClick={menu.close}>
                       {group.title}
                     </Link>
                   </h3>
-                  <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-1.5">
                     {group.items?.map((item: CategoryItem) => (
                       <Link
                         key={item.id}
                         to={item.href}
-                        className="text-[13px] font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
+                        className="text-[13px] leading-snug font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
                         onClick={menu.close}
                       >
                         <span className="group-hover/item:translate-x-1 transition-transform">
@@ -199,35 +199,29 @@ const DesktopCatalog = () => {
                 </div>
               ))}
             </div>
-            <div className="mt-16 pt-10 border-t border-border flex gap-12">
+            <div className="mt-10 pt-8 border-t border-border flex gap-12">
               {menu.activeCategory.brands && (
                 <div className="flex-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-6">
                     Бренды
                   </span>
-                  <div className="grid max-h-[220px] grid-cols-4 gap-3 overflow-y-auto pr-2 xl:grid-cols-5">
+                  <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
                     {menu.activeCategory.brands.map((brand: Brand) => (
                       <Link
                         key={brand.id}
                         to={brand.href}
-                        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-muted/40 px-3 py-3 text-center hover:border-[#05C3D4] hover:bg-[#05C3D4]/5 transition-all"
+                        className="flex h-10 items-center justify-center opacity-80 hover:opacity-100 transition-opacity"
+                        title={brand.title}
                         onClick={menu.close}
                       >
                         {brand.logo ? (
                           <img
                             src={brand.logo}
                             alt={brand.title}
-                            className="h-8 w-8 object-contain"
+                            className="h-8 max-w-[86px] object-contain"
                             loading="lazy"
                           />
-                        ) : (
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#05C3D4]/10 text-[10px] font-black text-[#05C3D4]">
-                            {brand.title.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="line-clamp-2 text-[10px] font-black uppercase leading-tight text-foreground">
-                          {brand.title}
-                        </span>
+                        ) : null}
                       </Link>
                     ))}
                   </div>

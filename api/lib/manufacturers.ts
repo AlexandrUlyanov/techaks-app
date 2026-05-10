@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import { getAppSettings } from "./app-settings";
@@ -284,6 +284,7 @@ export async function syncManufacturersFromProducts() {
       .select({
         id: schema.products.id,
         name: schema.products.name,
+        categoryId: schema.products.categoryId,
         specs: schema.products.specs,
       })
       .from(schema.products),
@@ -296,6 +297,10 @@ export async function syncManufacturersFromProducts() {
       name: string;
       productCount: number;
     }
+  >();
+  const productManufacturerById = new Map<
+    number,
+    { normalizedName: string; name: string; categoryId: number }
   >();
 
   for (const product of productRows) {
@@ -319,6 +324,11 @@ export async function syncManufacturersFromProducts() {
     }
 
     counts.set(normalizedName, current);
+    productManufacturerById.set(product.id, {
+      normalizedName,
+      name: current.name,
+      categoryId: product.categoryId,
+    });
   }
 
   const existingByNormalized = new Map(
@@ -359,6 +369,11 @@ export async function syncManufacturersFromProducts() {
       current.name = byTitle;
     }
     counts.set(normalizedName, current);
+    productManufacturerById.set(product.id, {
+      normalizedName,
+      name: current.name,
+      categoryId: product.categoryId,
+    });
   }
 
   const usedSlugs = new Set(existingRows.map(row => row.slug));
@@ -405,6 +420,37 @@ export async function syncManufacturersFromProducts() {
       })
       .where(eq(schema.manufacturers.id, existing.id));
     archived++;
+  }
+
+  const refreshedManufacturers = await db.select().from(schema.manufacturers);
+  const manufacturerIdByNormalizedName = new Map(
+    refreshedManufacturers.map(row => [row.normalizedName, row.id])
+  );
+  const categoryManufacturerCounts = new Map<string, number>();
+
+  for (const resolved of productManufacturerById.values()) {
+    const manufacturerId = manufacturerIdByNormalizedName.get(
+      resolved.normalizedName
+    );
+    if (!manufacturerId) continue;
+    const key = `${manufacturerId}:${resolved.categoryId}`;
+    categoryManufacturerCounts.set(key, (categoryManufacturerCounts.get(key) ?? 0) + 1);
+  }
+
+  await db.delete(schema.manufacturerCategoryIndex);
+  if (categoryManufacturerCounts.size > 0) {
+    const values = Array.from(categoryManufacturerCounts.entries()).map(
+      ([key, productCount]) => {
+        const [manufacturerIdRaw, categoryIdRaw] = key.split(":");
+        return {
+          manufacturerId: Number(manufacturerIdRaw),
+          categoryId: Number(categoryIdRaw),
+          productCount,
+          updatedAt: new Date(),
+        };
+      }
+    );
+    await db.insert(schema.manufacturerCategoryIndex).values(values);
   }
 
   return {
@@ -512,91 +558,123 @@ export async function getManufacturersByCategory(input: {
   categorySlug: string;
   limit?: number;
 }) {
-  if (input.categorySlug === "all") {
-    return getVisibleManufacturerCatalogEntries(input.limit ?? 18);
+  const bySlug = await getManufacturersByCategorySlugs({
+    categorySlugs: [input.categorySlug],
+    limit: input.limit ?? 12,
+  });
+  return bySlug[input.categorySlug] ?? [];
+}
+
+export async function getManufacturersByCategorySlugs(input: {
+  categorySlugs: string[];
+  limit?: number;
+}) {
+  const limit = input.limit ?? 12;
+  const uniqueSlugs = Array.from(
+    new Set(input.categorySlugs.map(item => item.trim()).filter(Boolean))
+  );
+  if (uniqueSlugs.length === 0) return {} as Record<string, any[]>;
+
+  if (uniqueSlugs.length === 1 && uniqueSlugs[0] === "all") {
+    return {
+      all: await getVisibleManufacturerCatalogEntries(limit),
+    };
   }
 
   const db = getDb();
   const allCategories = await db.select().from(schema.categories);
-  const category = allCategories.find(item => item.slug === input.categorySlug);
-  if (!category) return [];
+  const slugToCategory = new Map(allCategories.map(item => [item.slug, item]));
+  const descendantIdsBySlug = new Map<string, number[]>();
+  const categoryIdsToQuery = new Set<number>();
 
-  const categoryIds = getDescendantCategoryIds(allCategories, category.id);
-  const keys = getManufacturerFilterKeys();
-  const rows = await db
-    .select({
-      normalizedName: schema.productSpecValues.normalizedValue,
-      sourceNormalizedKey: schema.productSpecValues.normalizedKey,
-      productCount: sql<number>`count(distinct ${schema.productSpecValues.productId})`,
-    })
-    .from(schema.productSpecValues)
-    .where(
-      and(
-        inArray(schema.productSpecValues.categoryId, categoryIds),
-        inArray(schema.productSpecValues.normalizedKey, keys)
-      )
-    )
-    .groupBy(
-      schema.productSpecValues.normalizedValue,
-      schema.productSpecValues.normalizedKey
-    )
-    .orderBy(desc(sql`count(distinct ${schema.productSpecValues.productId})`));
-
-  if (rows.length === 0) return [];
+  for (const slug of uniqueSlugs) {
+    if (slug === "all") continue;
+    const category = slugToCategory.get(slug);
+    if (!category) {
+      descendantIdsBySlug.set(slug, []);
+      continue;
+    }
+    const descendants = getDescendantCategoryIds(allCategories, category.id);
+    descendantIdsBySlug.set(slug, descendants);
+    descendants.forEach(id => categoryIdsToQuery.add(id));
+  }
 
   const manufacturerRows = await getManufacturers({
     onlyVisible: true,
     withProductsOnly: true,
   });
-  const manufacturersByName = new Map(
-    manufacturerRows.map(row => [row.normalizedName, row])
-  );
-  const resultByName = new Map<
-    string,
-    {
-      id: number;
-      title: string;
-      slug: string;
-      href: string;
-      logo: string;
-      productCount: number;
-      normalizedName: string;
-      sourceNormalizedKey: string;
+  const manufacturerById = new Map(manufacturerRows.map(row => [row.id, row]));
+
+  if (categoryIdsToQuery.size === 0) {
+    const emptyResult: Record<string, any[]> = {};
+    for (const slug of uniqueSlugs) {
+      emptyResult[slug] =
+        slug === "all" ? await getVisibleManufacturerCatalogEntries(limit) : [];
     }
-  >();
+    return emptyResult;
+  }
 
+  const rows = await db
+    .select({
+      manufacturerId: schema.manufacturerCategoryIndex.manufacturerId,
+      categoryId: schema.manufacturerCategoryIndex.categoryId,
+      productCount: schema.manufacturerCategoryIndex.productCount,
+    })
+    .from(schema.manufacturerCategoryIndex)
+    .where(inArray(schema.manufacturerCategoryIndex.categoryId, Array.from(categoryIdsToQuery)));
+
+  const rowsByCategoryId = new Map<number, Array<(typeof rows)[number]>>();
   for (const row of rows) {
-    const manufacturer = manufacturersByName.get(row.normalizedName);
-    if (!manufacturer) continue;
+    const list = rowsByCategoryId.get(row.categoryId) ?? [];
+    list.push(row);
+    rowsByCategoryId.set(row.categoryId, list);
+  }
 
-    const existing = resultByName.get(row.normalizedName);
-    const productCount = Number(row.productCount || 0);
-    if (existing) {
-      existing.productCount += productCount;
-      if (existing.sourceNormalizedKey !== "производитель") {
-        existing.sourceNormalizedKey = row.sourceNormalizedKey;
-      }
+  const result: Record<string, any[]> = {};
+  for (const slug of uniqueSlugs) {
+    if (slug === "all") {
+      result[slug] = await getVisibleManufacturerCatalogEntries(limit);
       continue;
     }
 
-    resultByName.set(row.normalizedName, {
-      id: manufacturer.id,
-      title: manufacturer.name,
-      slug: manufacturer.slug,
-      href: `/catalog?view=brands&brand=${manufacturer.slug}`,
-      logo: manufacturer.logoUrl || buildPlaceholderLogoDataUrl(manufacturer.name),
-      productCount,
-      normalizedName: manufacturer.normalizedName,
-      sourceNormalizedKey: row.sourceNormalizedKey,
-    });
+    const descendants = descendantIdsBySlug.get(slug) ?? [];
+    const countsByManufacturer = new Map<number, number>();
+    for (const categoryId of descendants) {
+      const scopedRows = rowsByCategoryId.get(categoryId) ?? [];
+      for (const row of scopedRows) {
+        countsByManufacturer.set(
+          row.manufacturerId,
+          (countsByManufacturer.get(row.manufacturerId) ?? 0) + Number(row.productCount || 0)
+        );
+      }
+    }
+
+    result[slug] = Array.from(countsByManufacturer.entries())
+      .map(([manufacturerId, productCount]) => {
+        const manufacturer = manufacturerById.get(manufacturerId);
+        if (!manufacturer) return null;
+        return {
+          id: manufacturer.id,
+          title: manufacturer.name,
+          slug: manufacturer.slug,
+          href: `/catalog?view=brands&brand=${manufacturer.slug}`,
+          logo:
+            manufacturer.logoUrl || buildPlaceholderLogoDataUrl(manufacturer.name),
+          productCount,
+          normalizedName: manufacturer.normalizedName,
+          sourceNormalizedKey: "производитель",
+        };
+      })
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          Number(b!.productCount) - Number(a!.productCount) ||
+          a!.title.localeCompare(b!.title, "ru")
+      )
+      .slice(0, limit) as any[];
   }
 
-  return Array.from(resultByName.values())
-    .sort(
-      (a, b) =>
-        b.productCount - a.productCount || a.title.localeCompare(b.title, "ru")
-    )
-    .slice(0, input.limit ?? 12);
+  return result;
 }
 
 export async function getManufacturerByProductSlug(slug: string) {

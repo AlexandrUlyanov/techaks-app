@@ -6,6 +6,7 @@ import {
   getManufacturerByProductSlug,
   getManufacturers,
   getManufacturersByCategory,
+  getManufacturersByCategorySlugs,
   syncManufacturersFromProducts,
   updateManufacturer,
 } from "../lib/manufacturers";
@@ -45,6 +46,17 @@ export const manufacturerRouter = createRouter({
     )
     .query(async ({ input }) => {
       return getManufacturersByCategory(input);
+    }),
+
+  getByCategories: publicQuery
+    .input(
+      z.object({
+        categorySlugs: z.array(z.string()).min(1).max(100),
+        limit: z.number().min(1).max(40).default(12),
+      })
+    )
+    .query(async ({ input }) => {
+      return getManufacturersByCategorySlugs(input);
     }),
 
   syncCatalog: publicQuery.mutation(async () => {

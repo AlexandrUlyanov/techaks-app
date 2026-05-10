@@ -44,6 +44,22 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     onlyVisible: true,
     withProductsOnly: true,
   });
+  const topLevelCategorySlugs = useMemo(
+    () =>
+      dbCategories
+        .filter(category => category.parentId === null)
+        .map(category => category.slug),
+    [dbCategories]
+  );
+  const { data: brandsByCategory = {} } = trpc.manufacturer.getByCategories.useQuery(
+    {
+      categorySlugs: topLevelCategorySlugs,
+      limit: 24,
+    },
+    {
+      enabled: topLevelCategorySlugs.length > 0,
+    }
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,15 +110,17 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         icon: category.icon ?? undefined,
         href: `/catalog?cat=${category.slug}`,
         children,
-        brands: manufacturerEntries.slice(0, 20).map(manufacturer => ({
-          id: String(manufacturer.id),
-          title: manufacturer.name,
-          href: `/catalog?view=brands&brand=${manufacturer.slug}`,
-          logo: manufacturer.logoUrl ?? undefined,
-        })),
+        brands: (brandsByCategory[category.slug] ?? manufacturerEntries.slice(0, 20))
+          .map((manufacturer: any) => ({
+            id: String(manufacturer.id),
+            title: manufacturer.title ?? manufacturer.name,
+            href: `/catalog?view=brands&brand=${manufacturer.slug}`,
+            logo: (manufacturer.logo ?? manufacturer.logoUrl) ?? undefined,
+          }))
+          .filter(brand => Boolean(brand.logo)),
       };
     });
-  }, [dbCategories, manufacturerEntries]);
+  }, [brandsByCategory, dbCategories, manufacturerEntries]);
 
   useEffect(() => {
     if (!activeCategoryId && catalogCategories[0]) {

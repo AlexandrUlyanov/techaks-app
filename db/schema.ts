@@ -260,6 +260,20 @@ export const manufacturers = mysqlTable("manufacturers", {
   visibleIdx: index("manufacturers_visible_idx").on(table.isVisible, table.sortOrder),
 }));
 
+export const manufacturerCategoryIndex = mysqlTable("manufacturer_category_index", {
+  id: serial("id").primaryKey(),
+  manufacturerId: int("manufacturer_id").notNull(),
+  categoryId: int("category_id").notNull(),
+  productCount: int("product_count").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  manufacturerCategoryIdx: index("manufacturer_category_index_mfr_cat_idx").on(
+    table.manufacturerId,
+    table.categoryId
+  ),
+  categoryIdx: index("manufacturer_category_index_cat_idx").on(table.categoryId),
+}));
+
 export const productMerchandising = mysqlTable("product_merchandising", {
   productId: int("product_id").primaryKey(),
   totalScore: int("total_score").notNull().default(0),
