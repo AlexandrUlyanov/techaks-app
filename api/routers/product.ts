@@ -341,13 +341,21 @@ export const productRouter = createRouter({
 
   getByCategory: publicQuery
     .input(
-      z.object({
-        categorySlug: z.string(),
-        specFilters: z.array(specFilterSchema).optional().default([]),
-      })
+      z
+        .object({
+          categorySlug: z.string().optional().default("all"),
+          specFilters: z.array(specFilterSchema).optional().default([]),
+        })
+        .optional()
+        .default({
+          categorySlug: "all",
+          specFilters: [],
+        })
     )
     .query(async ({ input }) => {
       const db = getDb();
+      const categorySlug = input?.categorySlug ?? "all";
+      const specFilters = input?.specFilters ?? [];
 
       const selectFields = {
         id: products.id,
@@ -368,8 +376,8 @@ export const productRouter = createRouter({
         categoryName: categories.name,
       };
 
-      if (input.categorySlug === "all") {
-        const specCondition = buildSpecFilterConditions(input.specFilters);
+      if (categorySlug === "all") {
+        const specCondition = buildSpecFilterConditions(specFilters);
         return await db
           .select(selectFields)
           .from(products)
@@ -378,13 +386,13 @@ export const productRouter = createRouter({
       }
 
       const allCats = await db.select().from(categories);
-      const targetCat = allCats.find((c: any) => c.slug === input.categorySlug);
+      const targetCat = allCats.find((c: any) => c.slug === categorySlug);
 
       if (!targetCat) return [];
 
       const targetIds = collectDescendantCategoryIds(allCats, targetCat.id);
 
-      const specCondition = buildSpecFilterConditions(input.specFilters);
+      const specCondition = buildSpecFilterConditions(specFilters);
       const categoryCondition = sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`;
 
       return await db
