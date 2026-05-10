@@ -114,6 +114,10 @@ function buildPlaceholderLogoDataUrl(name: string) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function isPlaceholderLogo(logoUrl: string | null) {
+  return Boolean(logoUrl) && String(logoUrl).startsWith("data:image/svg+xml");
+}
+
 function normalizeWebsite(website: string | null) {
   const trimmed = String(website ?? "").trim();
   if (!trimmed) return "";
@@ -339,10 +343,7 @@ export async function collectManufacturerLogos(input?: { force?: boolean }) {
   let preserved = 0;
 
   for (const row of rows) {
-    const canUpgradePlaceholder =
-      Boolean(row.website) &&
-      Boolean(row.logoUrl) &&
-      String(row.logoUrl).startsWith("data:image/svg+xml");
+    const canUpgradePlaceholder = isPlaceholderLogo(row.logoUrl);
 
     if (row.logoUrl && !input?.force && !canUpgradePlaceholder) {
       preserved++;

@@ -177,6 +177,19 @@ export default function ManufacturerCatalogPanel() {
                 )}
                 Собрать логотипы
               </button>
+              <button
+                type="button"
+                onClick={() => collectLogos.mutate({ force: true })}
+                disabled={collectLogos.isPending || manufacturers.length === 0}
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 px-4 text-sm font-bold text-[#0a0a0a] disabled:opacity-50"
+              >
+                {collectLogos.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={16} />
+                )}
+                Пересобрать все логотипы
+              </button>
               <div className="text-xs text-gray-500">
                 Поиск идет по Logo.dev: сначала по домену, потом по названию.
               </div>
