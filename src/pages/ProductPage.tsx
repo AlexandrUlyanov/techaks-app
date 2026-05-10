@@ -7,6 +7,7 @@ import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import type { MouseEvent as ReactMouseEvent } from "react";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -84,6 +85,18 @@ export default function ProductPage() {
 
   const isManufacturerSpec = (key: string) =>
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
+
+  const handleMagneticMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    const button = e.currentTarget;
+    const rect = button.getBoundingClientRect();
+    const x = (e.clientX - rect.left - rect.width / 2) * 0.35;
+    const y = (e.clientY - rect.top - rect.height / 2) * 0.35;
+    button.style.transform = `translate(${x}px, ${y}px)`;
+  };
+
+  const handleMagneticLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transform = "translate(0px, 0px)";
+  };
 
   const handleAddToCart = () => {
     addItem({
@@ -364,7 +377,9 @@ export default function ProductPage() {
                 <Button
                   size="lg"
                   onClick={handleAddToCart}
-                  className="w-full h-16 text-sm tracking-[0.2em] glow-cyan"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
+                  className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
                 >
                   <ShoppingBag size={20} className="mr-2" />
                   ДОБАВИТЬ В КОРЗИНУ
