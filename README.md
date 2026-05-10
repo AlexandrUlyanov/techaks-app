@@ -59,7 +59,34 @@ The platform includes a robust, 4-step wizard in the Admin Panel (`/admin/sync`)
 2. **Auto-Slugs:** Converts Cyrillic names to Latin SEO-friendly URLs (`slugify`). Uses `ms_id` to prevent duplication on re-sync.
 3. **Images Persistence:** Images are downloaded into category-specific folders under `public/images/`. This ensures files survive backend rebuilds.
 4. **Fuzzy Store Matching:** Accurately maps MoySklad warehouses/stores to local DB stores by analyzing `name` and `address` strings.
+5. **Store-to-Warehouse Binding:** Local stores now keep `stores.ms_id` with explicit warehouse binding. In Admin Stores, each card supports manual binding via "Привязать склад" and selection from live MoySklad warehouse list.
 5. **Detailed Logging:** Sync operations log deeply to both the DB (`sync_logs` table) and local `.log` files in `public/logs/`.
+
+### Store Binding in Admin
+
+- Page: `/admin/stores`
+- Each store card shows current binding status.
+- Action flow:
+  1. Click `Привязать склад`.
+  2. Select warehouse from list (fetched via `sync.getStores`).
+  3. Click `Сохранить`.
+- Binding is persisted in `stores.ms_id` and reused during stock synchronization.
+
+---
+
+## 🧩 Catalog & UX Notes (Current)
+
+- Catalog top switcher `Категории/Производители` removed from customer page header.
+- Brand strip removed from product list pages; brand filtering remains in filters.
+- Product list filters can display small brand logos for `Производитель/Бренд`.
+- Sorting control on catalog page uses a custom dropdown (non-blocking), replacing Radix `Select` to avoid mobile scroll lock/layout jump.
+- Mobile header simplified:
+  - profile and cart icons removed from top bar;
+  - catalog trigger displays text-only `Каталог` on mobile.
+- Mobile bottom bar updated:
+  - removed `Главная` and `Каталог`;
+  - added call action button (`tel:+79273750555`);
+  - cart icon aligned to product-card style (`ShoppingCart`).
 
 ---
 
@@ -82,6 +109,7 @@ Located in `.github/workflows/deploy.yml`. On every push to `master`:
 1. SSH into the VPS (`195.208.2.100`).
 2. Pull latest code from GitHub.
 3. `npm ci` and `npm run db:push` (Schema migrations).
+4. Apply deterministic SQL updates for store profiles (name/address/hours/phone/rating/review_count/image/map_url/sort_order), including fallback insert for Zastava card if missing.
 4. `npm run build` (Vite compiles frontend to `dist/public` and backend to `dist/boot.js`).
 5. `pm2 restart techaks` applies the new build.
 

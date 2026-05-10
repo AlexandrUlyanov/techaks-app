@@ -117,9 +117,23 @@ without re-reading JSON specs from every product.
 4. Implement apply endpoint with logs. Done.
 5. Add filter index table and rebuild job. Done.
 6. Add scheduled/after-sync automation. Done through post-sync normalization.
+7. Add admin controls for key/value standardization visibility and filterability.
+   Done in Admin Products panels.
+8. Add optional AI standardization pipeline via configurable API/proxy settings.
+   Done with admin settings + backend integration hooks.
 
 ## Production constraints
 
 The production VPS has 1 vCPU, 1 GB RAM, and 10 GB disk. Normalization and
 index rebuild jobs must stay sequential, use explicit limits, and avoid
 parallel workers or full-catalog in-memory transforms.
+
+## Related admin capabilities
+
+- Admin Products:
+  - spec-key standardization;
+  - spec-value standardization;
+  - visibility/filterability management for filter keys.
+- Admin Stores:
+  - explicit store-to-warehouse binding (`stores.ms_id`) for stable stock sync
+    interpretation.
