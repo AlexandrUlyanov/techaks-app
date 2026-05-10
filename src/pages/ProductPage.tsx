@@ -145,6 +145,29 @@ export default function ProductPage() {
             {/* Gallery */}
             <div className="lg:w-[50%]">
               <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
+                {productManufacturer && (
+                  <Link
+                    to={productManufacturer.href}
+                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-sm transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
+                      {productManufacturer.logo ? (
+                        <img
+                          src={productManufacturer.logo}
+                          alt={productManufacturer.title}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[9px] font-black text-[#05C3D4]">
+                          {productManufacturer.title.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide text-foreground">
+                      {productManufacturer.title}
+                    </span>
+                  </Link>
+                )}
                 <img
                   src={product.image}
                   alt={product.name}
@@ -181,11 +204,9 @@ export default function ProductPage() {
               </div>
 
               {/* Price */}
-              <div className="mt-10 grid grid-cols-1 md:grid-cols-20 gap-4">
+              <div className="mt-10">
                 <div
-                  className={`p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm ${
-                    productManufacturer ? "md:col-span-13" : "md:col-span-20"
-                  }`}
+                  className="p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm"
                 >
                   <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
                   <div className="relative z-10">
@@ -209,34 +230,6 @@ export default function ProductPage() {
                     </div>
                   </div>
                 </div>
-                {productManufacturer && (
-                  <Link
-                    to={productManufacturer.href}
-                    className="md:col-span-7 p-4 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex flex-col items-start justify-between gap-4 min-h-[160px]"
-                  >
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-2.5 shrink-0">
-                      {productManufacturer.logo ? (
-                        <img
-                          src={productManufacturer.logo}
-                          alt={productManufacturer.title}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-xs font-black text-[#05C3D4]">
-                          {productManufacturer.title.slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
-                    </span>
-                    <span className="min-w-0 w-full">
-                      <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        Производитель
-                      </span>
-                      <span className="mt-1 block text-xl font-black text-foreground leading-tight break-words">
-                        {productManufacturer.title}
-                      </span>
-                    </span>
-                  </Link>
-                )}
               </div>
 
               {/* Stock & FOMO */}
@@ -319,10 +312,10 @@ export default function ProductPage() {
                   <div className="grid grid-cols-1 gap-1">
                     {Object.entries(
                       product.specs as Record<string, string>
-                    ).map(([key, value]) => {
-                      const showLogoValue =
-                        productManufacturer && isManufacturerSpec(key);
-                      return (
+                    )
+                      .filter(([key]) => !isManufacturerSpec(key))
+                      .map(([key, value]) => {
+                        return (
                         <div
                           key={key}
                           className="flex justify-between items-center gap-6 py-3 border-b border-border px-1 group"
@@ -330,37 +323,12 @@ export default function ProductPage() {
                           <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
                             {key}
                           </span>
-                          {showLogoValue ? (
-                            <Link
-                              to={productManufacturer.href}
-                              className="inline-flex min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-sm font-black text-foreground/80 transition-colors hover:bg-[#05C3D4]/10 hover:text-[#05C3D4]"
-                            >
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white p-1">
-                                {productManufacturer.logo ? (
-                                  <img
-                                    src={productManufacturer.logo}
-                                    alt={productManufacturer.title}
-                                    className="h-full w-full object-contain"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <span className="text-[8px] font-black text-[#05C3D4]">
-                                    {productManufacturer.title
-                                      .slice(0, 2)
-                                      .toUpperCase()}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="truncate">{value}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-right text-sm font-black text-foreground/80">
-                              {value}
-                            </span>
-                          )}
+                          <span className="text-right text-sm font-black text-foreground/80">
+                            {value}
+                          </span>
                         </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               )}
