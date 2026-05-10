@@ -11,6 +11,8 @@ export const settingsRouter = createRouter({
       "gemini_model",
       "ai_proxy_base_url",
       "ai_proxy_token",
+      "manufacturer_logo_provider",
+      "manufacturer_logo_logo_dev_token",
     ]);
     const config = await getGeminiConfig();
     const storedKey = settings.gemini_api_key?.trim() || "";
@@ -35,6 +37,12 @@ export const settingsRouter = createRouter({
           : "",
       source: config.source,
       proxySource: config.proxySource,
+      manufacturerLogoProvider:
+        settings.manufacturer_logo_provider?.trim() || "logo_dev",
+      manufacturerLogoLogoDevTokenMasked: settings.manufacturer_logo_logo_dev_token
+        ?.trim()
+        ? `${settings.manufacturer_logo_logo_dev_token.trim().slice(0, 4)}••••••••${settings.manufacturer_logo_logo_dev_token.trim().slice(-4)}`
+        : "",
     };
   }),
 
@@ -59,6 +67,29 @@ export const settingsRouter = createRouter({
 
       return { success: true };
     }),
+
+  saveManufacturerLogoSettings: publicQuery
+    .input(
+      z.object({
+        provider: z.string().trim().min(1).max(60).default("logo_dev"),
+        logoDevToken: z.string().trim().optional().default(""),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await setAppSetting("manufacturer_logo_provider", input.provider);
+      if (input.logoDevToken) {
+        await setAppSetting(
+          "manufacturer_logo_logo_dev_token",
+          input.logoDevToken
+        );
+      }
+      return { success: true };
+    }),
+
+  clearManufacturerLogoToken: publicQuery.mutation(async () => {
+    await setAppSetting("manufacturer_logo_logo_dev_token", "");
+    return { success: true };
+  }),
 
   clearGeminiApiKey: publicQuery.mutation(async () => {
     await setAppSetting("gemini_api_key", "");

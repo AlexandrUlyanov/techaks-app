@@ -38,7 +38,9 @@ export default function ManufacturerCatalogPanel() {
     onSuccess: result => {
       utils.manufacturer.getAll.invalidate();
       alert(
-        `Логотипы обновлены: ${result.updated}. Без изменений оставлено ${result.preserved}.`
+        result.configured
+          ? `Логотипы обработаны через ${result.provider}: найдено ${result.found}, заглушек ${result.fallback}, обновлено ${result.updated}, без изменений ${result.preserved}.`
+          : `Токен Logo.dev не настроен. Сейчас сохранены только заглушки: обновлено ${result.updated}, без изменений ${result.preserved}.`
       );
     },
   });
@@ -175,6 +177,9 @@ export default function ManufacturerCatalogPanel() {
                 )}
                 Собрать логотипы
               </button>
+              <div className="text-xs text-gray-500">
+                Поиск идет по Logo.dev: сначала по домену, потом по названию.
+              </div>
               <button
                 type="button"
                 onClick={() => {

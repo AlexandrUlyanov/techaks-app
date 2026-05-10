@@ -1,6 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
+import { getAppSettings } from "./app-settings";
 import {
   normalizeSpecKeyForDisplay,
   normalizeSpecToken,
@@ -120,12 +121,90 @@ function normalizeWebsite(website: string | null) {
   return `https://${trimmed}`;
 }
 
-function buildLogoUrl(name: string, website: string | null) {
+function extractDomain(website: string | null) {
   const normalizedWebsite = normalizeWebsite(website);
-  if (normalizedWebsite) {
-    return `https://www.google.com/s2/favicons?sz=256&domain_url=${encodeURIComponent(normalizedWebsite)}`;
+  if (!normalizedWebsite) return "";
+
+  try {
+    return new URL(normalizedWebsite).hostname.replace(/^www\./i, "");
+  } catch {
+    return normalizedWebsite
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split("/")[0]
+      .trim();
   }
-  return buildPlaceholderLogoDataUrl(name);
+}
+
+function buildLogoDevDomainUrl(domain: string, token: string) {
+  return `https://img.logo.dev/${encodeURIComponent(
+    domain
+  )}?token=${encodeURIComponent(
+    token
+  )}&format=png&size=256&retina=true&fallback=404`;
+}
+
+function buildLogoDevNameUrl(name: string, token: string) {
+  return `https://img.logo.dev/name/${encodeURIComponent(
+    name
+  )}?token=${encodeURIComponent(
+    token
+  )}&format=png&size=256&retina=true&fallback=404`;
+}
+
+async function isReachableImage(url: string) {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        Accept: "image/png,image/*;q=0.9,*/*;q=0.1",
+      },
+    });
+    if (!response.ok) return false;
+    const contentType = response.headers.get("content-type") || "";
+    return contentType.startsWith("image/");
+  } catch {
+    return false;
+  }
+}
+
+async function resolveRemoteLogoUrl(input: {
+  name: string;
+  website: string | null;
+  provider: string;
+  logoDevToken: string;
+}) {
+  const provider = input.provider || "logo_dev";
+  if (provider !== "logo_dev" || !input.logoDevToken.trim()) {
+    return null;
+  }
+
+  const domain = extractDomain(input.website);
+  const candidates = [
+    domain ? buildLogoDevDomainUrl(domain, input.logoDevToken) : "",
+    buildLogoDevNameUrl(input.name, input.logoDevToken),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (await isReachableImage(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function getManufacturerLogoConfig() {
+  const settings = await getAppSettings([
+    "manufacturer_logo_provider",
+    "manufacturer_logo_logo_dev_token",
+  ]);
+
+  return {
+    provider: settings.manufacturer_logo_provider?.trim() || "logo_dev",
+    logoDevToken: settings.manufacturer_logo_logo_dev_token?.trim() || "",
+  };
 }
 
 function ensureUniqueSlug(
@@ -247,11 +326,15 @@ export async function syncManufacturersFromProducts() {
 
 export async function collectManufacturerLogos(input?: { force?: boolean }) {
   const db = getDb();
+  const config = await getManufacturerLogoConfig();
   const rows = await db
     .select()
     .from(schema.manufacturers)
     .orderBy(desc(schema.manufacturers.productCount), asc(schema.manufacturers.name));
 
+  let searched = 0;
+  let found = 0;
+  let fallback = 0;
   let updated = 0;
   let preserved = 0;
 
@@ -266,7 +349,21 @@ export async function collectManufacturerLogos(input?: { force?: boolean }) {
       continue;
     }
 
-    const logoUrl = buildLogoUrl(row.name, row.website);
+    searched++;
+    const remoteLogoUrl = await resolveRemoteLogoUrl({
+      name: row.name,
+      website: row.website,
+      provider: config.provider,
+      logoDevToken: config.logoDevToken,
+    });
+    const logoUrl = remoteLogoUrl || buildPlaceholderLogoDataUrl(row.name);
+
+    if (remoteLogoUrl) {
+      found++;
+    } else {
+      fallback++;
+    }
+
     await db
       .update(schema.manufacturers)
       .set({
@@ -279,8 +376,13 @@ export async function collectManufacturerLogos(input?: { force?: boolean }) {
 
   return {
     success: true,
+    provider: config.provider,
+    searched,
+    found,
+    fallback,
     updated,
     preserved,
+    configured: Boolean(config.logoDevToken),
   };
 }
 

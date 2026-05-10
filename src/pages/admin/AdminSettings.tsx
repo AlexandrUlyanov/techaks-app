@@ -1,4 +1,12 @@
-import { KeyRound, Loader2, PlugZap, Route, Save, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  KeyRound,
+  Loader2,
+  PlugZap,
+  Route,
+  Save,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/providers/trpc";
 
@@ -9,6 +17,9 @@ export default function AdminSettings() {
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
   const [proxyToken, setProxyToken] = useState("");
+  const [manufacturerLogoProvider, setManufacturerLogoProvider] =
+    useState("logo_dev");
+  const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
 
   useEffect(() => {
     if (!data) return;
@@ -16,6 +27,8 @@ export default function AdminSettings() {
     setModel(data.model || "gemini-2.5-flash");
     setProxyBaseUrl(data.proxyBaseUrl || "");
     setProxyToken("");
+    setManufacturerLogoProvider(data.manufacturerLogoProvider || "logo_dev");
+    setManufacturerLogoToken("");
   }, [data]);
 
   const saveMutation = trpc.settings.saveGemini.useMutation({
@@ -40,6 +53,7 @@ export default function AdminSettings() {
       setApiKey("");
     },
   });
+
   const clearProxyMutation = trpc.settings.clearAiProxyToken.useMutation({
     onSuccess: () => {
       utils.settings.getGemini.invalidate();
@@ -47,6 +61,24 @@ export default function AdminSettings() {
       setProxyToken("");
     },
   });
+
+  const saveManufacturerLogosMutation =
+    trpc.settings.saveManufacturerLogoSettings.useMutation({
+      onSuccess: () => {
+        utils.settings.getGemini.invalidate();
+        alert("Настройки поиска логотипов сохранены.");
+        setManufacturerLogoToken("");
+      },
+    });
+
+  const clearManufacturerLogoTokenMutation =
+    trpc.settings.clearManufacturerLogoToken.useMutation({
+      onSuccess: () => {
+        utils.settings.getGemini.invalidate();
+        alert("Токен Logo.dev удален.");
+        setManufacturerLogoToken("");
+      },
+    });
 
   return (
     <div className="space-y-6">
@@ -59,9 +91,8 @@ export default function AdminSettings() {
             <div>
               <h1 className="text-3xl font-black">Настройки интеграций ИИ</h1>
               <p className="mt-2 text-sm leading-6 text-white/70">
-                Здесь можно подключить Gemini для автоматической стандартизации
-                характеристик. Ключ сохраняется в базе и используется в админке
-                без ручной правки файлов на сервере.
+                Здесь можно подключить Gemini для стандартизации характеристик
+                и настроить поиск логотипов производителей для каталога.
               </p>
             </div>
           </div>
@@ -79,9 +110,7 @@ export default function AdminSettings() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-6 py-5">
-            <h2 className="text-lg font-black text-[#15171A]">
-              Gemini API
-            </h2>
+            <h2 className="text-lg font-black text-[#15171A]">Gemini API</h2>
             <p className="mt-1 text-sm text-gray-500">
               Ключ нужен для предложений ИИ в стандартизации характеристик по
               категориям.
@@ -251,6 +280,7 @@ export default function AdminSettings() {
                   )}
                   Удалить ключ
                 </button>
+
                 <button
                   onClick={() => {
                     if (!confirm("Удалить сохраненный токен AI Router?")) return;
@@ -303,6 +333,111 @@ export default function AdminSettings() {
           </div>
         </aside>
       </div>
+
+      <section className="rounded-2xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-black text-[#15171A]">
+            Поиск логотипов производителей
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Для кнопки «Собрать логотипы» в товарах. Сначала ищем логотип по
+            домену бренда, если домена нет или совпадение не найдено — ищем по
+            названию производителя.
+          </p>
+        </div>
+
+        <div className="space-y-5 px-6 py-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Провайдер
+              </label>
+              <select
+                value={manufacturerLogoProvider}
+                onChange={e => setManufacturerLogoProvider(e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              >
+                <option value="logo_dev">Logo.dev</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Сохраненный токен Logo.dev
+              </label>
+              <div className="flex h-11 items-center rounded-lg border border-gray-200 px-3 text-sm text-gray-500">
+                {data?.manufacturerLogoLogoDevTokenMasked || "Токен пока не задан"}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-[#15171A]">
+              Новый publishable token Logo.dev
+            </label>
+            <input
+              type="password"
+              value={manufacturerLogoToken}
+              onChange={e => setManufacturerLogoToken(e.target.value)}
+              placeholder={
+                data?.manufacturerLogoLogoDevTokenMasked
+                  ? "Оставьте пустым, чтобы сохранить текущий токен"
+                  : "Вставьте token для Logo.dev"
+              }
+              className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+            />
+            <p className="text-xs leading-5 text-gray-500">
+              Ищем по официальному API Logo.dev: сначала по домену, потом по
+              названию бренда. Если логотип не найден, сохраняем аккуратную
+              локальную заглушку с инициалами.
+            </p>
+          </div>
+
+          {(saveManufacturerLogosMutation.error ||
+            clearManufacturerLogoTokenMutation.error) && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveManufacturerLogosMutation.error?.message ||
+                clearManufacturerLogoTokenMutation.error?.message}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() =>
+                saveManufacturerLogosMutation.mutate({
+                  provider: manufacturerLogoProvider,
+                  logoDevToken: manufacturerLogoToken,
+                })
+              }
+              disabled={saveManufacturerLogosMutation.isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+            >
+              {saveManufacturerLogosMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              Сохранить настройки логотипов
+            </button>
+
+            <button
+              onClick={() => {
+                if (!confirm("Удалить сохраненный токен Logo.dev?")) return;
+                clearManufacturerLogoTokenMutation.mutate();
+              }}
+              disabled={clearManufacturerLogoTokenMutation.isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 disabled:opacity-50"
+            >
+              {clearManufacturerLogoTokenMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              Удалить токен
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
