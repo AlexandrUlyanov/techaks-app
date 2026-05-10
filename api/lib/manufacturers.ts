@@ -69,6 +69,56 @@ function cleanManufacturerName(value: unknown) {
     .slice(0, 255);
 }
 
+function normalizeTextForManufacturerMatch(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasPhraseBoundaryMatch(haystack: string, needle: string) {
+  if (!haystack || !needle) return false;
+  let fromIndex = 0;
+  while (fromIndex < haystack.length) {
+    const index = haystack.indexOf(needle, fromIndex);
+    if (index < 0) return false;
+    const prev = index === 0 ? " " : haystack[index - 1];
+    const next =
+      index + needle.length >= haystack.length
+        ? " "
+        : haystack[index + needle.length];
+    if (prev === " " && next === " ") return true;
+    fromIndex = index + 1;
+  }
+  return false;
+}
+
+function getManufacturerNameFromTitle(
+  title: unknown,
+  knownManufacturers: Array<{ normalizedName: string; name: string }>
+) {
+  const normalizedTitle = normalizeTextForManufacturerMatch(String(title ?? ""));
+  if (!normalizedTitle) return null;
+
+  const sortedCandidates = knownManufacturers
+    .map(item => ({
+      normalizedName: normalizeTextForManufacturerMatch(item.normalizedName),
+      name: item.name,
+    }))
+    .filter(item => item.normalizedName)
+    .sort((a, b) => b.normalizedName.length - a.normalizedName.length);
+
+  for (const candidate of sortedCandidates) {
+    if (hasPhraseBoundaryMatch(normalizedTitle, candidate.normalizedName)) {
+      return candidate.name;
+    }
+  }
+
+  return null;
+}
+
 function getManufacturerNameFromSpecs(specs: unknown) {
   if (!isSpecsRecord(specs)) return null;
 
@@ -233,6 +283,7 @@ export async function syncManufacturersFromProducts() {
     db
       .select({
         id: schema.products.id,
+        name: schema.products.name,
         specs: schema.products.specs,
       })
       .from(schema.products),
@@ -273,6 +324,43 @@ export async function syncManufacturersFromProducts() {
   const existingByNormalized = new Map(
     existingRows.map(row => [row.normalizedName, row])
   );
+  const knownManufacturersMap = new Map<string, string>();
+  for (const row of existingRows) {
+    knownManufacturersMap.set(row.normalizedName, row.name);
+  }
+  for (const [normalizedName, manufacturer] of counts.entries()) {
+    if (!knownManufacturersMap.has(normalizedName)) {
+      knownManufacturersMap.set(normalizedName, manufacturer.name);
+    }
+  }
+  const knownManufacturers = Array.from(knownManufacturersMap.entries()).map(
+    ([normalizedName, name]) => ({ normalizedName, name })
+  );
+
+  for (const product of productRows) {
+    const hasSpecsManufacturer = Boolean(getManufacturerNameFromSpecs(product.specs));
+    if (hasSpecsManufacturer) continue;
+
+    const byTitle = getManufacturerNameFromTitle(product.name, knownManufacturers);
+    if (!byTitle) continue;
+
+    const normalizedName = normalizeSpecToken(byTitle).slice(0, 255);
+    if (!normalizedName) continue;
+
+    const current = counts.get(normalizedName) ?? {
+      name: byTitle,
+      productCount: 0,
+    };
+    current.productCount += 1;
+    if (
+      current.name.length < byTitle.length ||
+      current.name === current.name.toUpperCase()
+    ) {
+      current.name = byTitle;
+    }
+    counts.set(normalizedName, current);
+  }
+
   const usedSlugs = new Set(existingRows.map(row => row.slug));
 
   let created = 0;
@@ -516,6 +604,7 @@ export async function getManufacturerByProductSlug(slug: string) {
   const [product] = await db
     .select({
       slug: schema.products.slug,
+      name: schema.products.name,
       specs: schema.products.specs,
     })
     .from(schema.products)
@@ -524,7 +613,18 @@ export async function getManufacturerByProductSlug(slug: string) {
 
   if (!product) return null;
 
-  const manufacturerName = getManufacturerNameFromSpecs(product.specs);
+  let manufacturerName = getManufacturerNameFromSpecs(product.specs);
+  if (!manufacturerName) {
+    const allManufacturers = await db.select().from(schema.manufacturers);
+    const knownManufacturers = allManufacturers.map(item => ({
+      normalizedName: item.normalizedName,
+      name: item.name,
+    }));
+    manufacturerName = getManufacturerNameFromTitle(
+      product.name,
+      knownManufacturers
+    );
+  }
   if (!manufacturerName) return null;
 
   const normalizedName = normalizeSpecToken(manufacturerName).slice(0, 255);
