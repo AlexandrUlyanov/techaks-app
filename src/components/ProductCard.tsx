@@ -2,7 +2,6 @@ import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
-import type { MouseEvent as ReactMouseEvent } from "react";
 
 interface ProductCardProps {
   product: {
@@ -86,22 +85,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     if (cartItem) updateQuantity(product.id, cartItem.quantity + 1);
   };
 
-  const handleMagneticMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    const button = e.currentTarget;
-    const rect = button.getBoundingClientRect();
-    const rawX = (e.clientX - rect.left - rect.width / 2) * 0.16;
-    const rawY = (e.clientY - rect.top - rect.height / 2) * 0.16;
-    const x = Math.max(-5, Math.min(5, rawX));
-    const y = Math.max(-5, Math.min(5, rawY));
-    button.style.transitionDuration = "120ms";
-    button.style.transform = `translate(${x}px, ${y}px)`;
-  };
-
-  const handleMagneticLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.transitionDuration = "260ms";
-    e.currentTarget.style.transform = "translate(0px, 0px)";
-  };
-
   const cartControl = cartItem ? (
     <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-lg border border-[#05C3D4]/40 bg-[#05C3D4]/10">
       <button
@@ -127,8 +110,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   ) : (
     <button
       onClick={handleAddToCart}
-      onMouseMove={handleMagneticMove}
-      onMouseLeave={handleMagneticLeave}
       className="magnetic flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#05C3D4] px-4 text-[10px] font-black uppercase tracking-widest text-white dark:text-black transition-all duration-300 hover:bg-[#27E6F2] active:scale-95 relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_30px_rgba(5,195,212,0.3)]"
     >
       <ShoppingCart size={14} />

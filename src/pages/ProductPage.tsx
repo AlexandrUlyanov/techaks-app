@@ -7,7 +7,6 @@ import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { MouseEvent as ReactMouseEvent } from "react";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -86,22 +85,6 @@ export default function ProductPage() {
   const isManufacturerSpec = (key: string) =>
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
 
-  const handleMagneticMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    const button = e.currentTarget;
-    const rect = button.getBoundingClientRect();
-    const rawX = (e.clientX - rect.left - rect.width / 2) * 0.22;
-    const rawY = (e.clientY - rect.top - rect.height / 2) * 0.22;
-    const x = Math.max(-8, Math.min(8, rawX));
-    const y = Math.max(-8, Math.min(8, rawY));
-    button.style.transitionDuration = "130ms";
-    button.style.transform = `translate(${x}px, ${y}px)`;
-  };
-
-  const handleMagneticLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.transitionDuration = "280ms";
-    e.currentTarget.style.transform = "translate(0px, 0px)";
-  };
-
   const handleAddToCart = () => {
     addItem({
       id: product.id,
@@ -152,34 +135,6 @@ export default function ProductPage() {
           <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
             {product.name}
           </h1>
-          {productManufacturer && (
-            <Link
-              to={productManufacturer.href}
-              className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-2">
-                {productManufacturer.logo ? (
-                  <img
-                    src={productManufacturer.logo}
-                    alt={productManufacturer.title}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <span className="text-xs font-black text-[#05C3D4]">
-                    {productManufacturer.title.slice(0, 2).toUpperCase()}
-                  </span>
-                )}
-              </span>
-              <span>
-                <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Производитель
-                </span>
-                <span className="block text-sm font-black text-foreground">
-                  {productManufacturer.title}
-                </span>
-              </span>
-            </Link>
-          )}
         </div>
       </section>
 
@@ -226,28 +181,62 @@ export default function ProductPage() {
               </div>
 
               {/* Price */}
-              <div className="mt-10 p-8 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#05C3D4]/5 blur-3xl rounded-full" />
-                <div className="relative z-10">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">
-                    Актуальная цена
-                  </span>
-                  <div className="flex items-center gap-6">
-                    <span className="text-4xl md:text-5xl font-black text-[#05C3D4] font-heading">
-                      {formatPrice(product.price)}
+              <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                  className={`p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm ${
+                    productManufacturer ? "" : "md:col-span-2"
+                  }`}
+                >
+                  <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
+                  <div className="relative z-10">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">
+                      Актуальная цена
                     </span>
-                    {product.oldPrice && (
-                      <div className="flex flex-col">
-                        <span className="text-xl text-muted-foreground/40 line-through font-bold">
-                          {formatPrice(product.oldPrice)}
-                        </span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
-                          Выгода {formatPrice(product.oldPrice - product.price)}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-5">
+                      <span className="text-4xl md:text-[42px] font-black text-[#05C3D4] font-heading leading-none">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.oldPrice && (
+                        <div className="flex flex-col">
+                          <span className="text-lg text-muted-foreground/40 line-through font-bold">
+                            {formatPrice(product.oldPrice)}
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
+                            Выгода {formatPrice(product.oldPrice - product.price)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {productManufacturer && (
+                  <Link
+                    to={productManufacturer.href}
+                    className="p-6 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex items-center gap-4"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-2.5 shrink-0">
+                      {productManufacturer.logo ? (
+                        <img
+                          src={productManufacturer.logo}
+                          alt={productManufacturer.title}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs font-black text-[#05C3D4]">
+                          {productManufacturer.title.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Производитель
+                      </span>
+                      <span className="mt-1 block text-lg font-black text-foreground truncate">
+                        {productManufacturer.title}
+                      </span>
+                    </span>
+                  </Link>
+                )}
               </div>
 
               {/* Stock & FOMO */}
@@ -381,8 +370,6 @@ export default function ProductPage() {
                 <Button
                   size="lg"
                   onClick={handleAddToCart}
-                  onMouseMove={handleMagneticMove}
-                  onMouseLeave={handleMagneticLeave}
                   className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
                 >
                   <ShoppingBag size={20} className="mr-2" />
