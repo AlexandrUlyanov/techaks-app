@@ -54,6 +54,58 @@ jobs:
             echo "Running database migrations..."
             npm run db:push
 
+            echo "Applying store profile updates..."
+            node --input-type=module <<'NODE'
+            import mysql from "mysql2/promise";
+
+            const connection = await mysql.createConnection({
+              host: "127.0.0.1",
+              user: "techaks",
+              password: "TechAks_DB_Secure123!",
+              database: "techaks_prod",
+            });
+
+            await connection.execute(
+              `UPDATE stores
+               SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
+               WHERE address LIKE ? OR name LIKE ?`,
+              [
+                "пр. Строителей, 50А",
+                "пр. Строителей, 50А",
+                "Ежедневно 9:00–21:00",
+                "+7 (927) 364-28-88",
+                "4.9",
+                34,
+                "/images/stores/stroiteley-50a.webp",
+                "https://yandex.com/maps/org/tekhaks/81538152780/?indoorLevel=1&ll=44.920957%2C53.222379&z=17.64",
+                0,
+                "%Строителей, 50А%",
+                "%Строителей, 50А%",
+              ]
+            );
+
+            await connection.execute(
+              `UPDATE stores
+               SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
+               WHERE address LIKE ? OR name LIKE ?`,
+              [
+                "ул. Генерала Глазунова, 1",
+                "ул. Генерала Глазунова, 1",
+                "Ежедневно 9:00–21:00",
+                "+7 (927) 364-28-88",
+                "5.0",
+                43,
+                "/images/stores/glazunova-1.webp",
+                "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.878736%2C53.232707&z=17",
+                1,
+                "%Глазунова, 1%",
+                "%Глазунова, 1%",
+              ]
+            );
+
+            await connection.end();
+            NODE
+
             echo "Building application..."
             npm run build
 
