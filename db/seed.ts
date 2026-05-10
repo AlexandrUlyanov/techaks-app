@@ -141,15 +141,15 @@ async function seed() {
       sortOrder: 0,
     },
     {
-      name: "ул. Генерала Глазунова, 1",
-      address: "Пенза, ул. Генерала Глазунова, 1 (ТЦ Застава)",
+      name: "ТЦ Застава (ул. Генерала Глазунова, 1)",
+      address: "Пенза, ул. Генерала Глазунова, 1, этаж 1",
       hours: "Ежедневно 9:00–21:00",
       phone: "+7 (927) 364-28-88",
       rating: "5.0",
       reviewCount: 43,
       image: "/images/stores/glazunova-1.webp",
       mapUrl:
-        "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.878736%2C53.232707&z=17",
+        "https://yandex.com/maps/org/tekhaks/204121927664/?display-text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&indoorLevel=1&ll=44.880796%2C53.232707&mode=search&sll=44.878875%2C53.232745&sspn=0.021887%2C0.007667&text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&z=17",
       sortOrder: 1,
     },
   ];
