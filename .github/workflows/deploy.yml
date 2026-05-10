@@ -125,6 +125,17 @@ jobs:
               );
             }
 
+            // Force-close stale running MoySklad sync logs older than 15 minutes
+            await connection.execute(
+              `UPDATE sync_logs
+               SET status = 'error',
+                   message = CONCAT(COALESCE(message, ''), ' [Прервано автоматически: зависшая синхронизация]'),
+                   created_at = created_at
+               WHERE type = 'moysklad'
+                 AND status = 'running'
+                 AND created_at < (NOW() - INTERVAL 15 MINUTE)`
+            );
+
             await connection.end();
             NODE
 
