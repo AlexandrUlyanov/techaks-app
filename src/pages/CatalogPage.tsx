@@ -12,6 +12,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -385,9 +392,9 @@ export default function CatalogPage() {
             categoryManufacturers.length > 1 && (
               <div
                 className={
-                  displayCategories.length > 0
+                  (displayCategories.length > 0
                     ? "pt-8 border-t border-border"
-                    : "pt-1"
+                    : "pt-1") + " hidden md:block"
                 }
               >
                 <div className="flex items-center justify-between gap-6 mb-4">
@@ -447,7 +454,7 @@ export default function CatalogPage() {
           {showProductSection && (
           <div className={displayCategories.length > 0 || displayManufacturers.length > 0 || (catalogView === "categories" && activeCategory !== "all" && categoryManufacturers.length > 1) ? "pt-10 border-t border-border" : ""}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-              <h2 className="text-xl font-black uppercase tracking-widest text-foreground leading-none">
+              <h2 className="hidden md:block text-xl font-black uppercase tracking-widest text-foreground leading-none">
                 Товары
               </h2>
               
@@ -496,15 +503,40 @@ export default function CatalogPage() {
                   </button>
                 </div>
                 <div className="min-w-[220px]">
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                  className="w-full px-4 h-11 bg-muted/50 border border-border rounded-xl text-xs font-black uppercase tracking-widest text-foreground outline-none focus:border-[#05C3D4] appearance-none cursor-pointer transition-all"
-                >
-                  <option value="default">По популярности</option>
-                  <option value="price-asc">Цена: по возрастанию</option>
-                  <option value="price-desc">Цена: по убыванию</option>
-                </select>
+                  <Select
+                    value={sortBy}
+                    onValueChange={value =>
+                      setSortBy(value as "default" | "price-asc" | "price-desc")
+                    }
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-xl border-border bg-card px-4 text-xs font-black uppercase tracking-widest text-foreground shadow-none">
+                      <SelectValue placeholder="По популярности" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="z-[80] min-w-[220px] rounded-xl border-border bg-card shadow-xl"
+                      position="popper"
+                      align="start"
+                    >
+                      <SelectItem
+                        value="default"
+                        className="text-xs font-black uppercase tracking-wider"
+                      >
+                        По популярности
+                      </SelectItem>
+                      <SelectItem
+                        value="price-asc"
+                        className="text-xs font-black uppercase tracking-wider"
+                      >
+                        Цена: по возрастанию
+                      </SelectItem>
+                      <SelectItem
+                        value="price-desc"
+                        className="text-xs font-black uppercase tracking-wider"
+                      >
+                        Цена: по убыванию
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
