@@ -25,6 +25,8 @@ jobs:
           username: ${{ env.SERVER_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
+            set -e
+
             # 1. Ensure directory exists and clone/pull repository
             if [ ! -d "${{ env.APP_DIR }}/.git" ]; then
               echo "Initial clone..."
@@ -32,8 +34,9 @@ jobs:
             else
               echo "Pulling latest changes..."
               cd ${{ env.APP_DIR }}
-              git reset --hard
-              git pull origin master
+              git fetch origin master
+              git reset --hard origin/master
+              git clean -fd
             fi
 
             # 2. Setup environment variables
