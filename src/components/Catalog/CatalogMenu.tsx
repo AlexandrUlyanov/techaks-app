@@ -83,7 +83,8 @@ const DesktopCatalog = () => {
   const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
-  const showLeafCategoryFilters = groupsWithChildren.length === 0;
+  const hasAnyCategoryGroups = categoryGroups.length > 0;
+  const showLeafCategoryFilters = !hasAnyCategoryGroups;
   const { data: leafCategoryFilters = [] } = trpc.product.getSpecFilters.useQuery(
     {
       categorySlug: menu.activeCategory?.slug ?? "",
@@ -226,8 +227,8 @@ const DesktopCatalog = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-border bg-muted/10 p-5">
+            ) : showLeafCategoryFilters ? (
+              <div className="pt-1">
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground">
                     Типы товаров
@@ -241,7 +242,7 @@ const DesktopCatalog = () => {
                   </Link>
                 </div>
                 {typeFilter && typeFilter.values.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-4">
                     {typeFilter.values.slice(0, 12).map(value => (
                       <Link
                         key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
@@ -249,14 +250,9 @@ const DesktopCatalog = () => {
                           `${typeFilter.normalizedKey}:${value.normalizedValue}`
                         )}`}
                         onClick={menu.close}
-                        className="rounded-xl border border-border bg-card px-3 py-2.5 hover:border-[#05C3D4]/60 transition-colors"
+                        className="text-[13px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
                       >
-                        <div className="truncate text-[12px] font-bold text-foreground">
-                          {value.value}
-                        </div>
-                        <div className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                          {value.count} шт
-                        </div>
+                        {value.value}
                       </Link>
                     ))}
                   </div>
@@ -266,7 +262,7 @@ const DesktopCatalog = () => {
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
             {singleCategories.length > 0 && (
               <div className="mt-6 border-t border-border pt-5">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
