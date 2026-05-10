@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +39,11 @@ const SPEC_KEYS = [
 export default function ProductCard({ product, variant = "grid" }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find(item => item.id === product.id);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [product.image, product.id]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -129,11 +135,17 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
                 {product.badge}
               </span>
             )}
+            <div
+              className={`absolute inset-0 bg-muted/40 transition-opacity duration-300 ${isImageLoaded ? "opacity-0" : "opacity-100 animate-pulse"}`}
+              aria-hidden="true"
+            />
             <img
               src={product.image}
               alt={product.name}
-              className="h-full w-full object-contain"
+              className={`h-full w-full object-contain transition-all duration-500 ${isImageLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.985]"}`}
               loading="lazy"
+              onLoad={() => setIsImageLoaded(true)}
+              onError={() => setIsImageLoaded(true)}
             />
           </div>
 
@@ -203,11 +215,17 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
               {product.badge}
             </span>
           )}
+          <div
+            className={`absolute inset-0 bg-muted/40 transition-opacity duration-300 ${isImageLoaded ? "opacity-0" : "opacity-100 animate-pulse"}`}
+            aria-hidden="true"
+          />
           <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-contain"
+            className={`h-full w-full object-contain transition-all duration-500 ${isImageLoaded ? "opacity-100 scale-100" : "opacity-0 scale-[0.985]"}`}
             loading="lazy"
+            onLoad={() => setIsImageLoaded(true)}
+            onError={() => setIsImageLoaded(true)}
           />
         </div>
 
