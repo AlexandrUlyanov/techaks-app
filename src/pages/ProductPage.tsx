@@ -84,6 +84,8 @@ export default function ProductPage() {
 
   const isManufacturerSpec = (key: string) =>
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
+  const normalizedDescription = (product.description || "").trim();
+  const hasDescription = normalizedDescription.length > 0;
 
   const handleAddToCart = () => {
     addItem({
@@ -294,14 +296,16 @@ export default function ProductPage() {
               </div>
 
               {/* Description */}
-              <div className="mt-10">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
-                  Описание
-                </h3>
-                <p className="text-base text-muted-foreground leading-relaxed font-medium">
-                  {product.description}
-                </p>
-              </div>
+              {hasDescription && (
+                <div className="mt-10">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
+                    Описание
+                  </h3>
+                  <p className="text-base text-muted-foreground leading-relaxed font-medium">
+                    {normalizedDescription}
+                  </p>
+                </div>
+              )}
 
               {/* Specs */}
               {product.specs && typeof product.specs === "object" && (

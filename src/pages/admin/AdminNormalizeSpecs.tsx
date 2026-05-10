@@ -4,7 +4,7 @@ import { trpc } from "@/providers/trpc";
 export default function AdminNormalizeSpecs() {
   const utils = trpc.useUtils();
   const preview = trpc.normalize.previewDescriptions.useQuery(
-    { limit: 500, examplesLimit: 20 },
+    { limit: 50000, examplesLimit: 20 },
     { enabled: false }
   );
   const logs = trpc.normalize.getLogs.useQuery();
@@ -32,7 +32,7 @@ export default function AdminNormalizeSpecs() {
       `Перенести характеристики у ${data.changedProducts} товаров? Товары с конфликтами будут пропущены.`
     );
     if (confirmed) {
-      apply.mutate({ limit: 10000, examplesLimit: 20, skipConflicts: true, rebuildIndex: true });
+      apply.mutate({ limit: 50000, examplesLimit: 20, skipConflicts: true, rebuildIndex: true });
     }
   };
 

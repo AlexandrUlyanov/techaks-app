@@ -13,14 +13,14 @@ export const normalizeRouter = createRouter({
     .input(
       z
         .object({
-          limit: z.number().min(1).max(1000).default(200),
+          limit: z.number().min(1).max(50000).default(10000),
           examplesLimit: z.number().min(1).max(100).default(25),
         })
         .optional()
     )
     .query(async ({ input }) => {
       return normalizeProductDescriptions({
-        limit: input?.limit ?? 200,
+        limit: input?.limit ?? 10000,
         examplesLimit: input?.examplesLimit ?? 25,
         apply: false,
       });
@@ -39,7 +39,7 @@ export const normalizeRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       return normalizeProductDescriptions({
-        limit: input?.limit ?? 1000,
+        limit: input?.limit ?? 10000,
         examplesLimit: input?.examplesLimit ?? 25,
         source: "manual",
         apply: true,
