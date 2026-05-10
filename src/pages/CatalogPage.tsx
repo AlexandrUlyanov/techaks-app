@@ -206,11 +206,6 @@ export default function CatalogPage() {
     return trail;
   }, [catalogView, categories, currentCategory, activeCategory]);
 
-  const headerEyebrow = catalogView === "brands"
-    ? activeBrand
-      ? "Производитель"
-      : "Каталог производителей"
-    : "Категория";
   const headerTitle = catalogView === "brands"
     ? currentManufacturer?.name || "Производители"
     : activeCategoryName;
@@ -261,13 +256,7 @@ export default function CatalogPage() {
       {/* Header Info */}
       <section className="pt-12 pb-8 border-b border-border">
         <div className="container-main">
-          <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-            {headerEyebrow}
-          </span>
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-            {headerTitle}
-          </h1>
-          <div className="mt-6 inline-flex rounded-2xl border border-border bg-card p-1">
+          <div className="mb-4 inline-flex rounded-2xl border border-border bg-card p-1">
             <button
               type="button"
               onClick={() => navigate("/catalog?cat=all")}
@@ -291,6 +280,9 @@ export default function CatalogPage() {
               Производители
             </button>
           </div>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            {headerTitle}
+          </h1>
         </div>
       </section>
 
@@ -301,9 +293,6 @@ export default function CatalogPage() {
           {/* Categories Grid */}
           {displayManufacturers.length > 0 && (
             <div>
-              <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
-                Производители
-              </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 {displayManufacturers.map(manufacturer => (
                   <button
