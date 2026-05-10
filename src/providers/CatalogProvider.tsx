@@ -112,9 +112,21 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         children,
         brands: (brandsByCategory[category.slug] ?? manufacturerEntries.slice(0, 20))
           .map((manufacturer: any) => ({
+            ...(function () {
+              const sourceKey = manufacturer.sourceNormalizedKey ?? "производитель";
+              const normalizedName = manufacturer.normalizedName ?? "";
+              const params = new URLSearchParams({ cat: category.slug });
+              if (normalizedName) {
+                params.append("filter", `${sourceKey}:${normalizedName}`);
+              }
+              return {
+                href: `/catalog?${params.toString()}`,
+                normalizedName,
+                sourceNormalizedKey: sourceKey,
+              };
+            })(),
             id: String(manufacturer.id),
             title: manufacturer.title ?? manufacturer.name,
-            href: `/catalog?view=brands&brand=${manufacturer.slug}`,
             logo: (manufacturer.logo ?? manufacturer.logoUrl) ?? undefined,
           }))
           .filter(brand => Boolean(brand.logo)),

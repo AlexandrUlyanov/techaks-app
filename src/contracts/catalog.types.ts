@@ -18,6 +18,8 @@ export type Brand = {
   title: string;
   href: string;
   logo?: string;
+  normalizedName?: string;
+  sourceNormalizedKey?: string;
 };
 
 export type PromoBlock = {

@@ -105,6 +105,9 @@ const DesktopCatalog = () => {
   }
 
   if (!menu.activeCategory) return null;
+  const categoryGroups = menu.activeCategory.children ?? [];
+  const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
+  const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
 
   return (
     <>
@@ -174,7 +177,7 @@ const DesktopCatalog = () => {
               </Link>
             </div>
             <div className="columns-3 xl:columns-4 gap-8">
-              {menu.activeCategory.children?.map((group: CategoryGroup) => (
+              {groupsWithChildren.map((group: CategoryGroup) => (
                 <div key={group.id} className="break-inside-avoid mb-6 space-y-2.5">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                     <Link to={group.href || "#"} onClick={menu.close}>
@@ -199,12 +202,25 @@ const DesktopCatalog = () => {
                 </div>
               ))}
             </div>
+            {singleCategories.length > 0 && (
+              <div className="mt-6 border-t border-border pt-5">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
+                  {singleCategories.map((group: CategoryGroup) => (
+                    <Link
+                      key={group.id}
+                      to={group.href || "#"}
+                      onClick={menu.close}
+                      className="text-[12px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                    >
+                      {group.title}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-10 pt-8 border-t border-border flex gap-12">
               {menu.activeCategory.brands && (
                 <div className="flex-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-6">
-                    Бренды
-                  </span>
                   <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
                     {menu.activeCategory.brands.map((brand: Brand) => (
                       <Link
@@ -225,13 +241,6 @@ const DesktopCatalog = () => {
                       </Link>
                     ))}
                   </div>
-                  <Link
-                    to="/catalog?view=brands"
-                    className="mt-5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
-                    onClick={menu.close}
-                  >
-                    Все производители <ArrowRight size={12} />
-                  </Link>
                 </div>
               )}
               {menu.activeCategory.promo && (
