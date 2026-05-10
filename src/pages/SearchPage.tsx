@@ -123,9 +123,11 @@ export default function SearchPage() {
             <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
               <Sheet>
                 <SheetTrigger asChild>
-                  <button className="lg:hidden h-11 px-4 rounded-xl border border-border bg-card text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                  <button
+                    className="lg:hidden h-11 w-11 rounded-xl border border-border bg-card flex items-center justify-center"
+                    aria-label="Фильтры"
+                  >
                     <SlidersHorizontal size={16} />
-                    Фильтры
                   </button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
