@@ -1,5 +1,6 @@
 import { useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
+import { trpc } from "@/providers/trpc";
 import {
   X,
   Search,
@@ -104,10 +105,25 @@ const DesktopCatalog = () => {
     );
   }
 
-  if (!menu.activeCategory) return null;
-  const categoryGroups = menu.activeCategory.children ?? [];
+  const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
+  const showTopProductsBlock = groupsWithChildren.length === 0;
+  const { data: topCategoryProducts = [] } = trpc.product.getTopByCategoryStock.useQuery(
+    {
+      categorySlug: menu.activeCategory?.slug ?? "",
+      limit: 3,
+    },
+    {
+      enabled: Boolean(menu.activeCategory?.slug) && showTopProductsBlock,
+      placeholderData: prev => prev,
+    }
+  );
+
+  if (!menu.activeCategory) return null;
+  const hasBrands = Boolean(menu.activeCategory.brands?.length);
+  const hasPromo = Boolean(menu.activeCategory.promo?.length);
+  const hasBottomSection = hasBrands || hasPromo;
 
   return (
     <>
@@ -168,40 +184,90 @@ const DesktopCatalog = () => {
               <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground">
                 {menu.activeCategory.title}
               </h2>
-              <Link
-                to={menu.activeCategory.href}
-                className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
-                onClick={menu.close}
-              >
-                Все товары в категории <ArrowRight size={14} />
-              </Link>
+              {groupsWithChildren.length > 0 && (
+                <Link
+                  to={menu.activeCategory.href}
+                  className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                  onClick={menu.close}
+                >
+                  Все товары в категории <ArrowRight size={14} />
+                </Link>
+              )}
             </div>
-            <div className="columns-3 xl:columns-4 gap-8">
-              {groupsWithChildren.map((group: CategoryGroup) => (
-                <div key={group.id} className="break-inside-avoid mb-6 space-y-2.5">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
-                    <Link to={group.href || "#"} onClick={menu.close}>
-                      {group.title}
-                    </Link>
+            {groupsWithChildren.length > 0 ? (
+              <div className="columns-3 xl:columns-4 gap-8">
+                {groupsWithChildren.map((group: CategoryGroup) => (
+                  <div key={group.id} className="break-inside-avoid mb-6 space-y-2.5">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
+                      <Link to={group.href || "#"} onClick={menu.close}>
+                        {group.title}
+                      </Link>
+                    </h3>
+                    <div className="flex flex-col gap-1.5">
+                      {group.items?.map((item: CategoryItem) => (
+                        <Link
+                          key={item.id}
+                          to={item.href}
+                          className="text-[13px] leading-snug font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
+                          onClick={menu.close}
+                        >
+                          <span className="group-hover/item:translate-x-1 transition-transform">
+                            {item.title}
+                          </span>
+                          <Badge type={item.badge} />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-muted/10 p-5">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground">
+                    Топ товары
                   </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {group.items?.map((item: CategoryItem) => (
+                  <Link
+                    to={menu.activeCategory.href}
+                    className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                    onClick={menu.close}
+                  >
+                    Смотреть все товары
+                  </Link>
+                </div>
+                {topCategoryProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                    {topCategoryProducts.map(product => (
                       <Link
-                        key={item.id}
-                        to={item.href}
-                        className="text-[13px] leading-snug font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
+                        key={product.id}
+                        to={`/product/${product.slug}`}
                         onClick={menu.close}
+                        className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 hover:border-[#05C3D4]/60 transition-colors"
                       >
-                        <span className="group-hover/item:translate-x-1 transition-transform">
-                          {item.title}
-                        </span>
-                        <Badge type={item.badge} />
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-11 w-11 shrink-0 object-contain"
+                          loading="lazy"
+                        />
+                        <div className="min-w-0">
+                          <div className="line-clamp-2 text-[12px] font-bold leading-tight text-foreground">
+                            {product.name}
+                          </div>
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-wide text-[#05C3D4]">
+                            {new Intl.NumberFormat("ru-RU").format(product.price)} ₽
+                          </div>
+                        </div>
                       </Link>
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                ) : (
+                  <div className="text-sm font-semibold text-muted-foreground">
+                    Пока нет товаров в наличии для отображения.
+                  </div>
+                )}
+              </div>
+            )}
             {singleCategories.length > 0 && (
               <div className="mt-6 border-t border-border pt-5">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
@@ -218,11 +284,12 @@ const DesktopCatalog = () => {
                 </div>
               </div>
             )}
+            {hasBottomSection && (
             <div className="mt-10 pt-8 border-t border-border flex gap-12">
-              {menu.activeCategory.brands && (
+              {hasBrands && (
                 <div className="flex-1">
                   <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
-                    {menu.activeCategory.brands.map((brand: Brand) => (
+                    {menu.activeCategory?.brands?.map((brand: Brand) => (
                       <Link
                         key={brand.id}
                         to={brand.href}
@@ -243,9 +310,9 @@ const DesktopCatalog = () => {
                   </div>
                 </div>
               )}
-              {menu.activeCategory.promo && (
+              {hasPromo && (
                 <div className="w-[400px]">
-                  {menu.activeCategory.promo.map((promo: PromoBlock) => (
+                  {menu.activeCategory?.promo?.map((promo: PromoBlock) => (
                     <Link
                       key={promo.id}
                       to={promo.href}
@@ -271,6 +338,7 @@ const DesktopCatalog = () => {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

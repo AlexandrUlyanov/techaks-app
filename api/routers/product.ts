@@ -394,6 +394,51 @@ export const productRouter = createRouter({
         .where(specCondition ? sql`${categoryCondition} AND ${specCondition}` : categoryCondition);
     }),
 
+  getTopByCategoryStock: publicQuery
+    .input(
+      z.object({
+        categorySlug: z.string(),
+        limit: z.number().min(1).max(12).default(3),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      if (!input.categorySlug || input.categorySlug === "all") return [];
+
+      const allCats = await db.select().from(categories);
+      const targetCat = allCats.find((c: any) => c.slug === input.categorySlug);
+      if (!targetCat) return [];
+
+      const targetIds = collectDescendantCategoryIds(allCats, targetCat.id);
+      const rows = await db
+        .select({
+          id: products.id,
+          slug: products.slug,
+          name: products.name,
+          image: products.image,
+          price: products.price,
+          totalStock: sql<number>`coalesce(sum(${productStocks.quantity}), 0)`,
+        })
+        .from(products)
+        .leftJoin(productStocks, eq(productStocks.productId, products.id))
+        .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`)
+        .groupBy(
+          products.id,
+          products.slug,
+          products.name,
+          products.image,
+          products.price
+        )
+        .orderBy(
+          desc(sql`coalesce(sum(${productStocks.quantity}), 0)`),
+          desc(products.inStock),
+          asc(products.name)
+        )
+        .limit(input.limit);
+
+      return rows.filter(item => Number(item.totalStock || 0) > 0);
+    }),
+
   getSpecFilters: publicQuery
     .input(z.object({ categorySlug: z.string().default("all") }).optional())
     .query(async ({ input }) => {
