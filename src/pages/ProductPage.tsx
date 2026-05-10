@@ -181,10 +181,10 @@ export default function ProductPage() {
               </div>
 
               {/* Price */}
-              <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div
                   className={`p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm ${
-                    productManufacturer ? "" : "md:col-span-2"
+                    productManufacturer ? "md:col-span-3" : "md:col-span-4"
                   }`}
                 >
                   <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
@@ -212,7 +212,7 @@ export default function ProductPage() {
                 {productManufacturer && (
                   <Link
                     to={productManufacturer.href}
-                    className="p-6 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex items-center gap-4"
+                    className="md:col-span-1 p-4 bg-card border border-border rounded-3xl transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5 shadow-sm flex flex-col items-start justify-between gap-4 min-h-[160px]"
                   >
                     <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-2.5 shrink-0">
                       {productManufacturer.logo ? (
@@ -227,11 +227,11 @@ export default function ProductPage() {
                         </span>
                       )}
                     </span>
-                    <span className="min-w-0">
+                    <span className="min-w-0 w-full">
                       <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                         Производитель
                       </span>
-                      <span className="mt-1 block text-lg font-black text-foreground truncate">
+                      <span className="mt-1 block text-xl font-black text-foreground leading-tight break-words">
                         {productManufacturer.title}
                       </span>
                     </span>
