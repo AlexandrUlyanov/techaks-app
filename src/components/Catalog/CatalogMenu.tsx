@@ -80,6 +80,20 @@ const DesktopCatalog = () => {
   const menu = useCatalog();
   const hoverTimeout = useRef<any>(null);
   const navigate = useNavigate();
+  const categoryGroups = menu.activeCategory?.children ?? [];
+  const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
+  const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
+  const showTopProductsBlock = groupsWithChildren.length === 0;
+  const { data: topCategoryProducts = [] } = trpc.product.getTopByCategoryStock.useQuery(
+    {
+      categorySlug: menu.activeCategory?.slug ?? "",
+      limit: 3,
+    },
+    {
+      enabled: Boolean(menu.activeCategory?.slug) && showTopProductsBlock,
+      placeholderData: prev => prev,
+    }
+  );
 
   const handleCategoryHover = (id: string) => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
@@ -104,21 +118,6 @@ const DesktopCatalog = () => {
       </>
     );
   }
-
-  const categoryGroups = menu.activeCategory?.children ?? [];
-  const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
-  const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
-  const showTopProductsBlock = groupsWithChildren.length === 0;
-  const { data: topCategoryProducts = [] } = trpc.product.getTopByCategoryStock.useQuery(
-    {
-      categorySlug: menu.activeCategory?.slug ?? "",
-      limit: 3,
-    },
-    {
-      enabled: Boolean(menu.activeCategory?.slug) && showTopProductsBlock,
-      placeholderData: prev => prev,
-    }
-  );
 
   if (!menu.activeCategory) return null;
   const hasBrands = Boolean(menu.activeCategory.brands?.length);
