@@ -356,6 +356,7 @@ export const productRouter = createRouter({
       const db = getDb();
       const categorySlug = input?.categorySlug ?? "all";
       const specFilters = input?.specFilters ?? [];
+      const visibilityCondition = sql`${products.price} > 0`;
 
       const selectFields = {
         id: products.id,
@@ -382,7 +383,11 @@ export const productRouter = createRouter({
           .select(selectFields)
           .from(products)
           .leftJoin(categories, eq(products.categoryId, categories.id))
-          .where(specCondition);
+          .where(
+            specCondition
+              ? sql`${visibilityCondition} AND ${specCondition}`
+              : visibilityCondition
+          );
       }
 
       const allCats = await db.select().from(categories);
@@ -399,7 +404,11 @@ export const productRouter = createRouter({
         .select(selectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(specCondition ? sql`${categoryCondition} AND ${specCondition}` : categoryCondition);
+        .where(
+          specCondition
+            ? sql`${categoryCondition} AND ${visibilityCondition} AND ${specCondition}`
+            : sql`${categoryCondition} AND ${visibilityCondition}`
+        );
     }),
 
   getTopByCategoryStock: publicQuery
