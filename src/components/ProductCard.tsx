@@ -89,12 +89,16 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   const handleMagneticMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
-    const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
-    const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
+    const rawX = (e.clientX - rect.left - rect.width / 2) * 0.16;
+    const rawY = (e.clientY - rect.top - rect.height / 2) * 0.16;
+    const x = Math.max(-5, Math.min(5, rawX));
+    const y = Math.max(-5, Math.min(5, rawY));
+    button.style.transitionDuration = "120ms";
     button.style.transform = `translate(${x}px, ${y}px)`;
   };
 
   const handleMagneticLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transitionDuration = "260ms";
     e.currentTarget.style.transform = "translate(0px, 0px)";
   };
 

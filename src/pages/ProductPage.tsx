@@ -89,12 +89,16 @@ export default function ProductPage() {
   const handleMagneticMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
-    const x = (e.clientX - rect.left - rect.width / 2) * 0.35;
-    const y = (e.clientY - rect.top - rect.height / 2) * 0.35;
+    const rawX = (e.clientX - rect.left - rect.width / 2) * 0.22;
+    const rawY = (e.clientY - rect.top - rect.height / 2) * 0.22;
+    const x = Math.max(-8, Math.min(8, rawX));
+    const y = Math.max(-8, Math.min(8, rawY));
+    button.style.transitionDuration = "130ms";
     button.style.transform = `translate(${x}px, ${y}px)`;
   };
 
   const handleMagneticLeave = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transitionDuration = "280ms";
     e.currentTarget.style.transform = "translate(0px, 0px)";
   };
 
