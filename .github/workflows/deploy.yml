@@ -68,7 +68,7 @@ jobs:
             await connection.execute(
               `UPDATE stores
                SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
-               WHERE address LIKE ? OR name LIKE ?`,
+               WHERE sort_order = ? OR address LIKE ? OR name LIKE ? OR map_url LIKE ?`,
               [
                 "пр. Строителей, 50А",
                 "пр. Строителей, 50А",
@@ -79,15 +79,17 @@ jobs:
                 "/images/stores/stroiteley-50a.webp",
                 "https://yandex.com/maps/org/tekhaks/81538152780/?indoorLevel=1&ll=44.920957%2C53.222379&z=17.64",
                 0,
+                0,
                 "%Строителей, 50А%",
                 "%Строителей, 50А%",
+                "%81538152780%",
               ]
             );
 
-            await connection.execute(
+            const [glazunovaUpdate] = await connection.execute(
               `UPDATE stores
                SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
-               WHERE address LIKE ? OR name LIKE ?`,
+               WHERE sort_order = ? OR address LIKE ? OR name LIKE ? OR map_url LIKE ?`,
               [
                 "ТЦ Застава (ул. Генерала Глазунова, 1)",
                 "Пенза, ул. Генерала Глазунова, 1, этаж 1",
@@ -96,12 +98,32 @@ jobs:
                 "5.0",
                 43,
                 "/images/stores/glazunova-1.webp",
-                "https://yandex.com/maps/org/tekhaks/204121927664/?display-text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&indoorLevel=1&ll=44.880796%2C53.232707&mode=search&sll=44.878875%2C53.232745&sspn=0.021887%2C0.007667&text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&z=17",
+                "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.877504%2C53.232745&z=17.64",
+                1,
                 1,
                 "%Глазунова, 1%",
                 "%Глазунова, 1%",
+                "%204121927664%",
               ]
             );
+
+            if ((glazunovaUpdate?.affectedRows ?? 0) === 0) {
+              await connection.execute(
+                `INSERT INTO stores (name, address, hours, phone, rating, review_count, image, map_url, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  "ТЦ Застава (ул. Генерала Глазунова, 1)",
+                  "Пенза, ул. Генерала Глазунова, 1, этаж 1",
+                  "Ежедневно 9:00–21:00",
+                  "+7 (927) 364-28-88",
+                  "5.0",
+                  43,
+                  "/images/stores/glazunova-1.webp",
+                  "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.877504%2C53.232745&z=17.64",
+                  1,
+                ]
+              );
+            }
 
             await connection.end();
             NODE

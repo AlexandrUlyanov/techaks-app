@@ -149,7 +149,7 @@ async function seed() {
       reviewCount: 43,
       image: "/images/stores/glazunova-1.webp",
       mapUrl:
-        "https://yandex.com/maps/org/tekhaks/204121927664/?display-text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&indoorLevel=1&ll=44.880796%2C53.232707&mode=search&sll=44.878875%2C53.232745&sspn=0.021887%2C0.007667&text=%D1%82%D1%86%20%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D0%B0%20%D0%BF%D0%B5%D0%BD%D0%B7%D0%B0%20%D1%82%D0%B5%D1%85%D0%B0%D0%BA%D1%81&z=17",
+        "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.877504%2C53.232745&z=17.64",
       sortOrder: 1,
     },
   ];
