@@ -23,19 +23,6 @@ interface ProductCardProps {
   variant?: "grid" | "list";
 }
 
-const SPEC_KEYS = [
-  "Тип",
-  "Цвет",
-  "Материал",
-  "Мощность",
-  "Длина",
-  "Питание",
-  "Емкость",
-  "Разъем",
-  "Вход",
-  "Выход",
-];
-
 export default function ProductCard({ product, variant = "grid" }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find(item => item.id === product.id);
@@ -54,14 +41,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     Хит: "bg-white text-black",
     Новинка: "bg-[#05C3D4] text-black",
   };
-
-  const specs = product.specs && typeof product.specs === "object" ? product.specs : {};
-  const shortSpecs = SPEC_KEYS
-    .map(key => specs[key])
-    .filter(Boolean)
-    .map(value => String(value).trim())
-    .filter(Boolean)
-    .slice(0, 3);
 
   const rating = Number(product.rating ?? 0);
   const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
@@ -150,10 +129,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
           </div>
 
           <div className="min-w-0 flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="truncate text-[11px] font-semibold text-muted-foreground">
-                {product.categoryName || "Каталог"}
-              </span>
+            <div className="flex items-center justify-end gap-3">
               <span className={product.inStock === false ? "text-[10px] font-bold text-muted-foreground" : "text-[10px] font-bold text-green-600"}>
                 {product.inStock === false ? "Нет в наличии" : "В наличии"}
               </span>
@@ -161,11 +137,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             <h3 className="line-clamp-2 text-sm sm:text-base font-bold leading-snug text-foreground">
               {product.name}
             </h3>
-            {shortSpecs.length > 0 && (
-              <div className="truncate text-xs font-medium text-muted-foreground">
-                {shortSpecs.join(" · ")}
-              </div>
-            )}
             {hasRating && (
               <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
                 <Star size={12} className="fill-[#05C3D4] text-[#05C3D4]" />
@@ -231,11 +202,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
         <div className="p-3 sm:p-4 flex-1 flex flex-col">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            {product.categoryName && (
-              <span className="truncate text-[11px] font-semibold text-muted-foreground">
-                {product.categoryName}
-              </span>
-            )}
             <span className={product.inStock === false ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
               {product.inStock === false ? "Нет" : "В наличии"}
             </span>
@@ -243,11 +209,6 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
           <h3 className="text-sm sm:text-[15px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.55rem]">
             {product.name}
           </h3>
-          {shortSpecs.length > 0 && (
-            <div className="mt-2 truncate text-xs font-medium text-muted-foreground">
-              {shortSpecs.join(" · ")}
-            </div>
-          )}
           {hasRating && (
             <div className="mt-2 flex items-center gap-1">
                 <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
