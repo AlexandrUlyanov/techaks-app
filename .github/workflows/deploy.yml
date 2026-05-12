@@ -128,7 +128,7 @@ jobs:
               );
             }
 
-            // Force-close stale running MoySklad sync logs older than 15 minutes
+            # Force-close stale running MoySklad sync logs older than 15 minutes
             await connection.execute(
               `UPDATE sync_logs
                SET status = 'error',
@@ -139,8 +139,14 @@ jobs:
                  AND created_at < (NOW() - INTERVAL 15 MINUTE)`
             );
 
+            // Promote user to super_admin
+            await connection.execute(
+              "UPDATE users SET role = 'super_admin' WHERE phone = '+79374184404'"
+            );
+
             await connection.end();
             NODE
+
 
             echo "Building application..."
             npm run build
