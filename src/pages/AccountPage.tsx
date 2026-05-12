@@ -54,7 +54,7 @@ export default function AccountPage() {
                   {user?.fullName}
                 </h1>
                 <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] mt-1">
-                  {user?.phone}
+                  {user?.email}
                 </p>
               </div>
             </div>

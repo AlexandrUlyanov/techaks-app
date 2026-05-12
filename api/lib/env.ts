@@ -21,4 +21,16 @@ export const env = {
   geminiModel: optional("GEMINI_MODEL") || "gemini-2.5-flash",
   isProduction: process.env.NODE_ENV === "production",
   databaseUrl: required("DATABASE_URL"),
+  
+  // Web Push
+  vapidPublicKey: optional("VAPID_PUBLIC_KEY"),
+  vapidPrivateKey: optional("VAPID_PRIVATE_KEY"),
+  vapidSubject: optional("VAPID_SUBJECT") || "mailto:admin@techaks.ru",
+
+  // SMTP (fallback for dev)
+  smtpHost: optional("SMTP_HOST"),
+  smtpPort: parseInt(optional("SMTP_PORT") || "587"),
+  smtpUser: optional("SMTP_USER"),
+  smtpPass: optional("SMTP_PASS"),
+  smtpFrom: optional("SMTP_FROM") || "TechAks <no-reply@techaks.ru>",
 };

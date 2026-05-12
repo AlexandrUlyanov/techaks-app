@@ -26,7 +26,7 @@ export const userRouter = createRouter({
     .input(
       z.object({
         fullName: z.string().max(255).optional().nullable(),
-        email: z.string().email("Некорректный email").max(255).optional().nullable(),
+        phone: z.string().max(20).optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -35,7 +35,7 @@ export const userRouter = createRouter({
         .update(users)
         .set({
           fullName: input.fullName,
-          email: input.email,
+          phone: input.phone,
         })
         .where(eq(users.id, ctx.user!.id));
       return { success: true };

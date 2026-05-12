@@ -3,9 +3,9 @@ import { persist } from "zustand/middleware";
 
 interface User {
   id: number;
-  phone: string;
+  phone: string | null;
   fullName: string | null;
-  email: string | null;
+  email: string;
   role: string;
   status: string;
 }

@@ -16,18 +16,18 @@ export default function AdminProfilePanel() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || "");
-      setEmail(user.email || "");
+      setPhone(user.phone || "");
     }
   }, [user]);
 
   const updateProfileMutation = trpc.user.updateProfile.useMutation({
     onSuccess: () => {
-      utils.auth.me.invalidate(); // Это обновит локальный стейт через AbilityProvider
+      utils.auth.me.invalidate();
       alert("Профиль успешно обновлен!");
     },
     onError: err => {
@@ -52,9 +52,9 @@ export default function AdminProfilePanel() {
       <div className="p-6 space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-[#15171A]">Телефон (Логин)</label>
+            <label className="text-sm font-bold text-[#15171A]">Email (Логин)</label>
             <div className="flex h-11 items-center rounded-lg border border-gray-200 px-3 text-sm text-gray-500 bg-gray-50">
-              {user.phone}
+              {user.email}
             </div>
           </div>
 
@@ -77,12 +77,12 @@ export default function AdminProfilePanel() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-bold text-[#15171A]">Email</label>
+            <label className="text-sm font-bold text-[#15171A]">Телефон (для связи)</label>
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="example@mail.ru"
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+7 (___) ___-__-__"
               className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
             />
           </div>
@@ -90,8 +90,8 @@ export default function AdminProfilePanel() {
 
         <div className="pt-2">
           <button
-            onClick={() => updateProfileMutation.mutate({ fullName, email })}
-            disabled={updateProfileMutation.isPending || (fullName === (user.fullName || "") && email === (user.email || ""))}
+            onClick={() => updateProfileMutation.mutate({ fullName, phone })}
+            disabled={updateProfileMutation.isPending || (fullName === (user.fullName || "") && phone === (user.phone || ""))}
             className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-6 text-sm font-black text-black disabled:opacity-50 hover:bg-[#04b0c0] transition-colors"
           >
             {updateProfileMutation.isPending ? (

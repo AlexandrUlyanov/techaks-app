@@ -92,8 +92,8 @@ export default function AdminUsersPanel() {
               <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-6 py-4 font-mono text-gray-400">#{user.id}</td>
                 <td className="px-6 py-4">
-                  <div className="font-bold text-[#15171A]">{user.phone}</div>
-                  <div className="text-gray-500 text-xs mt-0.5">{user.fullName || "Имя не указано"}</div>
+                  <div className="font-bold text-[#15171A]">{user.email}</div>
+                  <div className="text-gray-500 text-xs mt-0.5">{user.fullName || user.phone || "Данные не указаны"}</div>
                 </td>
                 <td className="px-6 py-4">
                   <select

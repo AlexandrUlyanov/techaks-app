@@ -32,19 +32,23 @@ export const ecommerceRouter = createRouter({
 
       // 1. Find or create user
       let userId: number | null = null;
+      const email = input.customer.email || `${input.customer.phone.replace(/[^0-9]/g, "")}@placeholder.techaks.ru`;
+      
       const existingUser = await db
         .select()
         .from(users)
-        .where(eq(users.phone, input.customer.phone))
+        .where(eq(users.email, email))
         .limit(1);
 
       if (existingUser[0]) {
         userId = existingUser[0].id;
       } else {
         const newUser = await db.insert(users).values({
+          email,
           phone: input.customer.phone,
           fullName: input.customer.fullName,
-          email: input.customer.email,
+          role: "customer",
+          status: "active",
         });
         userId = newUser[0].insertId;
       }

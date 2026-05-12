@@ -105,16 +105,38 @@ export const posts = mysqlTable("posts", {
 
 export const users = mysqlTable("users", {
   id: serial("id").primaryKey(),
-  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  phone: varchar("phone", { length: 20 }).unique(),
   fullName: varchar("full_name", { length: 255 }),
-  email: varchar("email", { length: 255 }),
+  email: varchar("email", { length: 255 }).notNull().unique(),
   role: varchar("role", { length: 40 }).notNull().default("customer"),
   status: varchar("status", { length: 40 }).notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   roleIdx: index("users_role_idx").on(table.role),
   statusIdx: index("users_status_idx").on(table.status),
+  emailIdx: index("users_email_idx").on(table.email),
 }));
+
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: varchar("p256dh", { length: 255 }).notNull(),
+  auth: varchar("auth", { length: 255 }).notNull(),
+  userAgent: varchar("user_agent", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("push_sub_user_id_idx").on(table.userId),
+}));
+
+export const authSessions = mysqlTable("auth_sessions", {
+  id: varchar("id", { length: 36 }).primaryKey(), // uuid
+  userId: int("user_id").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, expired
+  token: text("token"), // resulting JWT
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
 
 export const orders = mysqlTable("orders", {
   id: serial("id").primaryKey(),

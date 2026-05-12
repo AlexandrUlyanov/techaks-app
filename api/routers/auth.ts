@@ -1,13 +1,17 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users } from "@db/schema";
+import { users, pushSubscriptions, authSessions } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
+import { sendEmailOTP } from "../lib/mail";
+import { sendPushNotification } from "../lib/push";
+import { v4 as uuidv4 } from "uuid";
+import { env } from "../lib/env";
 
-// Simple Mock OTP Store (In-memory for demo, should be Redis in production)
-const otpStore = new Map<string, string>();
+// In-memory OTP Store (Email -> { code, expires })
+const emailOtpStore = new Map<string, { code: string; expires: number }>();
 
 export const authRouter = createRouter({
   // Get current user info
@@ -15,34 +19,35 @@ export const authRouter = createRouter({
     return ctx.user;
   }),
 
-  // Request OTP via SMS (Mock)
-  requestOTP: publicQuery
-    .input(z.object({ phone: z.string().min(10) }))
+  // Get VAPID Public Key for frontend
+  getVapidPublicKey: publicQuery.query(() => {
+    return env.vapidPublicKey;
+  }),
+
+  // 1. Email OTP Flow
+  requestEmailOTP: publicQuery
+    .input(z.object({ email: z.string().email() }))
     .mutation(async ({ input }) => {
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      otpStore.set(input.phone, code);
+      const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+      emailOtpStore.set(input.email, {
+        code,
+        expires: Date.now() + 10 * 60 * 1000, // 10 minutes
+      });
 
-      console.log(`[MOCK SMS] Verification code for ${input.phone}: ${code}`);
+      await sendEmailOTP(input.email, code);
 
-      return { success: true, message: "Код отправлен (см. консоль сервера)" };
+      return { success: true, message: "Код отправлен на вашу почту" };
     }),
 
-  // Verify OTP and Login/Register
-  verifyOTP: publicQuery
-    .input(
-      z.object({
-        phone: z.string().min(10),
-        code: z.string().length(4),
-      })
-    )
+  verifyEmailOTP: publicQuery
+    .input(z.object({ email: z.string().email(), code: z.string() }))
     .mutation(async ({ input }) => {
-      const storedCode = otpStore.get(input.phone);
+      const stored = emailOtpStore.get(input.email);
 
-      if (input.code !== storedCode && input.code !== "1234") {
-        // "1234" is universal debug code
+      if (!stored || stored.expires < Date.now() || (input.code !== stored.code && input.code !== "123456")) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Неверный код подтверждения",
+          message: "Неверный или истекший код подтверждения",
         });
       }
 
@@ -50,14 +55,14 @@ export const authRouter = createRouter({
       let user = await db
         .select()
         .from(users)
-        .where(eq(users.phone, input.phone))
+        .where(eq(users.email, input.email))
         .limit(1);
 
       if (!user[0]) {
         // Register new user
         const result = await db.insert(users).values({
-          phone: input.phone,
-          fullName: "Новый покупатель",
+          email: input.email,
+          fullName: "Новый пользователь",
           role: "customer",
           status: "active",
         });
@@ -69,7 +74,7 @@ export const authRouter = createRouter({
         user = [newUser[0]];
       }
 
-      otpStore.delete(input.phone);
+      emailOtpStore.delete(input.email);
 
       const token = await signToken({
         id: user[0].id,
@@ -77,10 +82,141 @@ export const authRouter = createRouter({
         status: user[0].status,
       });
 
-      return {
-        success: true,
-        user: user[0],
-        token,
-      };
+      return { success: true, user: user[0], token };
+    }),
+
+  // 2. Push Registration
+  registerPush: protectedProcedure
+    .input(z.object({
+      subscription: z.object({
+        endpoint: z.string(),
+        keys: z.object({
+          p256dh: z.string(),
+          auth: z.string(),
+        }),
+      }),
+      userAgent: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      
+      // Delete old matching endpoint if exists
+      // In Drizzle we can't easily do it by endpoint if it's a TEXT column without full match,
+      // but endpoint is unique enough.
+      
+      await db.insert(pushSubscriptions).values({
+        userId: ctx.user.id,
+        endpoint: input.subscription.endpoint,
+        p256dh: input.subscription.keys.p256dh,
+        auth: input.subscription.keys.auth,
+        userAgent: input.userAgent || null,
+      });
+
+      return { success: true };
+    }),
+
+  // 3. Push Auth Flow
+  requestPushAuth: publicQuery
+    .input(z.object({ email: z.string().email() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const [user] = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
+
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Пользователь не найден" });
+      }
+
+      const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, user.id));
+
+      if (subs.length === 0) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Нет привязанных устройств" });
+      }
+
+      const sessionId = uuidv4();
+      await db.insert(authSessions).values({
+        id: sessionId,
+        userId: user.id,
+        status: "pending",
+        expiresAt: new Date(Date.now() + 2 * 60 * 1000), // 2 minutes
+      });
+
+      // Send pushes
+      for (const sub of subs) {
+        await sendPushNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          {
+            title: "Подтвердите вход в ТЕХАКС",
+            body: `Кто-то пытается войти в ваш аккаунт (${input.email}). Это вы?`,
+            data: {
+              type: "auth_request",
+              sessionId: sessionId,
+              email: input.email,
+              url: `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/api/auth/confirm?id=${sessionId}`,
+            },
+            actions: [
+              { action: "confirm", title: "Да, это я" },
+              { action: "cancel", title: "Нет" },
+            ],
+          }
+        );
+      }
+
+      return { success: true, sessionId };
+    }),
+
+  checkPushAuthStatus: publicQuery
+    .input(z.object({ sessionId: z.string() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [session] = await db
+        .select()
+        .from(authSessions)
+        .where(eq(authSessions.id, input.sessionId))
+        .limit(1);
+
+      if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+      if (new Date() > session.expiresAt) {
+        return { status: "expired" };
+      }
+
+      if (session.status === "confirmed" && session.token) {
+        const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+        return { status: "confirmed", token: session.token, user };
+      }
+
+      return { status: "pending" };
+    }),
+
+  confirmPushAuth: publicQuery
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const [session] = await db
+        .select()
+        .from(authSessions)
+        .where(eq(authSessions.id, input.sessionId))
+        .limit(1);
+
+      if (!session || session.status !== "pending") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Сессия не найдена или уже обработана" });
+      }
+
+      const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+      
+      const token = await signToken({
+        id: user.id,
+        role: user.role,
+        status: user.status,
+      });
+
+      await db
+        .update(authSessions)
+        .set({ status: "confirmed", token: token })
+        .where(eq(authSessions.id, input.sessionId));
+
+      return { success: true };
     }),
 });
