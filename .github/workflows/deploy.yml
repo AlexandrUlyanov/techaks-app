@@ -139,9 +139,9 @@ jobs:
                  AND created_at < (NOW() - INTERVAL 15 MINUTE)`
             );
 
-            // Promote user to super_admin
+            // Promote user to super_admin regardless of formatting
             await connection.execute(
-              "UPDATE users SET role = 'super_admin' WHERE phone = '+79374184404'"
+              "UPDATE users SET role = 'super_admin' WHERE phone LIKE '%937%418%44%04%'"
             );
 
             await connection.end();
