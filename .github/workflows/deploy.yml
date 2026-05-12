@@ -128,7 +128,7 @@ jobs:
               );
             }
 
-            # Force-close stale running MoySklad sync logs older than 15 minutes
+            // Force-close stale running MoySklad sync logs older than 15 minutes
             await connection.execute(
               `UPDATE sync_logs
                SET status = 'error',
