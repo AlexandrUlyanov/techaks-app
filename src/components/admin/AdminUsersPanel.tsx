@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AdminUsersPanel() {
   const utils = trpc.useUtils();
   const ability = useAbility();
-  const { data: users, isLoading } = trpc.user.getAll.useQuery(undefined, {
+  const { data: users, isLoading, error } = trpc.user.getAll.useQuery(undefined, {
     enabled: ability.can("read", "User"),
   });
 
@@ -45,7 +45,22 @@ export default function AdminUsersPanel() {
     );
   }
 
-  if (!users) return null;
+  if (error) {
+    return (
+      <div className="px-6 py-10 text-sm text-red-600 bg-red-50 rounded-2xl border border-red-100">
+        <p className="font-bold">Ошибка загрузки пользователей:</p>
+        <p>{error.message}</p>
+      </div>
+    );
+  }
+
+  if (!users) {
+    return (
+      <div className="px-6 py-10 text-sm text-gray-500">
+        Нет данных о пользователях.
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">
