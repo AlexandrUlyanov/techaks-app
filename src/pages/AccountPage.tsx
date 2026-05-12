@@ -11,9 +11,12 @@ import {
   Clock,
   MapPin,
   Star,
+  Settings,
 } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 import { Separator } from "@/components/ui/separator";
+import { Can } from "@/providers/AbilityProvider";
+import { Link } from "react-router";
 
 export default function AccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -168,6 +171,24 @@ export default function AccountPage() {
 
           {/* Right: Quick Links / Loyalty */}
           <div className="space-y-6">
+            <Can I="read" a="AdminPanel">
+              <Link to="/admin" className="block">
+                <div className="p-8 bg-black text-white rounded-3xl relative overflow-hidden group border border-border shadow-xl">
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-none text-[#05C3D4]">
+                        Админ Панель
+                      </h3>
+                      <p className="mt-2 text-sm font-medium text-white/60">
+                        Управление магазином
+                      </p>
+                    </div>
+                    <Settings className="text-[#05C3D4] group-hover:rotate-90 transition-transform duration-500" size={32} />
+                  </div>
+                </div>
+              </Link>
+            </Can>
+
             <div className="p-8 bg-[#05C3D4] rounded-3xl text-black relative overflow-hidden group">
               <div className="relative z-10">
                 <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-none">

@@ -30,7 +30,8 @@ export type Subjects =
   | "Merchandising"
   | "Settings"
   | "Sync"
-  | "User";
+  | "User"
+  | "AdminPanel";
 
 export type AppAbility = MongoAbility<[Actions, Subjects]>;
 
@@ -51,19 +52,23 @@ export function defineAbilityFor(user: { id: number; role: string }) {
       "BlogPost",
       "Merchandising",
       "Order",
+      "Sync",
     ]);
-    can("sync", "Sync");
     can("configure", "Settings");
     can("read", "User");
+    can("read", "AdminPanel");
   } else if (role === "merchandiser") {
     can("read", ["Product", "Category"]);
     can("manage", "Merchandising");
+    can("read", "AdminPanel");
   } else if (role === "content_manager") {
     can("manage", ["Banner", "BlogPost"]);
     can("read", "Product");
+    can("read", "AdminPanel");
   } else if (role === "manager") {
     can("read", ["Lead", "Order", "Product", "Store"]);
     can("update", ["Lead", "Order"]);
+    can("read", "AdminPanel");
   } else {
     // customer
     can("read", ["Product", "Category", "Store", "Banner", "BlogPost"]);

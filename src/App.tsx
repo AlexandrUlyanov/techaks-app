@@ -62,7 +62,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
 
           {/* Admin Routes */}
-          <Route element={<ProtectedRoute action="read" subject="Sync" />}>
+          <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="leads" element={<AdminLeads />} />
