@@ -1,24 +1,42 @@
 import nodemailer from "nodemailer";
 import { env } from "./env";
+import { getAppSettings } from "./app-settings";
 
-const transporter = nodemailer.createTransport({
-  host: env.smtpHost,
-  port: env.smtpPort,
-  secure: env.smtpPort === 465,
-  auth: env.smtpUser ? {
-    user: env.smtpUser,
-    pass: env.smtpPass,
-  } : undefined,
-});
+async function getTransporter() {
+  const settings = await getAppSettings([
+    "smtp_host",
+    "smtp_port",
+    "smtp_user",
+    "smtp_pass",
+  ]);
+
+  const host = settings.smtp_host || env.smtpHost;
+  const port = parseInt(settings.smtp_port || env.smtpPort.toString() || "587");
+  const user = settings.smtp_user || env.smtpUser;
+  const pass = settings.smtp_pass || env.smtpPass;
+
+  if (!host) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: user ? { user, pass } : undefined,
+  });
+}
 
 export async function sendEmailOTP(email: string, code: string) {
-  if (!env.isProduction || !env.smtpHost) {
+  const transporter = await getTransporter();
+  const settings = await getAppSettings(["smtp_from"]);
+  const from = settings.smtp_from || env.smtpFrom;
+
+  if (!env.isProduction || !transporter) {
     console.log(`[MOCK EMAIL] OTP for ${email}: ${code}`);
     return;
   }
 
   await transporter.sendMail({
-    from: env.smtpFrom,
+    from,
     to: email,
     subject: `Код подтверждения TechAks: ${code}`,
     text: `Ваш код подтверждения для входа в TechAks: ${code}. Код действителен 10 минут.`,

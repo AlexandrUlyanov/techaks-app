@@ -1,15 +1,19 @@
 import webpush from "web-push";
 import { env } from "./env";
+import { getAppSettings } from "./app-settings";
 
-// Initialize web-push with VAPID keys
-if (env.vapidPublicKey && env.vapidPrivateKey) {
-  webpush.setVapidDetails(
-    env.vapidSubject,
-    env.vapidPublicKey,
-    env.vapidPrivateKey
-  );
-} else if (env.isProduction) {
-  console.warn("VAPID keys are missing! Web Push notifications will fail in production.");
+async function getVapidConfig() {
+  const settings = await getAppSettings([
+    "vapid_public_key",
+    "vapid_private_key",
+    "vapid_subject",
+  ]);
+
+  return {
+    publicKey: settings.vapid_public_key || env.vapidPublicKey,
+    privateKey: settings.vapid_private_key || env.vapidPrivateKey,
+    subject: settings.vapid_subject || env.vapidSubject || "mailto:admin@techaks.ru",
+  };
 }
 
 export type PushSubscription = {
@@ -24,16 +28,18 @@ export async function sendPushNotification(
   subscription: PushSubscription,
   payload: any
 ) {
-  if (!env.vapidPublicKey || !env.vapidPrivateKey) {
+  const config = await getVapidConfig();
+
+  if (!config.publicKey || !config.privateKey) {
     console.log("[MOCK PUSH] (Keys missing) Payload:", payload);
     return;
   }
 
   try {
+    webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
     await webpush.sendNotification(subscription, JSON.stringify(payload));
   } catch (error: any) {
     if (error.statusCode === 410 || error.statusCode === 404) {
-      // Subscription has expired or is no longer valid
       return { success: false, expired: true };
     }
     console.error("Error sending push notification:", error);

@@ -133,6 +133,69 @@ export const settingsRouter = createRouter({
     return { success: true };
   }),
 
+  getAuthSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    const settings = await getAppSettings([
+      "vapid_public_key",
+      "vapid_private_key",
+      "vapid_subject",
+      "smtp_host",
+      "smtp_port",
+      "smtp_user",
+      "smtp_pass",
+      "smtp_from",
+    ]);
+
+    const mask = (val: string | null) =>
+      val ? `${val.slice(0, 4)}••••••••${val.slice(-4)}` : "";
+
+    return {
+      vapidPublicKey: settings.vapid_public_key || env.vapidPublicKey || "",
+      hasVapidPrivateKey: Boolean(settings.vapid_private_key || env.vapidPrivateKey),
+      vapidPrivateKeyMasked: mask(settings.vapid_private_key || env.vapidPrivateKey),
+      vapidSubject: settings.vapid_subject || env.vapidSubject || "mailto:admin@techaks.ru",
+      
+      smtpHost: settings.smtp_host || env.smtpHost || "",
+      smtpPort: settings.smtp_port || env.smtpPort.toString() || "465",
+      smtpUser: settings.smtp_user || env.smtpUser || "",
+      hasSmtpPass: Boolean(settings.smtp_pass || env.smtpPass),
+      smtpPassMasked: mask(settings.smtp_pass || env.smtpPass),
+      smtpFrom: settings.smtp_from || env.smtpFrom || "TechAks <no-reply@techaks.ru>",
+      
+      source: {
+        vapid: settings.vapid_public_key ? "database" : "env",
+        smtp: settings.smtp_host ? "database" : "env",
+      }
+    };
+  }),
+
+  saveAuthSettings: protectedProcedure
+    .input(z.object({
+      vapidPublicKey: z.string().optional(),
+      vapidPrivateKey: z.string().optional(),
+      vapidSubject: z.string().optional(),
+      smtpHost: z.string().optional(),
+      smtpPort: z.string().optional(),
+      smtpUser: z.string().optional(),
+      smtpPass: z.string().optional(),
+      smtpFrom: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      
+      if (input.vapidPublicKey !== undefined) await setAppSetting("vapid_public_key", input.vapidPublicKey);
+      if (input.vapidPrivateKey) await setAppSetting("vapid_private_key", input.vapidPrivateKey);
+      if (input.vapidSubject !== undefined) await setAppSetting("vapid_subject", input.vapidSubject);
+      
+      if (input.smtpHost !== undefined) await setAppSetting("smtp_host", input.smtpHost);
+      if (input.smtpPort !== undefined) await setAppSetting("smtp_port", input.smtpPort);
+      if (input.smtpUser !== undefined) await setAppSetting("smtp_user", input.smtpUser);
+      if (input.smtpPass) await setAppSetting("smtp_pass", input.smtpPass);
+      if (input.smtpFrom !== undefined) await setAppSetting("smtp_from", input.smtpFrom);
+
+      return { success: true };
+    }),
+
   testGemini: protectedProcedure
     .input(
       z.object({

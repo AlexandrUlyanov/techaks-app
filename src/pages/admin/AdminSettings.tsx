@@ -12,6 +12,7 @@ import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
 import AdminProfilePanel from "@/components/admin/AdminProfilePanel";
+import AdminAuthSettingsPanel from "@/components/admin/AdminAuthSettingsPanel";
 
 export default function AdminSettings() {
   const utils = trpc.useUtils();
@@ -131,6 +132,9 @@ export default function AdminSettings() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
         <div className="space-y-6">
           <AdminProfilePanel />
+          <Can I="configure" a="Settings">
+             <AdminAuthSettingsPanel />
+          </Can>
           <Can I="read" a="User">
             <AdminUsersPanel />
           </Can>
