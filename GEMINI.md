@@ -43,8 +43,16 @@ This file outlines strict architectural and developmental conventions for AI age
    - Breadcrumbs should be standardized in a top bar with a `bg-muted/30` background.
    - Do not use Tailwind `@apply` excessively; prefer utility classes directly in JSX.
 
-7. **Authorization & Security (CASL + JWT):**
-   - **Authentication:** Use JWT tokens for user session management. Tokens are passed in the `Authorization: Bearer <token>` header or `token` cookie.
+7. **Authorization & Security (CASL + JWT + Web Push):**
+   - **Authentication Identity:** **Email** is the primary unique identifier for users. Phone number is optional and used for contact purposes.
+   - **Login Flows:**
+     1. **Web Push Confirmation (Primary):** If a user has registered devices, a push notification is sent. User confirms on their device, and the login session is automatically authorized via polling.
+     2. **Email OTP (Fallback/Registration):** A 6-digit code is sent to the user's email. Required for first-time registration and new devices.
+   - **Web Push Infrastructure:**
+     - Requires VAPID keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`) in `.env`.
+     - Service Worker lives in `public/sw.js` and handles background push events.
+     - Subscriptions are stored in the `push_subscriptions` table.
+   - **JWT tokens:** Used for session management. Tokens are passed in the `Authorization: Bearer <token>` header or `token` cookie.
    - **CASL Abilities:** Permissions are centralized in `contracts/ability.ts`. Use `defineAbilityFor(user)` to build an `AppAbility` instance.
    - **tRPC Procedures:** 
      - Use `publicQuery` only for truly public, read-only data.
