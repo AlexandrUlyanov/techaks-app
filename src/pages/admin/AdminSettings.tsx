@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/providers/trpc";
+import { Can } from "@/providers/AbilityProvider";
+import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
 
 export default function AdminSettings() {
   const utils = trpc.useUtils();
@@ -126,14 +128,18 @@ export default function AdminSettings() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
-        <section className="rounded-2xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-6 py-5">
-            <h2 className="text-lg font-black text-[#15171A]">Gemini API</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Ключ нужен для предложений ИИ в стандартизации характеристик по
-              категориям.
-            </p>
-          </div>
+        <div className="space-y-6">
+          <Can I="read" a="User">
+            <AdminUsersPanel />
+          </Can>
+          <section className="rounded-2xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-6 py-5">
+              <h2 className="text-lg font-black text-[#15171A]">Gemini API</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Ключ нужен для предложений ИИ в стандартизации характеристик по
+                категориям.
+              </p>
+            </div>
 
           {isLoading ? (
             <div className="flex items-center gap-3 px-6 py-10 text-sm text-gray-500">
@@ -320,6 +326,7 @@ export default function AdminSettings() {
             </div>
           )}
         </section>
+        </div>
 
         <aside className="space-y-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
