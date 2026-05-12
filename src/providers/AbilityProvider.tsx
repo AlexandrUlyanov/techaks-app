@@ -15,11 +15,19 @@ export function useAbility() {
 export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user, token, setUser } = useAuth();
+  const { user, token, setUser, logout } = useAuth();
   
-  const { data: serverUser } = trpc.auth.me.useQuery(undefined, {
+  const { data: serverUser, error } = trpc.auth.me.useQuery(undefined, {
     enabled: !!token,
+    retry: false,
   });
+
+  useEffect(() => {
+    if (error?.data?.code === "UNAUTHORIZED") {
+      logout();
+      window.location.href = "/";
+    }
+  }, [error, logout]);
 
   useEffect(() => {
     if (serverUser && JSON.stringify(serverUser) !== JSON.stringify(user)) {

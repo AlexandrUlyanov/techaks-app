@@ -22,6 +22,25 @@ export const userRouter = createRouter({
       .orderBy(desc(users.createdAt));
   }),
 
+  updateProfile: protectedProcedure
+    .input(
+      z.object({
+        fullName: z.string().max(255).optional().nullable(),
+        email: z.string().email("Некорректный email").max(255).optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .update(users)
+        .set({
+          fullName: input.fullName,
+          email: input.email,
+        })
+        .where(eq(users.id, ctx.user!.id));
+      return { success: true };
+    }),
+
   updateRole: protectedProcedure
     .input(z.object({ id: z.number(), role: z.string() }))
     .mutation(async ({ ctx, input }) => {
