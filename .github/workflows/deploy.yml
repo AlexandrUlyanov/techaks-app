@@ -48,6 +48,19 @@ jobs:
             PORT=3000
             NODE_ENV=production
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+            APP_SECRET="${{ secrets.APP_SECRET || 'secret-techaks-2026' }}"
+            
+            # Web Push
+            VAPID_PUBLIC_KEY="BCKWu4rcJHLXH9Jo4kSXE9LNFgvMj6yseoKKBZTNvZNwDaOSpxUso5W8cS7QhQxz_3XbQ2pmkqv40lPODunzeZE"
+            VAPID_PRIVATE_KEY="${{ secrets.VAPID_PRIVATE_KEY }}"
+            VAPID_SUBJECT="mailto:admin@techaks.ru"
+
+            # Email SMTP
+            SMTP_HOST="${{ secrets.SMTP_HOST }}"
+            SMTP_PORT="${{ secrets.SMTP_PORT || '465' }}"
+            SMTP_USER="${{ secrets.SMTP_USER }}"
+            SMTP_PASS="${{ secrets.SMTP_PASS }}"
+            SMTP_FROM="${{ secrets.SMTP_FROM || 'TechAks <no-reply@techaks.ru>' }}"
             EOF
 
             # 3. Install dependencies and Build
