@@ -1,14 +1,20 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { signToken } from "../lib/auth";
 
 // Simple Mock OTP Store (In-memory for demo, should be Redis in production)
 const otpStore = new Map<string, string>();
 
 export const authRouter = createRouter({
+  // Get current user info
+  me: protectedProcedure.query(({ ctx }) => {
+    return ctx.user;
+  }),
+
   // Request OTP via SMS (Mock)
   requestOTP: publicQuery
     .input(z.object({ phone: z.string().min(10) }))
@@ -52,6 +58,8 @@ export const authRouter = createRouter({
         const result = await db.insert(users).values({
           phone: input.phone,
           fullName: "Новый покупатель",
+          role: "customer",
+          status: "active",
         });
         const newUser = await db
           .select()
@@ -63,10 +71,16 @@ export const authRouter = createRouter({
 
       otpStore.delete(input.phone);
 
+      const token = await signToken({
+        id: user[0].id,
+        role: user[0].role,
+        status: user[0].status,
+      });
+
       return {
         success: true,
         user: user[0],
-        token: "mock-jwt-token", // In a real app, generate a real JWT
+        token,
       };
     }),
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { stores } from "@db/schema";
 import { asc, eq } from "drizzle-orm";
@@ -23,14 +23,15 @@ export const storeRouter = createRouter({
     return await db.select().from(stores).orderBy(asc(stores.sortOrder));
   }),
 
-  upsert: publicQuery
+  upsert: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
         data: storeSchema,
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Store");
       const db = getDb();
       if (input.id) {
         await db.update(stores).set(input.data).where(eq(stores.id, input.id));
@@ -41,9 +42,10 @@ export const storeRouter = createRouter({
       }
     }),
 
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "Store");
       const db = getDb();
       await db.delete(stores).where(eq(stores.id, input.id));
       return { success: true };

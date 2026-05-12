@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import * as schema from "../../db/schema";
 import { eq, sql, desc } from "drizzle-orm";
@@ -219,12 +219,14 @@ export const syncRouter = createRouter({
       }
     }),
 
-  getLogs: publicQuery.query(async () => {
+  getLogs: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
     const db = getDb();
     return await db.select().from(schema.syncLogs).orderBy(desc(schema.syncLogs.createdAt)).limit(50);
   }),
 
-  wipeCatalog: publicQuery.mutation(async () => {
+  wipeCatalog: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Sync");
     const db = getDb();
     try {
       // Delete in order to respect dependencies
@@ -239,7 +241,7 @@ export const syncRouter = createRouter({
     }
   }),
 
-  runSync: publicQuery
+  runSync: protectedProcedure
     .input(z.object({
       login: z.string().optional(),
       password: z.string().optional(),
@@ -249,7 +251,8 @@ export const syncRouter = createRouter({
       selectedStores: z.array(z.string()).optional(),
       selectedCategories: z.array(z.string()).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "sync", "Sync");
       let fileLogContent = `=== Синхронизация МойСклад [${new Date().toISOString()}] ===\n\n`;
       const writeLog = (msg: string) => {
         console.log(msg);

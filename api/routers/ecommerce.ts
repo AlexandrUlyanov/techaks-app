@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -77,10 +77,18 @@ export const ecommerceRouter = createRouter({
     }),
 
   // User orders for Account section
-  getUserOrders: publicQuery
+  getUserOrders: protectedProcedure
     .input(z.object({ phone: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = getDb();
+      
+      // If not admin, check if phone matches current user
+      if (!ctx.ability.can("read", "User")) {
+        if (ctx.user.phone !== input.phone) {
+          requireAbility(ctx, "read", "Order", { userId: ctx.user.id });
+        }
+      }
+
       const user = await db
         .select()
         .from(users)

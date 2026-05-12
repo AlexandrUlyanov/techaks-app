@@ -108,8 +108,13 @@ export const users = mysqlTable("users", {
   phone: varchar("phone", { length: 20 }).notNull().unique(),
   fullName: varchar("full_name", { length: 255 }),
   email: varchar("email", { length: 255 }),
+  role: varchar("role", { length: 40 }).notNull().default("customer"),
+  status: varchar("status", { length: 40 }).notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  roleIdx: index("users_role_idx").on(table.role),
+  statusIdx: index("users_status_idx").on(table.status),
+}));
 
 export const orders = mysqlTable("orders", {
   id: serial("id").primaryKey(),

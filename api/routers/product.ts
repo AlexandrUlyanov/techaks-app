@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import {
   products,
@@ -626,7 +626,7 @@ export const productRouter = createRouter({
       return getCategorySpecValueStandardization(input);
     }),
 
-  upsertSpecRule: publicQuery
+  upsertSpecRule: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
@@ -638,11 +638,12 @@ export const productRouter = createRouter({
         sortOrder: z.number().default(0),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return upsertCategorySpecRule(input);
     }),
 
-  upsertSpecRulesBulk: publicQuery
+  upsertSpecRulesBulk: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
@@ -658,11 +659,12 @@ export const productRouter = createRouter({
         ),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return upsertCategorySpecRulesBulk(input);
     }),
 
-  upsertSpecValueRule: publicQuery
+  upsertSpecValueRule: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
@@ -673,11 +675,12 @@ export const productRouter = createRouter({
         sortOrder: z.number().default(0),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return upsertCategorySpecValueRule(input);
     }),
 
-  upsertSpecValueRulesBulk: publicQuery
+  upsertSpecValueRulesBulk: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
@@ -692,33 +695,36 @@ export const productRouter = createRouter({
         ),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return upsertCategorySpecValueRulesBulk(input);
     }),
 
-  suggestSpecRulesWithAi: publicQuery
+  suggestSpecRulesWithAi: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
         limit: z.number().min(1).max(200).default(80),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return suggestCategorySpecRulesWithGemini(input);
     }),
 
-  applySpecStandardization: publicQuery
+  applySpecStandardization: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
         limit: z.number().min(1).max(20000).default(10000),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return applyCategorySpecStandardization(input);
     }),
 
-  applySpecValueStandardization: publicQuery
+  applySpecValueStandardization: protectedProcedure
     .input(
       z.object({
         categoryId: z.number(),
@@ -726,7 +732,8 @@ export const productRouter = createRouter({
         limit: z.number().min(1).max(20000).default(10000),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return applyCategorySpecValueStandardization(input);
     }),
 
@@ -765,14 +772,15 @@ export const productRouter = createRouter({
     }),
 
   // Admin mutations
-  upsertProduct: publicQuery
+  upsertProduct: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
         data: productSchema,
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       const db = getDb();
       if (input.id) {
         await db
@@ -786,9 +794,10 @@ export const productRouter = createRouter({
       }
     }),
 
-  deleteProduct: publicQuery
+  deleteProduct: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "Product");
       const db = getDb();
       await db.delete(products).where(eq(products.id, input.id));
       return { success: true };
@@ -815,7 +824,7 @@ export const productRouter = createRouter({
       .sort((a, b) => b.productCount - a.productCount || a.name.localeCompare(b.name, "ru"));
   }),
 
-  upsertCategory: publicQuery
+  upsertCategory: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
@@ -829,7 +838,8 @@ export const productRouter = createRouter({
         }),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
       const db = getDb();
       if (input.id) {
         await db

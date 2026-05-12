@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import {
   getMerchandisingSummary,
   getRecommendedProducts,
@@ -33,7 +33,8 @@ export const merchandisingRouter = createRouter({
       });
     }),
 
-  dashboard: publicQuery.query(async () => {
+  dashboard: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Merchandising");
     const summary = await getMerchandisingSummary();
     const products = await listMerchandisingProducts({ page: 1, limit: 50 });
 
@@ -44,7 +45,7 @@ export const merchandisingRouter = createRouter({
     };
   }),
 
-  products: publicQuery
+  products: protectedProcedure
     .input(
       z
         .object({
@@ -59,7 +60,8 @@ export const merchandisingRouter = createRouter({
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Merchandising");
       return listMerchandisingProducts({
         page: input?.page ?? 1,
         limit: input?.limit ?? 50,
@@ -72,9 +74,10 @@ export const merchandisingRouter = createRouter({
       });
     }),
 
-  score: publicQuery
+  score: protectedProcedure
     .input(z.object({ productId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Merchandising");
       const db = getDb();
       const [score] = await db
         .select()
@@ -84,9 +87,10 @@ export const merchandisingRouter = createRouter({
       return score ?? null;
     }),
 
-  history: publicQuery
+  history: protectedProcedure
     .input(z.object({ productId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Merchandising");
       const db = getDb();
       return db
         .select()
@@ -96,7 +100,7 @@ export const merchandisingRouter = createRouter({
         .limit(50);
     }),
 
-  recalculate: publicQuery
+  recalculate: protectedProcedure
     .input(
       z
         .object({
@@ -105,11 +109,12 @@ export const merchandisingRouter = createRouter({
         })
         .optional()
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Merchandising");
       return recalculateMerchandisingScores(input?.scope === "category" ? input.categoryId : undefined);
     }),
 
-  updateProduct: publicQuery
+  updateProduct: protectedProcedure
     .input(
       z.object({
         productId: z.number(),
@@ -120,7 +125,8 @@ export const merchandisingRouter = createRouter({
         comment: z.string().nullable().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Merchandising");
       return updateManualMerchandising(input);
     }),
 });

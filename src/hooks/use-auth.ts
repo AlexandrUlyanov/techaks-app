@@ -6,6 +6,8 @@ interface User {
   phone: string;
   fullName: string | null;
   email: string | null;
+  role: string;
+  status: string;
 }
 
 interface AuthStore {

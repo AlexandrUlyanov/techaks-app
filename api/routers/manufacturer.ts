@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import {
   collectManufacturerLogos,
   getManufacturerBySlug,
@@ -59,17 +59,19 @@ export const manufacturerRouter = createRouter({
       return getManufacturersByCategorySlugs(input);
     }),
 
-  syncCatalog: publicQuery.mutation(async () => {
+  syncCatalog: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Product");
     return syncManufacturersFromProducts();
   }),
 
-  collectLogos: publicQuery
+  collectLogos: protectedProcedure
     .input(z.object({ force: z.boolean().default(false) }).optional())
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return collectManufacturerLogos(input);
     }),
 
-  update: publicQuery
+  update: protectedProcedure
     .input(
       z.object({
         id: z.number(),
@@ -81,7 +83,8 @@ export const manufacturerRouter = createRouter({
         sortOrder: z.number().default(0),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
       return updateManufacturer(input);
     }),
 });

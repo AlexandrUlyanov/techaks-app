@@ -42,3 +42,13 @@ This file outlines strict architectural and developmental conventions for AI age
    - Use Lucide-react for all icons.
    - Breadcrumbs should be standardized in a top bar with a `bg-muted/30` background.
    - Do not use Tailwind `@apply` excessively; prefer utility classes directly in JSX.
+
+7. **Authorization & Security (CASL + JWT):**
+   - **Authentication:** Use JWT tokens for user session management. Tokens are passed in the `Authorization: Bearer <token>` header or `token` cookie.
+   - **CASL Abilities:** Permissions are centralized in `contracts/ability.ts`. Use `defineAbilityFor(user)` to build an `AppAbility` instance.
+   - **tRPC Procedures:** 
+     - Use `publicQuery` only for truly public, read-only data.
+     - Use `protectedProcedure` for all authenticated requests.
+     - Use `adminProcedure` as a shortcut for `manage all` permissions.
+     - Within procedures, use `requireAbility(ctx, action, subject)` to perform granular permission checks.
+   - **Frontend:** Use `useAbility()` hook or `<Can>` component from `@casl/react` (via `AbilityProvider`) to conditionally show UI elements. Protect routes using the `ProtectedRoute` component in `App.tsx`.

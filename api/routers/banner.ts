@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { banners } from "@db/schema";
 import { asc, eq } from "drizzle-orm";
@@ -42,14 +42,15 @@ export const bannerRouter = createRouter({
       return result[0] || null;
     }),
 
-  upsert: publicQuery
+  upsert: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
         data: bannerSchema,
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Banner");
       const db = getDb();
       if (input.id) {
         await db
@@ -63,9 +64,10 @@ export const bannerRouter = createRouter({
       }
     }),
 
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "Banner");
       const db = getDb();
       await db.delete(banners).where(eq(banners.id, input.id));
       return { success: true };

@@ -6,6 +6,7 @@ import type { AppRouter } from "../../api/router";
 import { type ReactNode, useState } from "react";
 import { ThemeProvider } from "next-themes";
 import { CatalogProvider } from "./CatalogProvider";
+import { useAuth } from "@/hooks/use-auth";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -17,6 +18,10 @@ export function TRPCProvider({ children }: { children: ReactNode }) {
         httpBatchLink({
           url: "/api/trpc",
           transformer: superjson,
+          headers() {
+            const token = useAuth.getState().token;
+            return token ? { Authorization: `Bearer ${token}` } : {};
+          },
           fetch(input, init) {
             return globalThis.fetch(input, {
               ...(init ?? {}),

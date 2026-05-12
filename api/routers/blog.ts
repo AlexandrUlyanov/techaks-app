@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { posts } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -41,14 +41,15 @@ export const blogRouter = createRouter({
       return result[0] || null;
     }),
 
-  upsert: publicQuery
+  upsert: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
         data: postSchema,
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "BlogPost");
       const db = getDb();
       if (input.id) {
         await db.update(posts).set(input.data).where(eq(posts.id, input.id));
@@ -59,9 +60,10 @@ export const blogRouter = createRouter({
       }
     }),
 
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "BlogPost");
       const db = getDb();
       await db.delete(posts).where(eq(posts.id, input.id));
       return { success: true };

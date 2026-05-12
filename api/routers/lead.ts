@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { leads } from "@db/schema";
 import { desc, eq, sql } from "drizzle-orm";
@@ -32,7 +32,7 @@ export const leadRouter = createRouter({
       return { success: true, id: Number(result[0].insertId) };
     }),
 
-  list: publicQuery
+  list: protectedProcedure
     .input(
       z
         .object({
@@ -41,7 +41,8 @@ export const leadRouter = createRouter({
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Lead");
       const db = getDb();
       const limit = input?.limit ?? 50;
       const offset = input?.offset ?? 0;
@@ -63,14 +64,15 @@ export const leadRouter = createRouter({
       };
     }),
 
-  updateStatus: publicQuery
+  updateStatus: protectedProcedure
     .input(
       z.object({
         id: z.number(),
         status: z.enum(["new", "processing", "completed", "cancelled"]),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Lead");
       const db = getDb();
       await db
         .update(leads)
@@ -79,9 +81,10 @@ export const leadRouter = createRouter({
       return { success: true };
     }),
 
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "Lead");
       const db = getDb();
       await db.delete(leads).where(eq(leads.id, input.id));
       return { success: true };

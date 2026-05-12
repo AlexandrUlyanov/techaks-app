@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "../middleware";
+import { createRouter, protectedProcedure, requireAbility } from "../middleware";
 import { getAppSettings, setAppSetting } from "../lib/app-settings";
 import { env } from "../lib/env";
 import { getGeminiConfig, testGeminiConnection } from "../lib/gemini-spec-standardization";
 
 export const settingsRouter = createRouter({
-  getGemini: publicQuery.query(async () => {
+  getGemini: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
     const settings = await getAppSettings([
       "gemini_api_key",
       "gemini_model",
@@ -46,7 +47,7 @@ export const settingsRouter = createRouter({
     };
   }),
 
-  saveGemini: publicQuery
+  saveGemini: protectedProcedure
     .input(
       z.object({
         apiKey: z.string().trim().optional().default(""),
@@ -55,7 +56,8 @@ export const settingsRouter = createRouter({
         proxyToken: z.string().trim().optional().default(""),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
       if (input.apiKey) {
         await setAppSetting("gemini_api_key", input.apiKey);
       }
@@ -68,14 +70,15 @@ export const settingsRouter = createRouter({
       return { success: true };
     }),
 
-  saveManufacturerLogoSettings: publicQuery
+  saveManufacturerLogoSettings: protectedProcedure
     .input(
       z.object({
         provider: z.string().trim().min(1).max(60).default("logo_dev"),
         logoDevToken: z.string().trim().optional().default(""),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
       await setAppSetting("manufacturer_logo_provider", input.provider);
       if (input.logoDevToken) {
         await setAppSetting(
@@ -86,22 +89,26 @@ export const settingsRouter = createRouter({
       return { success: true };
     }),
 
-  clearManufacturerLogoToken: publicQuery.mutation(async () => {
+  clearManufacturerLogoToken: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
     await setAppSetting("manufacturer_logo_logo_dev_token", "");
     return { success: true };
   }),
 
-  clearGeminiApiKey: publicQuery.mutation(async () => {
+  clearGeminiApiKey: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
     await setAppSetting("gemini_api_key", "");
     return { success: true };
   }),
 
-  clearAiProxyToken: publicQuery.mutation(async () => {
+  clearAiProxyToken: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
     await setAppSetting("ai_proxy_token", "");
     return { success: true };
   }),
 
-  getMoySklad: publicQuery.query(async () => {
+  getMoySklad: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
     const settings = await getAppSettings(["moysklad_token"]);
     const token = settings.moysklad_token?.trim() || "";
     return {
@@ -112,19 +119,21 @@ export const settingsRouter = createRouter({
     };
   }),
 
-  saveMoySklad: publicQuery
+  saveMoySklad: protectedProcedure
     .input(z.object({ token: z.string().trim().min(1) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
       await setAppSetting("moysklad_token", input.token);
       return { success: true };
     }),
 
-  clearMoySkladToken: publicQuery.mutation(async () => {
+  clearMoySkladToken: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
     await setAppSetting("moysklad_token", "");
     return { success: true };
   }),
 
-  testGemini: publicQuery
+  testGemini: protectedProcedure
     .input(
       z.object({
         apiKey: z.string().trim().optional(),
@@ -133,7 +142,8 @@ export const settingsRouter = createRouter({
         proxyToken: z.string().trim().optional(),
       }).optional()
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
       return testGeminiConnection(input);
     }),
 });

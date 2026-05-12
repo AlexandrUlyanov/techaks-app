@@ -17,6 +17,7 @@ import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
 import SearchPage from "@/pages/SearchPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -61,23 +62,25 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
 
           {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="leads" element={<AdminLeads />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="stores" element={<AdminStores />} />
-            <Route path="banners" element={<AdminBanners />} />
-            <Route path="merchandising" element={<AdminMerchandising />} />
-            <Route path="blog" element={<AdminBlog />} />
-            <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
+          <Route element={<ProtectedRoute action="read" subject="Sync" />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="leads" element={<AdminLeads />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="stores" element={<AdminStores />} />
+              <Route path="banners" element={<AdminBanners />} />
+              <Route path="merchandising" element={<AdminMerchandising />} />
+              <Route path="blog" element={<AdminBlog />} />
+              <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
-            <Route path="sync" element={<SyncLayout />}>
-              <Route index element={<AdminSyncMenu />} />
-              <Route path="moysklad" element={<AdminSyncMoySklad />} />
+              <Route path="sync" element={<SyncLayout />}>
+                <Route index element={<AdminSyncMenu />} />
+                <Route path="moysklad" element={<AdminSyncMoySklad />} />
+              </Route>
+
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
-
-            <Route path="settings" element={<AdminSettings />} />
           </Route>
         </Routes>
       </main>

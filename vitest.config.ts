@@ -19,6 +19,7 @@ export default defineConfig({
       "api/**/*.spec.ts",
       "src/**/*.test.ts",
       "src/**/*.spec.ts",
+      "contracts/**/*.test.ts",
     ],
     setupFiles: ["./vitest.setup.ts"],
   },

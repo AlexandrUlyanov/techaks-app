@@ -13,7 +13,7 @@ import { trpc } from "@/providers/trpc";
 export default function AdminSettings() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
-  const { data: msData, isLoading: isMsLoading } = trpc.settings.getMoySklad.useQuery();
+  const { data: msData } = trpc.settings.getMoySklad.useQuery();
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
