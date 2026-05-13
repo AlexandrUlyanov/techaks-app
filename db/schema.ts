@@ -108,6 +108,7 @@ export const users = mysqlTable("users", {
   phone: varchar("phone", { length: 20 }).unique(),
   fullName: varchar("full_name", { length: 255 }),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }),
   role: varchar("role", { length: 40 }).notNull().default("customer"),
   status: varchar("status", { length: 40 }).notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
