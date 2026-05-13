@@ -2,13 +2,14 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, pushSubscriptions, authSessions } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
 import { sendEmailOTP } from "../lib/mail";
 import { sendPushNotification } from "../lib/push";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "../lib/env";
+import bcrypt from "bcryptjs";
 
 // In-memory OTP Store (Email -> { code, expires })
 const emailOtpStore = new Map<string, { code: string; expires: number }>();
@@ -23,6 +24,126 @@ export const authRouter = createRouter({
   getVapidPublicKey: publicQuery.query(() => {
     return env.vapidPublicKey;
   }),
+
+  // ==========================================
+  // Password Auth (New Flow)
+  // ==========================================
+  
+  registerWithPassword: publicQuery
+    .input(z.object({
+      email: z.string().email(),
+      phone: z.string().optional().nullable(),
+      fullName: z.string().min(2),
+      password: z.string().min(6),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(
+          or(
+            eq(users.email, input.email),
+            input.phone ? eq(users.phone, input.phone) : undefined
+          )
+        )
+        .limit(1);
+
+      if (existingUser) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Пользователь с таким email или телефоном уже существует",
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(input.password, 10);
+
+      const result = await db.insert(users).values({
+        email: input.email,
+        phone: input.phone || null,
+        fullName: input.fullName,
+        passwordHash,
+        role: "customer",
+        status: "active",
+      });
+
+      const [newUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, result[0].insertId))
+        .limit(1);
+
+      const token = await signToken({
+        id: newUser.id,
+        role: newUser.role,
+        status: newUser.status,
+      });
+
+      return { success: true, user: newUser, token };
+    }),
+
+  loginWithPassword: publicQuery
+    .input(z.object({
+      identifier: z.string().min(3), // Can be email or phone
+      password: z.string().min(6),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(
+          or(
+            eq(users.email, input.identifier),
+            eq(users.phone, input.identifier)
+          )
+        )
+        .limit(1);
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Неверный логин или пароль",
+        });
+      }
+
+      if (!user.passwordHash) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Этот аккаунт использует другой метод входа (например, по коду). Восстановите пароль.",
+        });
+      }
+
+      const isValid = await bcrypt.compare(input.password, user.passwordHash);
+
+      if (!isValid) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Неверный логин или пароль",
+        });
+      }
+
+      if (user.status !== "active") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Ваш аккаунт заблокирован",
+        });
+      }
+
+      const token = await signToken({
+        id: user.id,
+        role: user.role,
+        status: user.status,
+      });
+
+      return { success: true, user, token };
+    }),
+
+  // ==========================================
+  // Fallback / Old Flows (Kept for compatibility)
+  // ==========================================
 
   // 1. Email OTP Flow
   requestEmailOTP: publicQuery
