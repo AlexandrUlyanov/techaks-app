@@ -24,7 +24,7 @@ export default function StoreCard({
   return (
     <div className="bg-card border border-border rounded-3xl overflow-hidden group hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl">
       {/* Image */}
-      <div className="aspect-[4/3] sm:aspect-video overflow-hidden relative bg-muted/20">
+      <div className="h-[350px] md:h-[450px] overflow-hidden relative bg-muted/20">
         <img
           src={image}
           alt={name}
