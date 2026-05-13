@@ -43,14 +43,14 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
       setStep("push_waiting");
     },
     onError: err => {
-      if (err.shape?.code === -32003) { // PRECONDITION_FAILED (No devices)
+      if (err.shape?.code === -32003 || err.shape?.code === -32004 || err.message === "Пользователь не найден") { 
+        // PRECONDITION_FAILED (No devices) or NOT_FOUND (New user)
         requestEmailOTP.mutate({ email });
       } else {
         toast.error(err.message);
       }
     },
   });
-
   const { data: pushStatus } = trpc.auth.checkPushAuthStatus.useQuery(
     { sessionId: sessionId || "" },
     { 
