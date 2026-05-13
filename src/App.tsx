@@ -18,6 +18,8 @@ import AccountPage from "@/pages/AccountPage";
 import SearchPage from "@/pages/SearchPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import MaintenancePage from "@/components/MaintenancePage";
+import { trpc } from "@/providers/trpc";
 
 // Admin Pages
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -39,6 +41,14 @@ export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
+
+  const { data: maintenance } = trpc.settings.getMaintenanceStatus.useQuery(undefined, {
+    staleTime: 60 * 1000, // Cache for 1 minute
+  });
+
+  if (maintenance?.isEnabled && !isAdmin) {
+    return <MaintenancePage reopenDate={maintenance.reopenDate} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

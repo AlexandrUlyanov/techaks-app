@@ -47,6 +47,31 @@ export const settingsRouter = createRouter({
     };
   }),
 
+  getMaintenanceStatus: publicQuery.query(async () => {
+    const settings = await getAppSettings([
+      "maintenance_mode",
+      "maintenance_reopen_date",
+    ]);
+    return {
+      isEnabled: settings.maintenance_mode === "true",
+      reopenDate: settings.maintenance_reopen_date || null,
+    };
+  }),
+
+  saveMaintenanceSettings: protectedProcedure
+    .input(
+      z.object({
+        isEnabled: z.boolean(),
+        reopenDate: z.string().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      await setAppSetting("maintenance_mode", input.isEnabled ? "true" : "false");
+      await setAppSetting("maintenance_reopen_date", input.reopenDate);
+      return { success: true };
+    }),
+
   saveGemini: protectedProcedure
     .input(
       z.object({

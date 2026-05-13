@@ -18,6 +18,8 @@ export default function AdminSettings() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
+  const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
+  
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
@@ -26,6 +28,16 @@ export default function AdminSettings() {
     useState("logo_dev");
   const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
   const [msToken, setMsToken] = useState("");
+  
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
+
+  useEffect(() => {
+    if (maintenanceData) {
+      setMaintenanceEnabled(maintenanceData.isEnabled);
+      setMaintenanceReopenDate(maintenanceData.reopenDate || "");
+    }
+  }, [maintenanceData]);
 
   useEffect(() => {
     if (!data) return;
@@ -36,6 +48,13 @@ export default function AdminSettings() {
     setManufacturerLogoProvider(data.manufacturerLogoProvider || "logo_dev");
     setManufacturerLogoToken("");
   }, [data]);
+
+  const saveMaintenanceMutation = trpc.settings.saveMaintenanceSettings.useMutation({
+    onSuccess: () => {
+      utils.settings.getMaintenanceStatus.invalidate();
+      alert("Настройки техобслуживания сохранены.");
+    },
+  });
 
   const saveMutation = trpc.settings.saveGemini.useMutation({
     onSuccess: () => {
@@ -438,6 +457,71 @@ export default function AdminSettings() {
               Удалить токен
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-6 py-5">
+          <h2 className="text-lg font-black text-[#15171A]">Техническое обслуживание</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Позволяет временно отключить сайт для пользователей. В это время будет отображаться страница-заглушка с обратным отсчетом.
+          </p>
+        </div>
+
+        <div className="space-y-6 px-6 py-6">
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={maintenanceEnabled}
+                onChange={(e) => setMaintenanceEnabled(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#05C3D4] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#05C3D4]/20"></div>
+            </label>
+            <span className="text-sm font-bold text-[#15171A]">
+              {maintenanceEnabled ? "Сайт отключен" : "Сайт активен"}
+            </span>
+          </div>
+
+          {maintenanceEnabled && (
+            <div className="max-w-md space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Дата и время открытия
+              </label>
+              <input
+                type="datetime-local"
+                value={maintenanceReopenDate}
+                onChange={(e) => setMaintenanceReopenDate(e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              />
+              <p className="text-xs text-gray-500">
+                Укажите время, когда сайт автоматически вернется в обычный режим (для справки пользователям).
+              </p>
+            </div>
+          )}
+
+          {saveMaintenanceMutation.error && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveMaintenanceMutation.error.message}
+            </div>
+          )}
+
+          <button
+            onClick={() => saveMaintenanceMutation.mutate({
+              isEnabled: maintenanceEnabled,
+              reopenDate: maintenanceReopenDate || null,
+            })}
+            disabled={saveMaintenanceMutation.isPending}
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+          >
+            {saveMaintenanceMutation.isPending ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            Сохранить режим обслуживания
+          </button>
         </div>
       </section>
 
