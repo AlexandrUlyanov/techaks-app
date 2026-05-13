@@ -81,6 +81,18 @@ jobs:
               database: "techaks_prod",
             });
 
+            // Ensure password auth column exists for users
+            try {
+              await connection.execute(
+                `ALTER TABLE users ADD COLUMN password_hash varchar(255) NULL`
+              );
+            } catch (error) {
+              const code = error?.code || "";
+              if (code !== "ER_DUP_FIELDNAME") {
+                throw error;
+              }
+            }
+
             await connection.execute(
               `UPDATE stores
                SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
