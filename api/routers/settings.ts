@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, protectedProcedure, requireAbility } from "../middleware";
+import { createRouter, protectedProcedure, publicQuery, requireAbility } from "../middleware";
 import { getAppSettings, setAppSetting } from "../lib/app-settings";
 import { env } from "../lib/env";
 import { getGeminiConfig, testGeminiConnection } from "../lib/gemini-spec-standardization";
