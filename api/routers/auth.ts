@@ -119,7 +119,7 @@ export const authRouter = createRouter({
     .mutation(async ({ input }) => {
       const db = getDb();
       
-      const [user] = await db
+      const matchedUsers = await db
         .select()
         .from(users)
         .where(
@@ -127,8 +127,10 @@ export const authRouter = createRouter({
             eq(users.email, input.identifier),
             eq(users.phone, input.identifier)
           )
-        )
-        .limit(1);
+        );
+
+      const user =
+        matchedUsers.find(item => Boolean(item.passwordHash)) ?? matchedUsers[0];
 
       if (!user) {
         throw new TRPCError({
