@@ -24,32 +24,35 @@ export default function StoreCard({
   return (
     <div className="bg-card border border-border rounded-3xl overflow-hidden group hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl">
       {/* Image */}
-      <div className="h-[350px] md:h-[450px] overflow-hidden relative bg-muted/20">
+      <div className="h-[400px] md:h-[500px] overflow-hidden relative bg-muted/20">
         <img
           src={image}
           alt={name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-90" />
+        
         <span
           className={`absolute top-6 left-6 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
             isOpen
               ? "bg-[#05C3D4] text-white dark:text-black"
-              : "bg-black/20 text-white/80 border border-white/10 backdrop-blur-md"
+              : "bg-black/40 text-white/90 border border-white/20 backdrop-blur-md"
           }`}
         >
           {isOpen ? "Магазин открыт" : "Сейчас закрыто"}
         </span>
+
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-8">
+          <h3 className="text-2xl md:text-3xl font-black uppercase font-heading tracking-tight text-white drop-shadow-lg leading-tight">
+            {address}
+          </h3>
+        </div>
       </div>
 
       {/* Info */}
-      <div className="p-8">
-        <h3 className="text-2xl font-black uppercase font-heading tracking-tight text-foreground">
-          {address}
-        </h3>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-border">
+      <div className="p-6 md:p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 md:pb-8 border-b border-border">
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30 block">
               Время работы
