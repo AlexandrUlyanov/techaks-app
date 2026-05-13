@@ -232,6 +232,18 @@ export default function ProductPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* CTA moved here */}
+                <div className="mt-6 flex flex-col gap-4">
+                  <Button
+                    size="lg"
+                    onClick={handleAddToCart}
+                    className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
+                  >
+                    <ShoppingBag size={20} className="mr-2" />
+                    ДОБАВИТЬ В КОРЗИНУ
+                  </Button>
+                </div>
               </div>
 
               {/* Stock & FOMO */}
@@ -339,15 +351,6 @@ export default function ProductPage() {
 
               {/* CTA */}
               <div className="mt-12 flex flex-col gap-4">
-                <Button
-                  size="lg"
-                  onClick={handleAddToCart}
-                  className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
-                >
-                  <ShoppingBag size={20} className="mr-2" />
-                  ДОБАВИТЬ В КОРЗИНУ
-                </Button>
-
                 <div className="flex flex-wrap gap-4">
                   <a
                     href="https://t.me/tech_aks"
