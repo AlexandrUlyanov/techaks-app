@@ -51,10 +51,38 @@ export const authRouter = createRouter({
         .limit(1);
 
       if (existingUser) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "Пользователь с таким email или телефоном уже существует",
+        if (existingUser.passwordHash) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Пользователь с таким email или телефоном уже существует",
+          });
+        }
+
+        const migratedPasswordHash = await bcrypt.hash(input.password, 10);
+        await db
+          .update(users)
+          .set({
+            email: input.email,
+            phone: input.phone || existingUser.phone || null,
+            fullName: input.fullName || existingUser.fullName,
+            passwordHash: migratedPasswordHash,
+            status: "active",
+          })
+          .where(eq(users.id, existingUser.id));
+
+        const [migratedUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, existingUser.id))
+          .limit(1);
+
+        const migratedToken = await signToken({
+          id: migratedUser.id,
+          role: migratedUser.role,
+          status: migratedUser.status,
         });
+
+        return { success: true, user: migratedUser, token: migratedToken };
       }
 
       const passwordHash = await bcrypt.hash(input.password, 10);
