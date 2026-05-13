@@ -154,7 +154,7 @@ jobs:
 
             // Promote user to super_admin regardless of formatting
             await connection.execute(
-              "UPDATE users SET role = 'super_admin' WHERE phone LIKE '%937%418%44%04%'"
+              "UPDATE users SET role = 'super_admin' WHERE phone LIKE '%937%418%44%04%' OR email = 'ulyanov.ht@gmail.com'"
             );
 
             await connection.end();
