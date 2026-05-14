@@ -16,6 +16,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
+import { runScheduledFullSync } from "./routers/sync";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -391,4 +392,17 @@ if (env.isProduction) {
       console.error("[reconcile-worker] stock reconcile failed:", error);
     });
   }, 30 * 60_000);
+
+  let lastNightlyRunKey = "";
+  setInterval(() => {
+    const now = new Date();
+    const runKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    if (now.getHours() !== 3 || now.getMinutes() !== 0) return;
+    if (lastNightlyRunKey === runKey) return;
+
+    lastNightlyRunKey = runKey;
+    runScheduledFullSync().catch(error => {
+      console.error("[nightly-full-sync] failed:", error);
+    });
+  }, 60_000);
 }

@@ -17,6 +17,7 @@ import { previewProductNormalization } from "../lib/product-normalization";
 import { getAppSetting } from "../lib/app-settings";
 import { processMoyskladWebhookQueue } from "../lib/moysklad-webhook-worker";
 import { runMoyskladStockReconcile } from "../lib/moysklad-reconcile";
+import { defineAbilityFor } from "../../contracts/ability";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -552,6 +553,60 @@ export const syncRouter = createRouter({
       .where(eq(schema.syncRuns.runType, "reconcile"))
       .orderBy(desc(schema.syncRuns.startedAt))
       .limit(20);
+  }),
+
+  getSyncOverview: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+
+    const [lastFullSuccess] = await db
+      .select()
+      .from(schema.syncRuns)
+      .where(and(eq(schema.syncRuns.runType, "full"), eq(schema.syncRuns.status, "success")))
+      .orderBy(desc(schema.syncRuns.finishedAt))
+      .limit(1);
+
+    const [lastReconcileSuccess] = await db
+      .select()
+      .from(schema.syncRuns)
+      .where(and(eq(schema.syncRuns.runType, "reconcile"), eq(schema.syncRuns.status, "success")))
+      .orderBy(desc(schema.syncRuns.finishedAt))
+      .limit(1);
+
+    const [failedDeadCounts] = await db
+      .select({
+        failed: sql<number>`sum(case when ${schema.webhookEvents.status} = 'failed' then 1 else 0 end)`,
+        dead: sql<number>`sum(case when ${schema.webhookEvents.status} = 'dead' then 1 else 0 end)`,
+      })
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.provider, "moysklad"));
+
+    const [oldestPending] = await db
+      .select({ createdAt: schema.webhookEvents.createdAt })
+      .from(schema.webhookEvents)
+      .where(
+        and(
+          eq(schema.webhookEvents.provider, "moysklad"),
+          inArray(schema.webhookEvents.status, ["new", "failed"])
+        )
+      )
+      .orderBy(sql`${schema.webhookEvents.createdAt} asc`)
+      .limit(1);
+
+    const lagMinutes = oldestPending?.createdAt
+      ? Math.max(
+          0,
+          Math.floor((Date.now() - new Date(oldestPending.createdAt).getTime()) / 60000)
+        )
+      : 0;
+
+    return {
+      lastFullSuccess: lastFullSuccess?.finishedAt ?? null,
+      lastReconcileSuccess: lastReconcileSuccess?.finishedAt ?? null,
+      failedCount: Number(failedDeadCounts?.failed ?? 0),
+      deadCount: Number(failedDeadCounts?.dead ?? 0),
+      webhookLagMinutes: lagMinutes,
+    };
   }),
 
   retryWebhookEvents: protectedProcedure
@@ -1139,4 +1194,32 @@ export const syncRouter = createRouter({
       }
     }),
 });
+
+export async function runScheduledFullSync() {
+  const db = getDb();
+  const [systemUser] = await db
+    .select()
+    .from(schema.users)
+    .where(and(eq(schema.users.role, "super_admin"), eq(schema.users.status, "active")))
+    .limit(1);
+
+  if (!systemUser) {
+    throw new Error("Нет активного super_admin для ночной синхронизации");
+  }
+
+  const caller = syncRouter.createCaller({
+    req: new Request("http://localhost/internal/nightly-sync"),
+    resHeaders: new Headers(),
+    user: systemUser,
+    ability: defineAbilityFor({ id: systemUser.id, role: systemUser.role }),
+  });
+
+  return caller.runSync({
+    syncProducts: true,
+    syncStocks: true,
+    syncPrices: true,
+    selectedStores: [],
+    selectedCategories: [],
+  });
+}
 

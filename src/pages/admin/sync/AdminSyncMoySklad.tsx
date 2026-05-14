@@ -47,6 +47,9 @@ export default function AdminSyncMoySklad() {
 
   const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
   const { data: savedConfig } = trpc.sync.getSavedConfig.useQuery();
+  const { data: syncOverview } = trpc.sync.getSyncOverview.useQuery(undefined, {
+    refetchInterval: 15000,
+  });
   const { data: lockStatus } = trpc.sync.getSyncLockStatus.useQuery(undefined, {
     refetchInterval: 10000,
   });
@@ -661,6 +664,43 @@ export default function AdminSyncMoySklad() {
       </div>
 
       {/* Danger Zone */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <div className="text-xs text-gray-500 font-bold">Webhook lag</div>
+          <div className="text-2xl font-black text-[#15171A]">
+            {syncOverview?.webhookLagMinutes ?? 0}м
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <div className="text-xs text-gray-500 font-bold">Failed</div>
+          <div className="text-2xl font-black text-amber-600">
+            {syncOverview?.failedCount ?? 0}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <div className="text-xs text-gray-500 font-bold">Dead</div>
+          <div className="text-2xl font-black text-red-600">
+            {syncOverview?.deadCount ?? 0}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <div className="text-xs text-gray-500 font-bold">Full sync OK</div>
+          <div className="text-xs font-bold text-[#15171A] mt-1">
+            {syncOverview?.lastFullSuccess
+              ? new Date(syncOverview.lastFullSuccess).toLocaleString("ru-RU")
+              : "—"}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <div className="text-xs text-gray-500 font-bold">Reconcile OK</div>
+          <div className="text-xs font-bold text-[#15171A] mt-1">
+            {syncOverview?.lastReconcileSuccess
+              ? new Date(syncOverview.lastReconcileSuccess).toLocaleString("ru-RU")
+              : "—"}
+          </div>
+        </div>
+      </div>
+
       <div className="mt-12 pt-8 border-t border-red-100">
         <h3 className="text-lg font-bold text-red-600 mb-4 flex items-center gap-2">
           <Trash2 size={20} />
