@@ -20,6 +20,9 @@ import { runScheduledFullSync } from "./routers/sync";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
+const webhookRateState = new Map<string, { count: number; windowStart: number }>();
+const WEBHOOK_RATE_LIMIT = 180;
+const WEBHOOK_RATE_WINDOW_MS = 60_000;
 
 const xmlEscape = (value: string) =>
   value
@@ -34,6 +37,38 @@ const toIsoDate = (input: Date | string | null | undefined) => {
   const parsed = input instanceof Date ? input : new Date(input);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 };
+
+function getClientIp(c: { req: { header: (name: string) => string | undefined } }) {
+  const forwarded = c.req.header("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
+  return c.req.header("x-real-ip") || "unknown";
+}
+
+function isWebhookRateLimited(ip: string) {
+  const now = Date.now();
+  const current = webhookRateState.get(ip);
+  if (!current || now - current.windowStart >= WEBHOOK_RATE_WINDOW_MS) {
+    webhookRateState.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  current.count += 1;
+  webhookRateState.set(ip, current);
+  return current.count > WEBHOOK_RATE_LIMIT;
+}
+
+async function logWebhookAudit(status: string, message: string, details?: Record<string, unknown>) {
+  try {
+    const db = getDb();
+    await db.insert(schema.syncLogs).values({
+      type: "moysklad_webhook",
+      status,
+      message,
+      details: details ?? null,
+    });
+  } catch {
+    // no-op
+  }
+}
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
@@ -224,6 +259,12 @@ app.post("/api/upload", async c => {
 
 app.post("/api/webhooks/moysklad", async c => {
   try {
+    const ip = getClientIp(c);
+    if (isWebhookRateLimited(ip)) {
+      await logWebhookAudit("error", "Webhook rate limit exceeded", { ip });
+      return c.json({ ok: false, error: "Rate limit exceeded" }, 429);
+    }
+
     const db = getDb();
     const payload = await c.req.json().catch(() => null);
     if (!payload || (typeof payload !== "object" && !Array.isArray(payload))) {
@@ -231,12 +272,17 @@ app.post("/api/webhooks/moysklad", async c => {
     }
 
     const configuredSecret = (await getAppSetting("moysklad_webhook_secret"))?.trim();
+    if (!configuredSecret && env.isProduction) {
+      await logWebhookAudit("error", "Webhook rejected: secret is not configured", { ip });
+      return c.json({ ok: false, error: "Webhook secret is not configured" }, 503);
+    }
     if (configuredSecret) {
       const incomingSecret =
         c.req.header("x-webhook-secret") ??
         c.req.header("x-moysklad-secret") ??
         c.req.query("secret");
       if (!incomingSecret || incomingSecret !== configuredSecret) {
+        await logWebhookAudit("error", "Webhook unauthorized", { ip });
         return c.json({ ok: false, error: "Unauthorized webhook" }, 401);
       }
     }
@@ -312,13 +358,22 @@ app.post("/api/webhooks/moysklad", async c => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook ingest failed";
+    await logWebhookAudit("error", `Webhook ingest failed: ${message}`);
     return c.json({ ok: false, error: message }, 500);
   }
 });
 
 app.post("/api/webhooks/moysklad/process", async c => {
   try {
+    const ip = getClientIp(c);
+    if (isWebhookRateLimited(ip)) {
+      await logWebhookAudit("error", "Manual queue process rate limit exceeded", { ip });
+      return c.json({ ok: false, error: "Rate limit exceeded" }, 429);
+    }
     const secret = (await getAppSetting("moysklad_webhook_secret"))?.trim();
+    if (!secret && env.isProduction) {
+      return c.json({ ok: false, error: "Webhook secret is not configured" }, 503);
+    }
     if (secret) {
       const incomingSecret =
         c.req.header("x-webhook-secret") ??
@@ -339,7 +394,15 @@ app.post("/api/webhooks/moysklad/process", async c => {
 
 app.post("/api/sync/moysklad/reconcile", async c => {
   try {
+    const ip = getClientIp(c);
+    if (isWebhookRateLimited(ip)) {
+      await logWebhookAudit("error", "Manual reconcile rate limit exceeded", { ip });
+      return c.json({ ok: false, error: "Rate limit exceeded" }, 429);
+    }
     const secret = (await getAppSetting("moysklad_webhook_secret"))?.trim();
+    if (!secret && env.isProduction) {
+      return c.json({ ok: false, error: "Webhook secret is not configured" }, 503);
+    }
     if (secret) {
       const incomingSecret =
         c.req.header("x-webhook-secret") ??

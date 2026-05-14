@@ -20,6 +20,18 @@ function extractMsIdFromHref(href: string | null | undefined): string | null {
   return href.split("/").pop()?.split("?")[0] ?? null;
 }
 
+function extractMsStoreId(row: Record<string, unknown>): string | null {
+  const directMeta = toObject(row.meta);
+  const nestedStore = toObject(row.store);
+  const nestedStoreMeta = toObject(nestedStore?.meta);
+  return (
+    extractMsIdFromHref(typeof directMeta?.href === "string" ? directMeta.href : null) ??
+    extractMsIdFromHref(typeof nestedStoreMeta?.href === "string" ? nestedStoreMeta.href : null) ??
+    (typeof row.storeId === "string" ? row.storeId : null) ??
+    (typeof row.store_id === "string" ? row.store_id : null)
+  );
+}
+
 function parseStockByStore(payload: Record<string, unknown>): StoreStockRow[] {
   const source =
     (Array.isArray(payload.stockByStore) ? payload.stockByStore : null) ??
@@ -30,10 +42,12 @@ function parseStockByStore(payload: Record<string, unknown>): StoreStockRow[] {
     .map(row => {
       const obj = toObject(row);
       if (!obj) return null;
-      const quantity = Number(obj.stock ?? obj.quantity ?? 0);
-      const meta = toObject(obj.meta);
-      const msStoreId = extractMsIdFromHref(typeof meta?.href === "string" ? meta.href : null);
-      const storeName = typeof obj.name === "string" ? obj.name : null;
+      const quantity = Number(obj.stock ?? obj.quantity ?? obj.value ?? 0);
+      const msStoreId = extractMsStoreId(obj);
+      const storeName =
+        (typeof obj.name === "string" ? obj.name : null) ??
+        (typeof obj.storeName === "string" ? obj.storeName : null) ??
+        (typeof obj.store_name === "string" ? obj.store_name : null);
       return {
         quantity: Number.isFinite(quantity) ? Math.max(0, Math.round(quantity)) : 0,
         msStoreId,
@@ -50,9 +64,12 @@ function detectMsProductId(payload: Record<string, unknown>): string | null {
   if (typeof product?.id === "string") return product.id;
 
   const meta = toObject(payload.meta);
+  const assortment = toObject(payload.assortment);
+  const assortmentMeta = toObject(assortment?.meta);
   const productMeta = toObject(product?.meta);
   const href =
     (typeof meta?.href === "string" ? meta.href : null) ??
+    (typeof assortmentMeta?.href === "string" ? assortmentMeta.href : null) ??
     (typeof productMeta?.href === "string" ? productMeta.href : null);
 
   return extractMsIdFromHref(href);
@@ -99,7 +116,7 @@ async function processStockEvent(payload: Record<string, unknown>) {
     .limit(1);
 
   if (!product) {
-    return { success: false, retriable: false, reason: `local product not found for msId=${msProductId}` as const };
+    return { success: false, retriable: true, reason: `local product not found for msId=${msProductId}` as const };
   }
 
   const stockRows = parseStockByStore(payload);
@@ -277,4 +294,3 @@ export async function processMoyskladWebhookQueue(limit = 50) {
 
   return { processed, done, failed, dead, skipped };
 }
-

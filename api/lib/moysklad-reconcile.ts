@@ -90,7 +90,16 @@ export async function runMoyskladStockReconcile() {
 
     let offset = 0;
     let hasMore = true;
-    const collected: Array<{ productId: number; storeId: number; quantity: number }> = [];
+    let rowsProcessed = 0;
+    const insertBuffer: Array<{ productId: number; storeId: number; quantity: number }> = [];
+    const INSERT_CHUNK = 1000;
+
+    const flushBuffer = async () => {
+      if (insertBuffer.length === 0) return;
+      await db.insert(schema.productStocks).values(insertBuffer.splice(0, insertBuffer.length));
+    };
+
+    await db.execute(sql`DELETE FROM product_stocks`);
 
     while (hasMore) {
       const res = await moyskladApi.get(
@@ -126,15 +135,16 @@ export async function runMoyskladStockReconcile() {
 
           const localStoreId = msStoreToLocal.get(msStoreId);
           if (!localStoreId) continue;
-          collected.push({ productId: localProductId, storeId: localStoreId, quantity });
+          insertBuffer.push({ productId: localProductId, storeId: localStoreId, quantity });
+          rowsProcessed += 1;
+          if (insertBuffer.length >= INSERT_CHUNK) {
+            await flushBuffer();
+          }
         }
       }
     }
 
-    await db.execute(sql`DELETE FROM product_stocks`);
-    if (collected.length > 0) {
-      await db.insert(schema.productStocks).values(collected);
-    }
+    await flushBuffer();
 
     await db.update(schema.products).set({ inStock: false });
     await db.execute(sql`
@@ -153,7 +163,7 @@ export async function runMoyskladStockReconcile() {
         status: "success",
         message: "Reconcile остатков завершен",
         statsJson: {
-          rowsProcessed: collected.length,
+          rowsProcessed,
           storesFiltered: selectedStores.length,
         },
         finishedAt: new Date(),
@@ -162,7 +172,7 @@ export async function runMoyskladStockReconcile() {
 
     return {
       skipped: false as const,
-      rowsProcessed: collected.length,
+      rowsProcessed,
       storesFiltered: selectedStores.length,
     };
   } catch (error) {
