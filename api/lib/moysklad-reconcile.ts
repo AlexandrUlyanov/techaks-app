@@ -43,18 +43,24 @@ export async function runMoyskladStockReconcile() {
     return { skipped: true as const, reason: "full_sync_running" as const };
   }
 
-  const [activeProfile] = await db
-    .select()
-    .from(schema.syncProfiles)
-    .where(
-      sql`${schema.syncProfiles.provider} = 'moysklad' AND ${schema.syncProfiles.isDefault} = true`
-    )
-    .limit(1);
-
-  const cfg = (activeProfile?.configJson ?? {}) as {
-    selectedStores?: string[];
-  };
-  const selectedStores = Array.isArray(cfg.selectedStores) ? cfg.selectedStores : [];
+  let activeProfile: typeof schema.syncProfiles.$inferSelect | null = null;
+  let selectedStores: string[] = [];
+  try {
+    const [profileRow] = await db
+      .select()
+      .from(schema.syncProfiles)
+      .where(
+        sql`${schema.syncProfiles.provider} = 'moysklad' AND ${schema.syncProfiles.isDefault} = true`
+      )
+      .limit(1);
+    activeProfile = profileRow ?? null;
+    const cfg = (activeProfile?.configJson ?? {}) as { selectedStores?: string[] };
+    selectedStores = Array.isArray(cfg.selectedStores) ? cfg.selectedStores : [];
+  } catch (error) {
+    // Backward compatibility: in case sync_profiles table is not yet migrated on server.
+    // Reconcile still runs globally instead of crashing.
+    console.warn("[reconcile] sync_profiles unavailable, fallback to all stores:", error);
+  }
 
   const [runRes] = await db.insert(schema.syncRuns).values({
     profileId: activeProfile?.id ?? null,
@@ -172,4 +178,3 @@ export async function runMoyskladStockReconcile() {
     throw error;
   }
 }
-
