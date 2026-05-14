@@ -694,6 +694,7 @@ export const syncRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "sync", "Sync");
       let lockOwner: string | null = null;
+      let activeProfile: Awaited<ReturnType<typeof getActiveSyncProfile>> = null;
       let selectedStores = input.selectedStores;
       let selectedCategories = input.selectedCategories;
       let syncProducts = input.syncProducts;
@@ -704,7 +705,7 @@ export const syncRouter = createRouter({
         (!selectedStores || selectedStores.length === 0) &&
         (!selectedCategories || selectedCategories.length === 0)
       ) {
-        const activeProfile = await getActiveSyncProfile();
+        activeProfile = await getActiveSyncProfile();
         if (activeProfile) {
           try {
             const savedConfig = syncConfigSchema.parse(activeProfile.configJson);
@@ -717,6 +718,9 @@ export const syncRouter = createRouter({
             // ignore invalid saved config
           }
         }
+      }
+      if (!activeProfile) {
+        activeProfile = await getActiveSyncProfile();
       }
       let fileLogContent = `=== Синхронизация МойСклад [${new Date().toISOString()}] ===\n\n`;
       const writeLog = (msg: string) => {
