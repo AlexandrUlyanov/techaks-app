@@ -3,7 +3,7 @@ import { useSearchParams, Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
-import { Loader2, Search, ArrowLeft, ShoppingBag, Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import { Loader2, Search, ArrowLeft, ShoppingCart, Grid2X2, List, SlidersHorizontal } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -258,7 +258,7 @@ export default function SearchPage() {
               <div className="pt-8 flex flex-col gap-4">
                 <Link to="/catalog">
                   <button className="w-full h-14 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan flex items-center justify-center gap-3">
-                    <ShoppingBag size={18} />
+                    <ShoppingCart size={18} />
                     ПЕРЕЙТИ В КАТАЛОГ
                   </button>
                 </Link>

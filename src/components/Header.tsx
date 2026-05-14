@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
-import { Sun, Moon, ShoppingBag, User, Search, Loader2, X } from "lucide-react";
+import { Sun, Moon, ShoppingCart, User, Search, Loader2, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCart } from "@/hooks/use-cart";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,7 +11,6 @@ import { CatalogTrigger } from "./Catalog/CatalogMenu";
 export default function Header() {
   const [authOpen, setAuthOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
   const { isAuthenticated } = useAuth();
@@ -29,7 +28,6 @@ export default function Header() {
     );
 
   useEffect(() => {
-    setMounted(true);
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll, { passive: true });
 
@@ -82,7 +80,7 @@ export default function Header() {
             >
               <img
                 src={
-                  mounted && theme === "dark"
+                  theme === "dark"
                     ? "/images/logo-color.svg"
                     : "/images/logo-light.svg"
                 }
@@ -237,7 +235,7 @@ export default function Header() {
                   className="w-11 h-11 flex items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
                   aria-label="Toggle theme"
                 >
-                  {mounted && theme === "dark" ? (
+                  {theme === "dark" ? (
                     <Sun size={20} />
                   ) : (
                     <Moon size={20} />
@@ -267,8 +265,8 @@ export default function Header() {
                   className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-[#05C3D4] transition-colors rounded-xl hover:bg-muted relative"
                   aria-label="Корзина"
                 >
-                  <ShoppingBag size={22} />
-                  {mounted && getItemCount() > 0 && (
+                  <ShoppingCart size={22} />
+                  {getItemCount() > 0 && (
                     <span className="absolute top-2 right-2 w-4 h-4 bg-[#05C3D4] text-white dark:text-black text-[8px] font-black flex items-center justify-center rounded-full border border-background">
                       {getItemCount()}
                     </span>

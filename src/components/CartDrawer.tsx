@@ -7,7 +7,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
+import { Minus, Plus, ShoppingCart, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -36,7 +36,7 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         <SheetHeader className="p-6 border-b border-border">
           <SheetTitle className="flex items-center justify-between gap-3 text-xl font-black uppercase font-heading tracking-tight">
             <div className="flex items-center gap-3">
-              <ShoppingBag className="text-[#05C3D4]" />
+              <ShoppingCart className="text-[#05C3D4]" />
               Корзина ({getItemCount()})
             </div>
             {totalPrice > 0 && totalPrice < FREE_SHIPPING_THRESHOLD && (
@@ -50,7 +50,7 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-              <ShoppingBag size={32} className="text-muted-foreground/30" />
+              <ShoppingCart size={32} className="text-muted-foreground/30" />
             </div>
             <h3 className="text-lg font-black uppercase font-heading text-foreground mb-2">
               Корзина пуста

@@ -11,7 +11,7 @@ import {
   Truck,
   Building2,
   ShieldCheck,
-  ShoppingBag,
+  ShoppingCart,
   Minus,
   Plus,
   Trash2,
@@ -150,7 +150,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-4 bg-background">
         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
-          <ShoppingBag size={32} className="text-muted-foreground/20" />
+          <ShoppingCart size={32} className="text-muted-foreground/20" />
         </div>
         <h2 className="text-xl font-black uppercase font-heading text-foreground mb-4">
           Ваша корзина пуста
@@ -203,7 +203,7 @@ export default function CheckoutPage() {
             <div className="bg-card border border-border rounded-3xl overflow-hidden">
               <div className="px-8 py-6 border-b border-border flex items-center justify-between">
                 <h2 className="text-lg font-black uppercase font-heading tracking-tight flex items-center gap-3">
-                  <ShoppingBag size={20} className="text-[#05C3D4]" />
+                  <ShoppingCart size={20} className="text-[#05C3D4]" />
                   Состав заказа ({getItemCount()})
                 </h2>
               </div>
@@ -402,7 +402,7 @@ export default function CheckoutPage() {
                     {
                       id: "cash",
                       label: "Наличными при получении",
-                      icon: ShoppingBag,
+                      icon: ShoppingCart,
                     },
                     {
                       id: "card",

@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router";
-import { Star, MessageCircle, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft, ShoppingCart } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useState, useMemo } from "react";
@@ -286,7 +286,7 @@ export default function ProductPage() {
                     onClick={handleAddToCart}
                     className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
                   >
-                    <ShoppingBag size={20} className="mr-2" />
+                    <ShoppingCart size={20} className="mr-2" />
                     ДОБАВИТЬ В КОРЗИНУ
                   </Button>
                 </div>
