@@ -37,7 +37,7 @@ const productSchema = z.object({
   badge: z.string().nullable(),
   image: z.string(),
   description: z.string(),
-  specs: z.any(),
+  specs: z.unknown(),
   inStock: z.boolean(),
   rating: z.string(),
   reviewCount: z.number(),
@@ -129,7 +129,7 @@ export const productRouter = createRouter({
           badge: products.badge,
           image: products.image,
           description: products.description,
-          specs: products.specs as any,
+          specs: products.specs as unknown,
           inStock: products.inStock,
           rating: products.rating,
           reviewCount: products.reviewCount,
@@ -155,7 +155,7 @@ export const productRouter = createRouter({
         badge: products.badge,
         image: products.image,
         description: products.description,
-        specs: products.specs as any,
+        specs: products.specs as unknown,
         inStock: products.inStock,
         rating: products.rating,
         reviewCount: products.reviewCount,
@@ -179,19 +179,13 @@ export const productRouter = createRouter({
       const db = getDb();
       const offset = (input.page - 1) * input.limit;
 
-      let countQuery = db
-        .select({ count: sql<number>`count(*)` })
-        .from(products);
-
-      if (input.search && input.search.trim() !== "") {
-        const term = `%${input.search}%`;
-        countQuery = db
+      const totalResult =
+        input.search && input.search.trim() !== ""
+          ? await db
           .select({ count: sql<number>`count(*)` })
           .from(products)
-          .where(like(products.name, term)) as any;
-      }
-
-      const totalResult = await countQuery;
+          .where(like(products.name, `%${input.search}%`))
+          : await db.select({ count: sql<number>`count(*)` }).from(products);
       const total = totalResult[0]?.count || 0;
 
       const items = await db
@@ -205,7 +199,7 @@ export const productRouter = createRouter({
           badge: products.badge,
           image: products.image,
           description: products.description,
-          specs: products.specs as any,
+          specs: products.specs as unknown,
           inStock: products.inStock,
           rating: products.rating,
           reviewCount: products.reviewCount,
@@ -224,7 +218,12 @@ export const productRouter = createRouter({
         .offset(offset);
 
       const productIds = items.map(i => i.id);
-      let stocksData: any[] = [];
+      type StockRow = {
+        productId: number;
+        quantity: number;
+        storeName: string;
+      };
+      let stocksData: StockRow[] = [];
       if (productIds.length > 0) {
         stocksData = await db
           .select({
@@ -267,7 +266,7 @@ export const productRouter = createRouter({
           badge: products.badge,
           image: products.image,
           description: products.description,
-          specs: products.specs as any,
+          specs: products.specs as unknown,
           inStock: products.inStock,
           rating: products.rating,
           reviewCount: products.reviewCount,
@@ -391,7 +390,7 @@ export const productRouter = createRouter({
       }
 
       const allCats = await db.select().from(categories);
-      const targetCat = allCats.find((c: any) => c.slug === categorySlug);
+      const targetCat = allCats.find(c => c.slug === categorySlug);
 
       if (!targetCat) return [];
 
@@ -423,7 +422,7 @@ export const productRouter = createRouter({
       if (!input.categorySlug || input.categorySlug === "all") return [];
 
       const allCats = await db.select().from(categories);
-      const targetCat = allCats.find((c: any) => c.slug === input.categorySlug);
+      const targetCat = allCats.find(c => c.slug === input.categorySlug);
       if (!targetCat) return [];
 
       const targetIds = collectDescendantCategoryIds(allCats, targetCat.id);
@@ -466,7 +465,7 @@ export const productRouter = createRouter({
 
       if (categorySlug !== "all") {
         const allCats = await db.select().from(categories);
-        const targetCat = allCats.find((c: any) => c.slug === categorySlug);
+        const targetCat = allCats.find(c => c.slug === categorySlug);
         if (!targetCat) return [];
         rootCategoryId = targetCat.id;
         categoryIds = collectDescendantCategoryIds(allCats, targetCat.id);

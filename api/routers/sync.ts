@@ -4,6 +4,7 @@ import { getDb } from "../queries/connection";
 import * as schema from "../../db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import axios from "axios";
+import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import axiosRetry from 'axios-retry';
 import fs from "fs";
 import path from "path";
@@ -46,6 +47,29 @@ axiosRetry(moyskladApi, {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+type MsRow = Record<string, unknown>;
+type MsStoreRow = {
+  id: string;
+  name: string;
+  address?: string | null;
+};
+type SyncLogDetails = {
+  steps: string[];
+  errors: string[];
+  stats: Record<string, number>;
+  logFileUrl: string | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const apiMessage = (error.response?.data as { errors?: Array<{ error?: string }> } | undefined)
+      ?.errors?.[0]?.error;
+    return apiMessage || error.message || fallback;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
+
 function asSpecRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -60,8 +84,8 @@ function getMsIdFromHref(href?: string | null): string | null {
   return href?.split("/").pop()?.split("?")[0] ?? null;
 }
 
-async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000): Promise<any[]> {
-  const rows: any[] = [];
+async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000): Promise<MsRow[]> {
+  const rows: MsRow[] = [];
   let offset = 0;
 
   while (true) {
@@ -70,7 +94,7 @@ async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000):
       `${endpoint}${separator}offset=${offset}&limit=${limit}`,
       { headers: { Authorization: authHeader } }
     );
-    const batch = res.data.rows || [];
+    const batch: MsRow[] = res.data.rows || [];
     rows.push(...batch);
 
     if (batch.length < limit) break;
@@ -96,7 +120,7 @@ function normalizeStoreText(value?: string | null): string {
     .trim();
 }
 
-function findMatchingLocalStore(msStore: any, localStores: typeof schema.stores.$inferSelect[]) {
+function findMatchingLocalStore(msStore: MsStoreRow, localStores: typeof schema.stores.$inferSelect[]) {
   const msName = normalizeStoreText(msStore.name);
   const msAddress = normalizeStoreText(msStore.address);
 
@@ -158,11 +182,15 @@ async function downloadImage(
 
   try {
     // Retry wrapper for image downloads
-    const getWithRetry = async (url: string, config: any, retries = 3): Promise<any> => {
+    const getWithRetry = async (
+      url: string,
+      config: AxiosRequestConfig,
+      retries = 3
+    ): Promise<AxiosResponse> => {
       try {
         return await axios.get(url, config);
-      } catch (err: any) {
-        if (err.response?.status === 429 && retries > 0) {
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
            await delay(3000);
            return getWithRetry(url, config, retries - 1);
         }
@@ -177,7 +205,7 @@ async function downloadImage(
     });
 
     let finalUrl = downloadUrl;
-    let useConfig: any = { headers: { Authorization: authHeader } };
+    let useConfig: AxiosRequestConfig = { headers: { Authorization: authHeader } };
 
     if (res302.status === 302 || res302.status === 301) {
       finalUrl = res302.headers.location || downloadUrl;
@@ -198,8 +226,8 @@ async function downloadImage(
     });
 
     return relativePath;
-  } catch (error: any) {
-    console.error(`Ошибка скачивания картинки ${imageId}:`, error.message);
+  } catch (error: unknown) {
+    console.error(`Ошибка скачивания картинки ${imageId}:`, getErrorMessage(error, "Unknown image download error"));
     return "/images/placeholder.jpg";
   }
 }
@@ -211,9 +239,12 @@ export const syncRouter = createRouter({
       const authHeader = await getAuthHeader(input);
       try {
         const rows = await fetchAllRows("/entity/store", authHeader);
-        return rows.map((r: any) => ({ id: r.id, name: r.name }));
-      } catch (error: any) {
-        throw new Error(error.response?.data?.errors?.[0]?.error || "Ошибка получения складов");
+        return rows.map(r => ({
+          id: String(r.id ?? ""),
+          name: String(r.name ?? ""),
+        }));
+      } catch (error: unknown) {
+        throw new Error(getErrorMessage(error, "Ошибка получения складов"));
       }
     }),
 
@@ -223,12 +254,13 @@ export const syncRouter = createRouter({
       const authHeader = await getAuthHeader(input);
       try {
         const rows = await fetchAllRows("/entity/productfolder", authHeader);
-        return rows.map((r: any) => {
-          const parentId = getMsIdFromHref(r.productFolder?.meta?.href);
-          return { id: r.id, name: r.name, parentId };
+        return rows.map(r => {
+          const productFolder = r.productFolder as { meta?: { href?: string } } | undefined;
+          const parentId = getMsIdFromHref(productFolder?.meta?.href);
+          return { id: String(r.id ?? ""), name: String(r.name ?? ""), parentId };
         });
-      } catch (error: any) {
-        throw new Error(error.response?.data?.errors?.[0]?.error || "Ошибка получения категорий");
+      } catch (error: unknown) {
+        throw new Error(getErrorMessage(error, "Ошибка получения категорий"));
       }
     }),
 
@@ -249,8 +281,8 @@ export const syncRouter = createRouter({
       await db.execute(sql`DELETE FROM products`);
       await db.execute(sql`DELETE FROM categories`);
       return { success: true, message: "Каталог успешно очищен" };
-    } catch (error: any) {
-      throw new Error("Ошибка при очистке каталога: " + error.message);
+    } catch (error: unknown) {
+      throw new Error("Ошибка при очистке каталога: " + getErrorMessage(error, "unknown error"));
     }
   }),
 
@@ -276,7 +308,12 @@ export const syncRouter = createRouter({
       const authHeader = await getAuthHeader(input);
       const db = getDb();
       
-      const logDetails: any = { steps: [], errors: [], stats: { categories: 0, products: 0, stocks: 0 }, logFileUrl: null };
+      const logDetails: SyncLogDetails = {
+        steps: [],
+        errors: [],
+        stats: { categories: 0, products: 0, stocks: 0 },
+        logFileUrl: null,
+      };
       let currentLogId: number | null = null;
 
       const saveLogFile = () => {
@@ -366,21 +403,29 @@ export const syncRouter = createRouter({
         writeLog(`Found ${allMsStores.length} stores in MoySklad`);
 
         if (input.selectedStores && input.selectedStores.length > 0) {
-          const selectedMsStores = allMsStores.filter((s: any) => input.selectedStores!.includes(s.id));
+          const selectedMsStores = allMsStores.filter(
+            s => input.selectedStores!.includes(String(s.id ?? ""))
+          );
           for (const msStore of selectedMsStores) {
-            let existing = findMatchingLocalStore(msStore, localStores);
+            const typedMsStore: MsStoreRow = {
+              id: String(msStore.id ?? ""),
+              name: String(msStore.name ?? ""),
+              address:
+                typeof msStore.address === "string" ? msStore.address : null,
+            };
+            let existing = findMatchingLocalStore(typedMsStore, localStores);
             if (!existing) {
               const [insertRes] = await db.insert(schema.stores).values({
-                msId: msStore.id,
-                name: msStore.name,
-                address: msStore.address || msStore.name,
+                msId: typedMsStore.id,
+                name: typedMsStore.name,
+                address: typedMsStore.address || typedMsStore.name,
                 hours: "Ежедневно", phone: "+7 (000) 000-00-00", image: "/images/store-placeholder.jpg",
               });
-              existing = { id: insertRes.insertId } as any;
+              existing = { id: insertRes.insertId } as typeof schema.stores.$inferSelect;
             } else if (!existing.msId || existing.msId !== msStore.id) {
               await db
                 .update(schema.stores)
-                .set({ msId: msStore.id })
+                .set({ msId: typedMsStore.id })
                 .where(eq(schema.stores.id, existing.id));
             }
           }
@@ -388,13 +433,19 @@ export const syncRouter = createRouter({
         }
 
         for (const msStore of allMsStores) {
-          const matched = findMatchingLocalStore(msStore, localStores);
+          const typedMsStore: MsStoreRow = {
+            id: String(msStore.id ?? ""),
+            name: String(msStore.name ?? ""),
+            address:
+              typeof msStore.address === "string" ? msStore.address : null,
+          };
+          const matched = findMatchingLocalStore(typedMsStore, localStores);
           if (matched) {
-            msStoreIdToLocalId.set(msStore.id, matched.id);
-            if (!matched.msId || matched.msId !== msStore.id) {
+            msStoreIdToLocalId.set(typedMsStore.id, matched.id);
+            if (!matched.msId || matched.msId !== typedMsStore.id) {
               await db
                 .update(schema.stores)
-                .set({ msId: msStore.id })
+                .set({ msId: typedMsStore.id })
                 .where(eq(schema.stores.id, matched.id));
             }
           }
@@ -410,11 +461,14 @@ export const syncRouter = createRouter({
         let hasMore = true;
         const msProductIdToLocalId = new Map<string, number>();
 
-        const fetchAssortmentWithRetry = async (currentOffset: number, retries = 5): Promise<any> => {
+        const fetchAssortmentWithRetry = async (
+          currentOffset: number,
+          retries = 5
+        ): Promise<AxiosResponse> => {
           try {
             return await moyskladApi.get(`/entity/assortment?offset=${currentOffset}&limit=${limit}`, { headers: { Authorization: authHeader } });
-          } catch (err: any) {
-            if (err.response?.status === 429 && retries > 0) {
+          } catch (err: unknown) {
+            if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
                writeLog(`[Rate Limit] 429 hitting assortment fetch. Retrying in 5 seconds... (${retries} left)`);
                await delay(5000);
                return fetchAssortmentWithRetry(currentOffset, retries - 1);
@@ -475,8 +529,10 @@ export const syncRouter = createRouter({
                   const mainImage = imagesRes.data.rows[0];
                   if (mainImage.meta.downloadHref) imagePath = await downloadImage(mainImage.meta.downloadHref, authHeader, mainImage.id || msId, folderSlug);
                 }
-              } catch (err: any) {
-                writeLog(`Error fetching image meta for product ${msId}: ${err.message}`);
+              } catch (err: unknown) {
+                writeLog(
+                  `Error fetching image meta for product ${msId}: ${getErrorMessage(err, "unknown error")}`
+                );
               }
             }
 
@@ -493,7 +549,7 @@ export const syncRouter = createRouter({
               const wasNormalized = normalizedLog.length > 0;
               const incomingDescription = item.description || "";
               const localSpecs = asSpecRecord(existingProd[0].specs);
-              const updateData: any = { name: item.name };
+              const updateData: Partial<typeof schema.products.$inferInsert> = { name: item.name };
 
               if (wasNormalized) {
                 const preview = previewProductNormalization(incomingDescription, {
@@ -558,11 +614,14 @@ export const syncRouter = createRouter({
           let stockOffset = 0;
           let stockHasMore = true;
 
-          const fetchStockWithRetry = async (currentOffset: number, retries = 5): Promise<any> => {
+          const fetchStockWithRetry = async (
+            currentOffset: number,
+            retries = 5
+          ): Promise<AxiosResponse> => {
             try {
               return await moyskladApi.get(`/report/stock/bystore?offset=${currentOffset}&limit=1000`, { headers: { Authorization: authHeader } });
-            } catch (err: any) {
-              if (err.response?.status === 429 && retries > 0) {
+            } catch (err: unknown) {
+              if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
                  writeLog(`[Rate Limit] 429 hitting stock fetch. Retrying in 5 seconds... (${retries} left)`);
                  await delay(5000);
                  return fetchStockWithRetry(currentOffset, retries - 1);
@@ -673,22 +732,25 @@ export const syncRouter = createRouter({
         saveLogFile();
         await updateLog('success', 'Синхронизация успешно завершена');
         return { success: true, message: "Синхронизация успешно завершена" };
-      } catch (error: any) {
-        writeLog(`[ERROR] ${error.message}`);
-        if (error.response?.data) writeLog(`[ERROR DATA] ${JSON.stringify(error.response.data)}`);
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error, "Ошибка синхронизации");
+        writeLog(`[ERROR] ${errorMessage}`);
+        if (axios.isAxiosError(error) && error.response?.data) {
+          writeLog(`[ERROR DATA] ${JSON.stringify(error.response.data)}`);
+        }
         
         saveLogFile();
-        logDetails.errors.push(error.message);
+        logDetails.errors.push(errorMessage);
         if (currentLogId) {
           await db.update(schema.syncLogs).set({
-            status: 'error', message: 'Ошибка: ' + error.message, details: logDetails
+            status: 'error', message: 'Ошибка: ' + errorMessage, details: logDetails
           }).where(eq(schema.syncLogs.id, currentLogId));
         } else {
           await db.insert(schema.syncLogs).values({
-            type: 'moysklad', status: 'error', message: 'Ошибка: ' + error.message, details: logDetails
+            type: 'moysklad', status: 'error', message: 'Ошибка: ' + errorMessage, details: logDetails
           });
         }
-        throw new Error(error.response?.data?.errors?.[0]?.error || "Ошибка синхронизации");
+        throw new Error(getErrorMessage(error, "Ошибка синхронизации"));
       }
     }),
 });
