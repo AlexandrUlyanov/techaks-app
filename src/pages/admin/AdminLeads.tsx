@@ -7,15 +7,68 @@ import {
   MapPin,
   Package,
   Phone,
+  Search,
   ShoppingBag,
   Truck,
   XCircle,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
+const ORDER_STATUS_OPTIONS = [
+  { value: "", label: "Все статусы" },
+  { value: "pending", label: "Новый" },
+  { value: "confirmed", label: "Подтвержден" },
+  { value: "processing", label: "В обработке" },
+  { value: "assembling", label: "Собирается" },
+  { value: "awaiting_dispatch", label: "Ожидает отправки" },
+  { value: "in_delivery", label: "Доставляется" },
+  { value: "delivered", label: "Доставлен" },
+  { value: "completed", label: "Выполнен" },
+  { value: "cancelled", label: "Отменен" },
+  { value: "problem", label: "Проблемный" },
+];
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "", label: "Любая оплата" },
+  { value: "unpaid", label: "Не оплачен" },
+  { value: "awaiting_payment", label: "Ожидает оплаты" },
+  { value: "paid", label: "Оплачен" },
+  { value: "payment_error", label: "Ошибка оплаты" },
+  { value: "refund", label: "Возврат" },
+];
+
+const DELIVERY_TYPE_OPTIONS = [
+  { value: "", label: "Любая доставка" },
+  { value: "pickup", label: "Самовывоз" },
+  { value: "delivery", label: "Курьер/доставка" },
+];
+
+const LIMIT_OPTIONS = [25, 50, 100];
 
 export default function AdminLeads() {
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.ecommerce.listOrders.useQuery();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState("");
+  const [limit, setLimit] = useState(25);
+  const [page, setPage] = useState(1);
+
+  const offset = (page - 1) * limit;
+  const queryInput = useMemo(
+    () => ({
+      limit,
+      offset,
+      search: search.trim() || undefined,
+      statuses: statusFilter ? [statusFilter] : undefined,
+      paymentStatuses: paymentFilter ? [paymentFilter] : undefined,
+      deliveryTypes: deliveryTypeFilter ? [deliveryTypeFilter] : undefined,
+    }),
+    [limit, offset, search, statusFilter, paymentFilter, deliveryTypeFilter]
+  );
+
+  const { data, isLoading } = trpc.ecommerce.listOrders.useQuery(queryInput);
 
   const updateStatusMutation = trpc.ecommerce.updateOrderStatus.useMutation({
     onSuccess: () => {
@@ -25,6 +78,8 @@ export default function AdminLeads() {
   });
 
   const orders = data?.orders || [];
+  const total = data?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -38,6 +93,18 @@ export default function AdminLeads() {
         return { label: "Доставлен", color: "bg-green-100 text-green-700", icon: CheckCircle2 };
       case "cancelled":
         return { label: "Отменен", color: "bg-red-100 text-red-700", icon: XCircle };
+      case "processing":
+        return { label: "В обработке", color: "bg-indigo-100 text-indigo-700", icon: Clock };
+      case "assembling":
+        return { label: "Собирается", color: "bg-violet-100 text-violet-700", icon: Package };
+      case "awaiting_dispatch":
+        return { label: "Ожидает отправки", color: "bg-amber-100 text-amber-700", icon: Truck };
+      case "in_delivery":
+        return { label: "Доставляется", color: "bg-sky-100 text-sky-700", icon: Truck };
+      case "completed":
+        return { label: "Выполнен", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 };
+      case "problem":
+        return { label: "Проблемный", color: "bg-rose-100 text-rose-700", icon: XCircle };
       default:
         return { label: status, color: "bg-gray-100 text-gray-700", icon: Clock };
     }
@@ -58,7 +125,78 @@ export default function AdminLeads() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-[#0a0a0a]">Заказы</h2>
-        <div className="text-sm text-gray-500">Всего: {data?.total || 0}</div>
+        <div className="text-sm text-gray-500">Всего: {total}</div>
+      </div>
+
+      <div className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 lg:grid-cols-[1fr_220px_220px_220px_130px]">
+        <label className="relative block">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={e => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Поиск: №, телефон, email, SKU, трек..."
+            className="h-10 w-full rounded-lg border border-gray-200 pl-10 pr-3 text-sm outline-none transition-colors focus:border-[#05C3D4]"
+          />
+        </label>
+        <select
+          value={statusFilter}
+          onChange={e => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+        >
+          {ORDER_STATUS_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={paymentFilter}
+          onChange={e => {
+            setPaymentFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+        >
+          {PAYMENT_STATUS_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={deliveryTypeFilter}
+          onChange={e => {
+            setDeliveryTypeFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+        >
+          {DELIVERY_TYPE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={limit}
+          onChange={e => {
+            setLimit(Number(e.target.value));
+            setPage(1);
+          }}
+          className="h-10 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+        >
+          {LIMIT_OPTIONS.map(size => (
+            <option key={size} value={size}>
+              {size} / стр
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -86,7 +224,7 @@ export default function AdminLeads() {
                       <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <ShoppingBag size={16} className="text-gray-400" />
                         <span className="font-bold text-[#0a0a0a]">
-                          Заказ #{order.id}
+                          Заказ {order.orderNumber || `#${order.id}`}
                         </span>
                       </div>
                       {order.customerPhone && (
@@ -167,7 +305,13 @@ export default function AdminLeads() {
                             | "confirmed"
                             | "shipped"
                             | "delivered"
-                            | "cancelled",
+                            | "cancelled"
+                            | "processing"
+                            | "assembling"
+                            | "awaiting_dispatch"
+                            | "in_delivery"
+                            | "completed"
+                            | "problem",
                         })
                       }
                       disabled={updateStatusMutation.isPending}
@@ -175,8 +319,14 @@ export default function AdminLeads() {
                     >
                       <option value="pending">Новый</option>
                       <option value="confirmed">Подтвержден</option>
+                      <option value="processing">В обработке</option>
+                      <option value="assembling">Собирается</option>
+                      <option value="awaiting_dispatch">Ожидает отправки</option>
+                      <option value="in_delivery">Доставляется</option>
                       <option value="shipped">Отгружен</option>
                       <option value="delivered">Доставлен</option>
+                      <option value="completed">Выполнен</option>
+                      <option value="problem">Проблемный</option>
                       <option value="cancelled">Отменен</option>
                     </select>
                   </div>
@@ -186,6 +336,32 @@ export default function AdminLeads() {
           })
         )}
       </div>
+
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-sm text-gray-500">
+            Страница {page} из {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              disabled={page <= 1}
+              className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Назад
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page >= totalPages}
+              className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Вперёд
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
