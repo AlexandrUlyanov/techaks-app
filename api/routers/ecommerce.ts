@@ -29,10 +29,28 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       const db = getDb();
+      if (input.items.length === 0) {
+        throw new Error("Корзина пуста");
+      }
+
+      const normalizedPhone = input.customer.phone.trim();
+      const normalizedFullName = input.customer.fullName.trim();
+      const normalizedEmailRaw = input.customer.email?.trim();
+      const normalizedEmail =
+        normalizedEmailRaw && normalizedEmailRaw.length > 0
+          ? normalizedEmailRaw.toLowerCase()
+          : null;
+
+      const trustedTotal = input.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
 
       // 1. Find or create user
       let userId: number | null = null;
-      const email = input.customer.email || `${input.customer.phone.replace(/[^0-9]/g, "")}@placeholder.techaks.ru`;
+      const email =
+        normalizedEmail ||
+        `${normalizedPhone.replace(/[^0-9]/g, "")}@placeholder.techaks.ru`;
       
       const existingUser = await db
         .select()
@@ -45,8 +63,8 @@ export const ecommerceRouter = createRouter({
       } else {
         const newUser = await db.insert(users).values({
           email,
-          phone: input.customer.phone,
-          fullName: input.customer.fullName,
+          phone: normalizedPhone,
+          fullName: normalizedFullName,
           role: "customer",
           status: "active",
         });
@@ -56,7 +74,7 @@ export const ecommerceRouter = createRouter({
       // 2. Create order
       const newOrder = await db.insert(orders).values({
         userId,
-        totalPrice: input.totalPrice,
+        totalPrice: trustedTotal,
         deliveryType: input.deliveryType,
         address: input.address,
         paymentType: input.paymentType,

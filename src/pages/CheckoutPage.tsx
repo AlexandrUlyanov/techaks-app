@@ -77,24 +77,36 @@ export default function CheckoutPage() {
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
   const handlePlaceOrder = () => {
-    if (!customer.fullName || !customer.phone) {
+    const fullName = customer.fullName.trim();
+    const phone = customer.phone.trim();
+    const email = customer.email.trim();
+    const normalizedAddress = address.trim();
+
+    if (!fullName || !phone) {
       toast.error("Пожалуйста, заполните контактные данные");
       return;
     }
-    if (deliveryType === "delivery" && !address) {
+    if (deliveryType === "delivery" && !normalizedAddress) {
       toast.error("Пожалуйста, укажите адрес доставки");
       return;
     }
 
     placeOrder.mutate({
-      customer,
+      customer: {
+        fullName,
+        phone,
+        email: email.length > 0 ? email : undefined,
+      },
       items: items.map(i => ({
         productId: i.id,
         quantity: i.quantity,
         price: i.price,
       })),
       deliveryType,
-      address: deliveryType === "delivery" ? address : "Самовывоз из магазина",
+      address:
+        deliveryType === "delivery"
+          ? normalizedAddress
+          : "Самовывоз из магазина",
       paymentType,
       totalPrice: getTotalPrice(),
     });
