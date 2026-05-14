@@ -196,7 +196,7 @@ export default function ProductPage() {
                 {productManufacturer && (
                   <Link
                     to={productManufacturer.href}
-                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 text-foreground shadow-sm transition-all hover:border-[#05C3D4]/60 hover:bg-muted dark:hover:bg-white/10 hover:text-foreground"
+                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 !text-foreground shadow-sm transition-all hover:border-[#05C3D4]/60 hover:bg-muted dark:hover:bg-white/10 hover:!text-foreground"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
                       {productManufacturer.logo ? (
@@ -211,7 +211,7 @@ export default function ProductPage() {
                         </span>
                       )}
                     </span>
-                    <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide text-foreground">
+                    <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide !text-foreground">
                       {productManufacturer.title}
                     </span>
                   </Link>
