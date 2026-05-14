@@ -8,6 +8,7 @@ import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import axiosRetry from 'axios-retry';
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "node:crypto";
 import {
   normalizeProductDescriptions,
   rebuildProductSpecIndex,
@@ -83,6 +84,89 @@ type SyncLogDetails = {
   stats: Record<string, number>;
   logFileUrl: string | null;
 };
+
+const SYNC_LOCK_KEY = "moysklad_full_sync_lock";
+const SYNC_LOCK_TTL_MS = 2 * 60 * 60 * 1000;
+
+type SyncLockPayload = {
+  owner: string;
+  expiresAt: number;
+  startedAt: number;
+};
+
+function parseLockPayload(raw: string | null): SyncLockPayload | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as SyncLockPayload;
+    if (!parsed?.owner || !parsed?.expiresAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function acquireSyncLock() {
+  const db = getDb();
+  const owner = randomUUID();
+  const now = Date.now();
+  const nextPayload: SyncLockPayload = {
+    owner,
+    startedAt: now,
+    expiresAt: now + SYNC_LOCK_TTL_MS,
+  };
+
+  const [row] = await db
+    .select({ key: schema.appSettings.key, value: schema.appSettings.value })
+    .from(schema.appSettings)
+    .where(eq(schema.appSettings.key, SYNC_LOCK_KEY))
+    .limit(1);
+
+  if (!row) {
+    await db.insert(schema.appSettings).values({
+      key: SYNC_LOCK_KEY,
+      value: JSON.stringify(nextPayload),
+      updatedAt: new Date(),
+    });
+    return { acquired: true as const, owner };
+  }
+
+  const currentPayload = parseLockPayload(row.value);
+  if (currentPayload && currentPayload.expiresAt > now) {
+    return {
+      acquired: false as const,
+      reason: "already_running",
+      expiresAt: currentPayload.expiresAt,
+    };
+  }
+
+  await db
+    .update(schema.appSettings)
+    .set({
+      value: JSON.stringify(nextPayload),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.appSettings.key, SYNC_LOCK_KEY));
+
+  return { acquired: true as const, owner };
+}
+
+async function releaseSyncLock(owner: string | null) {
+  if (!owner) return;
+  const db = getDb();
+  const [row] = await db
+    .select({ value: schema.appSettings.value })
+    .from(schema.appSettings)
+    .where(eq(schema.appSettings.key, SYNC_LOCK_KEY))
+    .limit(1);
+
+  const payload = parseLockPayload(row?.value ?? null);
+  if (!payload || payload.owner !== owner) return;
+
+  await db
+    .update(schema.appSettings)
+    .set({ value: null, updatedAt: new Date() })
+    .where(eq(schema.appSettings.key, SYNC_LOCK_KEY));
+}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -402,6 +486,22 @@ export const syncRouter = createRouter({
     return await db.select().from(schema.syncLogs).orderBy(desc(schema.syncLogs.createdAt)).limit(50);
   }),
 
+  getSyncLockStatus: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const raw = await getAppSetting(SYNC_LOCK_KEY);
+    const payload = parseLockPayload(raw);
+    if (!payload) return { locked: false };
+    const now = Date.now();
+    if (payload.expiresAt <= now) return { locked: false };
+    return {
+      locked: true,
+      owner: payload.owner,
+      startedAt: payload.startedAt,
+      expiresAt: payload.expiresAt,
+      ttlSeconds: Math.max(0, Math.floor((payload.expiresAt - now) / 1000)),
+    };
+  }),
+
   getWebhookQueueStats: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Sync");
     const db = getDb();
@@ -490,6 +590,7 @@ export const syncRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "sync", "Sync");
+      let lockOwner: string | null = null;
       let selectedStores = input.selectedStores;
       let selectedCategories = input.selectedCategories;
       let syncProducts = input.syncProducts;
@@ -546,6 +647,17 @@ export const syncRouter = createRouter({
       };
 
       try {
+        const lock = await acquireSyncLock();
+        if (!lock.acquired) {
+          const waitUntil = lock.expiresAt ? new Date(lock.expiresAt).toLocaleString("ru-RU") : "";
+          throw new Error(
+            waitUntil
+              ? `Синхронизация уже запущена. Повторите после ${waitUntil}.`
+              : "Синхронизация уже запущена."
+          );
+        }
+        lockOwner = lock.owner;
+
         const [logRes] = await db.insert(schema.syncLogs).values({
             type: 'moysklad',
             status: 'running',
@@ -1004,6 +1116,8 @@ export const syncRouter = createRouter({
             .where(eq(schema.syncRuns.id, currentRunId));
         }
         throw new Error(getErrorMessage(error, "Ошибка синхронизации"));
+      } finally {
+        await releaseSyncLock(lockOwner);
       }
     }),
 });

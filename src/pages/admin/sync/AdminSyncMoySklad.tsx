@@ -47,6 +47,9 @@ export default function AdminSyncMoySklad() {
 
   const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
   const { data: savedConfig } = trpc.sync.getSavedConfig.useQuery();
+  const { data: lockStatus } = trpc.sync.getSyncLockStatus.useQuery(undefined, {
+    refetchInterval: 10000,
+  });
   const { data: profiles = [], refetch: refetchProfiles } =
     trpc.sync.listProfiles.useQuery();
   const { data: webhookQueue, refetch: refetchWebhookQueue } =
@@ -591,6 +594,11 @@ export default function AdminSyncMoySklad() {
                 </div>
 
                 <div className="pt-4">
+                  {lockStatus?.locked && (
+                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                      Синхронизация уже выполняется. Повторите позже.
+                    </div>
+                  )}
                   <button
                     onClick={handleSaveConfig}
                     disabled={saveConfigMutation.isPending}
@@ -607,7 +615,7 @@ export default function AdminSyncMoySklad() {
                   </button>
                   <button
                     onClick={handleRunSync}
-                    disabled={syncMutation.isPending}
+                    disabled={syncMutation.isPending || lockStatus?.locked}
                     className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold transition-all bg-[#05C3D4] hover:bg-[#04a9b8] text-black shadow-[0_0_20px_rgba(5,195,212,0.3)] disabled:opacity-50"
                   >
                     {syncMutation.isPending ? (
@@ -617,6 +625,8 @@ export default function AdminSyncMoySklad() {
                     )}
                     {syncMutation.isPending
                       ? "Синхронизация..."
+                      : lockStatus?.locked
+                        ? "Синхронизация уже запущена"
                       : "Запустить синхронизацию"}
                   </button>
                 </div>
