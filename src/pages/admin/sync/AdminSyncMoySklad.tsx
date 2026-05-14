@@ -11,6 +11,9 @@ import {
   Trash2,
   Lock,
   CheckCircle,
+  Clock3,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
@@ -40,11 +43,16 @@ export default function AdminSyncMoySklad() {
   const [syncStocks, setSyncStocks] = useState(true);
   const [syncPrices, setSyncPrices] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [selectedWebhookIds, setSelectedWebhookIds] = useState<number[]>([]);
 
   const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
   const { data: savedConfig } = trpc.sync.getSavedConfig.useQuery();
   const { data: profiles = [], refetch: refetchProfiles } =
     trpc.sync.listProfiles.useQuery();
+  const { data: webhookQueue, refetch: refetchWebhookQueue } =
+    trpc.sync.getWebhookQueueStats.useQuery(undefined, {
+      refetchInterval: 15000,
+    });
 
   const saveCredentials = () => {
     if (login && password) {
@@ -93,6 +101,23 @@ export default function AdminSyncMoySklad() {
   const wipeCatalogMutation = trpc.sync.wipeCatalog.useMutation({
     onSuccess: (data: { message: string }) => {
       toast.success(data.message);
+    },
+    onError: error => toast.error(error.message),
+  });
+  const processWebhookQueueMutation = trpc.sync.processWebhookQueue.useMutation({
+    onSuccess: data => {
+      toast.success(
+        `Очередь обработана: done ${data.done}, failed ${data.failed}, dead ${data.dead}`
+      );
+      refetchWebhookQueue();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const retryWebhookEventsMutation = trpc.sync.retryWebhookEvents.useMutation({
+    onSuccess: data => {
+      toast.success(`Отправлено в retry: ${data.retried}`);
+      setSelectedWebhookIds([]);
+      refetchWebhookQueue();
     },
     onError: error => toast.error(error.message),
   });
@@ -251,6 +276,15 @@ export default function AdminSyncMoySklad() {
       </div>
     );
   };
+
+  const queueByStatus = webhookQueue?.byStatus ?? {};
+  const webhookRows = webhookQueue?.recent ?? [];
+  const failedOrDeadRows = webhookRows.filter(
+    row => row.status === "failed" || row.status === "dead"
+  );
+  const allFailedOrDeadSelected =
+    failedOrDeadRows.length > 0 &&
+    failedOrDeadRows.every(row => selectedWebhookIds.includes(row.id));
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -625,6 +659,143 @@ export default function AdminSyncMoySklad() {
           >
             {wipeCatalogMutation.isPending ? "Удаление..." : "Удалить всё и очистить базу"}
           </button>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-8 border-t border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-bold text-[#15171A] flex items-center gap-2">
+            <Clock3 size={20} />
+            Очередь вебхуков МойСклад
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => processWebhookQueueMutation.mutate({ limit: 100 })}
+              disabled={processWebhookQueueMutation.isPending}
+              className="px-4 py-2 rounded-xl bg-[#15171A] text-white text-sm font-bold disabled:opacity-50"
+            >
+              {processWebhookQueueMutation.isPending ? "Обработка..." : "Обработать очередь"}
+            </button>
+            <button
+              onClick={() => refetchWebhookQueue()}
+              className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:border-gray-300"
+            >
+              Обновить
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          {[
+            { key: "new", label: "Новые" },
+            { key: "processing", label: "В обработке" },
+            { key: "done", label: "Готово" },
+            { key: "failed", label: "Failed" },
+            { key: "dead", label: "Dead" },
+          ].map(item => (
+            <div key={item.key} className="rounded-xl border border-gray-100 bg-white px-4 py-3">
+              <div className="text-xs text-gray-500 font-bold">{item.label}</div>
+              <div className="text-2xl font-black text-[#15171A]">
+                {queueByStatus[item.key] ?? 0}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {failedOrDeadRows.length > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-amber-800 font-bold">
+                <AlertTriangle size={18} />
+                Ошибочные события: {failedOrDeadRows.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (allFailedOrDeadSelected) {
+                      setSelectedWebhookIds(prev =>
+                        prev.filter(id => !failedOrDeadRows.some(row => row.id === id))
+                      );
+                    } else {
+                      setSelectedWebhookIds(
+                        Array.from(new Set([...selectedWebhookIds, ...failedOrDeadRows.map(row => row.id)]))
+                      );
+                    }
+                  }}
+                  className="px-3 py-2 text-xs rounded-lg border border-amber-300 text-amber-800 font-bold"
+                >
+                  {allFailedOrDeadSelected ? "Снять выделение" : "Выделить все"}
+                </button>
+                <button
+                  onClick={() =>
+                    retryWebhookEventsMutation.mutate({
+                      ids:
+                        selectedWebhookIds.length > 0
+                          ? selectedWebhookIds
+                          : failedOrDeadRows.map(row => row.id),
+                    })
+                  }
+                  disabled={retryWebhookEventsMutation.isPending}
+                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-50 flex items-center gap-2"
+                >
+                  <RotateCcw size={14} />
+                  {retryWebhookEventsMutation.isPending ? "Retry..." : "Retry selected"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-3 py-2 w-10">#</th>
+                  <th className="text-left px-3 py-2">Тип</th>
+                  <th className="text-left px-3 py-2">Статус</th>
+                  <th className="text-left px-3 py-2">Попытки</th>
+                  <th className="text-left px-3 py-2">Ошибка</th>
+                </tr>
+              </thead>
+              <tbody>
+                {webhookRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
+                      Событий пока нет
+                    </td>
+                  </tr>
+                ) : (
+                  webhookRows.map(row => (
+                    <tr key={row.id} className="border-b border-gray-50">
+                      <td className="px-3 py-2">
+                        {(row.status === "failed" || row.status === "dead") && (
+                          <input
+                            type="checkbox"
+                            checked={selectedWebhookIds.includes(row.id)}
+                            onChange={e =>
+                              setSelectedWebhookIds(prev =>
+                                e.target.checked
+                                  ? [...prev, row.id]
+                                  : prev.filter(id => id !== row.id)
+                              )
+                            }
+                            className="w-4 h-4 accent-[#05C3D4]"
+                          />
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-medium">{row.eventType}</td>
+                      <td className="px-3 py-2">{row.status}</td>
+                      <td className="px-3 py-2">{row.attempts}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 max-w-[320px] truncate">
+                        {row.lastError || "-"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
