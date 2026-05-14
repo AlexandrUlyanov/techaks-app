@@ -124,3 +124,49 @@ pm2 restart techaks
 # Check Nginx config
 nginx -t
 ```
+
+## 🌐 Primary Domain: `techaks.ru`
+
+Use `techaks.ru` as the only canonical storefront host.
+
+### 1) DNS
+Create records at your DNS provider:
+
+- `A` record: `techaks.ru` -> `195.208.2.100`
+- `A` record: `www.techaks.ru` -> `195.208.2.100`
+
+Recommended TTL for cutover: `300`.
+
+### 2) Nginx (HTTP + canonical redirect)
+On the server:
+
+```bash
+sudo cp /var/www/techaks/nginx.conf.example /etc/nginx/sites-available/techaks
+sudo ln -sf /etc/nginx/sites-available/techaks /etc/nginx/sites-enabled/techaks
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+This config already redirects `www.techaks.ru` to `techaks.ru`.
+
+### 3) SSL (Let's Encrypt)
+Issue certificates and enable HTTPS redirect:
+
+```bash
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d techaks.ru -d www.techaks.ru --redirect -m info@techaks.ru --agree-tos --no-eff-email
+```
+
+### 4) Verification
+```bash
+curl -I http://www.techaks.ru
+curl -I http://techaks.ru
+curl -I https://techaks.ru
+```
+
+Expected:
+- `www` -> `301` to `https://techaks.ru/...`
+- `http://techaks.ru` -> `301` to `https://techaks.ru/...`
+- `https://techaks.ru` -> `200`
