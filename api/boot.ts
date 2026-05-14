@@ -8,10 +8,12 @@ import { env } from "./lib/env";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { getDb } from "./queries/connection";
 import * as schema from "@db/schema";
 import { asc, eq, sql } from "drizzle-orm";
+import { getAppSetting } from "./lib/app-settings";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -181,7 +183,7 @@ app.get("/sitemap-images.xml", async c => {
 app.post("/api/upload", async c => {
   try {
     const body = await c.req.parseBody();
-    const file = body["file"] as any;
+    const file = body["file"] as File | string | undefined;
 
     if (!file || typeof file === "string") {
       return c.json({ error: "No file uploaded" }, 400);
@@ -210,9 +212,104 @@ app.post("/api/upload", async c => {
       url: `/images/${filename}`,
       success: true,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Upload error:", error);
-    return c.json({ error: error.message || "Failed to upload file" }, 500);
+    const message = error instanceof Error ? error.message : "Failed to upload file";
+    return c.json({ error: message }, 500);
+  }
+});
+
+app.post("/api/webhooks/moysklad", async c => {
+  try {
+    const db = getDb();
+    const payload = await c.req.json().catch(() => null);
+    if (!payload || (typeof payload !== "object" && !Array.isArray(payload))) {
+      return c.json({ ok: false, error: "Invalid payload" }, 400);
+    }
+
+    const configuredSecret = (await getAppSetting("moysklad_webhook_secret"))?.trim();
+    if (configuredSecret) {
+      const incomingSecret =
+        c.req.header("x-webhook-secret") ??
+        c.req.header("x-moysklad-secret") ??
+        c.req.query("secret");
+      if (!incomingSecret || incomingSecret !== configuredSecret) {
+        return c.json({ ok: false, error: "Unauthorized webhook" }, 401);
+      }
+    }
+
+    const now = Date.now();
+    const events: unknown[] =
+      Array.isArray(payload)
+        ? payload
+        : Array.isArray((payload as Record<string, unknown>).events)
+          ? ((payload as Record<string, unknown>).events as unknown[])
+          : Array.isArray((payload as Record<string, unknown>).rows)
+            ? ((payload as Record<string, unknown>).rows as unknown[])
+            : [payload];
+
+    let inserted = 0;
+    let duplicates = 0;
+
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i];
+      const eventObj =
+        event && typeof event === "object" ? (event as Record<string, unknown>) : {};
+
+      const meta = (eventObj.meta ?? null) as Record<string, unknown> | null;
+      const sourceId =
+        (typeof eventObj.id === "string" ? eventObj.id : null) ??
+        (typeof meta?.href === "string" ? meta.href : null);
+      const marker =
+        (typeof eventObj.updated === "string" ? eventObj.updated : null) ??
+        (typeof eventObj.moment === "string" ? eventObj.moment : null) ??
+        `${now}-${i}`;
+
+      const eventType =
+        (typeof eventObj.type === "string" && eventObj.type) ||
+        (typeof eventObj.event === "string" && eventObj.event) ||
+        (typeof meta?.type === "string" && meta.type) ||
+        "unknown";
+
+      const fallbackHash = createHash("sha256")
+        .update(JSON.stringify(event))
+        .digest("hex")
+        .slice(0, 32);
+
+      const eventKey = sourceId ? `${sourceId}:${marker}` : `${eventType}:${fallbackHash}`;
+
+      const result = await db
+        .insert(schema.webhookEvents)
+        .values({
+          provider: "moysklad",
+          eventType,
+          eventKey,
+          payloadJson: event,
+          status: "new",
+          attempts: 0,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            eventType,
+          },
+        });
+
+      if ((result as { insertId?: number }).insertId && (result as { insertId?: number }).insertId > 0) {
+        inserted += 1;
+      } else {
+        duplicates += 1;
+      }
+    }
+
+    return c.json({
+      ok: true,
+      received: events.length,
+      inserted,
+      duplicates,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Webhook ingest failed";
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 

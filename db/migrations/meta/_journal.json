@@ -50,6 +50,13 @@
       "when": 1778676018994,
       "tag": "0006_absent_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1778763051335,
+      "tag": "0007_lowly_bushwacker",
+      "breakpoints": true
     }
   ]
 }

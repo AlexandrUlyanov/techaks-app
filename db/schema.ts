@@ -9,6 +9,7 @@ import {
   decimal,
   json,
   index,
+  unique,
 } from "drizzle-orm/mysql-core";
 
 export const leads = mysqlTable("leads", {
@@ -227,6 +228,33 @@ export const syncRuns = mysqlTable("sync_runs", {
 }, table => ({
   profileIdx: index("sync_runs_profile_idx").on(table.profileId),
   statusIdx: index("sync_runs_status_idx").on(table.status, table.startedAt),
+}));
+
+export const webhookEvents = mysqlTable("webhook_events", {
+  id: serial("id").primaryKey(),
+  provider: varchar("provider", { length: 40 }).notNull().default("moysklad"),
+  eventType: varchar("event_type", { length: 80 }).notNull().default("unknown"),
+  eventKey: varchar("event_key", { length: 255 }).notNull(),
+  payloadJson: json("payload_json").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("new"),
+  attempts: int("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  providerEventKeyUnique: unique("webhook_events_provider_event_key_unique").on(
+    table.provider,
+    table.eventKey
+  ),
+  statusCreatedIdx: index("webhook_events_status_created_idx").on(
+    table.status,
+    table.createdAt
+  ),
+  providerTypeIdx: index("webhook_events_provider_type_idx").on(
+    table.provider,
+    table.eventType,
+    table.createdAt
+  ),
 }));
 
 export const appSettings = mysqlTable("app_settings", {
