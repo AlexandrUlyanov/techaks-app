@@ -599,21 +599,38 @@ export const syncRouter = createRouter({
                 if (quantity <= 0) continue;
                 
                 let msStoreId = "";
+                let localStoreId: number | undefined;
                 if (storeStock.meta?.href) {
                   msStoreId = getMsIdFromHref(storeStock.meta.href) || "";
                 }
 
-                if (!msStoreId) {
-                  writeLog(`[DEBUG STOCK] No msStoreId found in storeStock: ${JSON.stringify(storeStock)}`);
-                  continue;
+                if (msStoreId) {
+                  localStoreId = msStoreIdToLocalId.get(msStoreId);
+                } else {
+                  const fallbackMatch = findMatchingLocalStore(
+                    { id: null, name: storeStock.name || "", address: storeStock.address || "" },
+                    localStores
+                  );
+                  if (fallbackMatch) {
+                    localStoreId = fallbackMatch.id;
+                    writeLog(
+                      `[DEBUG STOCK] Fallback matched by name/address: "${storeStock.name}" => localStoreId=${localStoreId}`
+                    );
+                  } else {
+                    writeLog(`[DEBUG STOCK] No msStoreId and no fallback match for storeStock: ${JSON.stringify(storeStock)}`);
+                    continue;
+                  }
                 }
 
-                if (input.selectedStores && input.selectedStores.length > 0 && !input.selectedStores.includes(msStoreId)) {
+                if (
+                  msStoreId &&
+                  input.selectedStores &&
+                  input.selectedStores.length > 0 &&
+                  !input.selectedStores.includes(msStoreId)
+                ) {
                    writeLog(`[DEBUG STOCK] Store ${msStoreId} has stock but was skipped because it's not in selectedStores.`);
                    continue;
                 }
-
-                const localStoreId = msStoreIdToLocalId.get(msStoreId);
                 if (localStoreId) {
                   writeLog(`[DEBUG STOCK] Inserting stock: product=${localProductId}, store=${localStoreId}, qty=${quantity}`);
                   await db.insert(schema.productStocks).values({ productId: localProductId, storeId: localStoreId, quantity });
