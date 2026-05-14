@@ -197,6 +197,38 @@ export const syncLogs = mysqlTable("sync_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const syncProfiles = mysqlTable("sync_profiles", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  provider: varchar("provider", { length: 40 }).notNull().default("moysklad"),
+  configJson: json("config_json").notNull(),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdBy: int("created_by"),
+  updatedBy: int("updated_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  providerDefaultIdx: index("sync_profiles_provider_default_idx").on(
+    table.provider,
+    table.isDefault
+  ),
+}));
+
+export const syncRuns = mysqlTable("sync_runs", {
+  id: serial("id").primaryKey(),
+  profileId: int("profile_id"),
+  runType: varchar("run_type", { length: 40 }).notNull().default("full"),
+  status: varchar("status", { length: 20 }).notNull().default("running"),
+  message: text("message"),
+  configSnapshot: json("config_snapshot"),
+  statsJson: json("stats_json"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
+}, table => ({
+  profileIdx: index("sync_runs_profile_idx").on(table.profileId),
+  statusIdx: index("sync_runs_status_idx").on(table.status, table.startedAt),
+}));
+
 export const appSettings = mysqlTable("app_settings", {
   key: varchar("key", { length: 120 }).primaryKey(),
   value: text("value"),

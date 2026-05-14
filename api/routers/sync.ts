@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import * as schema from "../../db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import axiosRetry from 'axios-retry';
@@ -13,7 +13,7 @@ import {
   rebuildProductSpecIndex,
 } from "../lib/product-normalization-service";
 import { previewProductNormalization } from "../lib/product-normalization";
-import { getAppSetting, setAppSetting } from "../lib/app-settings";
+import { getAppSetting } from "../lib/app-settings";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -29,6 +29,21 @@ const syncConfigSchema = z.object({
   syncStocks: z.boolean().default(true),
   syncPrices: z.boolean().default(true),
 });
+
+async function getActiveSyncProfile() {
+  const db = getDb();
+  const [profile] = await db
+    .select()
+    .from(schema.syncProfiles)
+    .where(
+      and(
+        eq(schema.syncProfiles.provider, "moysklad"),
+        eq(schema.syncProfiles.isDefault, true)
+      )
+    )
+    .limit(1);
+  return profile ?? null;
+}
 
 async function getAuthHeader(input: { login?: string; password?: string }): Promise<string> {
   if (input.login && input.password) {
@@ -241,12 +256,81 @@ async function downloadImage(
 }
 
 export const syncRouter = createRouter({
+  listProfiles: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+    return db
+      .select()
+      .from(schema.syncProfiles)
+      .where(eq(schema.syncProfiles.provider, "moysklad"))
+      .orderBy(desc(schema.syncProfiles.isDefault), desc(schema.syncProfiles.updatedAt));
+  }),
+
+  upsertProfile: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().optional(),
+        name: z.string().min(2).max(120),
+        config: syncConfigSchema,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const db = getDb();
+      if (input.id) {
+        await db
+          .update(schema.syncProfiles)
+          .set({
+            name: input.name,
+            configJson: input.config,
+            updatedBy: ctx.user?.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.syncProfiles.id, input.id));
+        return { success: true, id: input.id };
+      }
+      const [res] = await db.insert(schema.syncProfiles).values({
+        name: input.name,
+        provider: "moysklad",
+        configJson: input.config,
+        isDefault: false,
+        createdBy: ctx.user?.id,
+        updatedBy: ctx.user?.id,
+      });
+      return { success: true, id: res.insertId };
+    }),
+
+  setActiveProfile: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const db = getDb();
+      await db
+        .update(schema.syncProfiles)
+        .set({ isDefault: false, updatedAt: new Date(), updatedBy: ctx.user?.id })
+        .where(eq(schema.syncProfiles.provider, "moysklad"));
+      await db
+        .update(schema.syncProfiles)
+        .set({ isDefault: true, updatedAt: new Date(), updatedBy: ctx.user?.id })
+        .where(eq(schema.syncProfiles.id, input.id));
+      return { success: true };
+    }),
+
+  deleteProfile: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const db = getDb();
+      await db.delete(schema.syncProfiles).where(eq(schema.syncProfiles.id, input.id));
+      return { success: true };
+    }),
+
   getSavedConfig: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Sync");
-    const raw = await getAppSetting("moysklad_full_sync_config");
-    if (!raw) return syncConfigSchema.parse({});
+    const profile = await getActiveSyncProfile();
+    if (!profile) return syncConfigSchema.parse({});
     try {
-      return syncConfigSchema.parse(JSON.parse(raw));
+      return syncConfigSchema.parse(profile.configJson);
     } catch {
       return syncConfigSchema.parse({});
     }
@@ -256,8 +340,28 @@ export const syncRouter = createRouter({
     .input(syncConfigSchema)
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Sync");
-      await setAppSetting("moysklad_full_sync_config", JSON.stringify(input));
-      return { success: true };
+      const db = getDb();
+      const active = await getActiveSyncProfile();
+      if (active) {
+        await db
+          .update(schema.syncProfiles)
+          .set({
+            configJson: input,
+            updatedAt: new Date(),
+            updatedBy: ctx.user?.id,
+          })
+          .where(eq(schema.syncProfiles.id, active.id));
+        return { success: true, id: active.id };
+      }
+      const [res] = await db.insert(schema.syncProfiles).values({
+        name: "Конфиг по умолчанию",
+        provider: "moysklad",
+        configJson: input,
+        isDefault: true,
+        createdBy: ctx.user?.id,
+        updatedBy: ctx.user?.id,
+      });
+      return { success: true, id: res.insertId };
     }),
 
   getStores: publicQuery
@@ -335,10 +439,10 @@ export const syncRouter = createRouter({
         (!selectedStores || selectedStores.length === 0) &&
         (!selectedCategories || selectedCategories.length === 0)
       ) {
-        const rawSavedConfig = await getAppSetting("moysklad_full_sync_config");
-        if (rawSavedConfig) {
+        const activeProfile = await getActiveSyncProfile();
+        if (activeProfile) {
           try {
-            const savedConfig = syncConfigSchema.parse(JSON.parse(rawSavedConfig));
+            const savedConfig = syncConfigSchema.parse(activeProfile.configJson);
             selectedStores = savedConfig.selectedStores;
             selectedCategories = savedConfig.selectedCategories;
             syncProducts = savedConfig.syncProducts;
@@ -366,6 +470,7 @@ export const syncRouter = createRouter({
         logFileUrl: null,
       };
       let currentLogId: number | null = null;
+      let currentRunId: number | null = null;
 
       const saveLogFile = () => {
         try {
@@ -387,6 +492,20 @@ export const syncRouter = createRouter({
             details: logDetails
         });
         currentLogId = logRes.insertId;
+        const [runRes] = await db.insert(schema.syncRuns).values({
+          profileId: activeProfile?.id ?? null,
+          runType: "full",
+          status: "running",
+          message: "Синхронизация запущена",
+          configSnapshot: {
+            selectedStores,
+            selectedCategories,
+            syncProducts,
+            syncStocks,
+            syncPrices,
+          },
+        });
+        currentRunId = runRes.insertId;
 
         const updateLog = async (status: string, message: string) => {
             if (currentLogId) {
@@ -782,6 +901,17 @@ export const syncRouter = createRouter({
         writeLog(`Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}`);
         saveLogFile();
         await updateLog('success', 'Синхронизация успешно завершена');
+        if (currentRunId) {
+          await db
+            .update(schema.syncRuns)
+            .set({
+              status: "success",
+              message: "Синхронизация успешно завершена",
+              statsJson: logDetails.stats,
+              finishedAt: new Date(),
+            })
+            .where(eq(schema.syncRuns.id, currentRunId));
+        }
         return { success: true, message: "Синхронизация успешно завершена" };
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error, "Ошибка синхронизации");
@@ -800,6 +930,17 @@ export const syncRouter = createRouter({
           await db.insert(schema.syncLogs).values({
             type: 'moysklad', status: 'error', message: 'Ошибка: ' + errorMessage, details: logDetails
           });
+        }
+        if (currentRunId) {
+          await db
+            .update(schema.syncRuns)
+            .set({
+              status: "error",
+              message: errorMessage,
+              statsJson: logDetails.stats,
+              finishedAt: new Date(),
+            })
+            .where(eq(schema.syncRuns.id, currentRunId));
         }
         throw new Error(getErrorMessage(error, "Ошибка синхронизации"));
       }

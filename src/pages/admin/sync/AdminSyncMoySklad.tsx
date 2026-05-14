@@ -17,6 +17,7 @@ import { trpc } from "@/providers/trpc";
 
 export default function AdminSyncMoySklad() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [profileName, setProfileName] = useState("Конфиг по умолчанию");
 
   // Credentials
   const [login, setLogin] = useState(() => localStorage.getItem("ms_login") || "");
@@ -42,6 +43,8 @@ export default function AdminSyncMoySklad() {
 
   const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
   const { data: savedConfig } = trpc.sync.getSavedConfig.useQuery();
+  const { data: profiles = [], refetch: refetchProfiles } =
+    trpc.sync.listProfiles.useQuery();
 
   const saveCredentials = () => {
     if (login && password) {
@@ -72,6 +75,20 @@ export default function AdminSyncMoySklad() {
     },
     onError: error => toast.error(error.message),
   });
+  const createProfileMutation = trpc.sync.upsertProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Профиль синхронизации сохранен");
+      refetchProfiles();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const setActiveProfileMutation = trpc.sync.setActiveProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Активный профиль обновлен");
+      refetchProfiles();
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const wipeCatalogMutation = trpc.sync.wipeCatalog.useMutation({
     onSuccess: (data: { message: string }) => {
@@ -84,16 +101,12 @@ export default function AdminSyncMoySklad() {
     if (!savedConfig) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSyncProducts(savedConfig.syncProducts);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSyncStocks(savedConfig.syncStocks);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSyncPrices(savedConfig.syncPrices);
     if (savedConfig.selectedStores.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedStores(savedConfig.selectedStores);
     }
     if (savedConfig.selectedCategories.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategories(savedConfig.selectedCategories);
     }
   }, [savedConfig]);
@@ -182,6 +195,19 @@ export default function AdminSyncMoySklad() {
       syncProducts,
       syncStocks,
       syncPrices,
+    });
+  };
+
+  const handleCreateProfile = () => {
+    createProfileMutation.mutate({
+      name: profileName.trim() || "Профиль синхронизации",
+      config: {
+        selectedStores,
+        selectedCategories,
+        syncProducts,
+        syncStocks,
+        syncPrices,
+      },
     });
   };
 
@@ -417,6 +443,45 @@ export default function AdminSyncMoySklad() {
             <h3 className="text-xl font-bold">
               Шаг 3. Выбор категорий и запуск
             </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50">
+              <div>
+                <div className="text-xs font-bold text-gray-500 mb-1">Активный профиль</div>
+                <select
+                  value={profiles.find(p => p.isDefault)?.id ?? ""}
+                  onChange={e => {
+                    const id = Number(e.target.value);
+                    if (id) setActiveProfileMutation.mutate({ id });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                >
+                  <option value="">Выберите профиль</option>
+                  {profiles.map(profile => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-gray-500 mb-1">Сохранить как новый профиль</div>
+                <div className="flex gap-2">
+                  <input
+                    value={profileName}
+                    onChange={e => setProfileName(e.target.value)}
+                    className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                    placeholder="Название профиля"
+                  />
+                  <button
+                    onClick={handleCreateProfile}
+                    disabled={createProfileMutation.isPending}
+                    className="px-4 py-2 rounded-xl bg-[#15171A] text-white text-sm font-bold disabled:opacity-50"
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Categories Tree */}
