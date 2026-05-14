@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import * as schema from "../../db/schema";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import axiosRetry from 'axios-retry';
@@ -14,6 +14,7 @@ import {
 } from "../lib/product-normalization-service";
 import { previewProductNormalization } from "../lib/product-normalization";
 import { getAppSetting } from "../lib/app-settings";
+import { processMoyskladWebhookQueue } from "../lib/moysklad-webhook-worker";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -400,6 +401,66 @@ export const syncRouter = createRouter({
     const db = getDb();
     return await db.select().from(schema.syncLogs).orderBy(desc(schema.syncLogs.createdAt)).limit(50);
   }),
+
+  getWebhookQueueStats: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+
+    const rows = await db
+      .select({
+        status: schema.webhookEvents.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.provider, "moysklad"))
+      .groupBy(schema.webhookEvents.status);
+
+    const recent = await db
+      .select()
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.provider, "moysklad"))
+      .orderBy(desc(schema.webhookEvents.createdAt))
+      .limit(50);
+
+    const byStatus: Record<string, number> = {};
+    for (const row of rows) byStatus[row.status] = Number(row.count ?? 0);
+
+    return { byStatus, recent };
+  }),
+
+  processWebhookQueue: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(500).default(100) }).optional())
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const result = await processMoyskladWebhookQueue(input?.limit ?? 100);
+      return { success: true, ...result };
+    }),
+
+  retryWebhookEvents: protectedProcedure
+    .input(
+      z.object({
+        ids: z.array(z.number()).min(1).max(200),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const db = getDb();
+      await db
+        .update(schema.webhookEvents)
+        .set({
+          status: "new",
+          processedAt: null,
+          lastError: null,
+        })
+        .where(
+          and(
+            eq(schema.webhookEvents.provider, "moysklad"),
+            inArray(schema.webhookEvents.id, input.ids)
+          )
+        );
+
+      return { success: true, retried: input.ids.length };
+    }),
 
   wipeCatalog: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "manage", "Sync");
