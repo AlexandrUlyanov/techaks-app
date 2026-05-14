@@ -21,6 +21,8 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
   const [registerPhone, setRegisterPhone] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [showReset, setShowReset] = useState(false);
   const { setUser, setToken } = useAuth();
 
   const loginMutation = trpc.auth.loginWithPassword.useMutation({
@@ -40,6 +42,11 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
       toast.success("Регистрация выполнена");
       onSuccess?.();
     },
+    onError: err => toast.error(err.message),
+  });
+
+  const resetMutation = trpc.auth.requestPasswordReset.useMutation({
+    onSuccess: data => toast.success(data.message),
     onError: err => toast.error(err.message),
   });
 
@@ -151,6 +158,42 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
           >
             {loginMutation.isPending ? <Loader2 className="animate-spin" /> : "Войти"}
           </Button>
+          <button
+            type="button"
+            onClick={() => setShowReset(prev => !prev)}
+            className="w-full text-center text-xs font-bold text-[#05C3D4] hover:underline"
+          >
+            {showReset ? "Скрыть восстановление" : "Забыли пароль?"}
+          </button>
+          {showReset && (
+            <div className="rounded-xl border border-border p-3 space-y-3 bg-background/60">
+              <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
+                Email для восстановления
+              </Label>
+              <Input
+                type="email"
+                value={resetEmail}
+                onChange={e => setResetEmail(e.target.value)}
+                placeholder="example@mail.ru"
+                className="h-11 rounded-xl"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={resetMutation.isPending}
+                onClick={() => {
+                  if (!resetEmail.trim()) {
+                    toast.error("Введите email");
+                    return;
+                  }
+                  resetMutation.mutate({ email: resetEmail.trim() });
+                }}
+                className="w-full h-10 text-[11px] uppercase tracking-widest"
+              >
+                {resetMutation.isPending ? <Loader2 className="animate-spin" /> : "Отправить ссылку"}
+              </Button>
+            </div>
+          )}
         </form>
       ) : (
         <form onSubmit={handleRegisterSubmit} className="space-y-5">

@@ -1,15 +1,16 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, pushSubscriptions, authSessions } from "@db/schema";
-import { eq, or } from "drizzle-orm";
+import { users, pushSubscriptions, authSessions, passwordResetTokens } from "@db/schema";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
-import { sendEmailOTP } from "../lib/mail";
+import { sendEmailOTP, sendPasswordResetEmail } from "../lib/mail";
 import { sendPushNotification } from "../lib/push";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "../lib/env";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 
 // In-memory OTP Store (Email -> { code, expires })
 const emailOtpStore = new Map<string, { code: string; expires: number }>();
@@ -169,6 +170,90 @@ export const authRouter = createRouter({
       });
 
       return { success: true, user, token };
+    }),
+
+  requestPasswordReset: publicQuery
+    .input(
+      z.object({
+        email: z.string().email(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const normalizedEmail = input.email.trim().toLowerCase();
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, normalizedEmail))
+        .limit(1);
+
+      if (!user) {
+        return {
+          success: true,
+          message: "Если такой email существует, мы отправили ссылку для восстановления.",
+        };
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await db.insert(passwordResetTokens).values({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
+
+      const resetUrl = `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/reset-password?token=${token}`;
+      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+
+      return {
+        success: true,
+        message: "Если такой email существует, мы отправили ссылку для восстановления.",
+      };
+    }),
+
+  resetPassword: publicQuery
+    .input(
+      z.object({
+        token: z.string().min(20),
+        password: z.string().min(6),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = getDb();
+
+      const [row] = await db
+        .select()
+        .from(passwordResetTokens)
+        .where(
+          and(
+            eq(passwordResetTokens.token, input.token),
+            isNull(passwordResetTokens.usedAt)
+          )
+        )
+        .limit(1);
+
+      if (!row || new Date() > row.expiresAt) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ссылка восстановления недействительна или истекла.",
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(input.password, 10);
+
+      await db
+        .update(users)
+        .set({ passwordHash })
+        .where(eq(users.id, row.userId));
+
+      await db
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(passwordResetTokens.id, row.id));
+
+      return { success: true, message: "Пароль обновлен. Теперь можно войти." };
     }),
 
   // ==========================================

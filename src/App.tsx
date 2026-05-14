@@ -16,6 +16,7 @@ import BlogPostPage from "@/pages/BlogPostPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
 import SearchPage from "@/pages/SearchPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import MaintenancePage from "@/components/MaintenancePage";
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Admin Routes */}
           <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>

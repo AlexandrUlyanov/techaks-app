@@ -53,3 +53,34 @@ export async function sendEmailOTP(email: string, code: string) {
     `,
   });
 }
+
+export async function sendPasswordResetEmail(email: string, resetUrl: string) {
+  const transporter = await getTransporter();
+  const settings = await getAppSettings(["smtp_from"]);
+  const from = settings.smtp_from || env.smtpFrom;
+
+  if (!env.isProduction || !transporter) {
+    console.log(`[MOCK EMAIL] Password reset for ${email}: ${resetUrl}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from,
+    to: email,
+    subject: "Восстановление пароля TechAks",
+    text: `Перейдите по ссылке для сброса пароля: ${resetUrl}. Ссылка действует 30 минут.`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #15171A; text-transform: uppercase;">Восстановление пароля ТЕХАКС</h2>
+        <p>Нажмите кнопку ниже, чтобы установить новый пароль.</p>
+        <p style="margin: 24px 0;">
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#05C3D4;color:#111;text-decoration:none;font-weight:700;">
+            Сбросить пароль
+          </a>
+        </p>
+        <p style="word-break: break-all; color: #666; font-size: 12px;">${resetUrl}</p>
+        <p style="color: #666; font-size: 12px; margin-top: 20px;">Ссылка действует 30 минут. Если вы не запрашивали восстановление, просто проигнорируйте письмо.</p>
+      </div>
+    `,
+  });
+}

@@ -139,6 +139,22 @@ export const authSessions = mysqlTable("auth_sessions", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
+export const passwordResetTokens = mysqlTable(
+  "password_reset_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: int("user_id").notNull(),
+    token: varchar("token", { length: 128 }).notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  table => ({
+    userIdx: index("password_reset_tokens_user_idx").on(table.userId),
+    tokenIdx: index("password_reset_tokens_token_idx").on(table.token),
+  })
+);
+
 export const orders = mysqlTable("orders", {
   id: serial("id").primaryKey(),
   userId: int("user_id"),
