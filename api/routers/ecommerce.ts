@@ -462,4 +462,198 @@ export const ecommerceRouter = createRouter({
 
       return { history, comments };
     }),
+
+  updateOrderDetails: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        customerName: z.string().trim().min(2).optional(),
+        customerPhone: z.string().trim().min(6).optional(),
+        customerEmail: z.string().trim().email().optional().or(z.literal("")),
+        address: z.string().trim().optional(),
+        deliveryType: z.enum(["pickup", "delivery"]).optional(),
+        deliveryCity: z.string().trim().optional(),
+        deliveryRegion: z.string().trim().optional(),
+        deliveryPostalCode: z.string().trim().optional(),
+        customerComment: z.string().trim().optional(),
+        internalComment: z.string().trim().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      const existing = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, input.id))
+        .limit(1);
+      if (!existing[0]) throw new Error("Заказ не найден");
+
+      const patch: Record<string, unknown> = {
+        updatedAt: new Date(),
+      };
+      if (typeof input.customerName === "string") patch.customerName = input.customerName;
+      if (typeof input.customerPhone === "string") patch.customerPhone = input.customerPhone;
+      if (typeof input.customerEmail === "string")
+        patch.customerEmail = input.customerEmail.trim() || null;
+      if (typeof input.address === "string") patch.address = input.address || null;
+      if (typeof input.deliveryType === "string") patch.deliveryType = input.deliveryType;
+      if (typeof input.deliveryCity === "string") patch.deliveryCity = input.deliveryCity || null;
+      if (typeof input.deliveryRegion === "string")
+        patch.deliveryRegion = input.deliveryRegion || null;
+      if (typeof input.deliveryPostalCode === "string")
+        patch.deliveryPostalCode = input.deliveryPostalCode || null;
+      if (typeof input.customerComment === "string")
+        patch.customerComment = input.customerComment || null;
+      if (typeof input.internalComment === "string")
+        patch.internalComment = input.internalComment || null;
+
+      await db.update(orders).set(patch as any).where(eq(orders.id, input.id));
+      await db.insert(orderHistory).values({
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "order_details_updated",
+        oldValue: existing[0] as any,
+        newValue: patch as any,
+      });
+      return { success: true };
+    }),
+
+  updateOrderPayment: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        paymentStatus: z.string().trim().min(2),
+        paidAmount: z.number().int().min(0).optional(),
+        paymentMethod: z.string().trim().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      await db
+        .update(orders)
+        .set({
+          paymentStatus: input.paymentStatus,
+          paidAmount: input.paidAmount,
+          paymentMethod: input.paymentMethod,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(orders.id, input.id));
+      await db.insert(orderHistory).values({
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "payment_updated",
+        newValue: input as any,
+      });
+      return { success: true };
+    }),
+
+  updateOrderDelivery: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        deliveryStatus: z.string().trim().min(2),
+        deliveryService: z.string().trim().optional(),
+        deliveryTrackNumber: z.string().trim().optional(),
+        deliveryPrice: z.number().int().min(0).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      await db
+        .update(orders)
+        .set({
+          deliveryStatus: input.deliveryStatus,
+          deliveryService: input.deliveryService,
+          deliveryTrackNumber: input.deliveryTrackNumber,
+          deliveryPrice: input.deliveryPrice,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(orders.id, input.id));
+      await db.insert(orderHistory).values({
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "delivery_updated",
+        newValue: input as any,
+      });
+      return { success: true };
+    }),
+
+  updateOrderItemQuantity: protectedProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        itemId: z.number(),
+        quantity: z.number().int().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      const item = await db
+        .select()
+        .from(orderItems)
+        .where(and(eq(orderItems.id, input.itemId), eq(orderItems.orderId, input.orderId)))
+        .limit(1);
+      if (!item[0]) throw new Error("Позиция заказа не найдена");
+
+      const nextTotal = item[0].price * input.quantity - (item[0].discount ?? 0);
+      await db
+        .update(orderItems)
+        .set({
+          quantity: input.quantity,
+          total: nextTotal,
+        })
+        .where(eq(orderItems.id, input.itemId));
+
+      const totals = await db
+        .select({
+          subtotal: sql<number>`coalesce(sum(${orderItems.price} * ${orderItems.quantity}), 0)`,
+          discountTotal: sql<number>`coalesce(sum(${orderItems.discount}), 0)`,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, input.orderId));
+      const subtotal = totals[0]?.subtotal ?? 0;
+      const discountTotal = totals[0]?.discountTotal ?? 0;
+      const orderRow = await db
+        .select({ deliveryPrice: orders.deliveryPrice })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+      const deliveryPrice = orderRow[0]?.deliveryPrice ?? 0;
+      const totalPrice = subtotal - discountTotal + deliveryPrice;
+
+      await db
+        .update(orders)
+        .set({ subtotal, discountTotal, totalPrice, updatedAt: new Date() })
+        .where(eq(orders.id, input.orderId));
+
+      await db.insert(orderHistory).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "order_item_quantity_updated",
+        oldValue: { itemId: input.itemId, quantity: item[0].quantity } as any,
+        newValue: { itemId: input.itemId, quantity: input.quantity } as any,
+      });
+      return { success: true };
+    }),
+
+  removeOrderItem: protectedProcedure
+    .input(z.object({ orderId: z.number(), itemId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      await db
+        .delete(orderItems)
+        .where(and(eq(orderItems.id, input.itemId), eq(orderItems.orderId, input.orderId)));
+      await db.insert(orderHistory).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "order_item_removed",
+        newValue: { itemId: input.itemId } as any,
+      });
+      return { success: true };
+    }),
 });

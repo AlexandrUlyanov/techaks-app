@@ -1,7 +1,7 @@
 import { trpc } from "@/providers/trpc";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Loader2, MessageSquarePlus } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Loader2, MessageSquarePlus, Save, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function AdminOrderDetails() {
@@ -9,6 +9,10 @@ export default function AdminOrderDetails() {
   const orderId = Number(id);
   const utils = trpc.useUtils();
   const [comment, setComment] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [address, setAddress] = useState("");
 
   const { data: order, isLoading } = trpc.ecommerce.getOrderById.useQuery(
     { id: orderId },
@@ -50,6 +54,14 @@ export default function AdminOrderDetails() {
     return <div className="text-sm text-gray-500">Заказ не найден</div>;
   }
 
+  useEffect(() => {
+    if (!order) return;
+    setCustomerName(order.customerName || "");
+    setCustomerPhone(order.customerPhone || "");
+    setCustomerEmail(order.customerEmail || "");
+    setAddress(order.address || "");
+  }, [order?.id]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -81,11 +93,44 @@ export default function AdminOrderDetails() {
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Покупатель</p>
-          <p className="mt-1 font-bold">{order.customerName || "Без имени"}</p>
-          <p className="text-sm text-gray-600">{order.customerPhone || "—"}</p>
-          <p className="text-sm text-gray-600">{order.customerEmail || "—"}</p>
+          <input
+            value={customerName}
+            onChange={e => setCustomerName(e.target.value)}
+            className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-sm font-bold"
+          />
+          <input
+            value={customerPhone}
+            onChange={e => setCustomerPhone(e.target.value)}
+            className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={customerEmail}
+            onChange={e => setCustomerEmail(e.target.value)}
+            className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
+          />
           <p className="mt-3 text-xs text-gray-500">Адрес</p>
-          <p className="mt-1 text-sm">{order.address || "—"}</p>
+          <textarea
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+            rows={2}
+            className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              updateOrderDetails.mutate({
+                id: orderId,
+                customerName,
+                customerPhone,
+                customerEmail,
+                address,
+              })
+            }
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#05C3D4] px-3 text-xs font-bold text-white"
+          >
+            <Save size={14} />
+            Сохранить
+          </button>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Финансы</p>
@@ -107,14 +152,37 @@ export default function AdminOrderDetails() {
           {order.items.map(item => (
             <div
               key={item.id}
-              className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-gray-100 p-3"
+              className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 rounded-lg border border-gray-100 p-3"
             >
               <div>
                 <p className="font-semibold">{item.productName || `Товар #${item.productId}`}</p>
                 <p className="text-xs text-gray-500">SKU: {item.sku || "—"}</p>
               </div>
-              <p className="text-sm text-gray-600">{item.quantity} шт.</p>
+              <input
+                type="number"
+                min={1}
+                defaultValue={item.quantity}
+                onBlur={e => {
+                  const next = Number(e.target.value);
+                  if (Number.isFinite(next) && next > 0 && next !== item.quantity) {
+                    updateItemQuantity.mutate({
+                      orderId,
+                      itemId: item.id,
+                      quantity: next,
+                    });
+                  }
+                }}
+                className="w-16 rounded-md border border-gray-200 px-2 py-1 text-sm"
+              />
               <p className="font-bold">{formatPrice(item.total || item.price * item.quantity)}</p>
+              <button
+                type="button"
+                onClick={() => removeItem.mutate({ orderId, itemId: item.id })}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600"
+                title="Удалить позицию"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
         </div>
@@ -168,4 +236,36 @@ export default function AdminOrderDetails() {
     </div>
   );
 }
-
+  const updateOrderDetails = trpc.ecommerce.updateOrderDetails.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Данные заказа обновлены");
+    },
+    onError: err => toast.error(err.message || "Ошибка обновления заказа"),
+  });
+  const updateItemQuantity = trpc.ecommerce.updateOrderItemQuantity.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Количество обновлено");
+    },
+    onError: err => toast.error(err.message || "Ошибка изменения позиции"),
+  });
+  const removeItem = trpc.ecommerce.removeOrderItem.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Позиция удалена");
+    },
+    onError: err => toast.error(err.message || "Ошибка удаления позиции"),
+  });
