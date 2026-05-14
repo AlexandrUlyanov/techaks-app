@@ -202,6 +202,7 @@ export const authRouter = createRouter({
         userId: user.id,
         token,
         expiresAt,
+        usedAt: null,
       });
 
       const resetUrl = `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/reset-password?token=${token}`;
