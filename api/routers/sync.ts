@@ -16,6 +16,7 @@ import {
 import { previewProductNormalization } from "../lib/product-normalization";
 import { getAppSetting } from "../lib/app-settings";
 import { processMoyskladWebhookQueue } from "../lib/moysklad-webhook-worker";
+import { runMoyskladStockReconcile } from "../lib/moysklad-reconcile";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -535,6 +536,23 @@ export const syncRouter = createRouter({
       const result = await processMoyskladWebhookQueue(input?.limit ?? 100);
       return { success: true, ...result };
     }),
+
+  runStocksReconcile: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Sync");
+    const result = await runMoyskladStockReconcile();
+    return { success: true, ...result };
+  }),
+
+  getRecentReconcileRuns: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+    return db
+      .select()
+      .from(schema.syncRuns)
+      .where(eq(schema.syncRuns.runType, "reconcile"))
+      .orderBy(desc(schema.syncRuns.startedAt))
+      .limit(20);
+  }),
 
   retryWebhookEvents: protectedProcedure
     .input(

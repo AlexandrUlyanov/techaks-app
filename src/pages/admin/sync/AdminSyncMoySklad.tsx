@@ -56,6 +56,10 @@ export default function AdminSyncMoySklad() {
     trpc.sync.getWebhookQueueStats.useQuery(undefined, {
       refetchInterval: 15000,
     });
+  const { data: reconcileRuns = [], refetch: refetchReconcileRuns } =
+    trpc.sync.getRecentReconcileRuns.useQuery(undefined, {
+      refetchInterval: 30000,
+    });
 
   const saveCredentials = () => {
     if (login && password) {
@@ -121,6 +125,17 @@ export default function AdminSyncMoySklad() {
       toast.success(`Отправлено в retry: ${data.retried}`);
       setSelectedWebhookIds([]);
       refetchWebhookQueue();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const reconcileMutation = trpc.sync.runStocksReconcile.useMutation({
+    onSuccess: data => {
+      if (data.skipped) {
+        toast.message("Reconcile пропущен: идет full sync");
+      } else {
+        toast.success(`Reconcile завершен, записей: ${data.rowsProcessed ?? 0}`);
+      }
+      refetchReconcileRuns();
     },
     onError: error => toast.error(error.message),
   });
@@ -680,6 +695,13 @@ export default function AdminSyncMoySklad() {
           </h3>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => reconcileMutation.mutate()}
+              disabled={reconcileMutation.isPending}
+              className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:border-gray-300 disabled:opacity-50"
+            >
+              {reconcileMutation.isPending ? "Reconcile..." : "Reconcile остатков"}
+            </button>
+            <button
               onClick={() => processWebhookQueueMutation.mutate({ limit: 100 })}
               disabled={processWebhookQueueMutation.isPending}
               className="px-4 py-2 rounded-xl bg-[#15171A] text-white text-sm font-bold disabled:opacity-50"
@@ -692,6 +714,24 @@ export default function AdminSyncMoySklad() {
             >
               Обновить
             </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
+          <div className="text-xs font-bold text-gray-500 mb-2">Последние reconcile-запуски</div>
+          <div className="space-y-2">
+            {reconcileRuns.length === 0 ? (
+              <div className="text-sm text-gray-500">Пока запусков нет</div>
+            ) : (
+              reconcileRuns.slice(0, 5).map(run => (
+                <div key={run.id} className="flex items-center justify-between text-sm">
+                  <div className="font-medium">{run.status}</div>
+                  <div className="text-gray-500">
+                    {new Date(run.startedAt).toLocaleString("ru-RU")}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

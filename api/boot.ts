@@ -15,6 +15,7 @@ import * as schema from "@db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
+import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -335,6 +336,27 @@ app.post("/api/webhooks/moysklad/process", async c => {
   }
 });
 
+app.post("/api/sync/moysklad/reconcile", async c => {
+  try {
+    const secret = (await getAppSetting("moysklad_webhook_secret"))?.trim();
+    if (secret) {
+      const incomingSecret =
+        c.req.header("x-webhook-secret") ??
+        c.req.header("x-moysklad-secret") ??
+        c.req.query("secret");
+      if (!incomingSecret || incomingSecret !== secret) {
+        return c.json({ ok: false, error: "Unauthorized" }, 401);
+      }
+    }
+
+    const result = await runMoyskladStockReconcile();
+    return c.json({ ok: true, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Reconcile failed";
+    return c.json({ ok: false, error: message }, 500);
+  }
+});
+
 app.use("/api/trpc/*", async c => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
@@ -363,4 +385,10 @@ if (env.isProduction) {
       console.error("[webhook-worker] queue cycle failed:", error);
     });
   }, 60_000);
+
+  setInterval(() => {
+    runMoyskladStockReconcile().catch(error => {
+      console.error("[reconcile-worker] stock reconcile failed:", error);
+    });
+  }, 30 * 60_000);
 }
