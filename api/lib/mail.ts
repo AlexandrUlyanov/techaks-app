@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { env } from "./env";
 import { getAppSettings } from "./app-settings";
+import dns from "node:dns/promises";
 
 async function getTransporter() {
   const settings = await getAppSettings([
@@ -17,11 +18,21 @@ async function getTransporter() {
 
   if (!host) return null;
 
+  let transportHost = host;
+  try {
+    const resolved = await dns.lookup(host, { family: 4 });
+    if (resolved?.address) {
+      transportHost = resolved.address;
+    }
+  } catch {
+    transportHost = host;
+  }
+
   return nodemailer.createTransport({
-    host,
+    host: transportHost,
     port,
     secure: port === 465,
-    family: 4,
+    tls: { servername: host },
     auth: user ? { user, pass } : undefined,
   });
 }
