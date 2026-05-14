@@ -307,6 +307,29 @@ export default function AdminSyncMoySklad() {
     failedOrDeadRows.length > 0 &&
     failedOrDeadRows.every(row => selectedWebhookIds.includes(row.id));
 
+  const getRunStats = (statsJson: unknown) => {
+    if (!statsJson || typeof statsJson !== "object" || Array.isArray(statsJson)) {
+      return { rowsProcessed: 0, storesFiltered: 0 };
+    }
+    const obj = statsJson as Record<string, unknown>;
+    return {
+      rowsProcessed: Number(obj.rowsProcessed ?? 0),
+      storesFiltered: Number(obj.storesFiltered ?? 0),
+    };
+  };
+
+  const getDurationLabel = (startedAt: string | Date, finishedAt?: string | Date | null) => {
+    if (!finishedAt) return "—";
+    const startMs = new Date(startedAt).getTime();
+    const endMs = new Date(finishedAt).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return "—";
+    const sec = Math.floor((endMs - startMs) / 1000);
+    if (sec < 60) return `${sec}с`;
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    return `${min}м ${rem}с`;
+  };
+
   return (
     <div className="space-y-8 max-w-5xl">
       <div className="flex items-center gap-4">
@@ -764,10 +787,19 @@ export default function AdminSyncMoySklad() {
               <div className="text-sm text-gray-500">Пока запусков нет</div>
             ) : (
               reconcileRuns.slice(0, 5).map(run => (
-                <div key={run.id} className="flex items-center justify-between text-sm">
+                <div key={run.id} className="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm border-b border-gray-50 pb-2">
                   <div className="font-medium">{run.status}</div>
                   <div className="text-gray-500">
                     {new Date(run.startedAt).toLocaleString("ru-RU")}
+                  </div>
+                  <div className="text-gray-600">
+                    строк: {getRunStats(run.statsJson).rowsProcessed}
+                  </div>
+                  <div className="text-gray-600">
+                    фильтр складов: {getRunStats(run.statsJson).storesFiltered}
+                  </div>
+                  <div className="text-gray-500">
+                    длительность: {getDurationLabel(run.startedAt, run.finishedAt)}
                   </div>
                 </div>
               ))
@@ -775,7 +807,7 @@ export default function AdminSyncMoySklad() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
           {[
             { key: "new", label: "Новые" },
             { key: "processing", label: "В обработке" },
@@ -790,6 +822,11 @@ export default function AdminSyncMoySklad() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="text-xs text-gray-500 mb-4">
+          Эти счетчики заполняются только если в МойСклад настроен webhook на
+          <span className="font-mono"> /api/webhooks/moysklad</span>. Нули — это нормально, если webhook еще не подключен или не было событий.
         </div>
 
         {failedOrDeadRows.length > 0 && (
@@ -852,7 +889,7 @@ export default function AdminSyncMoySklad() {
                 {webhookRows.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
-                      Событий пока нет
+                      Событий пока нет. Проверьте webhook в МойСклад и секрет в настройках.
                     </td>
                   </tr>
                 ) : (
