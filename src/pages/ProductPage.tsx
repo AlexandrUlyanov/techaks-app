@@ -49,6 +49,22 @@ export default function ProductPage() {
     return trail;
   }, [categories, product]);
 
+  const seoTitle = product
+    ? `${product.name} — купить в ТЕХАКС`
+    : "Товар — ТЕХАКС";
+  const seoDescription = product
+    ? (product.description || "").trim().slice(0, 220) ||
+      `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`
+    : "Карточка товара интернет-магазина ТЕХАКС.";
+  const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
+
+  useSeo({
+    title: seoTitle,
+    description: seoDescription,
+    canonicalPath: seoCanonicalPath,
+    noindex: !product,
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -81,14 +97,6 @@ export default function ProductPage() {
   const relatedProducts = merchandisingRelated.slice(0, 4);
   const canonicalPath = `/product/${product.slug}`;
   const descriptionForSeo = (product.description || "").trim().slice(0, 220);
-
-  useSeo({
-    title: `${product.name} — купить в ТЕХАКС`,
-    description:
-      descriptionForSeo ||
-      `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`,
-    canonicalPath,
-  });
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
