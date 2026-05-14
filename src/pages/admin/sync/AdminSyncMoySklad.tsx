@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowLeft,
@@ -19,8 +19,10 @@ export default function AdminSyncMoySklad() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Credentials
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
+  const [login, setLogin] = useState(() => localStorage.getItem("ms_login") || "");
+  const [password, setPassword] = useState(
+    () => localStorage.getItem("ms_password") || ""
+  );
 
   // Data
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
@@ -39,13 +41,7 @@ export default function AdminSyncMoySklad() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const { data: msSettings } = trpc.settings.getMoySklad.useQuery();
-
-  useEffect(() => {
-    const savedLogin = localStorage.getItem("ms_login");
-    const savedPassword = localStorage.getItem("ms_password");
-    if (savedLogin) setLogin(savedLogin);
-    if (savedPassword) setPassword(savedPassword);
-  }, []);
+  const { data: savedConfig } = trpc.sync.getSavedConfig.useQuery();
 
   const saveCredentials = () => {
     if (login && password) {
@@ -64,19 +60,43 @@ export default function AdminSyncMoySklad() {
     { enabled: false }
   );
   const syncMutation = trpc.sync.runSync.useMutation({
-    onSuccess: (data: any) => {
+    onSuccess: (data: { message: string }) => {
       toast.success(data.message);
       setStep(1); // Reset after success
     },
-    onError: (error: any) => toast.error(error.message),
+    onError: error => toast.error(error.message),
+  });
+  const saveConfigMutation = trpc.sync.saveConfig.useMutation({
+    onSuccess: () => {
+      toast.success("Конфигурация синхронизации сохранена");
+    },
+    onError: error => toast.error(error.message),
   });
 
   const wipeCatalogMutation = trpc.sync.wipeCatalog.useMutation({
-    onSuccess: (data: any) => {
+    onSuccess: (data: { message: string }) => {
       toast.success(data.message);
     },
-    onError: (error: any) => toast.error(error.message),
+    onError: error => toast.error(error.message),
   });
+
+  useEffect(() => {
+    if (!savedConfig) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSyncProducts(savedConfig.syncProducts);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSyncStocks(savedConfig.syncStocks);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSyncPrices(savedConfig.syncPrices);
+    if (savedConfig.selectedStores.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedStores(savedConfig.selectedStores);
+    }
+    if (savedConfig.selectedCategories.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedCategories(savedConfig.selectedCategories);
+    }
+  }, [savedConfig]);
 
   const handleFetchStores = async () => {
     if (!msSettings?.hasToken && (!login || !password)) {
@@ -98,7 +118,7 @@ export default function AdminSyncMoySklad() {
         return;
       }
       setStores(res.data);
-      setSelectedStores(res.data.map((s: any) => s.id)); // Select all by default
+      setSelectedStores(res.data.map(s => s.id)); // Select all by default
       setStep(2);
       toast.success(`Получено складов: ${res.data.length}`);
       return;
@@ -124,7 +144,7 @@ export default function AdminSyncMoySklad() {
         return;
       }
       setCategories(res.data);
-      setSelectedCategories(res.data.map((c: any) => c.id)); // Select all by default
+      setSelectedCategories(res.data.map(c => c.id)); // Select all by default
       setStep(3);
       toast.success(`Получено категорий: ${res.data.length}`);
       return;
@@ -152,6 +172,16 @@ export default function AdminSyncMoySklad() {
       syncPrices,
       selectedStores,
       selectedCategories,
+    });
+  };
+
+  const handleSaveConfig = () => {
+    saveConfigMutation.mutate({
+      selectedStores,
+      selectedCategories,
+      syncProducts,
+      syncStocks,
+      syncPrices,
     });
   };
 
@@ -462,6 +492,20 @@ export default function AdminSyncMoySklad() {
                 </div>
 
                 <div className="pt-4">
+                  <button
+                    onClick={handleSaveConfig}
+                    disabled={saveConfigMutation.isPending}
+                    className="mb-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all bg-white border border-gray-200 hover:border-[#05C3D4] disabled:opacity-50"
+                  >
+                    {saveConfigMutation.isPending ? (
+                      <RefreshCw className="animate-spin" />
+                    ) : (
+                      <Save />
+                    )}
+                    {saveConfigMutation.isPending
+                      ? "Сохранение..."
+                      : "Сохранить как конфиг по умолчанию"}
+                  </button>
                   <button
                     onClick={handleRunSync}
                     disabled={syncMutation.isPending}

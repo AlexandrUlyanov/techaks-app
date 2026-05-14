@@ -13,13 +13,21 @@ import {
   rebuildProductSpecIndex,
 } from "../lib/product-normalization-service";
 import { previewProductNormalization } from "../lib/product-normalization";
-import { getAppSetting } from "../lib/app-settings";
+import { getAppSetting, setAppSetting } from "../lib/app-settings";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
   headers: {
     "Accept-Encoding": "gzip",
   },
+});
+
+const syncConfigSchema = z.object({
+  selectedStores: z.array(z.string()).default([]),
+  selectedCategories: z.array(z.string()).default([]),
+  syncProducts: z.boolean().default(true),
+  syncStocks: z.boolean().default(true),
+  syncPrices: z.boolean().default(true),
 });
 
 async function getAuthHeader(input: { login?: string; password?: string }): Promise<string> {
@@ -233,6 +241,25 @@ async function downloadImage(
 }
 
 export const syncRouter = createRouter({
+  getSavedConfig: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const raw = await getAppSetting("moysklad_full_sync_config");
+    if (!raw) return syncConfigSchema.parse({});
+    try {
+      return syncConfigSchema.parse(JSON.parse(raw));
+    } catch {
+      return syncConfigSchema.parse({});
+    }
+  }),
+
+  saveConfig: protectedProcedure
+    .input(syncConfigSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      await setAppSetting("moysklad_full_sync_config", JSON.stringify(input));
+      return { success: true };
+    }),
+
   getStores: publicQuery
     .input(z.object({ login: z.string().optional(), password: z.string().optional() }))
     .query(async ({ input }) => {
@@ -298,6 +325,30 @@ export const syncRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "sync", "Sync");
+      let selectedStores = input.selectedStores;
+      let selectedCategories = input.selectedCategories;
+      let syncProducts = input.syncProducts;
+      let syncStocks = input.syncStocks;
+      let syncPrices = input.syncPrices;
+
+      if (
+        (!selectedStores || selectedStores.length === 0) &&
+        (!selectedCategories || selectedCategories.length === 0)
+      ) {
+        const rawSavedConfig = await getAppSetting("moysklad_full_sync_config");
+        if (rawSavedConfig) {
+          try {
+            const savedConfig = syncConfigSchema.parse(JSON.parse(rawSavedConfig));
+            selectedStores = savedConfig.selectedStores;
+            selectedCategories = savedConfig.selectedCategories;
+            syncProducts = savedConfig.syncProducts;
+            syncStocks = savedConfig.syncStocks;
+            syncPrices = savedConfig.syncPrices;
+          } catch {
+            // ignore invalid saved config
+          }
+        }
+      }
       let fileLogContent = `=== Синхронизация МойСклад [${new Date().toISOString()}] ===\n\n`;
       const writeLog = (msg: string) => {
         console.log(msg);
@@ -345,7 +396,7 @@ export const syncRouter = createRouter({
 
         // 1. Категории
         const categoryMap = new Map<string, number>();
-        if (input.syncProducts && input.selectedCategories && input.selectedCategories.length > 0) {
+        if (syncProducts && selectedCategories && selectedCategories.length > 0) {
           logDetails.steps.push("Синхронизация категорий");
           await updateLog('running', 'Синхронизация категорий...');
           writeLog("Fetching folders...");
@@ -354,7 +405,7 @@ export const syncRouter = createRouter({
           writeLog(`Found ${msFolders.length} folders in MoySklad`);
 
           for (const msFolder of msFolders) {
-            if (!input.selectedCategories.includes(msFolder.id)) continue;
+            if (!selectedCategories.includes(msFolder.id)) continue;
             const existing = await db.select().from(schema.categories).where(eq(schema.categories.msId, msFolder.id)).limit(1);
             if (existing.length > 0) {
               await db.update(schema.categories).set({ name: msFolder.name }).where(eq(schema.categories.id, existing[0].id));
@@ -377,7 +428,7 @@ export const syncRouter = createRouter({
           }
 
           for (const msFolder of msFolders) {
-            if (!input.selectedCategories.includes(msFolder.id)) continue;
+            if (!selectedCategories.includes(msFolder.id)) continue;
             if (msFolder.productFolder?.meta?.href) {
               const msParentId = getMsIdFromHref(msFolder.productFolder.meta.href);
               if (!msParentId) continue;
@@ -402,9 +453,9 @@ export const syncRouter = createRouter({
         const allMsStores = await fetchAllRows("/entity/store", authHeader);
         writeLog(`Found ${allMsStores.length} stores in MoySklad`);
 
-        if (input.selectedStores && input.selectedStores.length > 0) {
+        if (selectedStores && selectedStores.length > 0) {
           const selectedMsStores = allMsStores.filter(
-            s => input.selectedStores!.includes(String(s.id ?? ""))
+            s => selectedStores.includes(String(s.id ?? ""))
           );
           for (const msStore of selectedMsStores) {
             const typedMsStore: MsStoreRow = {
@@ -493,7 +544,7 @@ export const syncRouter = createRouter({
             const folderIdRaw = item.productFolder?.meta?.href ? item.productFolder.meta.href.split("/").pop() : null;
             const folderId = folderIdRaw ? folderIdRaw.split("?")[0] : null;
 
-            if (input.selectedCategories && folderId && !input.selectedCategories.includes(folderId)) continue;
+            if (selectedCategories && folderId && !selectedCategories.includes(folderId)) continue;
 
             let categoryId: number | null = null;
             let folderSlug = "general";
@@ -508,8 +559,8 @@ export const syncRouter = createRouter({
 
             if (!categoryId && allCategories.length > 0) categoryId = allCategories[0].id;
 
-            const price = input.syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
-            const inStock = input.syncStocks ? (item.stock || 0) > 0 : true;
+            const price = syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
+            const inStock = syncStocks ? (item.stock || 0) > 0 : true;
 
             const specs: Record<string, string> = {};
             if (item.attributes) {
@@ -564,8 +615,8 @@ export const syncRouter = createRouter({
                 updateData.specs = specs;
               }
 
-              if (input.syncPrices) updateData.price = price;
-              if (input.syncStocks) updateData.inStock = inStock;
+              if (syncPrices) updateData.price = price;
+              if (syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
               if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
@@ -596,7 +647,7 @@ export const syncRouter = createRouter({
         }
 
         // 4. Остатки
-        if (input.syncStocks) {
+        if (syncStocks) {
           const existingProducts = await db
             .select({ id: schema.products.id, msId: schema.products.msId })
             .from(schema.products);
@@ -683,9 +734,9 @@ export const syncRouter = createRouter({
 
                 if (
                   msStoreId &&
-                  input.selectedStores &&
-                  input.selectedStores.length > 0 &&
-                  !input.selectedStores.includes(msStoreId)
+                  selectedStores &&
+                  selectedStores.length > 0 &&
+                  !selectedStores.includes(msStoreId)
                 ) {
                    writeLog(`[DEBUG STOCK] Store ${msStoreId} has stock but was skipped because it's not in selectedStores.`);
                    continue;
@@ -702,7 +753,7 @@ export const syncRouter = createRouter({
           }
         }
 
-        if (input.syncProducts) {
+        if (syncProducts) {
           logDetails.steps.push("Нормализация характеристик");
           await updateLog('running', 'Нормализация характеристик...');
           writeLog("Normalizing description specs after MoySklad sync...");
@@ -754,3 +805,4 @@ export const syncRouter = createRouter({
       }
     }),
 });
+
