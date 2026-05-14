@@ -57,6 +57,13 @@
       "when": 1778763051335,
       "tag": "0007_lowly_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1778900000000,
+      "tag": "0008_orders_admin_panel_foundation",
+      "breakpoints": true
     }
   ]
 }

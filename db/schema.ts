@@ -159,11 +159,27 @@ export const passwordResetTokens = mysqlTable(
 export const orders = mysqlTable("orders", {
   id: serial("id").primaryKey(),
   userId: int("user_id"),
+  orderNumber: varchar("order_number", { length: 64 }),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
+  deliveryStatus: varchar("delivery_status", { length: 30 })
+    .notNull()
+    .default("not_required"),
   totalPrice: int("total_price").notNull(),
+  subtotal: int("subtotal").notNull().default(0),
+  discountTotal: int("discount_total").notNull().default(0),
+  deliveryPrice: int("delivery_price").notNull().default(0),
+  paidAmount: int("paid_amount").notNull().default(0),
   deliveryType: varchar("delivery_type", { length: 20 })
     .notNull()
     .default("pickup"), // pickup, delivery
+  deliveryService: varchar("delivery_service", { length: 80 }),
+  deliveryCity: varchar("delivery_city", { length: 120 }),
+  deliveryRegion: varchar("delivery_region", { length: 120 }),
+  deliveryPostalCode: varchar("delivery_postal_code", { length: 20 }),
+  deliveryTrackNumber: varchar("delivery_track_number", { length: 128 }),
+  deliveryComment: text("delivery_comment"),
+  shippedAt: timestamp("shipped_at"),
+  deliveredAt: timestamp("delivered_at"),
   address: text("address"),
   paymentType: varchar("payment_type", { length: 20 })
     .notNull()
@@ -171,16 +187,82 @@ export const orders = mysqlTable("orders", {
   paymentStatus: varchar("payment_status", { length: 20 })
     .notNull()
     .default("unpaid"), // unpaid, paid
+  paymentMethod: varchar("payment_method", { length: 40 }),
+  paymentId: varchar("payment_id", { length: 128 }),
+  paidAt: timestamp("paid_at"),
+  paymentError: text("payment_error"),
+  source: varchar("source", { length: 20 }).notNull().default("site"),
+  managerId: int("manager_id"),
+  customerName: varchar("customer_name", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 30 }),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerFirstName: varchar("customer_first_name", { length: 120 }),
+  customerLastName: varchar("customer_last_name", { length: 120 }),
+  customerComment: text("customer_comment"),
+  internalComment: text("internal_comment"),
+  isProblem: boolean("is_problem").notNull().default(false),
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledReason: text("cancelled_reason"),
+  completedAt: timestamp("completed_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, table => ({
+  orderNumberIdx: index("orders_order_number_idx").on(table.orderNumber),
+  createdAtIdx: index("orders_created_at_idx").on(table.createdAt),
+  statusCreatedIdx: index("orders_status_created_idx").on(table.status, table.createdAt),
+  paymentStatusIdx: index("orders_payment_status_idx").on(table.paymentStatus, table.createdAt),
+  deliveryStatusIdx: index("orders_delivery_status_idx").on(table.deliveryStatus, table.createdAt),
+  managerIdx: index("orders_manager_idx").on(table.managerId, table.createdAt),
+  sourceIdx: index("orders_source_idx").on(table.source, table.createdAt),
+  customerPhoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),
+  customerEmailIdx: index("orders_customer_email_idx").on(table.customerEmail),
+  deliveryTrackIdx: index("orders_delivery_track_idx").on(table.deliveryTrackNumber),
+}));
 
 export const orderItems = mysqlTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: int("order_id").notNull(),
   productId: int("product_id").notNull(),
+  sku: varchar("sku", { length: 120 }),
+  productName: varchar("product_name", { length: 512 }),
+  image: varchar("image", { length: 255 }),
   quantity: int("quantity").notNull().default(1),
   price: int("price").notNull(), // capture price at time of order
-});
+  discount: int("discount").notNull().default(0),
+  total: int("total").notNull().default(0),
+  stockStatus: varchar("stock_status", { length: 20 }).notNull().default("in_stock"),
+}, table => ({
+  orderIdIdx: index("order_items_order_id_idx").on(table.orderId),
+  productIdIdx: index("order_items_product_id_idx").on(table.productId),
+  skuIdx: index("order_items_sku_idx").on(table.sku),
+}));
+
+export const orderComments = mysqlTable("order_comments", {
+  id: serial("id").primaryKey(),
+  orderId: int("order_id").notNull(),
+  userId: int("user_id"),
+  commentType: varchar("comment_type", { length: 20 }).notNull().default("internal"),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  orderIdx: index("order_comments_order_idx").on(table.orderId, table.createdAt),
+  userIdx: index("order_comments_user_idx").on(table.userId),
+}));
+
+export const orderHistory = mysqlTable("order_history", {
+  id: serial("id").primaryKey(),
+  orderId: int("order_id").notNull(),
+  userId: int("user_id"),
+  actionType: varchar("action_type", { length: 80 }).notNull(),
+  oldValue: json("old_value"),
+  newValue: json("new_value"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  orderIdx: index("order_history_order_idx").on(table.orderId, table.createdAt),
+  actionIdx: index("order_history_action_idx").on(table.actionType, table.createdAt),
+  userIdx: index("order_history_user_idx").on(table.userId),
+}));
 
 export const productStocks = mysqlTable("product_stocks", {
   id: serial("id").primaryKey(),

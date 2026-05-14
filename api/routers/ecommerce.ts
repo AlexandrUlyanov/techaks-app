@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems } from "@db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
@@ -45,6 +45,9 @@ export const ecommerceRouter = createRouter({
         (sum, item) => sum + item.price * item.quantity,
         0
       );
+      const orderNumber = `TA-${Date.now().toString().slice(-9)}-${Math.floor(
+        100 + Math.random() * 900
+      )}`;
 
       // 1. Find or create user
       let userId: number | null = null;
@@ -74,10 +77,20 @@ export const ecommerceRouter = createRouter({
       // 2. Create order
       const newOrder = await db.insert(orders).values({
         userId,
+        orderNumber,
+        customerName: normalizedFullName,
+        customerPhone: normalizedPhone,
+        customerEmail: normalizedEmail,
+        source: "site",
         totalPrice: trustedTotal,
+        subtotal: trustedTotal,
+        paidAmount: 0,
         deliveryType: input.deliveryType,
         address: input.address,
+        deliveryStatus:
+          input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
         paymentType: input.paymentType,
+        paymentMethod: input.paymentType,
         status: "pending",
       });
       const orderId = newOrder[0].insertId;
@@ -87,6 +100,7 @@ export const ecommerceRouter = createRouter({
         await db.insert(orderItems).values({
           orderId,
           productId: item.productId,
+          total: item.price * item.quantity,
           quantity: item.quantity,
           price: item.price,
         });
@@ -129,31 +143,109 @@ export const ecommerceRouter = createRouter({
     .input(
       z
         .object({
-          limit: z.number().min(1).max(200).default(100),
+          limit: z.number().min(1).max(200).default(25),
           offset: z.number().min(0).default(0),
+          search: z.string().trim().optional(),
+          statuses: z.array(z.string()).optional(),
+          paymentStatuses: z.array(z.string()).optional(),
+          deliveryStatuses: z.array(z.string()).optional(),
+          deliveryTypes: z.array(z.string()).optional(),
+          paymentTypes: z.array(z.string()).optional(),
+          sources: z.array(z.string()).optional(),
+          managerId: z.number().optional(),
+          dateFrom: z.coerce.date().optional(),
+          dateTo: z.coerce.date().optional(),
         })
         .optional()
     )
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
-      const limit = input?.limit ?? 100;
+      const limit = input?.limit ?? 25;
       const offset = input?.offset ?? 0;
+      const whereConditions: any[] = [];
+
+      if (input?.statuses?.length) {
+        whereConditions.push(inArray(orders.status, input.statuses));
+      }
+      if (input?.paymentStatuses?.length) {
+        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
+      }
+      if (input?.deliveryStatuses?.length) {
+        whereConditions.push(inArray(orders.deliveryStatus, input.deliveryStatuses));
+      }
+      if (input?.deliveryTypes?.length) {
+        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
+      }
+      if (input?.paymentTypes?.length) {
+        whereConditions.push(inArray(orders.paymentType, input.paymentTypes));
+      }
+      if (input?.sources?.length) {
+        whereConditions.push(inArray(orders.source, input.sources));
+      }
+      if (typeof input?.managerId === "number") {
+        whereConditions.push(eq(orders.managerId, input.managerId));
+      }
+      if (input?.dateFrom) {
+        whereConditions.push(gte(orders.createdAt, input.dateFrom));
+      }
+      if (input?.dateTo) {
+        whereConditions.push(lte(orders.createdAt, input.dateTo));
+      }
+
+      const search = input?.search?.trim();
+      if (search) {
+        const searchLike = `%${search}%`;
+        const searchAsNumber = Number(search);
+        const isNumeric = Number.isFinite(searchAsNumber);
+
+        whereConditions.push(
+          or(
+            sql`${orders.id} = ${isNumeric ? searchAsNumber : -1}`,
+            sql`${orders.orderNumber} LIKE ${searchLike}`,
+            sql`${orders.customerName} LIKE ${searchLike}`,
+            sql`${orders.customerPhone} LIKE ${searchLike}`,
+            sql`${orders.customerEmail} LIKE ${searchLike}`,
+            sql`${orders.deliveryTrackNumber} LIKE ${searchLike}`,
+            sql`EXISTS (
+              SELECT 1 FROM ${orderItems} oi
+              WHERE oi.order_id = ${orders.id}
+              AND (
+                oi.sku LIKE ${searchLike}
+                OR oi.product_name LIKE ${searchLike}
+              )
+            )`
+          )
+        );
+      }
+
+      const whereClause =
+        whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
       const items = await db
         .select({
           id: orders.id,
+          orderNumber: orders.orderNumber,
           userId: orders.userId,
           status: orders.status,
           totalPrice: orders.totalPrice,
+          subtotal: orders.subtotal,
+          discountTotal: orders.discountTotal,
+          deliveryPrice: orders.deliveryPrice,
+          paidAmount: orders.paidAmount,
           deliveryType: orders.deliveryType,
+          deliveryStatus: orders.deliveryStatus,
+          deliveryCity: orders.deliveryCity,
+          source: orders.source,
+          managerId: orders.managerId,
           address: orders.address,
           paymentType: orders.paymentType,
           paymentStatus: orders.paymentStatus,
           createdAt: orders.createdAt,
-          customerName: users.fullName,
-          customerPhone: users.phone,
-          customerEmail: users.email,
+          updatedAt: orders.updatedAt,
+          customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+          customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+          customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
           itemsCount: sql<number>`(
             SELECT count(*) FROM ${orderItems}
             WHERE ${orderItems.orderId} = ${orders.id}
@@ -161,13 +253,15 @@ export const ecommerceRouter = createRouter({
         })
         .from(orders)
         .leftJoin(users, eq(orders.userId, users.id))
+        .where(whereClause)
         .orderBy(desc(orders.createdAt))
         .limit(limit)
         .offset(offset);
 
       const countResult = await db
         .select({ count: sql<number>`count(*)` })
-        .from(orders);
+        .from(orders)
+        .where(whereClause);
 
       return {
         orders: items,
@@ -185,6 +279,20 @@ export const ecommerceRouter = createRouter({
           "shipped",
           "delivered",
           "cancelled",
+          "new",
+          "awaiting_payment",
+          "paid",
+          "processing",
+          "confirmed_by_customer",
+          "ready_for_pickup",
+          "assembling",
+          "assembled",
+          "awaiting_dispatch",
+          "handed_to_delivery",
+          "in_delivery",
+          "completed",
+          "return_requested",
+          "problem",
         ]),
       })
     )
