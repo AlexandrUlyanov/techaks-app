@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useSeo } from "@/lib/seo";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -196,6 +197,24 @@ export default function CatalogPage() {
     ? currentManufacturer?.name || "Производители"
     : activeCategoryName;
   const showProductSection = catalogView === "categories" || Boolean(activeBrand);
+
+  const seoTitle = currentManufacturer
+    ? `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
+    : currentCategory && activeCategory !== "all"
+      ? `${currentCategory.name} — купить в интернет-магазине ТЕХАКС`
+      : "Каталог товаров — интернет-магазин ТЕХАКС";
+
+  const seoDescription = currentManufacturer
+    ? `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
+    : currentCategory && activeCategory !== "all"
+      ? `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
+      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
+
+  useSeo({
+    title: seoTitle,
+    description: seoDescription,
+    canonicalPath: "/catalog",
+  });
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">

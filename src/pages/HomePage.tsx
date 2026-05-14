@@ -9,6 +9,7 @@ import ReviewCard from "@/components/ReviewCard";
 import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
 import { CategoryIcon } from "@/lib/category-icons";
+import { useSeo } from "@/lib/seo";
 import {
   Carousel,
   CarouselContent,
@@ -39,6 +40,13 @@ const defaultReviews = [
 ];
 
 export default function HomePage() {
+  useSeo({
+    title: "ТЕХАКС — интернет-магазин техники и аксессуаров",
+    description:
+      "Техника и аксессуары: смартфоны, наушники, зарядные устройства, кабели, чехлы и гаджеты. Актуальные цены, наличие и доставка.",
+    canonicalPath: "/",
+  });
+
   const { data: products = [] } = trpc.product.getAll.useQuery();
   const { data: merchandisingProducts = [] } =
     trpc.merchandising.recommendations.useQuery({

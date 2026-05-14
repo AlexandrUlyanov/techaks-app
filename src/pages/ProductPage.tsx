@@ -7,6 +7,7 @@ import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { buildCanonical, useSeo } from "@/lib/seo";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -78,6 +79,16 @@ export default function ProductPage() {
   }
 
   const relatedProducts = merchandisingRelated.slice(0, 4);
+  const canonicalPath = `/product/${product.slug}`;
+  const descriptionForSeo = (product.description || "").trim().slice(0, 220);
+
+  useSeo({
+    title: `${product.name} — купить в ТЕХАКС`,
+    description:
+      descriptionForSeo ||
+      `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`,
+    canonicalPath,
+  });
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -86,6 +97,29 @@ export default function ProductPage() {
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
   const normalizedDescription = (product.description || "").trim();
   const hasDescription = normalizedDescription.length > 0;
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: [buildCanonical(product.image)],
+    description:
+      descriptionForSeo ||
+      `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
+    sku: product.slug.toUpperCase(),
+    brand: {
+      "@type": "Brand",
+      name: productManufacturer?.title || "ТЕХАКС",
+    },
+    offers: {
+      "@type": "Offer",
+      url: buildCanonical(canonicalPath),
+      priceCurrency: "RUB",
+      price: String(product.price),
+      availability: product.inStock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+  };
 
   const handleAddToCart = () => {
     addItem({
@@ -102,6 +136,10 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       {/* Breadcrumbs */}
       <section className="bg-muted/30 py-4 border-b border-border">
         <div className="container-main">

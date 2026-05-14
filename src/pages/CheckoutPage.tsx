@@ -20,8 +20,16 @@ import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "next-themes";
+import { useSeo } from "@/lib/seo";
 
 export default function CheckoutPage() {
+  useSeo({
+    title: "Оформление заказа — ТЕХАКС",
+    description: "Оформление заказа в интернет-магазине ТЕХАКС.",
+    canonicalPath: "/checkout",
+    noindex: true,
+  });
+
   const {
     items,
     getTotalPrice,

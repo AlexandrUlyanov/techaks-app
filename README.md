@@ -134,6 +134,8 @@ Create records at your DNS provider:
 
 - `A` record: `techaks.ru` -> `195.208.2.100`
 - `A` record: `www.techaks.ru` -> `195.208.2.100`
+- `A` record: `xn--80ajq2abt.xn--p1ai` -> `195.208.2.100` (`техакс.рф`)
+- `A` record: `www.xn--80ajq2abt.xn--p1ai` -> `195.208.2.100` (`www.техакс.рф`)
 
 Recommended TTL for cutover: `300`.
 
@@ -148,7 +150,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-This config already redirects `www.techaks.ru` to `techaks.ru`.
+This config redirects all alternate hosts (`www`, `.рф`, punycode) to `https://techaks.ru` with `301` and preserves path/query.
 
 ### 3) SSL (Let's Encrypt)
 Issue certificates and enable HTTPS redirect:
@@ -156,7 +158,12 @@ Issue certificates and enable HTTPS redirect:
 ```bash
 sudo apt update
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d techaks.ru -d www.techaks.ru --redirect -m info@techaks.ru --agree-tos --no-eff-email
+sudo certbot --nginx \
+  -d techaks.ru \
+  -d www.techaks.ru \
+  -d xn--80ajq2abt.xn--p1ai \
+  -d www.xn--80ajq2abt.xn--p1ai \
+  --redirect -m info@techaks.ru --agree-tos --no-eff-email
 ```
 
 ### 4) Verification
@@ -168,5 +175,17 @@ curl -I https://techaks.ru
 
 Expected:
 - `www` -> `301` to `https://techaks.ru/...`
+- `техакс.рф` / `xn--80ajq2abt.xn--p1ai` -> `301` to `https://techaks.ru/...`
 - `http://techaks.ru` -> `301` to `https://techaks.ru/...`
 - `https://techaks.ru` -> `200`
+
+### 5) SEO endpoints
+
+The backend now serves:
+
+- `https://techaks.ru/robots.txt`
+- `https://techaks.ru/sitemap.xml` (index)
+- `https://techaks.ru/sitemap-categories.xml`
+- `https://techaks.ru/sitemap-products-1.xml`
+- `https://techaks.ru/sitemap-pages.xml`
+- `https://techaks.ru/sitemap-images.xml`

@@ -17,8 +17,16 @@ import AuthModal from "@/components/AuthModal";
 import { Separator } from "@/components/ui/separator";
 import { Can } from "@/providers/AbilityProvider";
 import { Link } from "react-router";
+import { useSeo } from "@/lib/seo";
 
 export default function AccountPage() {
+  useSeo({
+    title: "Личный кабинет — ТЕХАКС",
+    description: "Личный кабинет покупателя в интернет-магазине ТЕХАКС.",
+    canonicalPath: "/account",
+    noindex: true,
+  });
+
   const { user, isAuthenticated, logout } = useAuth();
 
   const { data: orders = [], isLoading } =

@@ -36,11 +36,15 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import SyncLayout from "@/pages/admin/sync/SyncLayout";
 import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
 import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
+import { useSeo } from "@/lib/seo";
 
 export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
+  const shouldNoindex = isAdmin || ["/checkout", "/account", "/search"].includes(location.pathname);
+
+  useSeo({ noindex: shouldNoindex, canonicalPath: location.pathname });
 
   const { data: maintenance } = trpc.settings.getMaintenanceStatus.useQuery(undefined, {
     staleTime: 60 * 1000, // Cache for 1 minute

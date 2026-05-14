@@ -11,6 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useSeo } from "@/lib/seo";
 
 const PRODUCT_PAGE_SIZE = 28;
 
@@ -33,6 +34,13 @@ export default function SearchPage() {
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  useSeo({
+    title: query ? `Поиск: ${query} — ТЕХАКС` : "Поиск — ТЕХАКС",
+    description: "Поиск товаров в интернет-магазине ТЕХАКС.",
+    canonicalPath: "/search",
+    noindex: true,
+  });
 
   const { data: specFilters = [] } = trpc.product.getSpecFilters.useQuery({
     categorySlug: "all",
