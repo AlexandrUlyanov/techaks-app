@@ -59,6 +59,10 @@ export default function AdminSyncMoySklad() {
     trpc.sync.getWebhookQueueStats.useQuery(undefined, {
       refetchInterval: 15000,
     });
+  const { data: webhookSetup } = trpc.sync.getWebhookSetupStatus.useQuery(
+    undefined,
+    { refetchInterval: 15000 }
+  );
   const { data: reconcileRuns = [], refetch: refetchReconcileRuns } =
     trpc.sync.getRecentReconcileRuns.useQuery(undefined, {
       refetchInterval: 30000,
@@ -777,6 +781,59 @@ export default function AdminSyncMoySklad() {
             >
               Обновить
             </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
+          <div className="text-xs font-bold text-gray-500 mb-3">Чек-лист webhook</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {webhookSetup?.hasSecret ? (
+                  <CheckCircle size={16} className="text-green-600" />
+                ) : (
+                  <AlertTriangle size={16} className="text-amber-600" />
+                )}
+                <span>Секрет webhook задан</span>
+              </div>
+              <span className={webhookSetup?.hasSecret ? "text-green-700 font-bold" : "text-amber-700 font-bold"}>
+                {webhookSetup?.hasSecret ? "OK" : "Нет"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {(webhookSetup?.events24h ?? 0) > 0 ? (
+                  <CheckCircle size={16} className="text-green-600" />
+                ) : (
+                  <AlertTriangle size={16} className="text-amber-600" />
+                )}
+                <span>События за 24 часа</span>
+              </div>
+              <span className={(webhookSetup?.events24h ?? 0) > 0 ? "text-green-700 font-bold" : "text-amber-700 font-bold"}>
+                {webhookSetup?.events24h ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {(syncOverview?.webhookLagMinutes ?? 0) <= 10 ? (
+                  <CheckCircle size={16} className="text-green-600" />
+                ) : (
+                  <AlertTriangle size={16} className="text-amber-600" />
+                )}
+                <span>Lag в норме (до 10 минут)</span>
+              </div>
+              <span
+                className={(syncOverview?.webhookLagMinutes ?? 0) <= 10 ? "text-green-700 font-bold" : "text-amber-700 font-bold"}
+              >
+                {syncOverview?.webhookLagMinutes ?? 0}м
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 pt-1">
+              Последнее событие:{" "}
+              {webhookSetup?.lastEventAt
+                ? new Date(webhookSetup.lastEventAt).toLocaleString("ru-RU")
+                : "не было"}
+            </div>
           </div>
         </div>
 

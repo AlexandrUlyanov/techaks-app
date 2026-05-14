@@ -609,6 +609,36 @@ export const syncRouter = createRouter({
     };
   }),
 
+  getWebhookSetupStatus: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+    const secret = (await getAppSetting("moysklad_webhook_secret"))?.trim() ?? "";
+    const hasSecret = secret.length > 0;
+
+    const [rows24h] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.webhookEvents)
+      .where(
+        and(
+          eq(schema.webhookEvents.provider, "moysklad"),
+          sql`${schema.webhookEvents.createdAt} >= DATE_SUB(NOW(), INTERVAL 24 HOUR)`
+        )
+      );
+
+    const [lastEvent] = await db
+      .select({ createdAt: schema.webhookEvents.createdAt })
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.provider, "moysklad"))
+      .orderBy(desc(schema.webhookEvents.createdAt))
+      .limit(1);
+
+    return {
+      hasSecret,
+      events24h: Number(rows24h?.count ?? 0),
+      lastEventAt: lastEvent?.createdAt ?? null,
+    };
+  }),
+
   retryWebhookEvents: protectedProcedure
     .input(
       z.object({
