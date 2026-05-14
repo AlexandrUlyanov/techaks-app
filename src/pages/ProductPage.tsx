@@ -196,7 +196,7 @@ export default function ProductPage() {
                 {productManufacturer && (
                   <Link
                     to={productManufacturer.href}
-                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-sm transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 text-foreground shadow-sm transition-all hover:border-[#05C3D4]/60 hover:bg-muted dark:hover:bg-white/10 hover:text-foreground"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
                       {productManufacturer.logo ? (
