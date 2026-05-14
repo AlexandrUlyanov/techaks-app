@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, pushSubscriptions, authSessions, passwordResetTokens } from "@db/schema";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
 import { sendEmailOTP, sendPasswordResetEmail } from "../lib/mail";
@@ -198,12 +198,10 @@ export const authRouter = createRouter({
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-      await db.insert(passwordResetTokens).values({
-        userId: user.id,
-        token,
-        expiresAt,
-        usedAt: null,
-      });
+      await db.execute(sql`
+        INSERT INTO password_reset_tokens (user_id, token, expires_at, used_at)
+        VALUES (${user.id}, ${token}, ${expiresAt}, NULL)
+      `);
 
       const resetUrl = `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/reset-password?token=${token}`;
       await sendPasswordResetEmail(normalizedEmail, resetUrl);
