@@ -18,7 +18,7 @@ import {
 
 const navItems = [
   { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
-  { name: "Заявки", href: "/admin/leads", icon: MessageSquare },
+  { name: "Заказы", href: "/admin/leads", icon: MessageSquare },
   { name: "Категории", href: "/admin/categories", icon: FolderTree },
   { name: "Товары", href: "/admin/products", icon: Package },
   { name: "Магазины", href: "/admin/stores", icon: Store },

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
@@ -121,6 +121,80 @@ export const ecommerceRouter = createRouter({
       return await db
         .select()
         .from(orders)
+        .orderBy(desc(orders.createdAt))
         .where(eq(orders.userId, user[0].id));
+    }),
+
+  listOrders: protectedProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(200).default(100),
+          offset: z.number().min(0).default(0),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+      const limit = input?.limit ?? 100;
+      const offset = input?.offset ?? 0;
+
+      const items = await db
+        .select({
+          id: orders.id,
+          userId: orders.userId,
+          status: orders.status,
+          totalPrice: orders.totalPrice,
+          deliveryType: orders.deliveryType,
+          address: orders.address,
+          paymentType: orders.paymentType,
+          paymentStatus: orders.paymentStatus,
+          createdAt: orders.createdAt,
+          customerName: users.fullName,
+          customerPhone: users.phone,
+          customerEmail: users.email,
+          itemsCount: sql<number>`(
+            SELECT count(*) FROM ${orderItems}
+            WHERE ${orderItems.orderId} = ${orders.id}
+          )`,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .orderBy(desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(orders);
+
+      return {
+        orders: items,
+        total: countResult[0]?.count ?? 0,
+      };
+    }),
+
+  updateOrderStatus: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.enum([
+          "pending",
+          "confirmed",
+          "shipped",
+          "delivered",
+          "cancelled",
+        ]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+      await db
+        .update(orders)
+        .set({ status: input.status })
+        .where(eq(orders.id, input.id));
+      return { success: true };
     }),
 });
