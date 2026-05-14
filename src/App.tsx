@@ -28,6 +28,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminStores from "@/pages/admin/AdminStores";
 import AdminLeads from "@/pages/admin/AdminLeads";
+import AdminOrderDetails from "@/pages/admin/AdminOrderDetails";
 import AdminBanners from "@/pages/admin/AdminBanners";
 import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminCategories from "@/pages/admin/AdminCategories";
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="leads" element={<AdminLeads />} />
+              <Route path="leads/:id" element={<AdminOrderDetails />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="stores" element={<AdminStores />} />

@@ -1,4 +1,5 @@
 import { trpc } from "@/providers/trpc";
+import { Link } from "react-router";
 import {
   Calendar,
   CheckCircle2,
@@ -295,6 +296,12 @@ export default function AdminLeads() {
                   </div>
 
                   <div className="flex items-center gap-2 lg:border-l lg:pl-6 border-gray-100">
+                    <Link
+                      to={`/admin/leads/${order.id}`}
+                      className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-3 text-xs font-bold uppercase tracking-wider text-gray-600 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                    >
+                      Открыть
+                    </Link>
                     <select
                       value={order.status}
                       onChange={e =>

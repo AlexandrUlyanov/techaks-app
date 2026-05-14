@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 
 export const ecommerceRouter = createRouter({
@@ -299,10 +299,167 @@ export const ecommerceRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
       const db = getDb();
+      const existing = await db
+        .select({
+          status: orders.status,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.id))
+        .limit(1);
       await db
         .update(orders)
-        .set({ status: input.status })
+        .set({ status: input.status, updatedAt: new Date() })
         .where(eq(orders.id, input.id));
+      await db.insert(orderHistory).values({
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "status_changed",
+        oldValue: { status: existing[0]?.status ?? null } as any,
+        newValue: { status: input.status } as any,
+      });
       return { success: true };
+    }),
+
+  getOrderById: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+
+      const orderRows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          deliveryStatus: orders.deliveryStatus,
+          totalPrice: orders.totalPrice,
+          subtotal: orders.subtotal,
+          discountTotal: orders.discountTotal,
+          deliveryPrice: orders.deliveryPrice,
+          paidAmount: orders.paidAmount,
+          paymentType: orders.paymentType,
+          paymentMethod: orders.paymentMethod,
+          paymentId: orders.paymentId,
+          paymentError: orders.paymentError,
+          paidAt: orders.paidAt,
+          deliveryType: orders.deliveryType,
+          deliveryService: orders.deliveryService,
+          deliveryCity: orders.deliveryCity,
+          deliveryRegion: orders.deliveryRegion,
+          deliveryPostalCode: orders.deliveryPostalCode,
+          deliveryTrackNumber: orders.deliveryTrackNumber,
+          deliveryComment: orders.deliveryComment,
+          address: orders.address,
+          source: orders.source,
+          managerId: orders.managerId,
+          customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+          customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+          customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
+          customerFirstName: orders.customerFirstName,
+          customerLastName: orders.customerLastName,
+          customerComment: orders.customerComment,
+          internalComment: orders.internalComment,
+          createdAt: orders.createdAt,
+          updatedAt: orders.updatedAt,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .where(eq(orders.id, input.id))
+        .limit(1);
+
+      if (!orderRows[0]) {
+        throw new Error("Заказ не найден");
+      }
+
+      const items = await db
+        .select({
+          id: orderItems.id,
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          sku: orderItems.sku,
+          productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
+          image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+          discount: orderItems.discount,
+          total: orderItems.total,
+          stockStatus: orderItems.stockStatus,
+        })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, input.id))
+        .orderBy(orderItems.id);
+
+      return {
+        ...orderRows[0],
+        items,
+      };
+    }),
+
+  addOrderComment: protectedProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        comment: z.string().trim().min(1),
+        commentType: z.enum(["internal", "client"]).default("internal"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      const db = getDb();
+
+      await db.insert(orderComments).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        commentType: input.commentType,
+        comment: input.comment,
+      });
+
+      await db.insert(orderHistory).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "comment_added",
+        newValue: { commentType: input.commentType, comment: input.comment } as any,
+      });
+
+      return { success: true };
+    }),
+
+  getOrderHistory: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+
+      const history = await db
+        .select({
+          id: orderHistory.id,
+          orderId: orderHistory.orderId,
+          userId: orderHistory.userId,
+          actionType: orderHistory.actionType,
+          oldValue: orderHistory.oldValue,
+          newValue: orderHistory.newValue,
+          comment: orderHistory.comment,
+          createdAt: orderHistory.createdAt,
+        })
+        .from(orderHistory)
+        .where(eq(orderHistory.orderId, input.orderId))
+        .orderBy(desc(orderHistory.createdAt));
+
+      const comments = await db
+        .select({
+          id: orderComments.id,
+          orderId: orderComments.orderId,
+          userId: orderComments.userId,
+          commentType: orderComments.commentType,
+          comment: orderComments.comment,
+          createdAt: orderComments.createdAt,
+        })
+        .from(orderComments)
+        .where(eq(orderComments.orderId, input.orderId))
+        .orderBy(desc(orderComments.createdAt));
+
+      return { history, comments };
     }),
 });
