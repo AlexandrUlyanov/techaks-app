@@ -16,6 +16,12 @@ export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { user, token, setUser, logout } = useAuth();
+
+  useEffect(() => {
+    if (user && !token) {
+      logout();
+    }
+  }, [user, token, logout]);
   
   const { data: serverUser, error } = trpc.auth.me.useQuery(undefined, {
     enabled: !!token,

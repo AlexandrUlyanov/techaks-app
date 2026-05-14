@@ -1,6 +1,7 @@
 import { trpc } from "@/providers/trpc";
 import { Loader2, UserCog } from "lucide-react";
 import { useAbility } from "@/providers/AbilityProvider";
+import { useAuth } from "@/hooks/use-auth";
 
 const ROLE_LABELS: Record<string, string> = {
   customer: "Покупатель",
@@ -14,8 +15,9 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AdminUsersPanel() {
   const utils = trpc.useUtils();
   const ability = useAbility();
+  const token = useAuth(state => state.token);
   const { data: users, isLoading, error } = trpc.user.getAll.useQuery(undefined, {
-    enabled: ability.can("read", "User"),
+    enabled: Boolean(token) && ability.can("read", "User"),
   });
 
   const updateRoleMutation = trpc.user.updateRole.useMutation({
@@ -49,7 +51,11 @@ export default function AdminUsersPanel() {
     return (
       <div className="px-6 py-10 text-sm text-red-600 bg-red-50 rounded-2xl border border-red-100">
         <p className="font-bold">Ошибка загрузки пользователей:</p>
-        <p>{error.message}</p>
+        <p>
+          {error.message === "UNAUTHORIZED"
+            ? "Сессия истекла. Перезайдите в аккаунт."
+            : error.message}
+        </p>
       </div>
     );
   }
