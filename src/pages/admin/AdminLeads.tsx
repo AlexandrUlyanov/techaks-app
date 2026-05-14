@@ -46,6 +46,28 @@ const DELIVERY_TYPE_OPTIONS = [
 ];
 
 const LIMIT_OPTIONS = [25, 50, 100];
+type QuickTabKey =
+  | "all"
+  | "new"
+  | "awaiting_payment"
+  | "paid"
+  | "assembly"
+  | "in_delivery"
+  | "completed"
+  | "cancelled"
+  | "problem";
+
+const QUICK_TABS: Array<{ key: QuickTabKey; label: string }> = [
+  { key: "all", label: "Все заказы" },
+  { key: "new", label: "Новые" },
+  { key: "awaiting_payment", label: "Ожидают оплаты" },
+  { key: "paid", label: "Оплаченные" },
+  { key: "assembly", label: "К сборке" },
+  { key: "in_delivery", label: "В доставке" },
+  { key: "completed", label: "Выполненные" },
+  { key: "cancelled", label: "Отмененные" },
+  { key: "problem", label: "Проблемные" },
+];
 
 export default function AdminLeads() {
   const utils = trpc.useUtils();
@@ -55,6 +77,7 @@ export default function AdminLeads() {
   const [deliveryTypeFilter, setDeliveryTypeFilter] = useState("");
   const [limit, setLimit] = useState(25);
   const [page, setPage] = useState(1);
+  const [quickTab, setQuickTab] = useState<QuickTabKey>("all");
 
   const offset = (page - 1) * limit;
   const queryInput = useMemo(
@@ -62,11 +85,41 @@ export default function AdminLeads() {
       limit,
       offset,
       search: search.trim() || undefined,
-      statuses: statusFilter ? [statusFilter] : undefined,
-      paymentStatuses: paymentFilter ? [paymentFilter] : undefined,
+      statuses:
+        quickTab === "new"
+          ? ["pending"]
+          : quickTab === "assembly"
+            ? ["ready_for_pickup", "assembling", "assembled"]
+            : quickTab === "in_delivery"
+              ? ["shipped", "in_delivery", "delivered"]
+              : quickTab === "completed"
+                ? ["completed"]
+                : quickTab === "cancelled"
+                  ? ["cancelled"]
+                  : quickTab === "problem"
+                    ? ["problem"]
+                    : statusFilter
+                      ? [statusFilter]
+                      : undefined,
+      paymentStatuses:
+        quickTab === "awaiting_payment"
+          ? ["awaiting_payment", "unpaid"]
+          : quickTab === "paid"
+            ? ["paid", "partially_paid"]
+            : paymentFilter
+              ? [paymentFilter]
+              : undefined,
       deliveryTypes: deliveryTypeFilter ? [deliveryTypeFilter] : undefined,
     }),
-    [limit, offset, search, statusFilter, paymentFilter, deliveryTypeFilter]
+    [
+      limit,
+      offset,
+      search,
+      statusFilter,
+      paymentFilter,
+      deliveryTypeFilter,
+      quickTab,
+    ]
   );
 
   const { data, isLoading } = trpc.ecommerce.listOrders.useQuery(queryInput);
@@ -198,6 +251,25 @@ export default function AdminLeads() {
             </option>
           ))}
         </select>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {QUICK_TABS.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => {
+              setQuickTab(tab.key);
+              setPage(1);
+            }}
+            className={`h-9 rounded-lg px-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+              quickTab === tab.key
+                ? "bg-[#05C3D4] text-white"
+                : "border border-gray-200 bg-white text-gray-600 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4">
