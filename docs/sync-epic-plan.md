@@ -9,6 +9,24 @@
 
 ## Milestones
 
+## Статус реализации (на текущий момент)
+
+- `SYNC-101` done
+- `SYNC-102` done
+- `SYNC-103` done
+- `SYNC-104` done
+- `SYNC-201` done
+- `SYNC-202` done
+- `SYNC-203` done
+- `SYNC-204` partial (обрабатываются stock-события; расширение event coverage — next)
+- `SYNC-301` done
+- `SYNC-302` done
+- `SYNC-303` done
+- `SYNC-304` done
+- `SYNC-401` in_progress
+- `SYNC-402` in_progress
+- `SYNC-403` done (runbook добавлен в `docs/admin-operations.md`)
+
 ## M1 — Profiles + Full Sync Runtime
 **Срок:** 3-5 дней  
 **Результат:** конфиг полной синхронизации сохраняется и переиспользуется.
@@ -186,3 +204,33 @@
 2. `M2` на staging + нагрузочный тест событий -> релиз.
 3. `M3` -> релиз.
 4. `M4` -> финальный production hardening.
+
+---
+
+## Реализованные endpoint'ы и задачи
+
+### Webhook ingestion
+- `POST /api/webhooks/moysklad` — прием и дедупликация событий.
+- `POST /api/webhooks/moysklad/process` — ручной прогон очереди.
+
+### Reconcile and jobs
+- `POST /api/sync/moysklad/reconcile` — ручной reconcile остатков.
+- Queue worker: раз в 60 сек.
+- Reconcile worker: раз в 30 мин.
+- Nightly full sync: ежедневно в 03:00.
+
+### tRPC (admin)
+- `sync.listProfiles`
+- `sync.upsertProfile`
+- `sync.setActiveProfile`
+- `sync.deleteProfile`
+- `sync.getSavedConfig`
+- `sync.saveConfig`
+- `sync.runSync`
+- `sync.getSyncLockStatus`
+- `sync.getWebhookQueueStats`
+- `sync.processWebhookQueue`
+- `sync.retryWebhookEvents`
+- `sync.runStocksReconcile`
+- `sync.getRecentReconcileRuns`
+- `sync.getSyncOverview`
