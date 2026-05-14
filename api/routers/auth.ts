@@ -15,6 +15,10 @@ import crypto from "node:crypto";
 // In-memory OTP Store (Email -> { code, expires })
 const emailOtpStore = new Map<string, { code: string; expires: number }>();
 
+function toMySqlDateTime(date: Date) {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
 export const authRouter = createRouter({
   // Get current user info
   me: protectedProcedure.query(({ ctx }) => {
@@ -197,10 +201,11 @@ export const authRouter = createRouter({
 
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const expiresAtSql = toMySqlDateTime(expiresAt);
 
       await db.execute(sql`
         INSERT INTO password_reset_tokens (user_id, token, expires_at, used_at)
-        VALUES (${user.id}, ${token}, ${expiresAt}, NULL)
+        VALUES (${user.id}, ${token}, ${expiresAtSql}, NULL)
       `);
 
       const resetUrl = `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/reset-password?token=${token}`;
