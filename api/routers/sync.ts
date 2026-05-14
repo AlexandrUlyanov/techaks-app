@@ -81,16 +81,29 @@ async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000):
 }
 
 function normalizeStoreText(value?: string | null): string {
-  return (value || "")
+  const base = (value || "")
     .toLowerCase()
     .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ");
+
+  return base
+    .replace(/\b(проспект|пр-кт|пркт|пр)\b/g, "проспект")
+    .replace(/\b(улица|ул)\b/g, "улица")
+    .replace(/\b(дом|д)\b/g, "")
+    .replace(/\b(торговый центр|тц)\b/g, "тц")
+    .replace(/\b(а|б|в)\b(?=\s*$)/g, match => match.toUpperCase())
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 function findMatchingLocalStore(msStore: any, localStores: typeof schema.stores.$inferSelect[]) {
   const msName = normalizeStoreText(msStore.name);
   const msAddress = normalizeStoreText(msStore.address);
+
+  if (msStore.id) {
+    const sameMsId = localStores.find(localStore => localStore.msId === msStore.id);
+    if (sameMsId) return sameMsId;
+  }
 
   return localStores.find(localStore => {
     const localName = normalizeStoreText(localStore.name);
