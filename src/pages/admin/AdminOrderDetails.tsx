@@ -14,11 +14,15 @@ export default function AdminOrderDetails() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [address, setAddress] = useState("");
 
-  const { data: order, isLoading } = trpc.ecommerce.getOrderById.useQuery(
+  const {
+    data: order,
+    isLoading,
+    error: orderError,
+  } = trpc.ecommerce.getOrderById.useQuery(
     { id: orderId },
     { enabled: Number.isFinite(orderId) }
   );
-  const { data: feed } = trpc.ecommerce.getOrderHistory.useQuery(
+  const { data: feed, error: historyError } = trpc.ecommerce.getOrderHistory.useQuery(
     { orderId },
     { enabled: Number.isFinite(orderId) }
   );
@@ -88,7 +92,7 @@ export default function AdminOrderDetails() {
     } as const;
     const rows = order.items
       .map(
-        item => `
+        (item: any) => `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;">${item.productName || `Товар #${item.productId}`}</td>
             <td style="padding:8px;border:1px solid #ddd;">${item.sku || "-"}</td>
@@ -137,6 +141,14 @@ export default function AdminOrderDetails() {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="animate-spin text-[#05C3D4]" size={40} />
+      </div>
+    );
+  }
+
+  if (orderError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        Ошибка загрузки заказа: {orderError.message}
       </div>
     );
   }
@@ -258,7 +270,7 @@ export default function AdminOrderDetails() {
           Состав заказа
         </h3>
         <div className="space-y-2">
-          {order.items.map(item => (
+          {order.items.map((item: any) => (
             <div
               key={item.id}
               className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 rounded-lg border border-gray-100 p-3"
@@ -327,7 +339,9 @@ export default function AdminOrderDetails() {
             История заказа
           </h3>
           <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
-            {feed?.history.length ? (
+            {historyError ? (
+              <p className="text-sm text-red-600">Ошибка истории: {historyError.message}</p>
+            ) : feed?.history.length ? (
               feed.history.map(row => (
                 <div key={row.id} className="rounded-lg border border-gray-100 p-3">
                   <p className="text-xs font-semibold text-gray-700">{row.actionType}</p>

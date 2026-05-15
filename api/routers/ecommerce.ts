@@ -113,6 +113,85 @@ async function safeInsertOrderHistory(db: ReturnType<typeof getDb>, payload: any
   }
 }
 
+async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: number) {
+  try {
+    const rows = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        deliveryStatus: orders.deliveryStatus,
+        deliveryType: orders.deliveryType,
+        address: orders.address,
+        paymentType: orders.paymentType,
+        customerEmail: orders.customerEmail,
+        orderNumber: orders.orderNumber,
+      })
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    return rows[0];
+  } catch (err) {
+    console.error("getOrderCoreForUpdate fallback (legacy schema)", err);
+    const raw = await db.execute<any[]>(sql`
+      SELECT
+        id,
+        status,
+        payment_status AS paymentStatus,
+        CASE
+          WHEN delivery_type = 'delivery' THEN 'awaiting_processing'
+          ELSE 'not_required'
+        END AS deliveryStatus,
+        delivery_type AS deliveryType,
+        address,
+        payment_type AS paymentType,
+        NULL AS customerEmail,
+        NULL AS orderNumber
+      FROM orders
+      WHERE id = ${orderId}
+      LIMIT 1
+    `);
+    const rows = Array.isArray((raw as any)?.[0]) ? (raw as any)[0] : (raw as any[]);
+    return rows[0];
+  }
+}
+
+async function getOrderItemCoreForUpdate(
+  db: ReturnType<typeof getDb>,
+  orderId: number,
+  itemId: number
+) {
+  try {
+    const rows = await db
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        quantity: orderItems.quantity,
+        price: orderItems.price,
+        discount: orderItems.discount,
+      })
+      .from(orderItems)
+      .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
+      .limit(1);
+    return rows[0];
+  } catch (err) {
+    console.error("getOrderItemCoreForUpdate fallback (legacy schema)", err);
+    const raw = await db.execute<any[]>(sql`
+      SELECT
+        id,
+        order_id AS orderId,
+        quantity,
+        price,
+        0 AS discount
+      FROM order_items
+      WHERE id = ${itemId} AND order_id = ${orderId}
+      LIMIT 1
+    `);
+    const rows = Array.isArray((raw as any)?.[0]) ? (raw as any)[0] : (raw as any[]);
+    return rows[0];
+  }
+}
+
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
@@ -304,11 +383,43 @@ export const ecommerceRouter = createRouter({
         .limit(1);
       if (!user[0]) return [];
 
-      return await db
-        .select()
-        .from(orders)
-        .orderBy(desc(orders.createdAt))
-        .where(eq(orders.userId, user[0].id));
+      try {
+        return await db
+          .select({
+            id: orders.id,
+            userId: orders.userId,
+            orderNumber: orders.orderNumber,
+            status: orders.status,
+            totalPrice: orders.totalPrice,
+            deliveryType: orders.deliveryType,
+            address: orders.address,
+            paymentType: orders.paymentType,
+            paymentStatus: orders.paymentStatus,
+            createdAt: orders.createdAt,
+          })
+          .from(orders)
+          .orderBy(desc(orders.createdAt))
+          .where(eq(orders.userId, user[0].id));
+      } catch (err) {
+        console.error("getUserOrders fallback (legacy schema)", err);
+        const raw = await db.execute<any[]>(sql`
+          SELECT
+            id,
+            user_id AS userId,
+            NULL AS orderNumber,
+            status,
+            total_price AS totalPrice,
+            delivery_type AS deliveryType,
+            address,
+            payment_type AS paymentType,
+            payment_status AS paymentStatus,
+            created_at AS createdAt
+          FROM orders
+          WHERE user_id = ${user[0].id}
+          ORDER BY created_at DESC
+        `);
+        return Array.isArray((raw as any)?.[0]) ? (raw as any)[0] : (raw as any[]);
+      }
     }),
 
   listOrders: protectedProcedure
@@ -535,15 +646,7 @@ export const ecommerceRouter = createRouter({
         nextStatus: input.status,
       });
       const db = getDb();
-      const existing = await db
-        .select({
-          status: orders.status,
-          customerEmail: orders.customerEmail,
-          orderNumber: orders.orderNumber,
-        })
-        .from(orders)
-        .where(eq(orders.id, input.id))
-        .limit(1);
+      const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(ORDER_STATUS_FLOW, existing[0].status, input.status, "заказа");
       try {
@@ -843,11 +946,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_details");
       const db = getDb();
-      const existing = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.id, input.id))
-        .limit(1);
+      const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
 
       const patch: Record<string, unknown> = {
@@ -904,15 +1003,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_payment");
       const db = getDb();
-      const existing = await db
-        .select({
-          paymentStatus: orders.paymentStatus,
-          customerEmail: orders.customerEmail,
-          orderNumber: orders.orderNumber,
-        })
-        .from(orders)
-        .where(eq(orders.id, input.id))
-        .limit(1);
+      const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(
         PAYMENT_STATUS_FLOW,
@@ -933,7 +1024,7 @@ export const ecommerceRouter = createRouter({
       } catch (err) {
         console.error("updateOrderPayment full patch failed, trying legacy", err);
         await db.execute(
-          sql`UPDATE orders SET payment_status = ${input.paymentStatus}, payment_type = ${input.paymentMethod ?? existing[0].paymentStatus} WHERE id = ${input.id}`
+          sql`UPDATE orders SET payment_status = ${input.paymentStatus} WHERE id = ${input.id}`
         );
       }
       await safeInsertOrderHistory(db, {
@@ -969,15 +1060,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
       const db = getDb();
-      const existing = await db
-        .select({
-          deliveryStatus: orders.deliveryStatus,
-          customerEmail: orders.customerEmail,
-          orderNumber: orders.orderNumber,
-        })
-        .from(orders)
-        .where(eq(orders.id, input.id))
-        .limit(1);
+      const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(
         DELIVERY_STATUS_FLOW,
@@ -998,7 +1081,7 @@ export const ecommerceRouter = createRouter({
           .where(eq(orders.id, input.id));
       } catch (err) {
         console.error("updateOrderDelivery full patch failed, trying legacy", err);
-        await db.execute(sql`UPDATE orders SET status = ${input.deliveryStatus} WHERE id = ${input.id}`);
+        // Legacy orders schema has no dedicated delivery status columns; skip write safely.
       }
       await safeInsertOrderHistory(db, {
         orderId: input.id,
@@ -1036,11 +1119,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_item");
       const db = getDb();
-      const item = await db
-        .select()
-        .from(orderItems)
-        .where(and(eq(orderItems.id, input.itemId), eq(orderItems.orderId, input.orderId)))
-        .limit(1);
+      const item = [await getOrderItemCoreForUpdate(db, input.orderId, input.itemId)].filter(Boolean);
       if (!item[0]) throw new Error("Позиция заказа не найдена");
 
       const nextTotal = item[0].price * input.quantity - (item[0].discount ?? 0);

@@ -124,7 +124,7 @@ export default function AdminLeads() {
     ]
   );
 
-  const { data, isLoading } = trpc.ecommerce.listOrders.useQuery(queryInput);
+  const { data, isLoading, error } = trpc.ecommerce.listOrders.useQuery(queryInput);
 
   const updateStatusMutation = trpc.ecommerce.updateOrderStatus.useMutation({
     onSuccess: () => {
@@ -181,6 +181,14 @@ export default function AdminLeads() {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        Ошибка загрузки заказов: {error.message}
       </div>
     );
   }
