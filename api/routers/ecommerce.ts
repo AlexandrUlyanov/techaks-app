@@ -386,51 +386,104 @@ export const ecommerceRouter = createRouter({
       const whereClause =
         whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-      const items = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          userId: orders.userId,
-          status: orders.status,
-          totalPrice: orders.totalPrice,
-          subtotal: orders.subtotal,
-          discountTotal: orders.discountTotal,
-          deliveryPrice: orders.deliveryPrice,
-          paidAmount: orders.paidAmount,
-          deliveryType: orders.deliveryType,
-          deliveryStatus: orders.deliveryStatus,
-          deliveryCity: orders.deliveryCity,
-          source: orders.source,
-          managerId: orders.managerId,
-          address: orders.address,
-          paymentType: orders.paymentType,
-          paymentStatus: orders.paymentStatus,
-          createdAt: orders.createdAt,
-          updatedAt: orders.updatedAt,
-          customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
-          customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
-          customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
-          itemsCount: sql<number>`(
-            SELECT count(*) FROM ${orderItems}
-            WHERE ${orderItems.orderId} = ${orders.id}
-          )`,
-        })
-        .from(orders)
-        .leftJoin(users, eq(orders.userId, users.id))
-        .where(whereClause)
-        .orderBy(desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
+      try {
+        const items = await db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            userId: orders.userId,
+            status: orders.status,
+            totalPrice: orders.totalPrice,
+            subtotal: orders.subtotal,
+            discountTotal: orders.discountTotal,
+            deliveryPrice: orders.deliveryPrice,
+            paidAmount: orders.paidAmount,
+            deliveryType: orders.deliveryType,
+            deliveryStatus: orders.deliveryStatus,
+            deliveryCity: orders.deliveryCity,
+            source: orders.source,
+            managerId: orders.managerId,
+            address: orders.address,
+            paymentType: orders.paymentType,
+            paymentStatus: orders.paymentStatus,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+            customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+            customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+            customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
+            itemsCount: sql<number>`(
+              SELECT count(*) FROM ${orderItems}
+              WHERE ${orderItems.orderId} = ${orders.id}
+            )`,
+          })
+          .from(orders)
+          .leftJoin(users, eq(orders.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(orders.createdAt))
+          .limit(limit)
+          .offset(offset);
 
-      const countResult = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(orders)
-        .where(whereClause);
+        const countResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(orders)
+          .where(whereClause);
 
-      return {
-        orders: items,
-        total: countResult[0]?.count ?? 0,
-      };
+        return {
+          orders: items,
+          total: Number(countResult[0]?.count ?? 0),
+        };
+      } catch (listOrdersError) {
+        console.error("listOrders full query failed, using legacy fallback", listOrdersError);
+
+        const legacyRows = await db.execute<any[]>(sql`
+          SELECT
+            o.id,
+            NULL AS orderNumber,
+            o.user_id AS userId,
+            o.status,
+            o.total_price AS totalPrice,
+            o.delivery_type AS deliveryType,
+            'not_required' AS deliveryStatus,
+            NULL AS deliveryCity,
+            'site' AS source,
+            NULL AS managerId,
+            o.address,
+            o.payment_type AS paymentType,
+            o.payment_status AS paymentStatus,
+            o.created_at AS createdAt,
+            o.created_at AS updatedAt,
+            u.full_name AS customerName,
+            u.phone AS customerPhone,
+            u.email AS customerEmail,
+            (
+              SELECT COUNT(*)
+              FROM order_items oi
+              WHERE oi.order_id = o.id
+            ) AS itemsCount
+          FROM orders o
+          LEFT JOIN users u ON u.id = o.user_id
+          ORDER BY o.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+
+        const legacyCountRows = await db.execute<any[]>(
+          sql`SELECT COUNT(*) AS count FROM orders`
+        );
+
+        const normalized = (legacyRows as any[]).map((row: any) => ({
+          ...row,
+          subtotal: Number(row.totalPrice ?? 0),
+          discountTotal: 0,
+          deliveryPrice: 0,
+          paidAmount: 0,
+          itemsCount: Number(row.itemsCount ?? 0),
+        }));
+
+        return {
+          orders: normalized,
+          total: Number((legacyCountRows as any[])[0]?.count ?? 0),
+        };
+      }
     }),
 
   updateOrderStatus: protectedProcedure
