@@ -34,6 +34,39 @@ export default function AdminOrderDetails() {
     },
     onError: err => toast.error(err.message || "Ошибка добавления комментария"),
   });
+  const updateOrderDetails = trpc.ecommerce.updateOrderDetails.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Данные заказа обновлены");
+    },
+    onError: err => toast.error(err.message || "Ошибка обновления заказа"),
+  });
+  const updateItemQuantity = trpc.ecommerce.updateOrderItemQuantity.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Количество обновлено");
+    },
+    onError: err => toast.error(err.message || "Ошибка изменения позиции"),
+  });
+  const removeItem = trpc.ecommerce.removeOrderItem.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Позиция удалена");
+    },
+    onError: err => toast.error(err.message || "Ошибка удаления позиции"),
+  });
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
@@ -312,36 +345,3 @@ export default function AdminOrderDetails() {
     </div>
   );
 }
-  const updateOrderDetails = trpc.ecommerce.updateOrderDetails.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
-        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
-        utils.ecommerce.listOrders.invalidate(),
-      ]);
-      toast.success("Данные заказа обновлены");
-    },
-    onError: err => toast.error(err.message || "Ошибка обновления заказа"),
-  });
-  const updateItemQuantity = trpc.ecommerce.updateOrderItemQuantity.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
-        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
-        utils.ecommerce.listOrders.invalidate(),
-      ]);
-      toast.success("Количество обновлено");
-    },
-    onError: err => toast.error(err.message || "Ошибка изменения позиции"),
-  });
-  const removeItem = trpc.ecommerce.removeOrderItem.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
-        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
-        utils.ecommerce.listOrders.invalidate(),
-      ]);
-      toast.success("Позиция удалена");
-    },
-    onError: err => toast.error(err.message || "Ошибка удаления позиции"),
-  });
