@@ -176,24 +176,39 @@ export const ecommerceRouter = createRouter({
       }
 
       // 2. Create order
-      const newOrder = await db.insert(orders).values({
-        userId,
-        orderNumber,
-        customerName: normalizedFullName,
-        customerPhone: normalizedPhone,
-        customerEmail: normalizedEmail,
-        source: "site",
-        totalPrice: trustedTotal,
-        subtotal: trustedTotal,
-        paidAmount: 0,
-        deliveryType: input.deliveryType,
-        address: input.address,
-        deliveryStatus:
-          input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
-        paymentType: input.paymentType,
-        paymentMethod: input.paymentType,
-        status: "pending",
-      });
+      let newOrder;
+      try {
+        newOrder = await db.insert(orders).values({
+          userId,
+          orderNumber,
+          customerName: normalizedFullName,
+          customerPhone: normalizedPhone,
+          customerEmail: normalizedEmail,
+          source: "site",
+          totalPrice: trustedTotal,
+          subtotal: trustedTotal,
+          paidAmount: 0,
+          deliveryType: input.deliveryType,
+          address: input.address,
+          // Using legacy-safe status to support older enum schemas on production.
+          deliveryStatus: "pending",
+          paymentType: input.paymentType,
+          paymentMethod: input.paymentType,
+          status: "pending",
+        });
+      } catch (primaryInsertError) {
+        console.error("placeOrder full insert failed, trying legacy fallback", primaryInsertError);
+        // Fallback for partially migrated DBs (legacy orders schema).
+        newOrder = await db.insert(orders).values({
+          userId,
+          totalPrice: trustedTotal,
+          deliveryType: input.deliveryType,
+          address: input.address,
+          paymentType: input.paymentType,
+          paymentStatus: "unpaid",
+          status: "pending",
+        });
+      }
       const orderId = newOrder[0].insertId;
 
       // 3. Create order items
