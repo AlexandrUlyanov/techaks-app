@@ -38,6 +38,14 @@ export default function AdminOrderDetails() {
   const formatPrice = (value: number) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
 
+  useEffect(() => {
+    if (!order) return;
+    setCustomerName(order.customerName || "");
+    setCustomerPhone(order.customerPhone || "");
+    setCustomerEmail(order.customerEmail || "");
+    setAddress(order.address || "");
+  }, [order]);
+
   const printDocument = (mode: "order" | "picking" | "invoice") => {
     if (!order) return;
     const titleMap = {
@@ -103,14 +111,6 @@ export default function AdminOrderDetails() {
   if (!order) {
     return <div className="text-sm text-gray-500">Заказ не найден</div>;
   }
-
-  useEffect(() => {
-    if (!order) return;
-    setCustomerName(order.customerName || "");
-    setCustomerPhone(order.customerPhone || "");
-    setCustomerEmail(order.customerEmail || "");
-    setAddress(order.address || "");
-  }, [order?.id]);
 
   return (
     <div className="space-y-6">
