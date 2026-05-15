@@ -1,0 +1,37 @@
+name: Manual DB Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type I_UNDERSTAND_THIS_TOUCHES_PRODUCTION_DB to continue"
+        required: true
+        default: ""
+      operation:
+        description: "Choose maintenance intent"
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - none
+          - readonly_audit
+          - manual_sql
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate explicit confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event.inputs.confirm }}" != "I_UNDERSTAND_THIS_TOUCHES_PRODUCTION_DB" ]; then
+            echo "Confirmation phrase mismatch. Aborting."
+            exit 1
+          fi
+
+          echo "Manual DB maintenance workflow unlocked."
+          echo "Selected operation: ${{ github.event.inputs.operation }}"
+          echo "This workflow intentionally does not run db:push, migrations, or inline SQL by default."
+          echo "Add reviewed one-off steps only in a dedicated, approved change."

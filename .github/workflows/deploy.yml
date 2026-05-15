@@ -63,115 +63,10 @@ jobs:
             SMTP_FROM="${{ secrets.SMTP_FROM || 'TechAks <no-reply@techaks.ru>' }}"
             EOF
 
-            # 3. Install dependencies and Build
+            # 3. Install dependencies and build only.
+            # Production DB changes are intentionally excluded from automatic deploy.
             echo "Installing dependencies..."
             npm ci
-
-            echo "Running database migrations..."
-            npm run db:push
-
-            echo "Applying store profile updates..."
-            node --input-type=module <<'NODE'
-            import mysql from "mysql2/promise";
-
-            const connection = await mysql.createConnection({
-              host: "127.0.0.1",
-              user: "techaks",
-              password: "TechAks_DB_Secure123!",
-              database: "techaks_prod",
-            });
-
-            // Ensure password auth column exists for users
-            try {
-              await connection.execute(
-                `ALTER TABLE users ADD COLUMN password_hash varchar(255) NULL`
-              );
-            } catch (error) {
-              const code = error?.code || "";
-              if (code !== "ER_DUP_FIELDNAME") {
-                throw error;
-              }
-            }
-
-            await connection.execute(
-              `UPDATE stores
-               SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
-               WHERE sort_order = ? OR address LIKE ? OR name LIKE ? OR map_url LIKE ?`,
-              [
-                "пр. Строителей, 50А",
-                "пр. Строителей, 50А",
-                "Ежедневно 9:00–21:00",
-                "+7 (927) 364-28-88",
-                "4.9",
-                34,
-                "/images/stores/stroiteley-50a.webp",
-                "https://yandex.com/maps/org/tekhaks/81538152780/?indoorLevel=1&ll=44.920957%2C53.222379&z=17.64",
-                0,
-                0,
-                "%Строителей, 50А%",
-                "%Строителей, 50А%",
-                "%81538152780%",
-              ]
-            );
-
-            const [glazunovaUpdate] = await connection.execute(
-              `UPDATE stores
-               SET name = ?, address = ?, hours = ?, phone = ?, rating = ?, review_count = ?, image = ?, map_url = ?, sort_order = ?
-               WHERE sort_order = ? OR address LIKE ? OR name LIKE ? OR map_url LIKE ?`,
-              [
-                "ТЦ Застава (ул. Генерала Глазунова, 1)",
-                "Пенза, ул. Генерала Глазунова, 1, этаж 1",
-                "Ежедневно 9:00–21:00",
-                "+7 (927) 364-28-88",
-                "5.0",
-                43,
-                "/images/stores/glazunova-1.webp",
-                "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.877504%2C53.232745&z=17.64",
-                1,
-                1,
-                "%Глазунова, 1%",
-                "%Глазунова, 1%",
-                "%204121927664%",
-              ]
-            );
-
-            if ((glazunovaUpdate?.affectedRows ?? 0) === 0) {
-              await connection.execute(
-                `INSERT INTO stores (name, address, hours, phone, rating, review_count, image, map_url, sort_order)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  "ТЦ Застава (ул. Генерала Глазунова, 1)",
-                  "Пенза, ул. Генерала Глазунова, 1, этаж 1",
-                  "Ежедневно 9:00–21:00",
-                  "+7 (927) 364-28-88",
-                  "5.0",
-                  43,
-                  "/images/stores/glazunova-1.webp",
-                  "https://yandex.com/maps/org/tekhaks/204121927664/?indoorLevel=1&ll=44.877504%2C53.232745&z=17.64",
-                  1,
-                ]
-              );
-            }
-
-            // Force-close stale running MoySklad sync logs older than 15 minutes
-            await connection.execute(
-              `UPDATE sync_logs
-               SET status = 'error',
-                   message = CONCAT(COALESCE(message, ''), ' [Прервано автоматически: зависшая синхронизация]'),
-                   created_at = created_at
-               WHERE type = 'moysklad'
-                 AND status = 'running'
-                 AND created_at < (NOW() - INTERVAL 15 MINUTE)`
-            );
-
-            // Promote user to super_admin regardless of formatting
-            await connection.execute(
-              "UPDATE users SET role = 'super_admin' WHERE phone LIKE '%937%418%44%04%' OR email = 'ulyanov.ht@gmail.com'"
-            );
-
-            await connection.end();
-            NODE
-
 
             echo "Building application..."
             npm run build
@@ -231,3 +126,8 @@ jobs:
             
             # Save PM2 state to start on boot
             pm2 save
+
+            # 5. Healthcheck
+            echo "Running healthcheck..."
+            sleep 5
+            curl -fsS http://127.0.0.1:3000 >/dev/null
