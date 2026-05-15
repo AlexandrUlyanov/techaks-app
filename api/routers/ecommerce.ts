@@ -105,6 +105,14 @@ function ensureOrderOperationAllowedByRole(
   throw new Error("Недостаточно прав для операции с заказом");
 }
 
+async function safeInsertOrderHistory(db: ReturnType<typeof getDb>, payload: any) {
+  try {
+    await db.insert(orderHistory).values(payload);
+  } catch (err) {
+    console.error("order history insert skipped (legacy schema)", err);
+  }
+}
+
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
@@ -538,11 +546,16 @@ export const ecommerceRouter = createRouter({
         .limit(1);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(ORDER_STATUS_FLOW, existing[0].status, input.status, "заказа");
-      await db
-        .update(orders)
-        .set({ status: input.status, updatedAt: new Date() })
-        .where(eq(orders.id, input.id));
-      await db.insert(orderHistory).values({
+      try {
+        await db
+          .update(orders)
+          .set({ status: input.status, updatedAt: new Date() })
+          .where(eq(orders.id, input.id));
+      } catch (err) {
+        console.error("update status with updatedAt failed, trying legacy", err);
+        await db.execute(sql`UPDATE orders SET status = ${input.status} WHERE id = ${input.id}`);
+      }
+      await safeInsertOrderHistory(db, {
         orderId: input.id,
         userId: ctx.user?.id ?? null,
         actionType: "status_changed",
@@ -747,14 +760,18 @@ export const ecommerceRouter = createRouter({
       ensureOrderOperationAllowedByRole(ctx.user?.role, "add_comment");
       const db = getDb();
 
-      await db.insert(orderComments).values({
-        orderId: input.orderId,
-        userId: ctx.user?.id ?? null,
-        commentType: input.commentType,
-        comment: input.comment,
-      });
+      try {
+        await db.insert(orderComments).values({
+          orderId: input.orderId,
+          userId: ctx.user?.id ?? null,
+          commentType: input.commentType,
+          comment: input.comment,
+        });
+      } catch (err) {
+        console.error("order comments insert skipped (legacy schema)", err);
+      }
 
-      await db.insert(orderHistory).values({
+      await safeInsertOrderHistory(db, {
         orderId: input.orderId,
         userId: ctx.user?.id ?? null,
         actionType: "comment_added",
@@ -770,35 +787,40 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "read", "Order");
       const db = getDb();
 
-      const history = await db
-        .select({
-          id: orderHistory.id,
-          orderId: orderHistory.orderId,
-          userId: orderHistory.userId,
-          actionType: orderHistory.actionType,
-          oldValue: orderHistory.oldValue,
-          newValue: orderHistory.newValue,
-          comment: orderHistory.comment,
-          createdAt: orderHistory.createdAt,
-        })
-        .from(orderHistory)
-        .where(eq(orderHistory.orderId, input.orderId))
-        .orderBy(desc(orderHistory.createdAt));
+      try {
+        const history = await db
+          .select({
+            id: orderHistory.id,
+            orderId: orderHistory.orderId,
+            userId: orderHistory.userId,
+            actionType: orderHistory.actionType,
+            oldValue: orderHistory.oldValue,
+            newValue: orderHistory.newValue,
+            comment: orderHistory.comment,
+            createdAt: orderHistory.createdAt,
+          })
+          .from(orderHistory)
+          .where(eq(orderHistory.orderId, input.orderId))
+          .orderBy(desc(orderHistory.createdAt));
 
-      const comments = await db
-        .select({
-          id: orderComments.id,
-          orderId: orderComments.orderId,
-          userId: orderComments.userId,
-          commentType: orderComments.commentType,
-          comment: orderComments.comment,
-          createdAt: orderComments.createdAt,
-        })
-        .from(orderComments)
-        .where(eq(orderComments.orderId, input.orderId))
-        .orderBy(desc(orderComments.createdAt));
+        const comments = await db
+          .select({
+            id: orderComments.id,
+            orderId: orderComments.orderId,
+            userId: orderComments.userId,
+            commentType: orderComments.commentType,
+            comment: orderComments.comment,
+            createdAt: orderComments.createdAt,
+          })
+          .from(orderComments)
+          .where(eq(orderComments.orderId, input.orderId))
+          .orderBy(desc(orderComments.createdAt));
 
-      return { history, comments };
+        return { history, comments };
+      } catch (err) {
+        console.error("getOrderHistory fallback (legacy schema)", err);
+        return { history: [], comments: [] };
+      }
     }),
 
   updateOrderDetails: protectedProcedure
@@ -847,8 +869,19 @@ export const ecommerceRouter = createRouter({
       if (typeof input.internalComment === "string")
         patch.internalComment = input.internalComment || null;
 
-      await db.update(orders).set(patch as any).where(eq(orders.id, input.id));
-      await db.insert(orderHistory).values({
+      try {
+        await db.update(orders).set(patch as any).where(eq(orders.id, input.id));
+      } catch (err) {
+        console.error("updateOrderDetails full patch failed, trying legacy", err);
+        await db.execute(
+          sql`UPDATE orders
+              SET address = ${patch.address ?? existing[0].address ?? null},
+                  delivery_type = ${patch.deliveryType ?? existing[0].deliveryType ?? "pickup"},
+                  payment_type = ${existing[0].paymentType ?? "cash"}
+              WHERE id = ${input.id}`
+        );
+      }
+      await safeInsertOrderHistory(db, {
         orderId: input.id,
         userId: ctx.user?.id ?? null,
         actionType: "order_details_updated",
@@ -887,16 +920,23 @@ export const ecommerceRouter = createRouter({
         input.paymentStatus,
         "оплаты"
       );
-      await db
-        .update(orders)
-        .set({
-          paymentStatus: input.paymentStatus,
-          paidAmount: input.paidAmount,
-          paymentMethod: input.paymentMethod,
-          updatedAt: new Date(),
-        } as any)
-        .where(eq(orders.id, input.id));
-      await db.insert(orderHistory).values({
+      try {
+        await db
+          .update(orders)
+          .set({
+            paymentStatus: input.paymentStatus,
+            paidAmount: input.paidAmount,
+            paymentMethod: input.paymentMethod,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(orders.id, input.id));
+      } catch (err) {
+        console.error("updateOrderPayment full patch failed, trying legacy", err);
+        await db.execute(
+          sql`UPDATE orders SET payment_status = ${input.paymentStatus}, payment_type = ${input.paymentMethod ?? existing[0].paymentStatus} WHERE id = ${input.id}`
+        );
+      }
+      await safeInsertOrderHistory(db, {
         orderId: input.id,
         userId: ctx.user?.id ?? null,
         actionType: "payment_updated",
@@ -945,17 +985,22 @@ export const ecommerceRouter = createRouter({
         input.deliveryStatus,
         "доставки"
       );
-      await db
-        .update(orders)
-        .set({
-          deliveryStatus: input.deliveryStatus,
-          deliveryService: input.deliveryService,
-          deliveryTrackNumber: input.deliveryTrackNumber,
-          deliveryPrice: input.deliveryPrice,
-          updatedAt: new Date(),
-        } as any)
-        .where(eq(orders.id, input.id));
-      await db.insert(orderHistory).values({
+      try {
+        await db
+          .update(orders)
+          .set({
+            deliveryStatus: input.deliveryStatus,
+            deliveryService: input.deliveryService,
+            deliveryTrackNumber: input.deliveryTrackNumber,
+            deliveryPrice: input.deliveryPrice,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(orders.id, input.id));
+      } catch (err) {
+        console.error("updateOrderDelivery full patch failed, trying legacy", err);
+        await db.execute(sql`UPDATE orders SET status = ${input.deliveryStatus} WHERE id = ${input.id}`);
+      }
+      await safeInsertOrderHistory(db, {
         orderId: input.id,
         userId: ctx.user?.id ?? null,
         actionType: "delivery_updated",
@@ -999,37 +1044,53 @@ export const ecommerceRouter = createRouter({
       if (!item[0]) throw new Error("Позиция заказа не найдена");
 
       const nextTotal = item[0].price * input.quantity - (item[0].discount ?? 0);
-      await db
-        .update(orderItems)
-        .set({
-          quantity: input.quantity,
-          total: nextTotal,
-        })
-        .where(eq(orderItems.id, input.itemId));
+      try {
+        await db
+          .update(orderItems)
+          .set({
+            quantity: input.quantity,
+            total: nextTotal,
+          })
+          .where(eq(orderItems.id, input.itemId));
 
-      const totals = await db
-        .select({
-          subtotal: sql<number>`coalesce(sum(${orderItems.price} * ${orderItems.quantity}), 0)`,
-          discountTotal: sql<number>`coalesce(sum(${orderItems.discount}), 0)`,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, input.orderId));
-      const subtotal = totals[0]?.subtotal ?? 0;
-      const discountTotal = totals[0]?.discountTotal ?? 0;
-      const orderRow = await db
-        .select({ deliveryPrice: orders.deliveryPrice })
-        .from(orders)
-        .where(eq(orders.id, input.orderId))
-        .limit(1);
-      const deliveryPrice = orderRow[0]?.deliveryPrice ?? 0;
-      const totalPrice = subtotal - discountTotal + deliveryPrice;
+        const totals = await db
+          .select({
+            subtotal: sql<number>`coalesce(sum(${orderItems.price} * ${orderItems.quantity}), 0)`,
+            discountTotal: sql<number>`coalesce(sum(${orderItems.discount}), 0)`,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, input.orderId));
+        const subtotal = totals[0]?.subtotal ?? 0;
+        const discountTotal = totals[0]?.discountTotal ?? 0;
+        const orderRow = await db
+          .select({ deliveryPrice: orders.deliveryPrice })
+          .from(orders)
+          .where(eq(orders.id, input.orderId))
+          .limit(1);
+        const deliveryPrice = orderRow[0]?.deliveryPrice ?? 0;
+        const totalPrice = subtotal - discountTotal + deliveryPrice;
 
-      await db
-        .update(orders)
-        .set({ subtotal, discountTotal, totalPrice, updatedAt: new Date() })
-        .where(eq(orders.id, input.orderId));
+        await db
+          .update(orders)
+          .set({ subtotal, discountTotal, totalPrice, updatedAt: new Date() })
+          .where(eq(orders.id, input.orderId));
+      } catch (err) {
+        console.error("updateOrderItemQuantity full flow failed, trying legacy", err);
+        await db.execute(
+          sql`UPDATE order_items SET quantity = ${input.quantity} WHERE id = ${input.itemId} AND order_id = ${input.orderId}`
+        );
+        await db.execute(sql`
+          UPDATE orders
+          SET total_price = (
+            SELECT COALESCE(SUM(oi.price * oi.quantity), 0)
+            FROM order_items oi
+            WHERE oi.order_id = ${input.orderId}
+          )
+          WHERE id = ${input.orderId}
+        `);
+      }
 
-      await db.insert(orderHistory).values({
+      await safeInsertOrderHistory(db, {
         orderId: input.orderId,
         userId: ctx.user?.id ?? null,
         actionType: "order_item_quantity_updated",
@@ -1048,7 +1109,38 @@ export const ecommerceRouter = createRouter({
       await db
         .delete(orderItems)
         .where(and(eq(orderItems.id, input.itemId), eq(orderItems.orderId, input.orderId)));
-      await db.insert(orderHistory).values({
+      try {
+        const totals = await db
+          .select({
+            subtotal: sql<number>`coalesce(sum(${orderItems.price} * ${orderItems.quantity}), 0)`,
+            discountTotal: sql<number>`coalesce(sum(${orderItems.discount}), 0)`,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, input.orderId));
+        const subtotal = totals[0]?.subtotal ?? 0;
+        const discountTotal = totals[0]?.discountTotal ?? 0;
+        await db
+          .update(orders)
+          .set({
+            subtotal,
+            discountTotal,
+            totalPrice: subtotal - discountTotal,
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, input.orderId));
+      } catch (err) {
+        console.error("removeOrderItem totals update failed, trying legacy", err);
+        await db.execute(sql`
+          UPDATE orders
+          SET total_price = (
+            SELECT COALESCE(SUM(oi.price * oi.quantity), 0)
+            FROM order_items oi
+            WHERE oi.order_id = ${input.orderId}
+          )
+          WHERE id = ${input.orderId}
+        `);
+      }
+      await safeInsertOrderHistory(db, {
         orderId: input.orderId,
         userId: ctx.user?.id ?? null,
         actionType: "order_item_removed",
@@ -1082,13 +1174,23 @@ export const ecommerceRouter = createRouter({
         ensureTransition(ORDER_STATUS_FLOW, order.status, input.status, "заказа");
       }
 
-      await db
-        .update(orders)
-        .set({ status: input.status, updatedAt: new Date() })
-        .where(inArray(orders.id, input.orderIds));
+      try {
+        await db
+          .update(orders)
+          .set({ status: input.status, updatedAt: new Date() })
+          .where(inArray(orders.id, input.orderIds));
+      } catch (err) {
+        console.error("bulk status update with updatedAt failed, trying legacy", err);
+        await db.execute(
+          sql`UPDATE orders SET status = ${input.status} WHERE id IN (${sql.join(
+            input.orderIds.map(id => sql`${id}`),
+            sql`,`
+          )})`
+        );
+      }
 
       for (const order of targetOrders) {
-        await db.insert(orderHistory).values({
+        await safeInsertOrderHistory(db, {
           orderId: order.id,
           userId: ctx.user?.id ?? null,
           actionType: "bulk_status_changed",
