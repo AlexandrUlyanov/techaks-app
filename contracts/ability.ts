@@ -4,6 +4,7 @@ import type { MongoAbility } from "@casl/ability";
 export type Role =
   | "customer"
   | "manager"
+  | "warehouse"
   | "content_manager"
   | "merchandiser"
   | "admin"
@@ -68,6 +69,10 @@ export function defineAbilityFor(user: { id: number; role: string }) {
   } else if (role === "manager") {
     can("read", ["Lead", "Order", "Product", "Store"]);
     can("update", ["Lead", "Order"]);
+    can("read", "AdminPanel");
+  } else if (role === "warehouse") {
+    can("read", ["Order", "Product", "Store"]);
+    can("update", "Order");
     can("read", "AdminPanel");
   } else {
     // customer

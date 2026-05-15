@@ -4,6 +4,105 @@ import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 
+const ORDER_STATUS_FLOW: Record<string, string[]> = {
+  pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
+  awaiting_payment: ["paid", "processing", "cancelled", "problem"],
+  paid: ["processing", "confirmed_by_customer", "ready_for_pickup", "cancelled", "problem"],
+  processing: ["confirmed_by_customer", "ready_for_pickup", "assembling", "cancelled", "problem"],
+  confirmed: ["processing", "ready_for_pickup", "cancelled", "problem"],
+  confirmed_by_customer: ["ready_for_pickup", "assembling", "cancelled", "problem"],
+  ready_for_pickup: ["assembling", "assembled", "awaiting_dispatch", "cancelled", "problem"],
+  assembling: ["assembled", "cancelled", "problem"],
+  assembled: ["awaiting_dispatch", "handed_to_delivery", "cancelled", "problem"],
+  awaiting_dispatch: ["handed_to_delivery", "in_delivery", "cancelled", "problem"],
+  shipped: ["in_delivery", "delivered", "problem"],
+  handed_to_delivery: ["in_delivery", "delivered", "problem"],
+  in_delivery: ["delivered", "problem"],
+  delivered: ["completed", "return_requested", "problem"],
+  completed: ["return_requested"],
+  cancelled: [],
+  return_requested: ["cancelled", "problem"],
+  problem: ["processing", "cancelled", "completed"],
+};
+
+const PAYMENT_STATUS_FLOW: Record<string, string[]> = {
+  unpaid: ["awaiting_payment", "paid", "payment_error", "partially_paid", "refund"],
+  awaiting_payment: ["paid", "payment_error", "partially_paid", "refund"],
+  partially_paid: ["paid", "refund", "partial_refund", "payment_error"],
+  paid: ["refund", "partial_refund"],
+  payment_error: ["awaiting_payment", "paid", "cancelled"],
+  refund: [],
+  partial_refund: ["refund"],
+};
+
+const DELIVERY_STATUS_FLOW: Record<string, string[]> = {
+  not_required: [],
+  awaiting_processing: ["prepared", "handed_to_delivery", "in_delivery", "delivery_error"],
+  prepared: ["handed_to_delivery", "in_delivery", "delivery_error"],
+  handed_to_delivery: ["in_delivery", "delivered", "delivery_error"],
+  in_delivery: ["delivered", "return_in_transit", "delivery_error"],
+  delivered: ["return_in_transit"],
+  return_in_transit: ["delivery_error"],
+  delivery_error: ["awaiting_processing", "prepared", "handed_to_delivery"],
+};
+
+function ensureTransition(
+  flow: Record<string, string[]>,
+  fromStatus: string,
+  toStatus: string,
+  kind: "заказа" | "оплаты" | "доставки"
+) {
+  if (fromStatus === toStatus) return;
+  const next = flow[fromStatus] ?? [];
+  if (!next.includes(toStatus)) {
+    throw new Error(
+      `Недопустимый переход статуса ${kind}: "${fromStatus}" → "${toStatus}"`
+    );
+  }
+}
+
+function ensureOrderOperationAllowedByRole(
+  role: string | undefined,
+  operation:
+    | "update_status"
+    | "update_details"
+    | "update_payment"
+    | "update_delivery"
+    | "update_item"
+    | "remove_item"
+    | "add_comment",
+  payload?: { nextStatus?: string }
+) {
+  const safeRole = role ?? "customer";
+  if (safeRole === "super_admin" || safeRole === "admin") return;
+
+  if (safeRole === "warehouse") {
+    if (operation === "update_status") {
+      const allowed = ["ready_for_pickup", "assembling", "assembled", "problem"];
+      if (!payload?.nextStatus || !allowed.includes(payload.nextStatus)) {
+        throw new Error("Роль склада не может установить этот статус заказа");
+      }
+      return;
+    }
+    if (operation === "add_comment") return;
+    throw new Error("Роль склада не имеет прав на это действие");
+  }
+
+  if (safeRole === "manager") {
+    if (
+      operation === "update_status" ||
+      operation === "update_details" ||
+      operation === "update_delivery" ||
+      operation === "add_comment"
+    ) {
+      return;
+    }
+    throw new Error("Менеджеру недоступно это действие");
+  }
+
+  throw new Error("Недостаточно прав для операции с заказом");
+}
+
 export const ecommerceRouter = createRouter({
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
@@ -298,6 +397,9 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_status", {
+        nextStatus: input.status,
+      });
       const db = getDb();
       const existing = await db
         .select({
@@ -306,6 +408,8 @@ export const ecommerceRouter = createRouter({
         .from(orders)
         .where(eq(orders.id, input.id))
         .limit(1);
+      if (!existing[0]) throw new Error("Заказ не найден");
+      ensureTransition(ORDER_STATUS_FLOW, existing[0].status, input.status, "заказа");
       await db
         .update(orders)
         .set({ status: input.status, updatedAt: new Date() })
@@ -407,6 +511,7 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "add_comment");
       const db = getDb();
 
       await db.insert(orderComments).values({
@@ -481,6 +586,7 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_details");
       const db = getDb();
       const existing = await db
         .select()
@@ -530,7 +636,20 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_payment");
       const db = getDb();
+      const existing = await db
+        .select({ paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(eq(orders.id, input.id))
+        .limit(1);
+      if (!existing[0]) throw new Error("Заказ не найден");
+      ensureTransition(
+        PAYMENT_STATUS_FLOW,
+        existing[0].paymentStatus,
+        input.paymentStatus,
+        "оплаты"
+      );
       await db
         .update(orders)
         .set({
@@ -561,7 +680,20 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
       const db = getDb();
+      const existing = await db
+        .select({ deliveryStatus: orders.deliveryStatus })
+        .from(orders)
+        .where(eq(orders.id, input.id))
+        .limit(1);
+      if (!existing[0]) throw new Error("Заказ не найден");
+      ensureTransition(
+        DELIVERY_STATUS_FLOW,
+        existing[0].deliveryStatus,
+        input.deliveryStatus,
+        "доставки"
+      );
       await db
         .update(orders)
         .set({
@@ -591,6 +723,7 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_item");
       const db = getDb();
       const item = await db
         .select()
@@ -644,6 +777,7 @@ export const ecommerceRouter = createRouter({
     .input(z.object({ orderId: z.number(), itemId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "remove_item");
       const db = getDb();
       await db
         .delete(orderItems)

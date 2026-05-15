@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 const ROLE_LABELS: Record<string, string> = {
   customer: "Покупатель",
   manager: "Менеджер (Заказы, Лиды)",
+  warehouse: "Склад / Сборщик",
   content_manager: "Контент-менеджер",
   merchandiser: "Мерчандайзер",
   admin: "Администратор",
@@ -20,7 +21,9 @@ export default function AdminProfilePanel() {
 
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFullName(user.fullName || "");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhone(user.phone || "");
     }
   }, [user]);
