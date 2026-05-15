@@ -790,4 +790,146 @@ export const ecommerceRouter = createRouter({
       });
       return { success: true };
     }),
+
+  bulkUpdateOrderStatus: protectedProcedure
+    .input(
+      z.object({
+        orderIds: z.array(z.number()).min(1),
+        status: z.string().trim().min(2),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_status", {
+        nextStatus: input.status,
+      });
+      const db = getDb();
+      const targetOrders = await db
+        .select({
+          id: orders.id,
+          status: orders.status,
+        })
+        .from(orders)
+        .where(inArray(orders.id, input.orderIds));
+
+      for (const order of targetOrders) {
+        ensureTransition(ORDER_STATUS_FLOW, order.status, input.status, "заказа");
+      }
+
+      await db
+        .update(orders)
+        .set({ status: input.status, updatedAt: new Date() })
+        .where(inArray(orders.id, input.orderIds));
+
+      for (const order of targetOrders) {
+        await db.insert(orderHistory).values({
+          orderId: order.id,
+          userId: ctx.user?.id ?? null,
+          actionType: "bulk_status_changed",
+          oldValue: { status: order.status } as any,
+          newValue: { status: input.status } as any,
+        });
+      }
+
+      return { success: true, updated: targetOrders.length };
+    }),
+
+  exportOrdersCsv: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().optional(),
+          statuses: z.array(z.string()).optional(),
+          paymentStatuses: z.array(z.string()).optional(),
+          deliveryTypes: z.array(z.string()).optional(),
+          dateFrom: z.coerce.date().optional(),
+          dateTo: z.coerce.date().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+      const whereConditions: any[] = [];
+      if (input?.statuses?.length) whereConditions.push(inArray(orders.status, input.statuses));
+      if (input?.paymentStatuses?.length)
+        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
+      if (input?.deliveryTypes?.length)
+        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
+      if (input?.dateFrom) whereConditions.push(gte(orders.createdAt, input.dateFrom));
+      if (input?.dateTo) whereConditions.push(lte(orders.createdAt, input.dateTo));
+
+      const search = input?.search?.trim();
+      if (search) {
+        const like = `%${search}%`;
+        whereConditions.push(
+          or(
+            sql`${orders.orderNumber} LIKE ${like}`,
+            sql`${orders.customerName} LIKE ${like}`,
+            sql`${orders.customerPhone} LIKE ${like}`,
+            sql`${orders.customerEmail} LIKE ${like}`
+          )
+        );
+      }
+
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          createdAt: orders.createdAt,
+          customerName: orders.customerName,
+          customerPhone: orders.customerPhone,
+          customerEmail: orders.customerEmail,
+          totalPrice: orders.totalPrice,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          deliveryType: orders.deliveryType,
+          address: orders.address,
+        })
+        .from(orders)
+        .where(whereConditions.length ? and(...whereConditions) : undefined)
+        .orderBy(desc(orders.createdAt))
+        .limit(5000);
+
+      const escape = (value: unknown) =>
+        `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const header = [
+        "Номер заказа",
+        "Дата",
+        "Покупатель",
+        "Телефон",
+        "Email",
+        "Сумма",
+        "Статус заказа",
+        "Статус оплаты",
+        "Доставка",
+        "Адрес",
+      ];
+      const lines = [
+        header.join(","),
+        ...rows.map(row =>
+          [
+            row.orderNumber || row.id,
+            new Date(row.createdAt).toLocaleString("ru-RU"),
+            row.customerName,
+            row.customerPhone,
+            row.customerEmail,
+            row.totalPrice,
+            row.status,
+            row.paymentStatus,
+            row.deliveryType,
+            row.address,
+          ]
+            .map(escape)
+            .join(",")
+        ),
+      ];
+
+      return {
+        filename: `orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
+        contentType: "text/csv; charset=utf-8",
+        csv: "\uFEFF" + lines.join("\n"),
+        count: rows.length,
+      };
+    }),
 });

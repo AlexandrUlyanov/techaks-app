@@ -78,6 +78,8 @@ export default function AdminLeads() {
   const [limit, setLimit] = useState(25);
   const [page, setPage] = useState(1);
   const [quickTab, setQuickTab] = useState<QuickTabKey>("all");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkStatus, setBulkStatus] = useState("processing");
 
   const offset = (page - 1) * limit;
   const queryInput = useMemo(
@@ -129,6 +131,14 @@ export default function AdminLeads() {
       utils.ecommerce.listOrders.invalidate();
       toast.success("Статус заказа обновлен");
     },
+  });
+  const bulkStatusMutation = trpc.ecommerce.bulkUpdateOrderStatus.useMutation({
+    onSuccess: async data => {
+      setSelectedIds([]);
+      await utils.ecommerce.listOrders.invalidate();
+      toast.success(`Обновлено заказов: ${data.updated}`);
+    },
+    onError: err => toast.error(err.message || "Ошибка массового обновления"),
   });
 
   const orders = data?.orders || [];
@@ -271,6 +281,36 @@ export default function AdminLeads() {
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4">
+        <p className="text-sm text-gray-600">
+          Выбрано заказов: <span className="font-bold">{selectedIds.length}</span>
+        </p>
+        <div className="flex items-center gap-2">
+          <select
+            value={bulkStatus}
+            onChange={e => setBulkStatus(e.target.value)}
+            className="h-9 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+          >
+            <option value="processing">В обработке</option>
+            <option value="assembling">Собирается</option>
+            <option value="awaiting_dispatch">Ожидает отправки</option>
+            <option value="in_delivery">Доставляется</option>
+            <option value="completed">Выполнен</option>
+            <option value="cancelled">Отменен</option>
+            <option value="problem">Проблемный</option>
+          </select>
+          <button
+            type="button"
+            onClick={() =>
+              bulkStatusMutation.mutate({ orderIds: selectedIds, status: bulkStatus })
+            }
+            disabled={selectedIds.length === 0 || bulkStatusMutation.isPending}
+            className="h-9 rounded-lg bg-[#05C3D4] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+          >
+            Применить массово
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4">
         {orders.length === 0 ? (
@@ -294,6 +334,20 @@ export default function AdminLeads() {
                 <div className="flex flex-col lg:flex-row justify-between gap-6">
                   <div className="space-y-4 flex-1">
                     <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(order.id)}
+                          onChange={e =>
+                            setSelectedIds(prev =>
+                              e.target.checked
+                                ? [...prev, order.id]
+                                : prev.filter(id => id !== order.id)
+                            )
+                          }
+                        />
+                        <span className="text-xs font-semibold text-gray-500">Выбрать</span>
+                      </label>
                       <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                         <ShoppingBag size={16} className="text-gray-400" />
                         <span className="font-bold text-[#0a0a0a]">
