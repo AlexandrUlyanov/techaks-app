@@ -3,6 +3,7 @@ import { createRouter, publicQuery, protectedProcedure, requireAbility } from ".
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import * as XLSX from "xlsx";
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
@@ -929,6 +930,89 @@ export const ecommerceRouter = createRouter({
         filename: `orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
         contentType: "text/csv; charset=utf-8",
         csv: "\uFEFF" + lines.join("\n"),
+        count: rows.length,
+      };
+    }),
+
+  exportOrdersXlsx: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().optional(),
+          statuses: z.array(z.string()).optional(),
+          paymentStatuses: z.array(z.string()).optional(),
+          deliveryTypes: z.array(z.string()).optional(),
+          dateFrom: z.coerce.date().optional(),
+          dateTo: z.coerce.date().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+      const whereConditions: any[] = [];
+      if (input?.statuses?.length) whereConditions.push(inArray(orders.status, input.statuses));
+      if (input?.paymentStatuses?.length)
+        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
+      if (input?.deliveryTypes?.length)
+        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
+      if (input?.dateFrom) whereConditions.push(gte(orders.createdAt, input.dateFrom));
+      if (input?.dateTo) whereConditions.push(lte(orders.createdAt, input.dateTo));
+      const search = input?.search?.trim();
+      if (search) {
+        const like = `%${search}%`;
+        whereConditions.push(
+          or(
+            sql`${orders.orderNumber} LIKE ${like}`,
+            sql`${orders.customerName} LIKE ${like}`,
+            sql`${orders.customerPhone} LIKE ${like}`,
+            sql`${orders.customerEmail} LIKE ${like}`
+          )
+        );
+      }
+
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          createdAt: orders.createdAt,
+          customerName: orders.customerName,
+          customerPhone: orders.customerPhone,
+          customerEmail: orders.customerEmail,
+          totalPrice: orders.totalPrice,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          deliveryType: orders.deliveryType,
+          address: orders.address,
+        })
+        .from(orders)
+        .where(whereConditions.length ? and(...whereConditions) : undefined)
+        .orderBy(desc(orders.createdAt))
+        .limit(5000);
+
+      const table = rows.map(row => ({
+        "Номер заказа": row.orderNumber || row.id,
+        Дата: new Date(row.createdAt).toLocaleString("ru-RU"),
+        Покупатель: row.customerName || "",
+        Телефон: row.customerPhone || "",
+        Email: row.customerEmail || "",
+        Сумма: row.totalPrice,
+        "Статус заказа": row.status,
+        "Статус оплаты": row.paymentStatus,
+        Доставка: row.deliveryType,
+        Адрес: row.address || "",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(table);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Заказы");
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      return {
+        filename: `orders-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        base64: Buffer.from(buf).toString("base64"),
         count: rows.length,
       };
     }),
