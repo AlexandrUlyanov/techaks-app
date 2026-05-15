@@ -198,16 +198,34 @@ export const ecommerceRouter = createRouter({
         });
       } catch (primaryInsertError) {
         console.error("placeOrder full insert failed, trying legacy fallback", primaryInsertError);
-        // Fallback for partially migrated DBs (legacy orders schema).
-        newOrder = await db.insert(orders).values({
-          userId,
-          totalPrice: trustedTotal,
-          deliveryType: input.deliveryType,
-          address: input.address,
-          paymentType: input.paymentType,
-          paymentStatus: "unpaid",
-          status: "pending",
-        });
+        // Fallback for partially migrated DBs (legacy orders schema with fewer columns).
+        await db.execute(sql`
+          INSERT INTO orders (
+            user_id,
+            status,
+            total_price,
+            delivery_type,
+            address,
+            payment_type,
+            payment_status,
+            created_at
+          ) VALUES (
+            ${userId},
+            ${"pending"},
+            ${trustedTotal},
+            ${input.deliveryType},
+            ${input.address},
+            ${input.paymentType},
+            ${"unpaid"},
+            NOW()
+          )
+        `);
+        const lastIdRows = await db.execute<{ id: number }[]>(sql`SELECT LAST_INSERT_ID() AS id`);
+        const fallbackOrderId = Number(lastIdRows?.[0]?.id ?? 0);
+        if (!fallbackOrderId) {
+          throw new Error("Не удалось получить ID созданного заказа");
+        }
+        newOrder = [{ insertId: fallbackOrderId }];
       }
       const orderId = newOrder[0].insertId;
 
