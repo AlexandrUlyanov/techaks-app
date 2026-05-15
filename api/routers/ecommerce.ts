@@ -1175,6 +1175,26 @@ export const ecommerceRouter = createRouter({
       const capabilities = await getOrderDbCapabilities(db);
       const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
+      if (
+        existing[0].deliveryType !== "delivery" &&
+        input.deliveryStatus !== "not_required"
+      ) {
+        await safeInsertOrderHistory(db, {
+          orderId: input.id,
+          userId: ctx.user?.id ?? null,
+          actionType: "delivery_update_skipped_not_required",
+          newValue: input as any,
+          comment:
+            "Доставка для заказа не требуется: попытка обновления delivery-статуса пропущена.",
+        });
+        return {
+          success: true,
+          ok: true,
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Для заказа с самовывозом статус доставки не применяется. Обновление пропущено.",
+        };
+      }
       ensureTransition(
         DELIVERY_STATUS_FLOW,
         existing[0].deliveryStatus,
