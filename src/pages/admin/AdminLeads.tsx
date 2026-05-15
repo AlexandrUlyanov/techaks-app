@@ -144,6 +144,7 @@ export default function AdminLeads() {
   const orders = data?.orders || [];
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const compatibilityWarnings = data?.compatibilityWarnings ?? [];
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -176,6 +177,8 @@ export default function AdminLeads() {
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+  const formatDateTime = (value: string | Date | null | undefined) =>
+    value ? new Date(value).toLocaleString("ru-RU") : "Дата не указана";
 
   if (isLoading) {
     return (
@@ -199,6 +202,17 @@ export default function AdminLeads() {
         <h2 className="text-xl font-bold text-[#0a0a0a]">Заказы</h2>
         <div className="text-sm text-gray-500">Всего: {total}</div>
       </div>
+
+      {compatibilityWarnings.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="font-semibold">Режим совместимости заказов</div>
+          <ul className="mt-2 space-y-1">
+            {compatibilityWarnings.map(warning => (
+              <li key={warning}>• {warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 lg:grid-cols-[1fr_220px_220px_220px_130px]">
         <label className="relative block">
@@ -362,6 +376,11 @@ export default function AdminLeads() {
                           Заказ {order.orderNumber || `#${order.id}`}
                         </span>
                       </div>
+                      {order.source === "legacy" && (
+                        <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-700">
+                          Legacy
+                        </span>
+                      )}
                       {order.customerPhone && (
                         <a
                           href={`tel:${order.customerPhone}`}
@@ -383,13 +402,11 @@ export default function AdminLeads() {
                       <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                         <div className="text-xs text-gray-500 mb-1">Клиент</div>
                         <div className="font-semibold text-[#0a0a0a]">
-                          {order.customerName || order.customerEmail || "Без имени"}
+                          {order.customerName || "Клиент не указан"}
                         </div>
-                        {order.customerEmail && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {order.customerEmail}
-                          </div>
-                        )}
+                        <div className="text-xs text-gray-500 mt-1">
+                          {order.customerEmail || "Email не указан"}
+                        </div>
                       </div>
                       <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                         <div className="text-xs text-gray-500 mb-1">Сумма</div>
@@ -405,13 +422,15 @@ export default function AdminLeads() {
                     <div className="flex flex-wrap items-center gap-6 text-xs text-gray-400">
                       <div className="flex items-center gap-1.5">
                         <Calendar size={14} />
-                        {new Date(order.createdAt).toLocaleString("ru-RU")}
+                        {formatDateTime(order.createdAt)}
                       </div>
                       <div className="flex items-center gap-1.5">
                         {order.deliveryType === "delivery" ? (
                           <>
                             <Truck size={14} />
-                            Доставка
+                            {order.deliveryStatus
+                              ? `Доставка · ${order.deliveryStatus}`
+                              : "Доставка · Не задано"}
                           </>
                         ) : (
                           <>

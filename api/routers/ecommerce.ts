@@ -2,9 +2,21 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
-import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { sendOrderNotificationEmail } from "../lib/mail";
+import {
+  buildOrdersCsv,
+  buildOrdersExportTable,
+  buildLegacyOrderWhereSql,
+  buildModernOrderWhere,
+  canUseRichOrdersSchema,
+  getOrderDbCapabilities,
+  mapLegacyListOrderRow,
+  mapLegacyOrderDetailsRow,
+  mapLegacyOrderItemRow,
+  rowsFromExecute,
+} from "../lib/order-compat";
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
@@ -111,6 +123,97 @@ async function safeInsertOrderHistory(db: ReturnType<typeof getDb>, payload: any
   } catch (err) {
     console.error("order history insert skipped (legacy schema)", err);
   }
+}
+
+async function loadOrdersForExport(
+  db: ReturnType<typeof getDb>,
+  input:
+    | {
+        search?: string;
+        statuses?: string[];
+        paymentStatuses?: string[];
+        deliveryTypes?: string[];
+        dateFrom?: Date;
+        dateTo?: Date;
+      }
+    | undefined
+) {
+  const capabilities = await getOrderDbCapabilities(db);
+  if (canUseRichOrdersSchema(capabilities)) {
+    const rows = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        createdAt: orders.createdAt,
+        customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+        customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+        customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
+        totalPrice: orders.totalPrice,
+        subtotal: orders.subtotal,
+        discountTotal: orders.discountTotal,
+        deliveryPrice: orders.deliveryPrice,
+        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        deliveryType: orders.deliveryType,
+        deliveryStatus: orders.deliveryStatus,
+        source: orders.source,
+        address: orders.address,
+      })
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(buildModernOrderWhere(input))
+      .orderBy(desc(orders.createdAt))
+      .limit(5000);
+
+    return {
+      rows,
+      compatibilityMode: "modern" as const,
+      compatibilityWarnings: [] as string[],
+    };
+  }
+
+  const legacyWhereSql = buildLegacyOrderWhereSql({
+    search: input?.search,
+    statuses: input?.statuses,
+    paymentStatuses: input?.paymentStatuses,
+    deliveryTypes: input?.deliveryTypes,
+    dateFrom: input?.dateFrom,
+    dateTo: input?.dateTo,
+    supportsUserEmail: capabilities.hasUsersEmail,
+    supportsUserFullName: capabilities.hasUsersFullName,
+  });
+  const legacyRowsResult = await db.execute<any[]>(sql`
+    SELECT
+      o.id,
+      NULL AS orderNumber,
+      o.created_at AS createdAt,
+      ${capabilities.hasUsersFullName ? sql`u.full_name` : sql`NULL`} AS customerName,
+      NULL AS customerPhone,
+      ${capabilities.hasUsersEmail ? sql`u.email` : sql`NULL`} AS customerEmail,
+      o.total_price AS totalPrice,
+      o.total_price AS subtotal,
+      0 AS discountTotal,
+      0 AS deliveryPrice,
+      o.status,
+      o.payment_status AS paymentStatus,
+      o.delivery_type AS deliveryType,
+      NULL AS deliveryStatus,
+      'legacy' AS source,
+      o.address
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+    ${legacyWhereSql}
+    ORDER BY o.created_at DESC
+    LIMIT 5000
+  `);
+
+  return {
+    rows: rowsFromExecute<any>(legacyRowsResult),
+    compatibilityMode: "legacy" as const,
+    compatibilityWarnings: [
+      "Экспорт заказов использует legacy-режим совместимости: недостающие поля заполняются безопасными значениями по умолчанию.",
+    ],
+  };
 }
 
 async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: number) {
@@ -277,8 +380,8 @@ export const ecommerceRouter = createRouter({
           paidAmount: 0,
           deliveryType: input.deliveryType,
           address: input.address,
-          // Using legacy-safe status to support older enum schemas on production.
-          deliveryStatus: "pending",
+          deliveryStatus:
+            input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
           paymentType: input.paymentType,
           paymentMethod: input.paymentType,
           status: "pending",
@@ -368,6 +471,7 @@ export const ecommerceRouter = createRouter({
     .input(z.object({ phone: z.string() }))
     .query(async ({ ctx, input }) => {
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       
       // If not admin, check if phone matches current user
       if (!ctx.ability.can("read", "User")) {
@@ -383,25 +487,8 @@ export const ecommerceRouter = createRouter({
         .limit(1);
       if (!user[0]) return [];
 
-      try {
-        return await db
-          .select({
-            id: orders.id,
-            userId: orders.userId,
-            orderNumber: orders.orderNumber,
-            status: orders.status,
-            totalPrice: orders.totalPrice,
-            deliveryType: orders.deliveryType,
-            address: orders.address,
-            paymentType: orders.paymentType,
-            paymentStatus: orders.paymentStatus,
-            createdAt: orders.createdAt,
-          })
-          .from(orders)
-          .orderBy(desc(orders.createdAt))
-          .where(eq(orders.userId, user[0].id));
-      } catch (err) {
-        console.error("getUserOrders fallback (legacy schema)", err);
+      if (capabilities.detected && !canUseRichOrdersSchema(capabilities)) {
+        console.info("getUserOrders using legacy compatibility mode");
         const raw = await db.execute<any[]>(sql`
           SELECT
             id,
@@ -418,8 +505,25 @@ export const ecommerceRouter = createRouter({
           WHERE user_id = ${user[0].id}
           ORDER BY created_at DESC
         `);
-        return Array.isArray((raw as any)?.[0]) ? (raw as any)[0] : (raw as any[]);
+        return rowsFromExecute<any>(raw);
       }
+
+      return await db
+        .select({
+          id: orders.id,
+          userId: orders.userId,
+          orderNumber: orders.orderNumber,
+          status: orders.status,
+          totalPrice: orders.totalPrice,
+          deliveryType: orders.deliveryType,
+          address: orders.address,
+          paymentType: orders.paymentType,
+          paymentStatus: orders.paymentStatus,
+          createdAt: orders.createdAt,
+        })
+        .from(orders)
+        .orderBy(desc(orders.createdAt))
+        .where(eq(orders.userId, user[0].id));
     }),
 
   listOrders: protectedProcedure
@@ -444,68 +548,12 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       const limit = input?.limit ?? 25;
       const offset = input?.offset ?? 0;
-      const whereConditions: any[] = [];
+      const whereClause = buildModernOrderWhere(input);
 
-      if (input?.statuses?.length) {
-        whereConditions.push(inArray(orders.status, input.statuses));
-      }
-      if (input?.paymentStatuses?.length) {
-        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
-      }
-      if (input?.deliveryStatuses?.length) {
-        whereConditions.push(inArray(orders.deliveryStatus, input.deliveryStatuses));
-      }
-      if (input?.deliveryTypes?.length) {
-        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
-      }
-      if (input?.paymentTypes?.length) {
-        whereConditions.push(inArray(orders.paymentType, input.paymentTypes));
-      }
-      if (input?.sources?.length) {
-        whereConditions.push(inArray(orders.source, input.sources));
-      }
-      if (typeof input?.managerId === "number") {
-        whereConditions.push(eq(orders.managerId, input.managerId));
-      }
-      if (input?.dateFrom) {
-        whereConditions.push(gte(orders.createdAt, input.dateFrom));
-      }
-      if (input?.dateTo) {
-        whereConditions.push(lte(orders.createdAt, input.dateTo));
-      }
-
-      const search = input?.search?.trim();
-      if (search) {
-        const searchLike = `%${search}%`;
-        const searchAsNumber = Number(search);
-        const isNumeric = Number.isFinite(searchAsNumber);
-
-        whereConditions.push(
-          or(
-            sql`${orders.id} = ${isNumeric ? searchAsNumber : -1}`,
-            sql`${orders.orderNumber} LIKE ${searchLike}`,
-            sql`${orders.customerName} LIKE ${searchLike}`,
-            sql`${orders.customerPhone} LIKE ${searchLike}`,
-            sql`${orders.customerEmail} LIKE ${searchLike}`,
-            sql`${orders.deliveryTrackNumber} LIKE ${searchLike}`,
-            sql`EXISTS (
-              SELECT 1 FROM ${orderItems} oi
-              WHERE oi.order_id = ${orders.id}
-              AND (
-                oi.sku LIKE ${searchLike}
-                OR oi.product_name LIKE ${searchLike}
-              )
-            )`
-          )
-        );
-      }
-
-      const whereClause =
-        whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-      try {
+      if (canUseRichOrdersSchema(capabilities)) {
         const items = await db
           .select({
             id: orders.id,
@@ -550,11 +598,38 @@ export const ecommerceRouter = createRouter({
         return {
           orders: items,
           total: Number(countResult[0]?.count ?? 0),
+          compatibilityMode: "modern" as const,
+          compatibilityWarnings: [] as string[],
         };
-      } catch (listOrdersError) {
-        console.error("listOrders full query failed, using legacy fallback", listOrdersError);
+      }
 
-        const legacyResult = await db.execute<any[]>(sql`
+      const legacyWhereSql = buildLegacyOrderWhereSql({
+        search: input?.search,
+        statuses: input?.statuses,
+        paymentStatuses: input?.paymentStatuses,
+        deliveryTypes: input?.deliveryTypes,
+        dateFrom: input?.dateFrom,
+        dateTo: input?.dateTo,
+        supportsUserEmail: capabilities.hasUsersEmail,
+        supportsUserFullName: capabilities.hasUsersFullName,
+      });
+      const ignoredFilters: string[] = [];
+      // Legacy orders schema from 0003 does not store dedicated delivery/payment source
+      // metadata, so these filters are reported back to the UI and safely ignored.
+      if (input?.deliveryStatuses?.length) {
+        ignoredFilters.push("deliveryStatuses");
+      }
+      if (input?.paymentTypes?.length) {
+        ignoredFilters.push("paymentTypes");
+      }
+      if (input?.sources?.length) {
+        ignoredFilters.push("sources");
+      }
+      if (typeof input?.managerId === "number") {
+        ignoredFilters.push("managerId");
+      }
+
+      const legacyResult = await db.execute<any[]>(sql`
           SELECT
             o.id,
             NULL AS orderNumber,
@@ -562,18 +637,18 @@ export const ecommerceRouter = createRouter({
             o.status,
             o.total_price AS totalPrice,
             o.delivery_type AS deliveryType,
-            'not_required' AS deliveryStatus,
+            NULL AS deliveryStatus,
             NULL AS deliveryCity,
-            'site' AS source,
+            'legacy' AS source,
             NULL AS managerId,
             o.address,
             o.payment_type AS paymentType,
             o.payment_status AS paymentStatus,
             o.created_at AS createdAt,
             o.created_at AS updatedAt,
-            u.full_name AS customerName,
+            ${capabilities.hasUsersFullName ? sql`u.full_name` : sql`NULL`} AS customerName,
             u.phone AS customerPhone,
-            u.email AS customerEmail,
+            ${capabilities.hasUsersEmail ? sql`u.email` : sql`NULL`} AS customerEmail,
             (
               SELECT COUNT(*)
               FROM order_items oi
@@ -581,36 +656,38 @@ export const ecommerceRouter = createRouter({
             ) AS itemsCount
           FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
+          ${legacyWhereSql}
           ORDER BY o.created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        const legacyCountResult = await db.execute<any[]>(
-          sql`SELECT COUNT(*) AS count FROM orders`
-        );
+      const legacyCountResult = await db.execute<any[]>(sql`
+        SELECT COUNT(*) AS count
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        ${legacyWhereSql}
+      `);
 
-        const legacyRows = Array.isArray((legacyResult as any)?.[0])
-          ? (legacyResult as any)[0]
-          : (legacyResult as any[]);
-        const legacyCountRows = Array.isArray((legacyCountResult as any)?.[0])
-          ? (legacyCountResult as any)[0]
-          : (legacyCountResult as any[]);
+      const legacyRows = Array.isArray((legacyResult as any)?.[0])
+        ? (legacyResult as any)[0]
+        : (legacyResult as any[]);
+      const legacyCountRows = Array.isArray((legacyCountResult as any)?.[0])
+        ? (legacyCountResult as any)[0]
+        : (legacyCountResult as any[]);
 
-        const normalized = (legacyRows as any[]).map((row: any) => ({
-          ...row,
-          id: Number(row.id),
-          subtotal: Number(row.totalPrice ?? 0),
-          discountTotal: 0,
-          deliveryPrice: 0,
-          paidAmount: 0,
-          itemsCount: Number(row.itemsCount ?? 0),
-        }));
-
-        return {
-          orders: normalized,
-          total: Number((legacyCountRows as any[])[0]?.count ?? 0),
-        };
-      }
+      return {
+        orders: (legacyRows as any[]).map(mapLegacyListOrderRow),
+        total: Number((legacyCountRows as any[])[0]?.count ?? 0),
+        compatibilityMode: "legacy" as const,
+        compatibilityWarnings:
+          ignoredFilters.length > 0
+            ? [
+                `Часть фильтров недоступна в legacy-схеме БД и была безопасно проигнорирована: ${ignoredFilters.join(
+                  ", "
+                )}`,
+              ]
+            : ["Раздел заказов работает в режиме совместимости с legacy-БД"],
+      };
     }),
 
   updateOrderStatus: protectedProcedure
@@ -690,7 +767,9 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
-      try {
+      const capabilities = await getOrderDbCapabilities(db);
+
+      if (canUseRichOrdersSchema(capabilities)) {
         const orderRows = await db
           .select({
             id: orders.id,
@@ -759,95 +838,83 @@ export const ecommerceRouter = createRouter({
         return {
           ...orderRows[0],
           items,
-        };
-      } catch (orderByIdError) {
-        console.error("getOrderById full query failed, using legacy fallback", orderByIdError);
-
-        const legacyOrderResult = await db.execute<any[]>(sql`
-          SELECT
-            o.id,
-            NULL AS orderNumber,
-            o.status,
-            o.payment_status AS paymentStatus,
-            'not_required' AS deliveryStatus,
-            o.total_price AS totalPrice,
-            o.total_price AS subtotal,
-            0 AS discountTotal,
-            0 AS deliveryPrice,
-            0 AS paidAmount,
-            o.payment_type AS paymentType,
-            NULL AS paymentMethod,
-            NULL AS paymentId,
-            NULL AS paymentError,
-            NULL AS paidAt,
-            o.delivery_type AS deliveryType,
-            NULL AS deliveryService,
-            NULL AS deliveryCity,
-            NULL AS deliveryRegion,
-            NULL AS deliveryPostalCode,
-            NULL AS deliveryTrackNumber,
-            NULL AS deliveryComment,
-            o.address,
-            'site' AS source,
-            NULL AS managerId,
-            u.full_name AS customerName,
-            u.phone AS customerPhone,
-            u.email AS customerEmail,
-            NULL AS customerFirstName,
-            NULL AS customerLastName,
-            NULL AS customerComment,
-            NULL AS internalComment,
-            o.created_at AS createdAt,
-            o.created_at AS updatedAt
-          FROM orders o
-          LEFT JOIN users u ON u.id = o.user_id
-          WHERE o.id = ${input.id}
-          LIMIT 1
-        `);
-        const legacyOrderRows = Array.isArray((legacyOrderResult as any)?.[0])
-          ? (legacyOrderResult as any)[0]
-          : (legacyOrderResult as any[]);
-        if (!legacyOrderRows[0]) throw new Error("Заказ не найден");
-
-        const legacyItemsResult = await db.execute<any[]>(sql`
-          SELECT
-            oi.id,
-            oi.order_id AS orderId,
-            oi.product_id AS productId,
-            NULL AS sku,
-            p.name AS productName,
-            p.image AS image,
-            oi.quantity,
-            oi.price,
-            0 AS discount,
-            (oi.quantity * oi.price) AS total,
-            'in_stock' AS stockStatus
-          FROM order_items oi
-          LEFT JOIN products p ON p.id = oi.product_id
-          WHERE oi.order_id = ${input.id}
-          ORDER BY oi.id ASC
-        `);
-        const legacyItemsRows = Array.isArray((legacyItemsResult as any)?.[0])
-          ? (legacyItemsResult as any)[0]
-          : (legacyItemsResult as any[]);
-
-        return {
-          ...legacyOrderRows[0],
-          id: Number(legacyOrderRows[0].id),
-          totalPrice: Number(legacyOrderRows[0].totalPrice ?? 0),
-          subtotal: Number(legacyOrderRows[0].subtotal ?? 0),
-          items: (legacyItemsRows as any[]).map((row: any) => ({
-            ...row,
-            id: Number(row.id),
-            orderId: Number(row.orderId),
-            productId: Number(row.productId),
-            quantity: Number(row.quantity ?? 0),
-            price: Number(row.price ?? 0),
-            discount: Number(row.discount ?? 0),
-            total: Number(row.total ?? 0),
-          })),
+          compatibilityMode: "modern" as const,
+          compatibilityWarnings: [] as string[],
         };
       }
+
+      const legacyOrderResult = await db.execute<any[]>(sql`
+        SELECT
+          o.id,
+          NULL AS orderNumber,
+          o.status,
+          o.payment_status AS paymentStatus,
+          NULL AS deliveryStatus,
+          o.total_price AS totalPrice,
+          o.total_price AS subtotal,
+          0 AS discountTotal,
+          0 AS deliveryPrice,
+          0 AS paidAmount,
+          o.payment_type AS paymentType,
+          NULL AS paymentMethod,
+          NULL AS paymentId,
+          NULL AS paymentError,
+          NULL AS paidAt,
+          o.delivery_type AS deliveryType,
+          NULL AS deliveryService,
+          NULL AS deliveryCity,
+          NULL AS deliveryRegion,
+          NULL AS deliveryPostalCode,
+          NULL AS deliveryTrackNumber,
+          NULL AS deliveryComment,
+          o.address,
+          'legacy' AS source,
+          NULL AS managerId,
+          ${capabilities.hasUsersFullName ? sql`u.full_name` : sql`NULL`} AS customerName,
+          u.phone AS customerPhone,
+          ${capabilities.hasUsersEmail ? sql`u.email` : sql`NULL`} AS customerEmail,
+          NULL AS customerFirstName,
+          NULL AS customerLastName,
+          NULL AS customerComment,
+          NULL AS internalComment,
+          o.created_at AS createdAt,
+          o.created_at AS updatedAt
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        WHERE o.id = ${input.id}
+        LIMIT 1
+      `);
+      const legacyOrderRows = rowsFromExecute<any>(legacyOrderResult);
+      if (!legacyOrderRows[0]) throw new Error("Заказ не найден");
+
+      const legacyItemsResult = await db.execute<any[]>(sql`
+        SELECT
+          oi.id,
+          oi.order_id AS orderId,
+          oi.product_id AS productId,
+          NULL AS sku,
+          p.name AS productName,
+          p.image AS image,
+          oi.quantity,
+          oi.price,
+          0 AS discount,
+          (oi.quantity * oi.price) AS total,
+          'in_stock' AS stockStatus
+        FROM order_items oi
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ${input.id}
+        ORDER BY oi.id ASC
+      `);
+      const legacyItemsRows = rowsFromExecute<any>(legacyItemsResult);
+
+      return {
+        ...mapLegacyOrderDetailsRow(legacyOrderRows[0]),
+        items: legacyItemsRows.map(mapLegacyOrderItemRow),
+        compatibilityMode: "legacy" as const,
+        compatibilityWarnings: [
+          "Карточка заказа открыта в режиме совместимости с legacy-БД: часть новых полей недоступна.",
+        ],
+      };
     }),
 
   addOrderComment: protectedProcedure
@@ -862,17 +929,30 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "add_comment");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
 
-      try {
-        await db.insert(orderComments).values({
+      if (!capabilities.hasOrderCommentsTable) {
+        await safeInsertOrderHistory(db, {
           orderId: input.orderId,
           userId: ctx.user?.id ?? null,
-          commentType: input.commentType,
-          comment: input.comment,
+          actionType: "comment_skipped_legacy",
+          newValue: { commentType: input.commentType, comment: input.comment } as any,
+          comment: "Комментарий не сохранен: таблица order_comments отсутствует в legacy-схеме.",
         });
-      } catch (err) {
-        console.error("order comments insert skipped (legacy schema)", err);
+        return {
+          success: true,
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Комментарии к заказам недоступны в legacy-схеме БД. Запись не сохранена в отдельной таблице.",
+        };
       }
+
+      await db.insert(orderComments).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        commentType: input.commentType,
+        comment: input.comment,
+      });
 
       await safeInsertOrderHistory(db, {
         orderId: input.orderId,
@@ -881,7 +961,7 @@ export const ecommerceRouter = createRouter({
         newValue: { commentType: input.commentType, comment: input.comment } as any,
       });
 
-      return { success: true };
+      return { success: true, compatibilityMode: "modern" as const };
     }),
 
   getOrderHistory: protectedProcedure
@@ -889,9 +969,21 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+
+      if (!capabilities.hasOrderHistoryTable && !capabilities.hasOrderCommentsTable) {
+        return {
+          history: [],
+          comments: [],
+          compatibilityMode: "legacy" as const,
+          warning:
+            "История и комментарии заказов недоступны: в legacy-схеме отсутствуют таблицы order_history и order_comments.",
+        };
+      }
 
       try {
-        const history = await db
+        const history = capabilities.hasOrderHistoryTable
+          ? await db
           .select({
             id: orderHistory.id,
             orderId: orderHistory.orderId,
@@ -904,9 +996,11 @@ export const ecommerceRouter = createRouter({
           })
           .from(orderHistory)
           .where(eq(orderHistory.orderId, input.orderId))
-          .orderBy(desc(orderHistory.createdAt));
+          .orderBy(desc(orderHistory.createdAt))
+          : [];
 
-        const comments = await db
+        const comments = capabilities.hasOrderCommentsTable
+          ? await db
           .select({
             id: orderComments.id,
             orderId: orderComments.orderId,
@@ -917,12 +1011,30 @@ export const ecommerceRouter = createRouter({
           })
           .from(orderComments)
           .where(eq(orderComments.orderId, input.orderId))
-          .orderBy(desc(orderComments.createdAt));
+          .orderBy(desc(orderComments.createdAt))
+          : [];
 
-        return { history, comments };
+        return {
+          history,
+          comments,
+          compatibilityMode:
+            capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
+              ? ("modern" as const)
+              : ("legacy" as const),
+          warning:
+            capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
+              ? undefined
+              : "Часть ленты заказа недоступна: в legacy-схеме отсутствуют отдельные таблицы истории или комментариев.",
+        };
       } catch (err) {
         console.error("getOrderHistory fallback (legacy schema)", err);
-        return { history: [], comments: [] };
+        return {
+          history: [],
+          comments: [],
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Не удалось загрузить историю заказа в полной схеме. Возвращен безопасный пустой результат.",
+        };
       }
     }),
 
@@ -1060,6 +1172,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(
@@ -1068,6 +1181,9 @@ export const ecommerceRouter = createRouter({
         input.deliveryStatus,
         "доставки"
       );
+      let mutationResponse:
+        | { success: true; ok: true; compatibilityMode: "modern" | "legacy"; warning?: string }
+        | { success: true } = { success: true };
       try {
         await db
           .update(orders)
@@ -1079,9 +1195,26 @@ export const ecommerceRouter = createRouter({
             updatedAt: new Date(),
           } as any)
           .where(eq(orders.id, input.id));
+        mutationResponse = { success: true, ok: true, compatibilityMode: "modern" as const };
       } catch (err) {
         console.error("updateOrderDelivery full patch failed, trying legacy", err);
-        // Legacy orders schema has no dedicated delivery status columns; skip write safely.
+        if (!capabilities.hasOrdersDeliveryStatus) {
+          await safeInsertOrderHistory(db, {
+            orderId: input.id,
+            userId: ctx.user?.id ?? null,
+            actionType: "delivery_update_skipped_legacy",
+            newValue: input as any,
+            comment:
+              "Доставочные поля не сохранены: в legacy-схеме отсутствуют delivery_status/service/track/price.",
+          });
+          mutationResponse = {
+            success: true,
+            ok: true,
+            compatibilityMode: "legacy" as const,
+            warning:
+              "Delivery status fields are not available in legacy database schema",
+          };
+        }
       }
       await safeInsertOrderHistory(db, {
         orderId: input.id,
@@ -1104,7 +1237,7 @@ export const ecommerceRouter = createRouter({
           console.error("delivery_handed email failed", err);
         });
       }
-      return { success: true };
+      return mutationResponse;
     }),
 
   updateOrderItemQuantity: protectedProcedure
@@ -1297,86 +1430,18 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
-      const whereConditions: any[] = [];
-      if (input?.statuses?.length) whereConditions.push(inArray(orders.status, input.statuses));
-      if (input?.paymentStatuses?.length)
-        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
-      if (input?.deliveryTypes?.length)
-        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
-      if (input?.dateFrom) whereConditions.push(gte(orders.createdAt, input.dateFrom));
-      if (input?.dateTo) whereConditions.push(lte(orders.createdAt, input.dateTo));
-
-      const search = input?.search?.trim();
-      if (search) {
-        const like = `%${search}%`;
-        whereConditions.push(
-          or(
-            sql`${orders.orderNumber} LIKE ${like}`,
-            sql`${orders.customerName} LIKE ${like}`,
-            sql`${orders.customerPhone} LIKE ${like}`,
-            sql`${orders.customerEmail} LIKE ${like}`
-          )
-        );
-      }
-
-      const rows = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          createdAt: orders.createdAt,
-          customerName: orders.customerName,
-          customerPhone: orders.customerPhone,
-          customerEmail: orders.customerEmail,
-          totalPrice: orders.totalPrice,
-          status: orders.status,
-          paymentStatus: orders.paymentStatus,
-          deliveryType: orders.deliveryType,
-          address: orders.address,
-        })
-        .from(orders)
-        .where(whereConditions.length ? and(...whereConditions) : undefined)
-        .orderBy(desc(orders.createdAt))
-        .limit(5000);
-
-      const escape = (value: unknown) =>
-        `"${String(value ?? "").replace(/"/g, '""')}"`;
-      const header = [
-        "Номер заказа",
-        "Дата",
-        "Покупатель",
-        "Телефон",
-        "Email",
-        "Сумма",
-        "Статус заказа",
-        "Статус оплаты",
-        "Доставка",
-        "Адрес",
-      ];
-      const lines = [
-        header.join(","),
-        ...rows.map(row =>
-          [
-            row.orderNumber || row.id,
-            new Date(row.createdAt).toLocaleString("ru-RU"),
-            row.customerName,
-            row.customerPhone,
-            row.customerEmail,
-            row.totalPrice,
-            row.status,
-            row.paymentStatus,
-            row.deliveryType,
-            row.address,
-          ]
-            .map(escape)
-            .join(",")
-        ),
-      ];
+      const { rows, compatibilityMode, compatibilityWarnings } = await loadOrdersForExport(
+        db,
+        input
+      );
 
       return {
         filename: `orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
         contentType: "text/csv; charset=utf-8",
-        csv: "\uFEFF" + lines.join("\n"),
+        csv: buildOrdersCsv(rows as Record<string, unknown>[]),
         count: rows.length,
+        compatibilityMode,
+        compatibilityWarnings,
       };
     }),
 
@@ -1396,58 +1461,11 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
-      const whereConditions: any[] = [];
-      if (input?.statuses?.length) whereConditions.push(inArray(orders.status, input.statuses));
-      if (input?.paymentStatuses?.length)
-        whereConditions.push(inArray(orders.paymentStatus, input.paymentStatuses));
-      if (input?.deliveryTypes?.length)
-        whereConditions.push(inArray(orders.deliveryType, input.deliveryTypes));
-      if (input?.dateFrom) whereConditions.push(gte(orders.createdAt, input.dateFrom));
-      if (input?.dateTo) whereConditions.push(lte(orders.createdAt, input.dateTo));
-      const search = input?.search?.trim();
-      if (search) {
-        const like = `%${search}%`;
-        whereConditions.push(
-          or(
-            sql`${orders.orderNumber} LIKE ${like}`,
-            sql`${orders.customerName} LIKE ${like}`,
-            sql`${orders.customerPhone} LIKE ${like}`,
-            sql`${orders.customerEmail} LIKE ${like}`
-          )
-        );
-      }
-
-      const rows = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          createdAt: orders.createdAt,
-          customerName: orders.customerName,
-          customerPhone: orders.customerPhone,
-          customerEmail: orders.customerEmail,
-          totalPrice: orders.totalPrice,
-          status: orders.status,
-          paymentStatus: orders.paymentStatus,
-          deliveryType: orders.deliveryType,
-          address: orders.address,
-        })
-        .from(orders)
-        .where(whereConditions.length ? and(...whereConditions) : undefined)
-        .orderBy(desc(orders.createdAt))
-        .limit(5000);
-
-      const table = rows.map(row => ({
-        "Номер заказа": row.orderNumber || row.id,
-        Дата: new Date(row.createdAt).toLocaleString("ru-RU"),
-        Покупатель: row.customerName || "",
-        Телефон: row.customerPhone || "",
-        Email: row.customerEmail || "",
-        Сумма: row.totalPrice,
-        "Статус заказа": row.status,
-        "Статус оплаты": row.paymentStatus,
-        Доставка: row.deliveryType,
-        Адрес: row.address || "",
-      }));
+      const { rows, compatibilityMode, compatibilityWarnings } = await loadOrdersForExport(
+        db,
+        input
+      );
+      const table = buildOrdersExportTable(rows as Record<string, unknown>[]);
 
       const ws = XLSX.utils.json_to_sheet(table);
       const wb = XLSX.utils.book_new();
@@ -1460,6 +1478,8 @@ export const ecommerceRouter = createRouter({
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         base64: Buffer.from(buf).toString("base64"),
         count: rows.length,
+        compatibilityMode,
+        compatibilityWarnings,
       };
     }),
 });

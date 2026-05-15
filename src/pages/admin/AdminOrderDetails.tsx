@@ -28,13 +28,17 @@ export default function AdminOrderDetails() {
   );
 
   const addComment = trpc.ecommerce.addOrderComment.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
       setComment("");
       await Promise.all([
         utils.ecommerce.getOrderHistory.invalidate({ orderId }),
         utils.ecommerce.getOrderById.invalidate({ id: orderId }),
       ]);
-      toast.success("Комментарий добавлен");
+      if (result?.warning) {
+        toast.warning(result.warning);
+      } else {
+        toast.success("Комментарий добавлен");
+      }
     },
     onError: err => toast.error(err.message || "Ошибка добавления комментария"),
   });
@@ -74,6 +78,8 @@ export default function AdminOrderDetails() {
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
+  const formatDateTime = (value: string | Date | null | undefined) =>
+    value ? new Date(value).toLocaleString("ru-RU") : "Дата не указана";
 
   useEffect(() => {
     if (!order) return;
@@ -106,7 +112,7 @@ export default function AdminOrderDetails() {
       <head><meta charset="utf-8"/><title>${titleMap[mode]} ${order.orderNumber || order.id}</title></head>
       <body style="font-family:Arial,sans-serif;padding:24px;color:#111;">
         <h2>${titleMap[mode]}: ${order.orderNumber || `#${order.id}`}</h2>
-        <p>Дата: ${new Date(order.createdAt).toLocaleString("ru-RU")}</p>
+        <p>Дата: ${formatDateTime(order.createdAt)}</p>
         <p>Покупатель: ${order.customerName || "—"} / ${order.customerPhone || "—"}</p>
         <p>Адрес: ${order.address || "—"}</p>
         <table style="width:100%;border-collapse:collapse;margin-top:16px;">
@@ -157,6 +163,11 @@ export default function AdminOrderDetails() {
     return <div className="text-sm text-gray-500">Заказ не найден</div>;
   }
 
+  const compatibilityWarnings = [
+    ...(order.compatibilityWarnings ?? []),
+    ...(feed?.warning ? [feed.warning] : []),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -172,7 +183,7 @@ export default function AdminOrderDetails() {
             Заказ {order.orderNumber || `#${order.id}`}
           </h2>
           <p className="text-sm text-gray-500">
-            Создан: {new Date(order.createdAt).toLocaleString("ru-RU")}
+            Создан: {formatDateTime(order.createdAt)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -203,6 +214,17 @@ export default function AdminOrderDetails() {
         </div>
       </div>
 
+      {compatibilityWarnings.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="font-semibold">Режим совместимости заказа</div>
+          <ul className="mt-2 space-y-1">
+            {compatibilityWarnings.map(warning => (
+              <li key={warning}>• {warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Статус заказа</p>
@@ -210,7 +232,11 @@ export default function AdminOrderDetails() {
           <p className="mt-3 text-xs text-gray-500">Оплата</p>
           <p className="mt-1 font-bold">{order.paymentStatus}</p>
           <p className="mt-3 text-xs text-gray-500">Доставка</p>
-          <p className="mt-1 font-bold">{order.deliveryStatus}</p>
+          <p className="mt-1 font-bold">{order.deliveryStatus || "Не задано"}</p>
+          <p className="mt-3 text-xs text-gray-500">Источник</p>
+          <p className="mt-1 font-bold">
+            {order.source === "legacy" ? "Legacy" : order.source || "Не задано"}
+          </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Покупатель</p>
@@ -218,6 +244,7 @@ export default function AdminOrderDetails() {
             value={customerName}
             onChange={e => setCustomerName(e.target.value)}
             className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-sm font-bold"
+            placeholder="Клиент не указан"
           />
           <input
             value={customerPhone}
@@ -228,6 +255,7 @@ export default function AdminOrderDetails() {
             value={customerEmail}
             onChange={e => setCustomerEmail(e.target.value)}
             className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
+            placeholder="Email не указан"
           />
           <p className="mt-3 text-xs text-gray-500">Адрес</p>
           <textarea
@@ -346,7 +374,7 @@ export default function AdminOrderDetails() {
                 <div key={row.id} className="rounded-lg border border-gray-100 p-3">
                   <p className="text-xs font-semibold text-gray-700">{row.actionType}</p>
                   <p className="text-[11px] text-gray-500">
-                    {new Date(row.createdAt).toLocaleString("ru-RU")}
+                    {formatDateTime(row.createdAt)}
                   </p>
                 </div>
               ))
