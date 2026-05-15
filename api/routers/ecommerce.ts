@@ -574,76 +574,164 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
+      try {
+        const orderRows = await db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            status: orders.status,
+            paymentStatus: orders.paymentStatus,
+            deliveryStatus: orders.deliveryStatus,
+            totalPrice: orders.totalPrice,
+            subtotal: orders.subtotal,
+            discountTotal: orders.discountTotal,
+            deliveryPrice: orders.deliveryPrice,
+            paidAmount: orders.paidAmount,
+            paymentType: orders.paymentType,
+            paymentMethod: orders.paymentMethod,
+            paymentId: orders.paymentId,
+            paymentError: orders.paymentError,
+            paidAt: orders.paidAt,
+            deliveryType: orders.deliveryType,
+            deliveryService: orders.deliveryService,
+            deliveryCity: orders.deliveryCity,
+            deliveryRegion: orders.deliveryRegion,
+            deliveryPostalCode: orders.deliveryPostalCode,
+            deliveryTrackNumber: orders.deliveryTrackNumber,
+            deliveryComment: orders.deliveryComment,
+            address: orders.address,
+            source: orders.source,
+            managerId: orders.managerId,
+            customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+            customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+            customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
+            customerFirstName: orders.customerFirstName,
+            customerLastName: orders.customerLastName,
+            customerComment: orders.customerComment,
+            internalComment: orders.internalComment,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+          })
+          .from(orders)
+          .leftJoin(users, eq(orders.userId, users.id))
+          .where(eq(orders.id, input.id))
+          .limit(1);
 
-      const orderRows = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          status: orders.status,
-          paymentStatus: orders.paymentStatus,
-          deliveryStatus: orders.deliveryStatus,
-          totalPrice: orders.totalPrice,
-          subtotal: orders.subtotal,
-          discountTotal: orders.discountTotal,
-          deliveryPrice: orders.deliveryPrice,
-          paidAmount: orders.paidAmount,
-          paymentType: orders.paymentType,
-          paymentMethod: orders.paymentMethod,
-          paymentId: orders.paymentId,
-          paymentError: orders.paymentError,
-          paidAt: orders.paidAt,
-          deliveryType: orders.deliveryType,
-          deliveryService: orders.deliveryService,
-          deliveryCity: orders.deliveryCity,
-          deliveryRegion: orders.deliveryRegion,
-          deliveryPostalCode: orders.deliveryPostalCode,
-          deliveryTrackNumber: orders.deliveryTrackNumber,
-          deliveryComment: orders.deliveryComment,
-          address: orders.address,
-          source: orders.source,
-          managerId: orders.managerId,
-          customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
-          customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
-          customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
-          customerFirstName: orders.customerFirstName,
-          customerLastName: orders.customerLastName,
-          customerComment: orders.customerComment,
-          internalComment: orders.internalComment,
-          createdAt: orders.createdAt,
-          updatedAt: orders.updatedAt,
-        })
-        .from(orders)
-        .leftJoin(users, eq(orders.userId, users.id))
-        .where(eq(orders.id, input.id))
-        .limit(1);
+        if (!orderRows[0]) {
+          throw new Error("Заказ не найден");
+        }
 
-      if (!orderRows[0]) {
-        throw new Error("Заказ не найден");
+        const items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            sku: orderItems.sku,
+            productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
+            image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
+            quantity: orderItems.quantity,
+            price: orderItems.price,
+            discount: orderItems.discount,
+            total: orderItems.total,
+            stockStatus: orderItems.stockStatus,
+          })
+          .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
+          .where(eq(orderItems.orderId, input.id))
+          .orderBy(orderItems.id);
+
+        return {
+          ...orderRows[0],
+          items,
+        };
+      } catch (orderByIdError) {
+        console.error("getOrderById full query failed, using legacy fallback", orderByIdError);
+
+        const legacyOrderResult = await db.execute<any[]>(sql`
+          SELECT
+            o.id,
+            NULL AS orderNumber,
+            o.status,
+            o.payment_status AS paymentStatus,
+            'not_required' AS deliveryStatus,
+            o.total_price AS totalPrice,
+            o.total_price AS subtotal,
+            0 AS discountTotal,
+            0 AS deliveryPrice,
+            0 AS paidAmount,
+            o.payment_type AS paymentType,
+            NULL AS paymentMethod,
+            NULL AS paymentId,
+            NULL AS paymentError,
+            NULL AS paidAt,
+            o.delivery_type AS deliveryType,
+            NULL AS deliveryService,
+            NULL AS deliveryCity,
+            NULL AS deliveryRegion,
+            NULL AS deliveryPostalCode,
+            NULL AS deliveryTrackNumber,
+            NULL AS deliveryComment,
+            o.address,
+            'site' AS source,
+            NULL AS managerId,
+            u.full_name AS customerName,
+            u.phone AS customerPhone,
+            u.email AS customerEmail,
+            NULL AS customerFirstName,
+            NULL AS customerLastName,
+            NULL AS customerComment,
+            NULL AS internalComment,
+            o.created_at AS createdAt,
+            o.created_at AS updatedAt
+          FROM orders o
+          LEFT JOIN users u ON u.id = o.user_id
+          WHERE o.id = ${input.id}
+          LIMIT 1
+        `);
+        const legacyOrderRows = Array.isArray((legacyOrderResult as any)?.[0])
+          ? (legacyOrderResult as any)[0]
+          : (legacyOrderResult as any[]);
+        if (!legacyOrderRows[0]) throw new Error("Заказ не найден");
+
+        const legacyItemsResult = await db.execute<any[]>(sql`
+          SELECT
+            oi.id,
+            oi.order_id AS orderId,
+            oi.product_id AS productId,
+            NULL AS sku,
+            p.name AS productName,
+            p.image AS image,
+            oi.quantity,
+            oi.price,
+            0 AS discount,
+            (oi.quantity * oi.price) AS total,
+            'in_stock' AS stockStatus
+          FROM order_items oi
+          LEFT JOIN products p ON p.id = oi.product_id
+          WHERE oi.order_id = ${input.id}
+          ORDER BY oi.id ASC
+        `);
+        const legacyItemsRows = Array.isArray((legacyItemsResult as any)?.[0])
+          ? (legacyItemsResult as any)[0]
+          : (legacyItemsResult as any[]);
+
+        return {
+          ...legacyOrderRows[0],
+          id: Number(legacyOrderRows[0].id),
+          totalPrice: Number(legacyOrderRows[0].totalPrice ?? 0),
+          subtotal: Number(legacyOrderRows[0].subtotal ?? 0),
+          items: (legacyItemsRows as any[]).map((row: any) => ({
+            ...row,
+            id: Number(row.id),
+            orderId: Number(row.orderId),
+            productId: Number(row.productId),
+            quantity: Number(row.quantity ?? 0),
+            price: Number(row.price ?? 0),
+            discount: Number(row.discount ?? 0),
+            total: Number(row.total ?? 0),
+          })),
+        };
       }
-
-      const items = await db
-        .select({
-          id: orderItems.id,
-          orderId: orderItems.orderId,
-          productId: orderItems.productId,
-          sku: orderItems.sku,
-          productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
-          image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
-          quantity: orderItems.quantity,
-          price: orderItems.price,
-          discount: orderItems.discount,
-          total: orderItems.total,
-          stockStatus: orderItems.stockStatus,
-        })
-        .from(orderItems)
-        .leftJoin(products, eq(orderItems.productId, products.id))
-        .where(eq(orderItems.orderId, input.id))
-        .orderBy(orderItems.id);
-
-      return {
-        ...orderRows[0],
-        items,
-      };
     }),
 
   addOrderComment: protectedProcedure
