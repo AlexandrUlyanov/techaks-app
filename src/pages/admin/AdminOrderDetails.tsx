@@ -76,7 +76,7 @@ export default function AdminOrderDetails() {
     onError: err => toast.error(err.message || "Ошибка удаления позиции"),
   });
 
-  const formatPrice = (value: number) =>
+  const formatPrice = (value: number | null | undefined) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
   const formatDateTime = (value: string | Date | null | undefined) =>
     value ? new Date(value).toLocaleString("ru-RU") : "Дата не указана";

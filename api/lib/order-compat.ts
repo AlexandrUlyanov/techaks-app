@@ -12,8 +12,16 @@ export type OrderDbCapabilities = {
   hasOrdersCustomerFields: boolean;
   hasOrdersSource: boolean;
   hasOrdersUpdatedAt: boolean;
+  hasOrdersDeliveryService: boolean;
+  hasOrdersDeliveryAddressDetails: boolean;
+  hasOrdersDeliveryTrackingFields: boolean;
+  hasOrdersShippingLifecycleFields: boolean;
+  hasOrdersPaymentLifecycleFields: boolean;
+  hasOrdersManagerFields: boolean;
+  hasOrdersProblemCancellationCompletionFields: boolean;
   hasOrderItemsSku: boolean;
   hasOrderItemsTotal: boolean;
+  hasOrderItemsSnapshotFields: boolean;
   hasOrderHistoryTable: boolean;
   hasOrderCommentsTable: boolean;
   hasUsersRoleStatusPasswordHash: boolean;
@@ -29,8 +37,16 @@ const DEFAULT_CAPABILITIES: OrderDbCapabilities = {
   hasOrdersCustomerFields: false,
   hasOrdersSource: false,
   hasOrdersUpdatedAt: false,
+  hasOrdersDeliveryService: false,
+  hasOrdersDeliveryAddressDetails: false,
+  hasOrdersDeliveryTrackingFields: false,
+  hasOrdersShippingLifecycleFields: false,
+  hasOrdersPaymentLifecycleFields: false,
+  hasOrdersManagerFields: false,
+  hasOrdersProblemCancellationCompletionFields: false,
   hasOrderItemsSku: false,
   hasOrderItemsTotal: false,
+  hasOrderItemsSnapshotFields: false,
   hasOrderHistoryTable: false,
   hasOrderCommentsTable: false,
   hasUsersRoleStatusPasswordHash: false,
@@ -371,8 +387,11 @@ export function buildOrdersCsv(rows: Record<string, unknown>[]) {
   return "\uFEFF" + lines.join("\n");
 }
 
-export async function getOrderDbCapabilities(db: DbClient) {
-  if (capabilitiesCache) return capabilitiesCache;
+export async function getOrderDbCapabilities(
+  db: DbClient,
+  options?: { forceRefresh?: boolean }
+) {
+  if (capabilitiesCache && !options?.forceRefresh) return capabilitiesCache;
   try {
     const columnsResult = await db.execute<{
       table_name: string;
@@ -397,11 +416,29 @@ export async function getOrderDbCapabilities(db: DbClient) {
     );
     const tables = rowsFromExecute<{ table_name: string }>(tablesResult);
     const columnSet = new Set(
-      columns.map(
-        column => `${String(column.table_name)}.${String(column.column_name)}`
+      columns.map(column => {
+        const tableName =
+          (column as any).table_name ??
+          (column as any).TABLE_NAME ??
+          (column as any).tableName ??
+          (column as any).TABLE_NAME;
+        const columnName =
+          (column as any).column_name ??
+          (column as any).COLUMN_NAME ??
+          (column as any).columnName ??
+          (column as any).COLUMN_NAME;
+        return `${String(tableName)}.${String(columnName)}`;
+      })
+    );
+    const tableSet = new Set(
+      tables.map(table =>
+        String(
+          (table as any).table_name ??
+            (table as any).TABLE_NAME ??
+            (table as any).tableName
+        )
       )
     );
-    const tableSet = new Set(tables.map(table => String(table.table_name)));
 
     capabilitiesCache = {
       detected: true,
@@ -414,8 +451,32 @@ export async function getOrderDbCapabilities(db: DbClient) {
         columnSet.has("orders.customer_phone"),
       hasOrdersSource: columnSet.has("orders.source"),
       hasOrdersUpdatedAt: columnSet.has("orders.updated_at"),
+      hasOrdersDeliveryService: columnSet.has("orders.delivery_service"),
+      hasOrdersDeliveryAddressDetails:
+        columnSet.has("orders.delivery_city") &&
+        columnSet.has("orders.delivery_region") &&
+        columnSet.has("orders.delivery_postal_code"),
+      hasOrdersDeliveryTrackingFields:
+        columnSet.has("orders.delivery_track_number") &&
+        columnSet.has("orders.delivery_comment"),
+      hasOrdersShippingLifecycleFields:
+        columnSet.has("orders.shipped_at") &&
+        columnSet.has("orders.delivered_at"),
+      hasOrdersPaymentLifecycleFields:
+        columnSet.has("orders.paid_at") &&
+        columnSet.has("orders.payment_error"),
+      hasOrdersManagerFields: columnSet.has("orders.manager_id"),
+      hasOrdersProblemCancellationCompletionFields:
+        columnSet.has("orders.is_problem") &&
+        columnSet.has("orders.cancelled_at") &&
+        columnSet.has("orders.cancelled_reason") &&
+        columnSet.has("orders.completed_at"),
       hasOrderItemsSku: columnSet.has("order_items.sku"),
       hasOrderItemsTotal: columnSet.has("order_items.total"),
+      hasOrderItemsSnapshotFields:
+        columnSet.has("order_items.product_name") &&
+        columnSet.has("order_items.image") &&
+        columnSet.has("order_items.stock_status"),
       hasOrderHistoryTable: tableSet.has("order_history"),
       hasOrderCommentsTable: tableSet.has("order_comments"),
       hasUsersRoleStatusPasswordHash:
@@ -442,6 +503,61 @@ export function canUseRichOrdersSchema(capabilities: OrderDbCapabilities) {
     capabilities.hasOrdersSource &&
     capabilities.hasOrderItemsTotal &&
     capabilities.hasOrderItemsSku
+  );
+}
+
+export function canUseModernOrderItemsWriteSchema(
+  capabilities: OrderDbCapabilities
+) {
+  return (
+    capabilities.hasOrderItemsSku &&
+    capabilities.hasOrderItemsTotal &&
+    capabilities.hasOrderItemsSnapshotFields
+  );
+}
+
+export function canUseModernOrderInsertSchema(
+  capabilities: OrderDbCapabilities
+) {
+  return (
+    canUseRichOrdersSchema(capabilities) &&
+    capabilities.hasOrdersDeliveryService &&
+    capabilities.hasOrdersDeliveryAddressDetails &&
+    capabilities.hasOrdersDeliveryTrackingFields &&
+    capabilities.hasOrdersShippingLifecycleFields &&
+    capabilities.hasOrdersPaymentLifecycleFields &&
+    capabilities.hasOrdersManagerFields &&
+    capabilities.hasOrdersProblemCancellationCompletionFields &&
+    canUseModernOrderItemsWriteSchema(capabilities)
+  );
+}
+
+export function canUseModernOrderDetailsSchema(
+  capabilities: OrderDbCapabilities
+) {
+  return (
+    capabilities.hasOrdersCustomerFields &&
+    capabilities.hasOrdersUpdatedAt &&
+    capabilities.hasOrdersDeliveryAddressDetails
+  );
+}
+
+export function canUseModernOrderPaymentSchema(
+  capabilities: OrderDbCapabilities
+) {
+  return (
+    capabilities.hasOrdersUpdatedAt &&
+    capabilities.hasOrdersSubtotal
+  );
+}
+
+export function canUseModernOrderDeliverySchema(
+  capabilities: OrderDbCapabilities
+) {
+  return (
+    capabilities.hasOrdersDeliveryStatus &&
+    capabilities.hasOrdersUpdatedAt &&
+    capabilities.hasOrdersDeliveryService
   );
 }
 

@@ -10,8 +10,13 @@ import {
   buildOrdersExportTable,
   buildLegacyOrderWhereSql,
   buildModernOrderWhere,
+  canUseModernOrderDeliverySchema,
+  canUseModernOrderDetailsSchema,
+  canUseModernOrderInsertSchema,
+  canUseModernOrderPaymentSchema,
   canUseRichOrdersSchema,
   getOrderDbCapabilities,
+  legacyDeliveryStatusFromRow,
   mapLegacyListOrderRow,
   mapLegacyOrderDetailsRow,
   mapLegacyOrderItemRow,
@@ -125,6 +130,24 @@ async function safeInsertOrderHistory(db: ReturnType<typeof getDb>, payload: any
   }
 }
 
+function withFallbackDeliveryStatus<T extends {
+  status?: string | null;
+  deliveryType?: string | null;
+  deliveryStatus?: string | null;
+}>(row: T | undefined) {
+  if (!row) return row;
+  if (typeof row.deliveryStatus === "string" && row.deliveryStatus.trim().length > 0) {
+    return row;
+  }
+  return {
+    ...row,
+    deliveryStatus: legacyDeliveryStatusFromRow({
+      status: row.status ?? null,
+      deliveryType: row.deliveryType ?? null,
+    }),
+  };
+}
+
 async function loadOrdersForExport(
   db: ReturnType<typeof getDb>,
   input:
@@ -233,7 +256,7 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
       .from(orders)
       .where(eq(orders.id, orderId))
       .limit(1);
-    return rows[0];
+    return withFallbackDeliveryStatus(rows[0]);
   } catch (err) {
     console.error("getOrderCoreForUpdate fallback (legacy schema)", err);
     const raw = await db.execute<any[]>(sql`
@@ -320,6 +343,7 @@ export const ecommerceRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       if (input.items.length === 0) {
         throw new Error("Корзина пуста");
       }
@@ -367,7 +391,7 @@ export const ecommerceRouter = createRouter({
 
       // 2. Create order
       let newOrder;
-      try {
+      if (canUseModernOrderInsertSchema(capabilities)) {
         newOrder = await db.insert(orders).values({
           userId,
           orderNumber,
@@ -386,8 +410,7 @@ export const ecommerceRouter = createRouter({
           paymentMethod: input.paymentType,
           status: "pending",
         });
-      } catch (primaryInsertError) {
-        console.error("placeOrder full insert failed, trying legacy fallback", primaryInsertError);
+      } else {
         // Fallback for partially migrated DBs (legacy orders schema with fewer columns).
         const legacyInsertResult = await db.execute(sql`
           INSERT INTO orders (
@@ -424,7 +447,7 @@ export const ecommerceRouter = createRouter({
 
       // 3. Create order items
       for (const item of input.items) {
-        try {
+        if (canUseModernOrderInsertSchema(capabilities)) {
           await db.insert(orderItems).values({
             orderId,
             productId: item.productId,
@@ -432,8 +455,7 @@ export const ecommerceRouter = createRouter({
             quantity: item.quantity,
             price: item.price,
           });
-        } catch (orderItemInsertError) {
-          console.error("order item full insert failed, trying legacy fallback", orderItemInsertError);
+        } else {
           await db.execute(sql`
             INSERT INTO order_items (
               order_id,
@@ -596,7 +618,7 @@ export const ecommerceRouter = createRouter({
           .where(whereClause);
 
         return {
-          orders: items,
+          orders: items.map(item => withFallbackDeliveryStatus(item)!),
           total: Number(countResult[0]?.count ?? 0),
           compatibilityMode: "modern" as const,
           compatibilityWarnings: [] as string[],
@@ -836,7 +858,7 @@ export const ecommerceRouter = createRouter({
           .orderBy(orderItems.id);
 
         return {
-          ...orderRows[0],
+          ...withFallbackDeliveryStatus(orderRows[0]),
           items,
           compatibilityMode: "modern" as const,
           compatibilityWarnings: [] as string[],
@@ -929,7 +951,11 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "add_comment");
       const db = getDb();
-      const capabilities = await getOrderDbCapabilities(db);
+      let capabilities = await getOrderDbCapabilities(db);
+
+      if (!capabilities.hasOrderCommentsTable) {
+        capabilities = await getOrderDbCapabilities(db, { forceRefresh: true });
+      }
 
       if (!capabilities.hasOrderCommentsTable) {
         await safeInsertOrderHistory(db, {
@@ -969,7 +995,11 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Order");
       const db = getDb();
-      const capabilities = await getOrderDbCapabilities(db);
+      let capabilities = await getOrderDbCapabilities(db);
+
+      if (!capabilities.hasOrderHistoryTable && !capabilities.hasOrderCommentsTable) {
+        capabilities = await getOrderDbCapabilities(db, { forceRefresh: true });
+      }
 
       if (!capabilities.hasOrderHistoryTable && !capabilities.hasOrderCommentsTable) {
         return {
@@ -1058,6 +1088,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_details");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
 
@@ -1080,10 +1111,9 @@ export const ecommerceRouter = createRouter({
       if (typeof input.internalComment === "string")
         patch.internalComment = input.internalComment || null;
 
-      try {
+      if (canUseModernOrderDetailsSchema(capabilities)) {
         await db.update(orders).set(patch as any).where(eq(orders.id, input.id));
-      } catch (err) {
-        console.error("updateOrderDetails full patch failed, trying legacy", err);
+      } else {
         await db.execute(
           sql`UPDATE orders
               SET address = ${patch.address ?? existing[0].address ?? null},
@@ -1115,6 +1145,7 @@ export const ecommerceRouter = createRouter({
       requireAbility(ctx, "update", "Order");
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_payment");
       const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
       const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
       ensureTransition(
@@ -1123,7 +1154,7 @@ export const ecommerceRouter = createRouter({
         input.paymentStatus,
         "оплаты"
       );
-      try {
+      if (canUseModernOrderPaymentSchema(capabilities)) {
         await db
           .update(orders)
           .set({
@@ -1133,8 +1164,7 @@ export const ecommerceRouter = createRouter({
             updatedAt: new Date(),
           } as any)
           .where(eq(orders.id, input.id));
-      } catch (err) {
-        console.error("updateOrderPayment full patch failed, trying legacy", err);
+      } else {
         await db.execute(
           sql`UPDATE orders SET payment_status = ${input.paymentStatus} WHERE id = ${input.id}`
         );
@@ -1204,7 +1234,7 @@ export const ecommerceRouter = createRouter({
       let mutationResponse:
         | { success: true; ok: true; compatibilityMode: "modern" | "legacy"; warning?: string }
         | { success: true } = { success: true };
-      try {
+      if (canUseModernOrderDeliverySchema(capabilities)) {
         await db
           .update(orders)
           .set({
@@ -1216,25 +1246,22 @@ export const ecommerceRouter = createRouter({
           } as any)
           .where(eq(orders.id, input.id));
         mutationResponse = { success: true, ok: true, compatibilityMode: "modern" as const };
-      } catch (err) {
-        console.error("updateOrderDelivery full patch failed, trying legacy", err);
-        if (!capabilities.hasOrdersDeliveryStatus) {
-          await safeInsertOrderHistory(db, {
-            orderId: input.id,
-            userId: ctx.user?.id ?? null,
-            actionType: "delivery_update_skipped_legacy",
-            newValue: input as any,
-            comment:
-              "Доставочные поля не сохранены: в legacy-схеме отсутствуют delivery_status/service/track/price.",
-          });
-          mutationResponse = {
-            success: true,
-            ok: true,
-            compatibilityMode: "legacy" as const,
-            warning:
-              "Delivery status fields are not available in legacy database schema",
-          };
-        }
+      } else {
+        await safeInsertOrderHistory(db, {
+          orderId: input.id,
+          userId: ctx.user?.id ?? null,
+          actionType: "delivery_update_skipped_legacy",
+          newValue: input as any,
+          comment:
+            "Доставочные поля не сохранены: в legacy-схеме отсутствуют delivery_status/service/track/price.",
+        });
+        mutationResponse = {
+          success: true,
+          ok: true,
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Delivery status fields are not available in legacy database schema",
+        };
       }
       await safeInsertOrderHistory(db, {
         orderId: input.id,
