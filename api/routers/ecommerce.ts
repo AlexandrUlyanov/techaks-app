@@ -234,13 +234,30 @@ export const ecommerceRouter = createRouter({
 
       // 3. Create order items
       for (const item of input.items) {
-        await db.insert(orderItems).values({
-          orderId,
-          productId: item.productId,
-          total: item.price * item.quantity,
-          quantity: item.quantity,
-          price: item.price,
-        });
+        try {
+          await db.insert(orderItems).values({
+            orderId,
+            productId: item.productId,
+            total: item.price * item.quantity,
+            quantity: item.quantity,
+            price: item.price,
+          });
+        } catch (orderItemInsertError) {
+          console.error("order item full insert failed, trying legacy fallback", orderItemInsertError);
+          await db.execute(sql`
+            INSERT INTO order_items (
+              order_id,
+              product_id,
+              quantity,
+              price
+            ) VALUES (
+              ${orderId},
+              ${item.productId},
+              ${item.quantity},
+              ${item.price}
+            )
+          `);
+        }
       }
 
       // 4. (Optional) Trigger Telegram Notification to Admin
