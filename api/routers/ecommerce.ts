@@ -199,7 +199,7 @@ export const ecommerceRouter = createRouter({
       } catch (primaryInsertError) {
         console.error("placeOrder full insert failed, trying legacy fallback", primaryInsertError);
         // Fallback for partially migrated DBs (legacy orders schema with fewer columns).
-        await db.execute(sql`
+        const legacyInsertResult = await db.execute(sql`
           INSERT INTO orders (
             user_id,
             status,
@@ -220,8 +220,11 @@ export const ecommerceRouter = createRouter({
             NOW()
           )
         `);
-        const lastIdRows = await db.execute<{ id: number }[]>(sql`SELECT LAST_INSERT_ID() AS id`);
-        const fallbackOrderId = Number(lastIdRows?.[0]?.id ?? 0);
+        const fallbackOrderId = Number(
+          (legacyInsertResult as any)?.[0]?.insertId ??
+          (legacyInsertResult as any)?.insertId ??
+          0
+        );
         if (!fallbackOrderId) {
           throw new Error("Не удалось получить ID созданного заказа");
         }
