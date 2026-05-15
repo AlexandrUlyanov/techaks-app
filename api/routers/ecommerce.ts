@@ -435,7 +435,7 @@ export const ecommerceRouter = createRouter({
       } catch (listOrdersError) {
         console.error("listOrders full query failed, using legacy fallback", listOrdersError);
 
-        const legacyRows = await db.execute<any[]>(sql`
+        const legacyResult = await db.execute<any[]>(sql`
           SELECT
             o.id,
             NULL AS orderNumber,
@@ -466,12 +466,20 @@ export const ecommerceRouter = createRouter({
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        const legacyCountRows = await db.execute<any[]>(
+        const legacyCountResult = await db.execute<any[]>(
           sql`SELECT COUNT(*) AS count FROM orders`
         );
 
+        const legacyRows = Array.isArray((legacyResult as any)?.[0])
+          ? (legacyResult as any)[0]
+          : (legacyResult as any[]);
+        const legacyCountRows = Array.isArray((legacyCountResult as any)?.[0])
+          ? (legacyCountResult as any)[0]
+          : (legacyCountResult as any[]);
+
         const normalized = (legacyRows as any[]).map((row: any) => ({
           ...row,
+          id: Number(row.id),
           subtotal: Number(row.totalPrice ?? 0),
           discountTotal: 0,
           deliveryPrice: 0,
