@@ -4,6 +4,7 @@ import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
+import { sendOrderNotificationEmail } from "../lib/mail";
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
@@ -208,6 +209,16 @@ export const ecommerceRouter = createRouter({
 
       // 4. (Optional) Trigger Telegram Notification to Admin
       // This will be added in a separate utility
+      if (normalizedEmail) {
+        await sendOrderNotificationEmail({
+          email: normalizedEmail,
+          orderNumber,
+          eventType: "order_created",
+          message: `Ваш заказ ${orderNumber} успешно создан. Мы свяжемся с вами для подтверждения.`,
+        }).catch(err => {
+          console.error("order_created email failed", err);
+        });
+      }
 
       return { success: true, orderId };
     }),
@@ -405,6 +416,8 @@ export const ecommerceRouter = createRouter({
       const existing = await db
         .select({
           status: orders.status,
+          customerEmail: orders.customerEmail,
+          orderNumber: orders.orderNumber,
         })
         .from(orders)
         .where(eq(orders.id, input.id))
@@ -422,6 +435,23 @@ export const ecommerceRouter = createRouter({
         oldValue: { status: existing[0]?.status ?? null } as any,
         newValue: { status: input.status } as any,
       });
+      const notificationEmail = existing[0]?.customerEmail;
+      const notificationOrderNumber = existing[0]?.orderNumber;
+      if (notificationEmail && notificationOrderNumber) {
+        await sendOrderNotificationEmail({
+          email: notificationEmail,
+          orderNumber: notificationOrderNumber,
+          eventType:
+            input.status === "cancelled"
+              ? "order_cancelled"
+              : input.status === "return_requested"
+                ? "order_refund"
+                : "order_status_changed",
+          message: `Статус вашего заказа ${notificationOrderNumber} изменился на: ${input.status}.`,
+        }).catch(err => {
+          console.error("order_status email failed", err);
+        });
+      }
       return { success: true };
     }),
 
@@ -640,7 +670,11 @@ export const ecommerceRouter = createRouter({
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_payment");
       const db = getDb();
       const existing = await db
-        .select({ paymentStatus: orders.paymentStatus })
+        .select({
+          paymentStatus: orders.paymentStatus,
+          customerEmail: orders.customerEmail,
+          orderNumber: orders.orderNumber,
+        })
         .from(orders)
         .where(eq(orders.id, input.id))
         .limit(1);
@@ -666,6 +700,16 @@ export const ecommerceRouter = createRouter({
         actionType: "payment_updated",
         newValue: input as any,
       });
+      if (existing[0].customerEmail && existing[0].orderNumber && input.paymentStatus === "paid") {
+        await sendOrderNotificationEmail({
+          email: existing[0].customerEmail,
+          orderNumber: existing[0].orderNumber,
+          eventType: "payment_success",
+          message: `Оплата по заказу ${existing[0].orderNumber} успешно получена.`,
+        }).catch(err => {
+          console.error("payment_success email failed", err);
+        });
+      }
       return { success: true };
     }),
 
@@ -684,7 +728,11 @@ export const ecommerceRouter = createRouter({
       ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
       const db = getDb();
       const existing = await db
-        .select({ deliveryStatus: orders.deliveryStatus })
+        .select({
+          deliveryStatus: orders.deliveryStatus,
+          customerEmail: orders.customerEmail,
+          orderNumber: orders.orderNumber,
+        })
         .from(orders)
         .where(eq(orders.id, input.id))
         .limit(1);
@@ -711,6 +759,21 @@ export const ecommerceRouter = createRouter({
         actionType: "delivery_updated",
         newValue: input as any,
       });
+      if (
+        existing[0].customerEmail &&
+        existing[0].orderNumber &&
+        (input.deliveryStatus === "handed_to_delivery" ||
+          input.deliveryStatus === "in_delivery")
+      ) {
+        await sendOrderNotificationEmail({
+          email: existing[0].customerEmail,
+          orderNumber: existing[0].orderNumber,
+          eventType: "delivery_handed",
+          message: `Заказ ${existing[0].orderNumber} передан в доставку.`,
+        }).catch(err => {
+          console.error("delivery_handed email failed", err);
+        });
+      }
       return { success: true };
     }),
 

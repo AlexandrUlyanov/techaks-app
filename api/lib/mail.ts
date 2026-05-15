@@ -95,3 +95,51 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
     `,
   });
 }
+
+export async function sendOrderNotificationEmail(input: {
+  email: string;
+  orderNumber: string;
+  eventType:
+    | "order_created"
+    | "order_status_changed"
+    | "payment_success"
+    | "delivery_handed"
+    | "order_cancelled"
+    | "order_refund";
+  title?: string;
+  message: string;
+}) {
+  const transporter = await getTransporter();
+  const settings = await getAppSettings(["smtp_from"]);
+  const from = settings.smtp_from || env.smtpFrom;
+
+  const subjectMap: Record<string, string> = {
+    order_created: `Заказ ${input.orderNumber} создан`,
+    order_status_changed: `Статус заказа ${input.orderNumber} обновлен`,
+    payment_success: `Оплата заказа ${input.orderNumber} подтверждена`,
+    delivery_handed: `Заказ ${input.orderNumber} передан в доставку`,
+    order_cancelled: `Заказ ${input.orderNumber} отменен`,
+    order_refund: `Возврат по заказу ${input.orderNumber}`,
+  };
+
+  if (!env.isProduction || !transporter) {
+    console.log(
+      `[MOCK EMAIL] order event for ${input.email}: ${input.eventType} / ${input.orderNumber}`
+    );
+    return;
+  }
+
+  await transporter.sendMail({
+    from,
+    to: input.email,
+    subject: input.title || subjectMap[input.eventType] || `Обновление заказа ${input.orderNumber}`,
+    text: input.message,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:20px;border:1px solid #eee;border-radius:10px;">
+        <h2 style="margin:0 0 12px;color:#15171A;text-transform:uppercase;">ТЕХАКС</h2>
+        <p style="margin:0 0 8px;color:#666;">Заказ: <strong>${input.orderNumber}</strong></p>
+        <p style="margin:0 0 10px;color:#111;line-height:1.55;">${input.message}</p>
+      </div>
+    `,
+  });
+}

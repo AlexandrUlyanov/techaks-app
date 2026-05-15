@@ -1,6 +1,6 @@
 import { trpc } from "@/providers/trpc";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Loader2, MessageSquarePlus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, MessageSquarePlus, Printer, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -37,6 +37,56 @@ export default function AdminOrderDetails() {
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
+
+  const printDocument = (mode: "order" | "picking" | "invoice") => {
+    if (!order) return;
+    const titleMap = {
+      order: "Заказ",
+      picking: "Лист сборки",
+      invoice: "Накладная",
+    } as const;
+    const rows = order.items
+      .map(
+        item => `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd;">${item.productName || `Товар #${item.productId}`}</td>
+            <td style="padding:8px;border:1px solid #ddd;">${item.sku || "-"}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:center;">${item.quantity}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(item.total || item.price * item.quantity)}</td>
+          </tr>`
+      )
+      .join("");
+    const html = `
+      <html>
+      <head><meta charset="utf-8"/><title>${titleMap[mode]} ${order.orderNumber || order.id}</title></head>
+      <body style="font-family:Arial,sans-serif;padding:24px;color:#111;">
+        <h2>${titleMap[mode]}: ${order.orderNumber || `#${order.id}`}</h2>
+        <p>Дата: ${new Date(order.createdAt).toLocaleString("ru-RU")}</p>
+        <p>Покупатель: ${order.customerName || "—"} / ${order.customerPhone || "—"}</p>
+        <p>Адрес: ${order.address || "—"}</p>
+        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+          <thead>
+            <tr>
+              <th style="padding:8px;border:1px solid #ddd;text-align:left;">Товар</th>
+              <th style="padding:8px;border:1px solid #ddd;text-align:left;">SKU</th>
+              <th style="padding:8px;border:1px solid #ddd;text-align:center;">Кол-во</th>
+              <th style="padding:8px;border:1px solid #ddd;text-align:right;">Сумма</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <h3 style="margin-top:16px;">Итого: ${formatPrice(order.totalPrice)}</h3>
+      </body>
+      </html>
+    `;
+    const w = window.open("", "_blank", "width=1024,height=800");
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
 
   if (!Number.isFinite(orderId)) {
     return <div className="text-sm text-red-600">Некорректный ID заказа</div>;
@@ -79,6 +129,32 @@ export default function AdminOrderDetails() {
           <p className="text-sm text-gray-500">
             Создан: {new Date(order.createdAt).toLocaleString("ru-RU")}
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => printDocument("order")}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold uppercase tracking-wider text-gray-700 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+          >
+            <Printer size={14} />
+            Печать заказа
+          </button>
+          <button
+            type="button"
+            onClick={() => printDocument("picking")}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold uppercase tracking-wider text-gray-700 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+          >
+            <Printer size={14} />
+            Лист сборки
+          </button>
+          <button
+            type="button"
+            onClick={() => printDocument("invoice")}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold uppercase tracking-wider text-gray-700 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+          >
+            <Printer size={14} />
+            Накладная
+          </button>
         </div>
       </div>
 
