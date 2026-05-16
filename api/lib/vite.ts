@@ -25,6 +25,7 @@ export function serveStaticFiles(app: App) {
   app.get("/blog/*", sendIndex);
   app.get("/checkout", sendIndex);
   app.get("/account", sendIndex);
+  app.get("/login", sendIndex);
   app.get("/search", sendIndex);
 
   app.use("*", serveStatic({ root: "./dist/public" }));
