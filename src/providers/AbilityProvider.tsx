@@ -31,15 +31,16 @@ export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (error?.data?.code === "UNAUTHORIZED") {
       logout();
-      window.location.href = "/";
+      window.location.href = "/login";
     }
   }, [error, logout]);
 
   useEffect(() => {
-    if (serverUser && JSON.stringify(serverUser) !== JSON.stringify(user)) {
+    if (!token || !serverUser) return;
+    if (JSON.stringify(serverUser) !== JSON.stringify(user)) {
       setUser(serverUser);
     }
-  }, [serverUser, setUser, user]);
+  }, [serverUser, setUser, token, user]);
 
   const ability = useMemo(() => {
     if (user) {
