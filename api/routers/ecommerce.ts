@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
+import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
@@ -2418,6 +2418,35 @@ export const ecommerceRouter = createRouter({
         count: rows.length,
         compatibilityMode,
         compatibilityWarnings,
+      };
+    }),
+
+  deleteOrder: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const [existing] = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new Error("Заказ не найден.");
+      }
+
+      await db.delete(orderComments).where(eq(orderComments.orderId, input.id));
+      await db.delete(orderHistory).where(eq(orderHistory.orderId, input.id));
+      await db.delete(orderItems).where(eq(orderItems.orderId, input.id));
+      await db.delete(orders).where(eq(orders.id, input.id));
+
+      return {
+        success: true,
+        deletedOrderId: input.id,
+        orderNumber: existing.orderNumber || `#${input.id}`,
       };
     }),
 });

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAbility } from "@/providers/AbilityProvider";
 
 const ORDER_STATUS_OPTIONS = [
   { value: "", label: "Все статусы" },
@@ -71,6 +72,7 @@ const QUICK_TABS: Array<{ key: QuickTabKey; label: string }> = [
 ];
 
 export default function AdminLeads() {
+  const ability = useAbility();
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -140,6 +142,14 @@ export default function AdminLeads() {
       toast.success(`Обновлено заказов: ${data.updated}`);
     },
     onError: err => toast.error(err.message || "Ошибка массового обновления"),
+  });
+  const deleteOrderMutation = trpc.ecommerce.deleteOrder.useMutation({
+    onSuccess: async data => {
+      setSelectedIds(prev => prev.filter(id => id !== data.deletedOrderId));
+      await utils.ecommerce.listOrders.invalidate();
+      toast.success(`Заказ ${data.orderNumber} удалён`);
+    },
+    onError: err => toast.error(err.message || "Ошибка удаления заказа"),
   });
 
   const orders = data?.orders || [];
@@ -483,6 +493,24 @@ export default function AdminLeads() {
                     >
                       Открыть
                     </Link>
+                    {ability.can("manage", "all") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Удалить заказ ${order.orderNumber || `#${order.id}`}? Это действие необратимо.`
+                            )
+                          ) {
+                            deleteOrderMutation.mutate({ id: order.id });
+                          }
+                        }}
+                        disabled={deleteOrderMutation.isPending}
+                        className="inline-flex h-10 items-center rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold uppercase tracking-wider text-red-700 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        Удалить
+                      </button>
+                    )}
                     <select
                       value={order.status}
                       onChange={e =>

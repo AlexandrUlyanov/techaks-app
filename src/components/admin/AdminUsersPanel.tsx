@@ -1,5 +1,5 @@
 import { trpc } from "@/providers/trpc";
-import { Loader2, UserCog } from "lucide-react";
+import { Loader2, Trash2, UserCog } from "lucide-react";
 import { useAbility } from "@/providers/AbilityProvider";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -33,6 +33,16 @@ export default function AdminUsersPanel() {
   const updateStatusMutation = trpc.user.updateStatus.useMutation({
     onSuccess: () => {
       utils.user.getAll.invalidate();
+    },
+    onError: err => {
+      alert("Ошибка: " + err.message);
+    },
+  });
+
+  const deleteUserMutation = trpc.user.deleteUser.useMutation({
+    onSuccess: data => {
+      utils.user.getAll.invalidate();
+      alert(`Пользователь ${data.email} удалён`);
     },
     onError: err => {
       alert("Ошибка: " + err.message);
@@ -92,6 +102,9 @@ export default function AdminUsersPanel() {
               <th className="px-6 py-4">Роль</th>
               <th className="px-6 py-4">Статус</th>
               <th className="px-6 py-4">Регистрация</th>
+              {ability.can("manage", "all") && (
+                <th className="px-6 py-4 text-right">Действия</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -140,6 +153,27 @@ export default function AdminUsersPanel() {
                 <td className="px-6 py-4 text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString("ru-RU")}
                 </td>
+                {ability.can("manage", "all") && (
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Удалить пользователя ${user.email}? Его сессии и токены будут удалены, а связанные заказы останутся без user_id.`
+                          )
+                        ) {
+                          deleteUserMutation.mutate({ id: user.id });
+                        }
+                      }}
+                      disabled={deleteUserMutation.isPending}
+                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold uppercase tracking-wider text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                      Удалить
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -3,8 +3,10 @@ import { Link, useParams } from "react-router";
 import { ArrowLeft, Loader2, MessageSquarePlus, Printer, Save, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAbility } from "@/providers/AbilityProvider";
 
 export default function AdminOrderDetails() {
+  const ability = useAbility();
   const { id } = useParams<{ id: string }>();
   const orderId = Number(id);
   const utils = trpc.useUtils();
@@ -76,6 +78,14 @@ export default function AdminOrderDetails() {
       toast.success("Позиция удалена");
     },
     onError: err => toast.error(err.message || "Ошибка удаления позиции"),
+  });
+  const deleteOrder = trpc.ecommerce.deleteOrder.useMutation({
+    onSuccess: async data => {
+      await utils.ecommerce.listOrders.invalidate();
+      toast.success(`Заказ ${data.orderNumber} удалён`);
+      window.location.href = "/admin/leads";
+    },
+    onError: err => toast.error(err.message || "Ошибка удаления заказа"),
   });
 
   const formatPrice = (value: number | null | undefined) =>
@@ -195,6 +205,25 @@ export default function AdminOrderDetails() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {ability.can("manage", "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Удалить заказ ${order.orderNumber || `#${order.id}`}? Это действие необратимо.`
+                  )
+                ) {
+                  deleteOrder.mutate({ id: Number(order.id) });
+                }
+              }}
+              disabled={deleteOrder.isPending}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold uppercase tracking-wider text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              Удалить заказ
+            </button>
+          )}
           <button
             type="button"
             onClick={() => printDocument("order")}
