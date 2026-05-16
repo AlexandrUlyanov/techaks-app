@@ -15,6 +15,7 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import AccountPage from "@/pages/AccountPage";
+import LoginPage from "@/pages/LoginPage";
 import SearchPage from "@/pages/SearchPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
@@ -44,7 +45,7 @@ export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
-  const shouldNoindex = isAdmin || ["/checkout", "/account", "/search"].includes(location.pathname);
+  const shouldNoindex = isAdmin || ["/checkout", "/account", "/search", "/login"].includes(location.pathname);
 
   useSeo({ noindex: shouldNoindex, canonicalPath: location.pathname });
 
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

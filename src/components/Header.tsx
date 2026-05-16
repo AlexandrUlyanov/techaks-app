@@ -1,15 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Sun, Moon, ShoppingCart, User, Search, Loader2, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCart } from "@/hooks/use-cart";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/providers/trpc";
-import AuthModal from "./AuthModal";
 import { CatalogTrigger } from "./Catalog/CatalogMenu";
 
 export default function Header() {
-  const [authOpen, setAuthOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
@@ -251,13 +249,13 @@ export default function Header() {
                     <User size={20} />
                   </Link>
                 ) : (
-                  <button
-                    onClick={() => setAuthOpen(true)}
+                  <Link
+                    to="/login"
                     className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
                     aria-label="Войти"
                   >
                     <User size={20} />
-                  </button>
+                  </Link>
                 )}
 
                 <Link
@@ -285,26 +283,6 @@ export default function Header() {
 
       {/* Spacer */}
       <div className="h-[76px]" />
-
-      {/* Auth Modal Overlay */}
-      {authOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setAuthOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-sm">
-            <button
-              onClick={() => setAuthOpen(false)}
-              className="absolute -top-12 right-0 text-white/40 hover:text-white flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-colors"
-            >
-              Закрыть ✕
-            </button>
-            <AuthModal onSuccess={() => setAuthOpen(false)} />
-          </div>
-        </div>
-      )}
-
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

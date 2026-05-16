@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "next-themes";
 import { useSeo } from "@/lib/seo";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function CheckoutPage() {
   useSeo({
@@ -42,6 +43,7 @@ export default function CheckoutPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { user, isAuthenticated } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -53,6 +55,15 @@ export default function CheckoutPage() {
     phone: "",
     email: "",
   });
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    setCustomer(prev => ({
+      fullName: prev.fullName || user.fullName || "",
+      phone: prev.phone || user.phone || "",
+      email: prev.email || user.email || "",
+    }));
+  }, [isAuthenticated, user]);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">(
     "pickup"
   );
@@ -79,7 +90,7 @@ export default function CheckoutPage() {
   const handlePlaceOrder = () => {
     const fullName = customer.fullName.trim();
     const phone = customer.phone.trim();
-    const email = customer.email.trim();
+    const email = customer.email.trim() || user?.email?.trim() || "";
     const normalizedAddress = address.trim();
 
     if (!fullName || !phone) {

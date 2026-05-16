@@ -13,10 +13,9 @@ import {
   Star,
   Settings,
 } from "lucide-react";
-import AuthModal from "@/components/AuthModal";
 import { Separator } from "@/components/ui/separator";
 import { Can } from "@/providers/AbilityProvider";
-import { Link } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 import { useSeo } from "@/lib/seo";
 
 export default function AccountPage() {
@@ -28,6 +27,7 @@ export default function AccountPage() {
   });
 
   const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
 
   const { data: orders = [], isLoading } =
     trpc.ecommerce.getUserOrders.useQuery(
@@ -39,12 +39,13 @@ export default function AccountPage() {
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center p-4 bg-background">
-        <AuthModal />
-      </div>
-    );
+    return <Navigate to="/login" replace />;
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24">
@@ -68,7 +69,7 @@ export default function AccountPage() {
             </div>
             <Button
               variant="outline"
-              onClick={logout}
+              onClick={handleLogout}
               className="w-fit h-12 px-8 border-border text-muted-foreground hover:text-destructive hover:border-destructive/20 transition-all"
             >
               <LogOut size={16} className="mr-2" />

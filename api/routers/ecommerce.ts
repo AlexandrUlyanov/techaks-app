@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
 import { sendOrderNotificationEmail } from "../lib/mail";
@@ -26,6 +26,16 @@ import {
 
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
+const PLACEHOLDER_EMAIL_DOMAIN = "@placeholder.techaks.ru";
+
+function buildPlaceholderEmail(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return `${digits || "guest"}${PLACEHOLDER_EMAIL_DOMAIN}`;
+}
+
+function isPlaceholderEmail(email?: string | null) {
+  return Boolean(email && email.toLowerCase().endsWith(PLACEHOLDER_EMAIL_DOMAIN));
+}
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
@@ -357,7 +367,7 @@ export const ecommerceRouter = createRouter({
         totalPrice: z.number(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const capabilities = await getOrderDbCapabilities(db);
       if (input.items.length === 0) {
@@ -371,6 +381,8 @@ export const ecommerceRouter = createRouter({
         normalizedEmailRaw && normalizedEmailRaw.length > 0
           ? normalizedEmailRaw.toLowerCase()
           : null;
+      const authenticatedEmail = ctx.user?.email?.trim().toLowerCase() || null;
+      const contactEmail = normalizedEmail ?? authenticatedEmail;
 
       const trustedTotal = input.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
@@ -393,23 +405,54 @@ export const ecommerceRouter = createRouter({
         100 + Math.random() * 900
       )}`;
 
-      // 1. Find or create user
+      // 1. Find or create user. If the customer is already authenticated,
+      // always attach the order to that account instead of creating a guest duplicate.
       let userId: number | null = null;
-      const email =
-        normalizedEmail ||
-        `${normalizedPhone.replace(/[^0-9]/g, "")}@placeholder.techaks.ru`;
-      
-      const existingUser = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
+      let resolvedUser = ctx.user ?? null;
 
-      if (existingUser[0]) {
-        userId = existingUser[0].id;
+      if (!resolvedUser && contactEmail) {
+        const existingByEmail = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, contactEmail))
+          .limit(1);
+        resolvedUser = existingByEmail[0] ?? null;
+      }
+
+      if (!resolvedUser && normalizedPhone) {
+        const existingByPhone = await db
+          .select()
+          .from(users)
+          .where(eq(users.phone, normalizedPhone))
+          .limit(1);
+        resolvedUser = existingByPhone[0] ?? null;
+      }
+
+      if (resolvedUser) {
+        userId = resolvedUser.id;
+        const userPatch: Partial<typeof users.$inferInsert> = {};
+        if (normalizedPhone && (!resolvedUser.phone || resolvedUser.phone.trim().length === 0)) {
+          userPatch.phone = normalizedPhone;
+        }
+        if (
+          normalizedFullName &&
+          (!resolvedUser.fullName || resolvedUser.fullName.trim().length === 0)
+        ) {
+          userPatch.fullName = normalizedFullName;
+        }
+        if (
+          contactEmail &&
+          isPlaceholderEmail(resolvedUser.email) &&
+          resolvedUser.email !== contactEmail
+        ) {
+          userPatch.email = contactEmail;
+        }
+        if (Object.keys(userPatch).length > 0) {
+          await db.update(users).set(userPatch).where(eq(users.id, resolvedUser.id));
+        }
       } else {
         const newUser = await db.insert(users).values({
-          email,
+          email: contactEmail || buildPlaceholderEmail(normalizedPhone),
           phone: normalizedPhone,
           fullName: normalizedFullName,
           role: "customer",
@@ -426,7 +469,7 @@ export const ecommerceRouter = createRouter({
           orderNumber,
           customerName: normalizedFullName,
           customerPhone: normalizedPhone,
-          customerEmail: normalizedEmail,
+          customerEmail: contactEmail,
           source: "site",
           totalPrice: trustedTotal,
           subtotal: trustedTotal,
@@ -503,14 +546,14 @@ export const ecommerceRouter = createRouter({
 
       // 4. (Optional) Trigger Telegram Notification to Admin
       // This will be added in a separate utility
-      if (normalizedEmail) {
+      if (contactEmail) {
         await sendOrderNotificationEmail({
-          email: normalizedEmail,
+          email: contactEmail,
           orderNumber,
           eventType: "order_created",
           data: {
             customerName: normalizedFullName,
-            customerEmail: normalizedEmail,
+            customerEmail: contactEmail,
             customerPhone: normalizedPhone,
             orderDate: new Date(),
             orderStatus: "pending",
@@ -550,23 +593,43 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const capabilities = await getOrderDbCapabilities(db);
-      
-      // If not admin, check if phone matches current user
-      if (!ctx.ability.can("read", "User")) {
-        if (ctx.user.phone !== input.phone) {
-          requireAbility(ctx, "read", "Order", { userId: ctx.user.id });
+      requireAbility(ctx, "read", "Order", { userId: ctx.user.id });
+      const phoneForLookup = (ctx.user.phone || input.phone || "").trim();
+      const emailForLookup = ctx.user.email?.trim().toLowerCase() || null;
+      const relatedUserIds = new Set<number>([ctx.user.id]);
+
+      const userIdentityConditions = [];
+      if (phoneForLookup) {
+        userIdentityConditions.push(eq(users.phone, phoneForLookup));
+      }
+      if (emailForLookup) {
+        userIdentityConditions.push(eq(users.email, emailForLookup));
+      }
+      if (userIdentityConditions.length > 0) {
+        const relatedUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            userIdentityConditions.length === 1
+              ? userIdentityConditions[0]
+              : or(...userIdentityConditions)
+          );
+        for (const relatedUser of relatedUsers) {
+          relatedUserIds.add(relatedUser.id);
         }
       }
 
-      const user = await db
-        .select()
-        .from(users)
-        .where(eq(users.phone, input.phone))
-        .limit(1);
-      if (!user[0]) return [];
-
       if (capabilities.detected && !canUseRichOrdersSchema(capabilities)) {
         console.info("getUserOrders using legacy compatibility mode");
+        const legacyConditions = Array.from(relatedUserIds).map(
+          relatedUserId => sql`user_id = ${relatedUserId}`
+        );
+        if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
+          legacyConditions.push(sql`customer_phone = ${phoneForLookup}`);
+        }
+        if (emailForLookup && capabilities.hasOrdersCustomerFields) {
+          legacyConditions.push(sql`customer_email = ${emailForLookup}`);
+        }
         const raw = await db.execute<any[]>(sql`
           SELECT
             id,
@@ -580,10 +643,22 @@ export const ecommerceRouter = createRouter({
             payment_status AS paymentStatus,
             created_at AS createdAt
           FROM orders
-          WHERE user_id = ${user[0].id}
+          WHERE ${sql.join(legacyConditions, sql` OR `)}
           ORDER BY created_at DESC
         `);
         return rowsFromExecute<any>(raw);
+      }
+
+      const relatedUserIdList = Array.from(relatedUserIds);
+      const orderLookupConditions =
+        relatedUserIdList.length > 1
+          ? [inArray(orders.userId, relatedUserIdList)]
+          : [eq(orders.userId, relatedUserIdList[0])];
+      if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
+        orderLookupConditions.push(eq(orders.customerPhone, phoneForLookup));
+      }
+      if (emailForLookup && capabilities.hasOrdersCustomerFields) {
+        orderLookupConditions.push(eq(orders.customerEmail, emailForLookup));
       }
 
       return await db
@@ -601,7 +676,7 @@ export const ecommerceRouter = createRouter({
         })
         .from(orders)
         .orderBy(desc(orders.createdAt))
-        .where(eq(orders.userId, user[0].id));
+        .where(or(...orderLookupConditions));
     }),
 
   listOrders: protectedProcedure
