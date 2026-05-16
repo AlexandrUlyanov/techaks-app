@@ -20,6 +20,11 @@ export default function ProductPage() {
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
   });
+  const typedStock = stock as Array<{
+    storeName: string;
+    storeAddress: string;
+    quantity: number;
+  }>;
   const { data: productManufacturer } =
     trpc.manufacturer.getByProductSlug.useQuery(
       { slug: slug || "" },
@@ -108,6 +113,15 @@ export default function ProductPage() {
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
   const normalizedDescription = (product.description || "").trim();
   const hasDescription = normalizedDescription.length > 0;
+  const isInStock = Boolean(product.inStock);
+  const manufacturer = productManufacturer ?? null;
+  const hasManufacturer = Boolean(manufacturer);
+  const hasOldPrice =
+    typeof product.oldPrice === "number" && product.oldPrice > product.price;
+  const productSpecs =
+    product.specs && typeof product.specs === "object"
+      ? (product.specs as Record<string, unknown>)
+      : null;
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -126,7 +140,7 @@ export default function ProductPage() {
       url: buildCanonical(canonicalPath),
       priceCurrency: "RUB",
       price: String(product.price),
-      availability: product.inStock
+      availability: isInStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
     },
@@ -168,7 +182,7 @@ export default function ProductPage() {
                   to={`/catalog?cat=${bc.slug}`}
                   className="hover:text-[#05C3D4] transition-colors"
                 >
-                  {bc.name}
+                  {String(bc.name)}
                 </Link>
               </div>
             ))}
@@ -196,26 +210,26 @@ export default function ProductPage() {
             {/* Gallery */}
             <div className="lg:w-[50%]">
               <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
-                {productManufacturer && (
+                {hasManufacturer && (
                   <Link
-                    to={productManufacturer.href}
+                    to={manufacturer?.href || "#"}
                     className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-[#05C3D4]/50 bg-white/95 px-3 py-2 !text-[#15171A] shadow-sm transition-all hover:border-[#05C3D4] hover:bg-white hover:!text-[#15171A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/40"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
-                      {productManufacturer.logo ? (
+                      {manufacturer?.logo ? (
                         <img
-                          src={productManufacturer.logo}
-                          alt={productManufacturer.title}
+                          src={manufacturer?.logo}
+                          alt={manufacturer?.title || "Бренд"}
                           className="h-full w-full object-contain"
                         />
                       ) : (
                         <span className="text-[9px] font-black text-[#05C3D4]">
-                          {productManufacturer.title.slice(0, 2).toUpperCase()}
+                          {String(manufacturer?.title || "").slice(0, 2).toUpperCase()}
                         </span>
                       )}
                     </span>
                     <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide !text-[#15171A]">
-                      {productManufacturer.title}
+                      {String(manufacturer?.title || "")}
                     </span>
                   </Link>
                 )}
@@ -268,13 +282,13 @@ export default function ProductPage() {
                       <span className="text-4xl md:text-[42px] font-black text-[#05C3D4] font-heading leading-none">
                         {formatPrice(product.price)}
                       </span>
-                      {product.oldPrice && (
+                      {hasOldPrice && (
                         <div className="flex flex-col">
                           <span className="text-lg text-muted-foreground/40 line-through font-bold">
-                            {formatPrice(product.oldPrice)}
+                            {formatPrice(product.oldPrice as number)}
                           </span>
                           <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
-                            Выгода {formatPrice(product.oldPrice - product.price)}
+                            Выгода {formatPrice((product.oldPrice as number) - product.price)}
                           </span>
                         </div>
                       )}
@@ -302,15 +316,15 @@ export default function ProductPage() {
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {stock.length > 0 ? (
-                    stock.map((s, i) => (
+                  {typedStock.length > 0 ? (
+                    typedStock.map((s, i) => (
                       <div
                         key={i}
                         className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1" title={s.storeName}>
-                            {s.storeName}
+                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1" title={String(s.storeName)}>
+                            {String(s.storeName)}
                           </span>
                           <div
                             className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
@@ -324,7 +338,7 @@ export default function ProductPage() {
                           </div>
                         </div>
                         <p className="text-[10px] font-medium text-muted-foreground leading-snug">
-                          {s.storeAddress}
+                          {String(s.storeAddress)}
                         </p>
 
                         {s.quantity > 0 && s.quantity <= 3 && (
@@ -345,8 +359,8 @@ export default function ProductPage() {
                   )}
                 </div>
 
-                {product.inStock &&
-                  stock.some(s => s.quantity > 0 && s.quantity <= 3) && (
+                {isInStock &&
+                  typedStock.some(s => s.quantity > 0 && s.quantity <= 3) && (
                     <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
                       <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
@@ -369,14 +383,14 @@ export default function ProductPage() {
               )}
 
               {/* Specs */}
-              {product.specs && typeof product.specs === "object" && (
+              {productSpecs && (
                 <div className="mt-10">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
                     Характеристики
                   </h3>
                   <div className="grid grid-cols-1 gap-1">
                     {Object.entries(
-                      product.specs as Record<string, string>
+                      productSpecs
                     )
                       .filter(([key]) => !isManufacturerSpec(key))
                       .map(([key, value]) => {
@@ -389,7 +403,7 @@ export default function ProductPage() {
                             {key}
                           </span>
                           <span className="text-right text-sm font-black text-foreground/80">
-                            {value}
+                            {String(value)}
                           </span>
                         </div>
                         );

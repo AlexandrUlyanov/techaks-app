@@ -351,7 +351,8 @@ app.post("/api/webhooks/moysklad", async c => {
           },
         });
 
-      if ((result as { insertId?: number }).insertId && (result as { insertId?: number }).insertId > 0) {
+      const insertId = (result as { insertId?: number } | undefined)?.insertId ?? 0;
+      if (insertId > 0) {
         inserted += 1;
       } else {
         duplicates += 1;

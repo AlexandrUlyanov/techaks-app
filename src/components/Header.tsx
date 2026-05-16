@@ -23,7 +23,7 @@ function readSeenConversationMap() {
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [seenVersion, setSeenVersion] = useState(0);
+  const [, setSeenVersion] = useState(0);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
   const { isAuthenticated } = useAuth();

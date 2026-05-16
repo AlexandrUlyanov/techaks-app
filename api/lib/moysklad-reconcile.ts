@@ -21,12 +21,12 @@ function getMsIdFromHref(href?: string | null): string | null {
   return href?.split("/").pop()?.split("?")[0] ?? null;
 }
 
-function parseLock(raw: string | null) {
+function parseLock(raw: string | null): { expiresAt: number } | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as { expiresAt?: number };
     if (!parsed?.expiresAt) return null;
-    return parsed;
+    return { expiresAt: parsed.expiresAt };
   } catch {
     return null;
   }

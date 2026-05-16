@@ -81,6 +81,15 @@ type MsStoreRow = {
   name: string;
   address?: string | null;
 };
+type MsFolderRow = {
+  id: string;
+  name: string;
+  productFolder?: {
+    meta?: {
+      href?: string;
+    };
+  };
+};
 type SyncLogDetails = {
   steps: string[];
   errors: string[];
@@ -695,7 +704,7 @@ export const syncRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "sync", "Sync");
       let lockOwner: string | null = null;
-      let activeProfile: Awaited<ReturnType<typeof getActiveSyncProfile>> = null;
+      let activeProfile: typeof schema.syncProfiles.$inferSelect | null = null;
       let selectedStores = input.selectedStores;
       let selectedCategories = input.selectedCategories;
       let syncProducts = input.syncProducts;
@@ -801,7 +810,10 @@ export const syncRouter = createRouter({
           await updateLog('running', 'Синхронизация категорий...');
           writeLog("Fetching folders...");
           
-          const msFolders = await fetchAllRows("/entity/productfolder", authHeader);
+          const msFolders = (await fetchAllRows(
+            "/entity/productfolder",
+            authHeader
+          )) as MsFolderRow[];
           writeLog(`Found ${msFolders.length} folders in MoySklad`);
 
           for (const msFolder of msFolders) {
@@ -817,11 +829,11 @@ export const syncRouter = createRouter({
               while ((await db.select().from(schema.categories).where(eq(schema.categories.slug, slug)).limit(1)).length > 0) {
                 slug = `${baseSlug}-${counter++}`;
               }
-              const [res] = await db.insert(schema.categories).values({ 
+              const [res] = await db.insert(schema.categories).values({
                 msId: msFolder.id,
-                slug: slug, 
-                name: msFolder.name 
-              });
+                slug,
+                name: msFolder.name,
+              } as typeof schema.categories.$inferInsert);
               categoryMap.set(msFolder.id, res.insertId);
             }
             logDetails.stats.categories++;
@@ -1131,7 +1143,7 @@ export const syncRouter = createRouter({
                   localStoreId = msStoreIdToLocalId.get(msStoreId);
                 } else {
                   const fallbackMatch = findMatchingLocalStore(
-                    { id: null, name: storeStock.name || "", address: storeStock.address || "" },
+                    { id: "", name: storeStock.name || "", address: storeStock.address || "" },
                     localStores
                   );
                   if (fallbackMatch) {
