@@ -488,6 +488,8 @@ function AccountOrderCard({
                               <MessageSquare size={16} className="text-[#05C3D4]" />
                               {comment.commentType === "client"
                                 ? "Ваше сообщение"
+                                : comment.commentType === "manager"
+                                ? "Ответ менеджера"
                                 : "Комментарий"}
                             </div>
                             <div className="text-xs text-muted-foreground">

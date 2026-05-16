@@ -6,6 +6,7 @@ import {
   Clock,
   Loader2,
   MapPin,
+  MessageSquare,
   Package,
   Phone,
   Search,
@@ -343,6 +344,7 @@ export default function AdminLeads() {
           orders.map(order => {
             const status = getStatusInfo(order.status);
             const StatusIcon = status.icon;
+            const clientCommentsCount = Number((order as any).clientCommentsCount ?? 0);
 
             return (
               <div
@@ -389,6 +391,16 @@ export default function AdminLeads() {
                           <Phone size={16} />
                           <span className="font-bold">{order.customerPhone}</span>
                         </a>
+                      )}
+                      {clientCommentsCount > 0 && (
+                        <Link
+                          to={`/admin/leads/${order.id}`}
+                          className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-amber-700 shadow-sm hover:bg-amber-100"
+                          title="Клиент написал сообщение по заказу"
+                        >
+                          <MessageSquare size={15} />
+                          Клиент написал
+                        </Link>
                       )}
                       <div
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${status.color}`}

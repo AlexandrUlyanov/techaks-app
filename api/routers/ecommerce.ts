@@ -894,6 +894,13 @@ export const ecommerceRouter = createRouter({
               SELECT count(*) FROM ${orderItems}
               WHERE ${orderItems.orderId} = ${orders.id}
             )`,
+            clientCommentsCount: capabilities.hasOrderCommentsTable
+              ? sql<number>`(
+                  SELECT count(*) FROM ${orderComments}
+                  WHERE ${orderComments.orderId} = ${orders.id}
+                    AND ${orderComments.commentType} = 'client'
+                )`
+              : sql<number>`0`,
           })
           .from(orders)
           .leftJoin(users, eq(orders.userId, users.id))
@@ -965,7 +972,17 @@ export const ecommerceRouter = createRouter({
               SELECT COUNT(*)
               FROM order_items oi
               WHERE oi.order_id = o.id
-            ) AS itemsCount
+            ) AS itemsCount,
+            ${
+              capabilities.hasOrderCommentsTable
+                ? sql`(
+                    SELECT COUNT(*)
+                    FROM order_comments oc
+                    WHERE oc.order_id = o.id
+                      AND oc.comment_type = 'client'
+                  )`
+                : sql`0`
+            } AS clientCommentsCount
           FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
           ${legacyWhereSql}
@@ -1544,7 +1561,7 @@ export const ecommerceRouter = createRouter({
       z.object({
         orderId: z.number(),
         comment: z.string().trim().min(1),
-        commentType: z.enum(["internal", "client"]).default("internal"),
+        commentType: z.enum(["internal", "client", "manager"]).default("internal"),
       })
     )
     .mutation(async ({ ctx, input }) => {

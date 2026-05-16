@@ -1,6 +1,6 @@
 import { trpc } from "@/providers/trpc";
 import { Link, useParams } from "react-router";
-import { ArrowLeft, Loader2, MessageSquarePlus, Printer, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, MessageSquarePlus, Printer, Save, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +9,7 @@ export default function AdminOrderDetails() {
   const orderId = Number(id);
   const utils = trpc.useUtils();
   const [comment, setComment] = useState("");
+  const [clientReply, setClientReply] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -30,6 +31,7 @@ export default function AdminOrderDetails() {
   const addComment = trpc.ecommerce.addOrderComment.useMutation({
     onSuccess: async result => {
       setComment("");
+      setClientReply("");
       await Promise.all([
         utils.ecommerce.getOrderHistory.invalidate({ orderId }),
         utils.ecommerce.getOrderById.invalidate({ id: orderId }),
@@ -167,6 +169,12 @@ export default function AdminOrderDetails() {
     ...(order.compatibilityWarnings ?? []),
     ...(feed?.warning ? [feed.warning] : []),
   ];
+  const conversationComments = (feed?.comments ?? []).filter(
+    item => item.commentType === "client" || item.commentType === "manager"
+  );
+  const internalComments = (feed?.comments ?? []).filter(
+    item => item.commentType === "internal"
+  );
 
   return (
     <div className="space-y-6">
@@ -360,28 +368,99 @@ export default function AdminOrderDetails() {
             <MessageSquarePlus size={16} />
             Добавить комментарий
           </button>
-        </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <h3 className="mb-3 text-sm font-black uppercase tracking-wider text-gray-700">
-            История заказа
-          </h3>
-          <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
-            {historyError ? (
-              <p className="text-sm text-red-600">Ошибка истории: {historyError.message}</p>
-            ) : feed?.history.length ? (
-              feed.history.map(row => (
-                <div key={row.id} className="rounded-lg border border-gray-100 p-3">
-                  <p className="text-xs font-semibold text-gray-700">{row.actionType}</p>
-                  <p className="text-[11px] text-gray-500">
+          {internalComments.length > 0 && (
+            <div className="mt-4 space-y-2 border-t border-gray-100 pt-4">
+              {internalComments.map(row => (
+                <div key={`internal-${row.id}`} className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-sm text-gray-700">{row.comment}</p>
+                  <p className="mt-1 text-[11px] text-gray-500">
                     {formatDateTime(row.createdAt)}
                   </p>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[#05C3D4]/30 bg-[#05C3D4]/5 p-4">
+          <h3 className="mb-3 text-sm font-black uppercase tracking-wider text-[#0099A8]">
+            Переписка с клиентом
+          </h3>
+          <div className="max-h-[260px] space-y-2 overflow-auto pr-1">
+            {conversationComments.length > 0 ? (
+              conversationComments.map(row => (
+                <div
+                  key={`conversation-${row.id}`}
+                  className={`rounded-2xl p-3 ${
+                    row.commentType === "client"
+                      ? "border border-amber-200 bg-amber-50"
+                      : "border border-[#05C3D4]/30 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p
+                      className={`text-xs font-black uppercase tracking-wider ${
+                        row.commentType === "client"
+                          ? "text-amber-700"
+                          : "text-[#0099A8]"
+                      }`}
+                    >
+                      {row.commentType === "client" ? "Клиент" : "Менеджер"}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      {formatDateTime(row.createdAt)}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-700">{row.comment}</p>
+                </div>
               ))
             ) : (
-              <p className="text-sm text-gray-500">Событий пока нет</p>
+              <p className="text-sm text-gray-500">
+                Клиент пока не писал по этому заказу.
+              </p>
             )}
           </div>
+          <textarea
+            value={clientReply}
+            onChange={e => setClientReply(e.target.value)}
+            rows={4}
+            className="mt-4 w-full rounded-lg border border-[#05C3D4]/20 bg-white p-3 text-sm outline-none focus:border-[#05C3D4]"
+            placeholder="Ответ клиенту появится в его истории заказа."
+          />
+          <button
+            type="button"
+            onClick={() =>
+              addComment.mutate({ orderId, comment: clientReply, commentType: "manager" })
+            }
+            disabled={addComment.isPending || clientReply.trim().length === 0}
+            className="mt-3 inline-flex h-10 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-bold text-white disabled:opacity-50"
+          >
+            <Send size={16} />
+            Отправить клиенту
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <h3 className="mb-3 text-sm font-black uppercase tracking-wider text-gray-700">
+          История заказа
+        </h3>
+        <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
+          {historyError ? (
+            <p className="text-sm text-red-600">Ошибка истории: {historyError.message}</p>
+          ) : feed?.history.length ? (
+            feed.history.map(row => (
+              <div key={row.id} className="rounded-lg border border-gray-100 p-3">
+                <p className="text-xs font-semibold text-gray-700">{row.actionType}</p>
+                <p className="text-[11px] text-gray-500">
+                  {formatDateTime(row.createdAt)}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-gray-500">Событий пока нет</p>
+          )}
         </div>
       </div>
     </div>
