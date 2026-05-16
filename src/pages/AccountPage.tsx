@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import {
   ChevronDown,
@@ -36,7 +36,31 @@ type AccountOrder = {
   paymentType?: string | null;
   paymentStatus?: string | null;
   createdAt?: string | Date | null;
+  latestManagerCommentAt?: string | Date | null;
+  latestClientCommentAt?: string | Date | null;
 };
+
+const ORDER_MESSAGE_SEEN_STORAGE_KEY = "techaks-order-message-seen";
+
+function readSeenConversationMap() {
+  if (typeof window === "undefined") return {} as Record<string, string>;
+  try {
+    const raw = window.localStorage.getItem(ORDER_MESSAGE_SEEN_STORAGE_KEY);
+    if (!raw) return {} as Record<string, string>;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {} as Record<string, string>;
+  }
+}
+
+function markConversationSeen(orderId: number, seenAt: string) {
+  if (typeof window === "undefined") return;
+  const current = readSeenConversationMap();
+  current[String(orderId)] = seenAt;
+  window.localStorage.setItem(ORDER_MESSAGE_SEEN_STORAGE_KEY, JSON.stringify(current));
+  window.dispatchEvent(new CustomEvent("techaks-order-conversation-seen"));
+}
 
 const orderStatusLabels: Record<string, string> = {
   pending: "Новый",
@@ -178,6 +202,31 @@ function AccountOrderCard({
     ],
     [details?.compatibilityWarnings, feed?.warning]
   );
+  const latestManagerCommentIso = useMemo(() => {
+    const managerComments = (feed?.comments ?? [])
+      .filter(comment => comment.commentType === "manager")
+      .map(comment => new Date(comment.createdAt).toISOString())
+      .sort()
+      .reverse();
+
+    if (managerComments.length > 0) return managerComments[0];
+    if (order.latestManagerCommentAt) {
+      return new Date(order.latestManagerCommentAt).toISOString();
+    }
+    return null;
+  }, [feed?.comments, order.latestManagerCommentAt]);
+
+  const hasUnreadManagerReply = useMemo(() => {
+    if (!latestManagerCommentIso) return false;
+    const seenAt = readSeenConversationMap()[String(order.id)];
+    return !seenAt || new Date(latestManagerCommentIso).getTime() > new Date(seenAt).getTime();
+  }, [latestManagerCommentIso, order.id]);
+
+  useEffect(() => {
+    if (expanded && latestManagerCommentIso) {
+      markConversationSeen(order.id, latestManagerCommentIso);
+    }
+  }, [expanded, latestManagerCommentIso, order.id]);
 
   return (
     <div className="bg-card border border-border rounded-3xl shadow-sm hover:shadow-xl transition-all">
@@ -191,9 +240,16 @@ function AccountOrderCard({
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
               Заказ
             </span>
-            <p className="text-lg font-black font-heading tracking-tight">
-              {order.orderNumber || `#${order.id}`}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-black font-heading tracking-tight">
+                {order.orderNumber || `#${order.id}`}
+              </p>
+              {hasUnreadManagerReply && (
+                <span className="inline-flex h-6 items-center rounded-full bg-amber-500 px-2 text-[10px] font-black uppercase tracking-wider text-white">
+                  Новый ответ
+                </span>
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">

@@ -7,8 +7,23 @@ import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/providers/trpc";
 import { CatalogTrigger } from "./Catalog/CatalogMenu";
 
+const ORDER_MESSAGE_SEEN_STORAGE_KEY = "techaks-order-message-seen";
+
+function readSeenConversationMap() {
+  if (typeof window === "undefined") return {} as Record<string, string>;
+  try {
+    const raw = window.localStorage.getItem(ORDER_MESSAGE_SEEN_STORAGE_KEY);
+    if (!raw) return {} as Record<string, string>;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {} as Record<string, string>;
+  }
+}
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
+  const [seenVersion, setSeenVersion] = useState(0);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
   const { isAuthenticated } = useAuth();
@@ -25,6 +40,12 @@ export default function Header() {
       { enabled: searchQuery.length >= 2 }
     );
 
+  const { data: orderNotifications } =
+    trpc.ecommerce.getMyOrderNotifications.useQuery(undefined, {
+      enabled: isAuthenticated,
+      retry: false,
+    });
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -39,11 +60,29 @@ export default function Header() {
     };
     document.addEventListener("mousedown", handleClickOutside);
 
+    const handleSeenUpdate = () => setSeenVersion(prev => prev + 1);
+    window.addEventListener("techaks-order-conversation-seen", handleSeenUpdate);
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener(
+        "techaks-order-conversation-seen",
+        handleSeenUpdate
+      );
     };
   }, []);
+
+  const unreadManagerMessagesCount = (() => {
+    if (!isAuthenticated || !orderNotifications?.items?.length) return 0;
+    const seenMap = readSeenConversationMap();
+    return orderNotifications.items.filter(item => {
+      if (!item.latestManagerCommentAt) return false;
+      const latestManagerIso = new Date(item.latestManagerCommentAt).toISOString();
+      const seenAt = seenMap[String(item.orderId)];
+      return !seenAt || new Date(latestManagerIso).getTime() > new Date(seenAt).getTime();
+    }).length;
+  })();
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -243,10 +282,17 @@ export default function Header() {
                 {isAuthenticated ? (
                   <Link
                     to="/account"
-                    className="hidden md:flex w-11 h-11 items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
+                    className="hidden md:flex relative w-11 h-11 items-center justify-center text-foreground/40 hover:text-foreground transition-colors rounded-xl hover:bg-muted"
                     aria-label="Личный кабинет"
                   >
                     <User size={20} />
+                    {unreadManagerMessagesCount > 0 && (
+                      <span className="absolute top-2 right-2 min-w-4 h-4 px-1 bg-amber-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border border-background">
+                        {unreadManagerMessagesCount > 9
+                          ? "9+"
+                          : unreadManagerMessagesCount}
+                      </span>
+                    )}
                   </Link>
                 ) : (
                   <Link

@@ -345,6 +345,16 @@ export default function AdminLeads() {
             const status = getStatusInfo(order.status);
             const StatusIcon = status.icon;
             const clientCommentsCount = Number((order as any).clientCommentsCount ?? 0);
+            const latestClientCommentAt = (order as any).latestClientCommentAt
+              ? new Date((order as any).latestClientCommentAt).getTime()
+              : 0;
+            const latestManagerCommentAt = (order as any).latestManagerCommentAt
+              ? new Date((order as any).latestManagerCommentAt).getTime()
+              : 0;
+            const hasPendingCustomerMessage =
+              clientCommentsCount > 0 &&
+              latestClientCommentAt > 0 &&
+              latestClientCommentAt >= latestManagerCommentAt;
 
             return (
               <div
@@ -395,11 +405,17 @@ export default function AdminLeads() {
                       {clientCommentsCount > 0 && (
                         <Link
                           to={`/admin/leads/${order.id}`}
-                          className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-amber-700 shadow-sm hover:bg-amber-100"
+                          className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-black uppercase tracking-wider shadow-sm ${
+                            hasPendingCustomerMessage
+                              ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                              : "border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+                          }`}
                           title="Клиент написал сообщение по заказу"
                         >
                           <MessageSquare size={15} />
-                          Клиент написал
+                          {hasPendingCustomerMessage
+                            ? "Ждёт ответа"
+                            : "Есть переписка"}
                         </Link>
                       )}
                       <div

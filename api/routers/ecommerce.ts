@@ -768,6 +768,22 @@ export const ecommerceRouter = createRouter({
           paymentType: orders.paymentType,
           paymentStatus: orders.paymentStatus,
           createdAt: orders.createdAt,
+          latestClientCommentAt: capabilities.hasOrderCommentsTable
+            ? sql<Date | null>`(
+                SELECT MAX(${orderComments.createdAt})
+                FROM ${orderComments}
+                WHERE ${orderComments.orderId} = ${orders.id}
+                  AND ${orderComments.commentType} = 'client'
+              )`
+            : sql<Date | null>`NULL`,
+          latestManagerCommentAt: capabilities.hasOrderCommentsTable
+            ? sql<Date | null>`(
+                SELECT MAX(${orderComments.createdAt})
+                FROM ${orderComments}
+                WHERE ${orderComments.orderId} = ${orders.id}
+                  AND ${orderComments.commentType} = 'manager'
+              )`
+            : sql<Date | null>`NULL`,
         })
         .from(orders)
         .orderBy(desc(orders.createdAt))
@@ -805,7 +821,27 @@ export const ecommerceRouter = createRouter({
           address,
           payment_type AS paymentType,
           payment_status AS paymentStatus,
-          created_at AS createdAt
+          created_at AS createdAt,
+          ${
+            capabilities.hasOrderCommentsTable
+              ? sql`(
+                  SELECT MAX(oc.created_at)
+                  FROM order_comments oc
+                  WHERE oc.order_id = orders.id
+                    AND oc.comment_type = 'client'
+                )`
+              : sql`NULL`
+          } AS latestClientCommentAt,
+          ${
+            capabilities.hasOrderCommentsTable
+              ? sql`(
+                  SELECT MAX(oc.created_at)
+                  FROM order_comments oc
+                  WHERE oc.order_id = orders.id
+                    AND oc.comment_type = 'manager'
+                )`
+              : sql`NULL`
+          } AS latestManagerCommentAt
         FROM orders
         WHERE ${sql.join(legacyConditions, sql` OR `)}
         ORDER BY created_at DESC
@@ -832,10 +868,71 @@ export const ecommerceRouter = createRouter({
         paymentType: orders.paymentType,
         paymentStatus: orders.paymentStatus,
         createdAt: orders.createdAt,
+        latestManagerCommentAt: capabilities.hasOrderCommentsTable
+          ? sql<Date | null>`(
+              SELECT MAX(${orderComments.createdAt})
+              FROM ${orderComments}
+              WHERE ${orderComments.orderId} = ${orders.id}
+                AND ${orderComments.commentType} = 'manager'
+            )`
+          : sql<Date | null>`NULL`,
       })
       .from(orders)
       .orderBy(desc(orders.createdAt))
       .where(or(...orderLookupConditions));
+  }),
+
+  getMyOrderNotifications: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const capabilities = await getOrderDbCapabilities(db);
+    const { phoneForLookup, emailForLookup, relatedUserIds } =
+      await resolveAccountViewerContext(db, {
+        id: ctx.user.id,
+        phone: ctx.user.phone || null,
+        email: ctx.user.email || null,
+      });
+
+    if (!capabilities.hasOrderCommentsTable) {
+      return {
+        items: [],
+        compatibilityMode: "legacy" as const,
+      };
+    }
+
+    const orderLookupConditions = buildAccountOrderLookupConditions(
+      relatedUserIds,
+      phoneForLookup,
+      emailForLookup,
+      capabilities
+    );
+
+    const items = await db
+      .select({
+        orderId: orders.id,
+        orderNumber: orders.orderNumber,
+        latestManagerCommentAt: sql<Date | null>`(
+          SELECT MAX(${orderComments.createdAt})
+          FROM ${orderComments}
+          WHERE ${orderComments.orderId} = ${orders.id}
+            AND ${orderComments.commentType} = 'manager'
+        )`,
+      })
+      .from(orders)
+      .where(and(
+        or(...orderLookupConditions),
+        sql`EXISTS (
+          SELECT 1
+          FROM ${orderComments}
+          WHERE ${orderComments.orderId} = ${orders.id}
+            AND ${orderComments.commentType} = 'manager'
+        )`
+      ))
+      .orderBy(desc(orders.createdAt));
+
+    return {
+      items,
+      compatibilityMode: "modern" as const,
+    };
   }),
 
   listOrders: protectedProcedure
@@ -901,6 +998,22 @@ export const ecommerceRouter = createRouter({
                     AND ${orderComments.commentType} = 'client'
                 )`
               : sql<number>`0`,
+            latestClientCommentAt: capabilities.hasOrderCommentsTable
+              ? sql<Date | null>`(
+                  SELECT MAX(${orderComments.createdAt})
+                  FROM ${orderComments}
+                  WHERE ${orderComments.orderId} = ${orders.id}
+                    AND ${orderComments.commentType} = 'client'
+                )`
+              : sql<Date | null>`NULL`,
+            latestManagerCommentAt: capabilities.hasOrderCommentsTable
+              ? sql<Date | null>`(
+                  SELECT MAX(${orderComments.createdAt})
+                  FROM ${orderComments}
+                  WHERE ${orderComments.orderId} = ${orders.id}
+                    AND ${orderComments.commentType} = 'manager'
+                )`
+              : sql<Date | null>`NULL`,
           })
           .from(orders)
           .leftJoin(users, eq(orders.userId, users.id))
@@ -982,7 +1095,27 @@ export const ecommerceRouter = createRouter({
                       AND oc.comment_type = 'client'
                   )`
                 : sql`0`
-            } AS clientCommentsCount
+            } AS clientCommentsCount,
+            ${
+              capabilities.hasOrderCommentsTable
+                ? sql`(
+                    SELECT MAX(oc.created_at)
+                    FROM order_comments oc
+                    WHERE oc.order_id = o.id
+                      AND oc.comment_type = 'client'
+                  )`
+                : sql`NULL`
+            } AS latestClientCommentAt,
+            ${
+              capabilities.hasOrderCommentsTable
+                ? sql`(
+                    SELECT MAX(oc.created_at)
+                    FROM order_comments oc
+                    WHERE oc.order_id = o.id
+                      AND oc.comment_type = 'manager'
+                  )`
+                : sql`NULL`
+            } AS latestManagerCommentAt
           FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
           ${legacyWhereSql}
