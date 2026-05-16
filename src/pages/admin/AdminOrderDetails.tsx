@@ -255,7 +255,7 @@ export default function AdminOrderDetails() {
             value={customerEmail}
             onChange={e => setCustomerEmail(e.target.value)}
             className="mt-2 w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
-            placeholder="Email не указан"
+            placeholder="Электронная почта не указана"
           />
           <p className="mt-3 text-xs text-gray-500">Адрес</p>
           <textarea

@@ -55,7 +55,7 @@ export default function AdminProfilePanel() {
       <div className="p-6 space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-[#15171A]">Email (Логин)</label>
+            <label className="text-sm font-bold text-[#15171A]">Электронная почта (логин)</label>
             <div className="flex h-11 items-center rounded-lg border border-gray-200 px-3 text-sm text-gray-500 bg-gray-50">
               {user.email}
             </div>

@@ -53,7 +53,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) {
-      toast.error("Введите email или телефон");
+      toast.error("Введите электронную почту или телефон");
       return;
     }
     if (password.length < 6) {
@@ -66,7 +66,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!registerEmail.trim()) {
-      toast.error("Введите email");
+      toast.error("Введите электронную почту");
       return;
     }
     if (!registerName.trim() || registerName.trim().length < 2) {
@@ -125,7 +125,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
         <form onSubmit={handleLoginSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
-              Email или телефон
+              Электронная почта или телефон
             </Label>
             <div className="relative">
               <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -168,7 +168,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
           {showReset && (
             <div className="rounded-xl border border-border p-3 space-y-3 bg-background/60">
               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
-                Email для восстановления
+                Электронная почта для восстановления
               </Label>
               <Input
                 type="email"
@@ -183,7 +183,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
                 disabled={resetMutation.isPending}
                 onClick={() => {
                   if (!resetEmail.trim()) {
-                    toast.error("Введите email");
+                    toast.error("Введите электронную почту");
                     return;
                   }
                   resetMutation.mutate({ email: resetEmail.trim() });
@@ -211,7 +211,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Email</Label>
+            <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Электронная почта</Label>
             <div className="relative">
               <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input

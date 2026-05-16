@@ -25,14 +25,22 @@ export default function AdminAuthSettingsPanel() {
 
   useEffect(() => {
     if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVapidPublicKey(data.vapidPublicKey);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVapidPrivateKey("");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVapidSubject(data.vapidSubject);
       
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSmtpHost(data.smtpHost);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSmtpPort(data.smtpPort);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSmtpUser(data.smtpUser);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSmtpPass("");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSmtpFrom(data.smtpFrom);
     }
   }, [data]);
@@ -66,7 +74,7 @@ export default function AdminAuthSettingsPanel() {
               <BellRing size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#15171A]">Web Push Уведомления</h2>
+              <h2 className="text-lg font-black text-[#15171A]">Push-уведомления браузера</h2>
               <p className="text-xs text-gray-500">Ключи VAPID для авторизации без СМС</p>
             </div>
           </div>
@@ -79,7 +87,7 @@ export default function AdminAuthSettingsPanel() {
             ) : (
               <>
                 <Globe size={12} className="text-gray-400" />
-                <span className="text-[10px] font-black uppercase text-gray-400">Environment</span>
+                <span className="text-[10px] font-black uppercase text-gray-400">Переменные среды</span>
               </>
             )}
           </div>
@@ -87,7 +95,7 @@ export default function AdminAuthSettingsPanel() {
 
         <div className="p-6 space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Public Key</label>
+            <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Публичный ключ</label>
             <input
               type="text"
               value={vapidPublicKey}
@@ -99,7 +107,7 @@ export default function AdminAuthSettingsPanel() {
 
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Private Key</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Приватный ключ</label>
               <input
                 type="password"
                 value={vapidPrivateKey}
@@ -109,12 +117,12 @@ export default function AdminAuthSettingsPanel() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">VAPID Subject</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Адрес отправителя VAPID</label>
               <input
                 type="text"
                 value={vapidSubject}
                 onChange={e => setVapidSubject(e.target.value)}
-                placeholder="mailto:admin@yourdomain.ru"
+                placeholder="mailto:admin@domain.ru"
                 className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
               />
             </div>
@@ -122,7 +130,7 @@ export default function AdminAuthSettingsPanel() {
         </div>
       </section>
 
-      {/* Email SMTP Section */}
+      {/* Секция резервной почтовой отправки */}
       <section className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
         <div className="border-b border-gray-100 px-6 py-5 bg-gray-50/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -130,8 +138,8 @@ export default function AdminAuthSettingsPanel() {
               <Mail size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#15171A]">Email (SMTP) Резерв</h2>
-              <p className="text-xs text-gray-500">Настройки для отправки OTP кодов</p>
+              <h2 className="text-lg font-black text-[#15171A]">Резервная почтовая отправка (SMTP)</h2>
+              <p className="text-xs text-gray-500">Настройки для отправки одноразовых кодов</p>
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm">
@@ -143,7 +151,7 @@ export default function AdminAuthSettingsPanel() {
             ) : (
               <>
                 <Globe size={12} className="text-gray-400" />
-                <span className="text-[10px] font-black uppercase text-gray-400">Environment</span>
+                <span className="text-[10px] font-black uppercase text-gray-400">Переменные среды</span>
               </>
             )}
           </div>
@@ -152,7 +160,7 @@ export default function AdminAuthSettingsPanel() {
         <div className="p-6 space-y-5">
           <div className="grid gap-5 md:grid-cols-3">
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">SMTP Host</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">SMTP-сервер</label>
               <input
                 type="text"
                 value={smtpHost}
@@ -162,7 +170,7 @@ export default function AdminAuthSettingsPanel() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Port</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Порт</label>
               <input
                 type="text"
                 value={smtpPort}
@@ -175,7 +183,7 @@ export default function AdminAuthSettingsPanel() {
 
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">User / Email</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Логин / электронная почта</label>
               <input
                 type="text"
                 value={smtpUser}
@@ -185,7 +193,7 @@ export default function AdminAuthSettingsPanel() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Password</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">Пароль</label>
               <input
                 type="password"
                 value={smtpPass}
@@ -197,7 +205,7 @@ export default function AdminAuthSettingsPanel() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">От кого (From)</label>
+              <label className="text-xs font-bold text-[#15171A] uppercase tracking-wider">От кого</label>
             <input
               type="text"
               value={smtpFrom}

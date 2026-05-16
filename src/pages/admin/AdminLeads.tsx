@@ -405,7 +405,7 @@ export default function AdminLeads() {
                           {order.customerName || "Клиент не указан"}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {order.customerEmail || "Email не указан"}
+                          {order.customerEmail || "Электронная почта не указана"}
                         </div>
                       </div>
                       <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">

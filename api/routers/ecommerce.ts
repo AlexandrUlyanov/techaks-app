@@ -4,6 +4,7 @@ import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
+import { env } from "../lib/env";
 import { sendOrderNotificationEmail } from "../lib/mail";
 import {
   buildOrdersCsv,
@@ -22,6 +23,9 @@ import {
   mapLegacyOrderItemRow,
   rowsFromExecute,
 } from "../lib/order-compat";
+
+const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
+const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
@@ -244,13 +248,19 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
     const rows = await db
       .select({
         id: orders.id,
+        totalPrice: orders.totalPrice,
         status: orders.status,
         paymentStatus: orders.paymentStatus,
         deliveryStatus: orders.deliveryStatus,
         deliveryType: orders.deliveryType,
+        deliveryService: orders.deliveryService,
+        deliveryTrackNumber: orders.deliveryTrackNumber,
+        deliveryPrice: orders.deliveryPrice,
         address: orders.address,
         paymentType: orders.paymentType,
+        paymentMethod: orders.paymentMethod,
         customerEmail: orders.customerEmail,
+        customerName: orders.customerName,
         orderNumber: orders.orderNumber,
       })
       .from(orders)
@@ -262,6 +272,7 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
     const raw = await db.execute<any[]>(sql`
       SELECT
         id,
+        total_price AS totalPrice,
         status,
         payment_status AS paymentStatus,
         CASE
@@ -269,9 +280,14 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
           ELSE 'not_required'
         END AS deliveryStatus,
         delivery_type AS deliveryType,
+        NULL AS deliveryService,
+        NULL AS deliveryTrackNumber,
+        0 AS deliveryPrice,
         address,
         payment_type AS paymentType,
+        payment_type AS paymentMethod,
         NULL AS customerEmail,
+        NULL AS customerName,
         NULL AS orderNumber
       FROM orders
       WHERE id = ${orderId}
@@ -359,6 +375,19 @@ export const ecommerceRouter = createRouter({
       const trustedTotal = input.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
+      );
+      const orderedProducts = input.items.length
+        ? await db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+            })
+            .from(products)
+            .where(inArray(products.id, input.items.map(item => item.productId)))
+        : [];
+      const productMap = new Map(
+        orderedProducts.map(product => [product.id, product] as const)
       );
       const orderNumber = `TA-${Date.now().toString().slice(-9)}-${Math.floor(
         100 + Math.random() * 900
@@ -479,7 +508,34 @@ export const ecommerceRouter = createRouter({
           email: normalizedEmail,
           orderNumber,
           eventType: "order_created",
-          message: `Ваш заказ ${orderNumber} успешно создан. Мы свяжемся с вами для подтверждения.`,
+          data: {
+            customerName: normalizedFullName,
+            customerEmail: normalizedEmail,
+            customerPhone: normalizedPhone,
+            orderDate: new Date(),
+            orderStatus: "pending",
+            paymentMethod: input.paymentType,
+            paymentStatus: "unpaid",
+            deliveryMethod: input.deliveryType,
+            deliveryAddress:
+              input.deliveryType === "delivery"
+                ? input.address
+                : "Самовывоз из магазина",
+            subtotal: trustedTotal,
+            totalAmount: trustedTotal,
+            orderUrl: ACCOUNT_ORDERS_URL,
+            items: input.items.map(item => {
+              const product = productMap.get(item.productId);
+              return {
+                title: product?.name || `Товар #${item.productId}`,
+                quantity: item.quantity,
+                price: item.price,
+                total: item.price * item.quantity,
+              };
+            }),
+          },
+          message:
+            "Заказ создан и передан в обработку. Если потребуется уточнение, мы свяжемся с вами отдельно.",
         }).catch(err => {
           console.error("order_created email failed", err);
         });
@@ -774,9 +830,17 @@ export const ecommerceRouter = createRouter({
             input.status === "cancelled"
               ? "order_cancelled"
               : input.status === "return_requested"
-                ? "order_refund"
+              ? "order_refund"
                 : "order_status_changed",
-          message: `Статус вашего заказа ${notificationOrderNumber} изменился на: ${input.status}.`,
+          data: {
+            customerName: existing[0]?.customerName,
+            orderStatus: input.status,
+            previousStatus: existing[0]?.status ?? null,
+            newStatus: input.status,
+            orderDate: new Date(),
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
+          message: `Новый статус заказа: ${input.status}.`,
         }).catch(err => {
           console.error("order_status email failed", err);
         });
@@ -1180,6 +1244,16 @@ export const ecommerceRouter = createRouter({
           email: existing[0].customerEmail,
           orderNumber: existing[0].orderNumber,
           eventType: "payment_success",
+          data: {
+            customerName: existing[0]?.customerName,
+            orderStatus: existing[0]?.status,
+            paymentMethod: input.paymentMethod || existing[0]?.paymentMethod || existing[0]?.paymentType,
+            paymentStatus: input.paymentStatus,
+            paidAmount: input.paidAmount ?? existing[0]?.totalPrice ?? null,
+            paidAt: new Date(),
+            totalAmount: existing[0]?.totalPrice ?? null,
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
           message: `Оплата по заказу ${existing[0].orderNumber} успешно получена.`,
         }).catch(err => {
           console.error("payment_success email failed", err);
@@ -1279,6 +1353,17 @@ export const ecommerceRouter = createRouter({
           email: existing[0].customerEmail,
           orderNumber: existing[0].orderNumber,
           eventType: "delivery_handed",
+          data: {
+            customerName: existing[0]?.customerName,
+            deliveryStatus: input.deliveryStatus,
+            deliveryService: input.deliveryService || existing[0]?.deliveryService,
+            trackingNumber:
+              input.deliveryTrackNumber || existing[0]?.deliveryTrackNumber,
+            deliveryPrice:
+              input.deliveryPrice ?? existing[0]?.deliveryPrice ?? null,
+            deliveryAddress: existing[0]?.address ?? null,
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
           message: `Заказ ${existing[0].orderNumber} передан в доставку.`,
         }).catch(err => {
           console.error("delivery_handed email failed", err);

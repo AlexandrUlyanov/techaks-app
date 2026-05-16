@@ -34,18 +34,26 @@ export default function AdminSettings() {
 
   useEffect(() => {
     if (maintenanceData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMaintenanceEnabled(maintenanceData.isEnabled);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMaintenanceReopenDate(maintenanceData.reopenDate || "");
     }
   }, [maintenanceData]);
 
   useEffect(() => {
     if (!data) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setApiKey("");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setModel(data.model || "gemini-2.5-flash");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProxyBaseUrl(data.proxyBaseUrl || "");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProxyToken("");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setManufacturerLogoProvider(data.manufacturerLogoProvider || "logo_dev");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setManufacturerLogoToken("");
   }, [data]);
 

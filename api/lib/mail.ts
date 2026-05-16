@@ -1,7 +1,142 @@
 import nodemailer from "nodemailer";
+import dns from "node:dns/promises";
 import { env } from "./env";
 import { getAppSettings } from "./app-settings";
-import dns from "node:dns/promises";
+
+const BRAND = {
+  siteName: "ТЕХАКС",
+  tagline: "Техника и аксессуары",
+  siteUrl: "https://techaks.ru",
+  supportEmail: "info@techaks.ru",
+  background: "#464A50",
+  accent: "#05C3D4",
+  cardBackground: "#FFFFFF",
+  textPrimary: "#14171B",
+  textSecondary: "#67707A",
+  border: "#D9E0E7",
+  mutedSurface: "#F5F8FA",
+  logoUrl: "https://techaks.ru/images/logo-light.svg",
+};
+
+const DEFAULT_ACCOUNT_URL = `${BRAND.siteUrl}/account`;
+const DEFAULT_ADMIN_ORDERS_URL = `${BRAND.siteUrl}/admin/leads`;
+
+type OrderEventType =
+  | "order_created"
+  | "order_status_changed"
+  | "payment_success"
+  | "delivery_handed"
+  | "order_cancelled"
+  | "order_refund";
+
+type TransactionalEmailType =
+  | "AUTH_REGISTERED"
+  | "AUTH_EMAIL_CONFIRM"
+  | "AUTH_PASSWORD_RESET"
+  | "AUTH_PASSWORD_CHANGED"
+  | "AUTH_LOGIN_CODE"
+  | "ORDER_CREATED"
+  | "ORDER_PENDING_PAYMENT"
+  | "ORDER_PAID"
+  | "ORDER_STATUS_CHANGED"
+  | "ORDER_READY_FOR_PICKUP"
+  | "ORDER_SHIPPED"
+  | "ORDER_COMPLETED"
+  | "ORDER_CANCELLED"
+  | "ORDER_REFUNDED"
+  | "ADMIN_NEW_ORDER"
+  | "ADMIN_PAYMENT_FAILED";
+
+type EmailAction = {
+  label: string;
+  url: string;
+};
+
+type EmailSummaryRow = {
+  label: string;
+  value?: string | number | null;
+};
+
+type EmailItem = {
+  title: string;
+  sku?: string | null;
+  quantity: number;
+  price: number;
+  total: number;
+};
+
+export type EmailTemplateData = {
+  siteName?: string;
+  siteUrl?: string;
+  supportEmail?: string;
+
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+
+  orderNumber?: string | null;
+  orderDate?: string | Date | null;
+  orderStatus?: string | null;
+  previousStatus?: string | null;
+  newStatus?: string | null;
+
+  items?: EmailItem[];
+
+  subtotal?: number | null;
+  deliveryPrice?: number | null;
+  discount?: number | null;
+  totalAmount?: number | null;
+  paidAmount?: number | null;
+
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  paymentUrl?: string | null;
+  paymentExpiresAt?: string | Date | null;
+  paidAt?: string | Date | null;
+  paymentError?: string | null;
+
+  deliveryMethod?: string | null;
+  deliveryStatus?: string | null;
+  deliveryAddress?: string | null;
+  deliveryService?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  estimatedDeliveryDate?: string | Date | null;
+
+  pickupAddress?: string | null;
+  pickupWorkingHours?: string | null;
+  pickupCode?: string | null;
+  storageUntil?: string | Date | null;
+
+  resetPasswordUrl?: string | null;
+  confirmEmailUrl?: string | null;
+  accountUrl?: string | null;
+  orderUrl?: string | null;
+  adminOrderUrl?: string | null;
+  expiresAt?: string | Date | null;
+
+  registrationDate?: string | Date | null;
+  changedAt?: string | Date | null;
+  managerComment?: string | null;
+  customerComment?: string | null;
+  cancelReason?: string | null;
+  refundInfo?: string | null;
+
+  requestIp?: string | null;
+  requestLocation?: string | null;
+};
+
+type TemplateConfig = {
+  subject: string;
+  title: string;
+  intro: string;
+  action?: EmailAction;
+  summaryRows?: EmailSummaryRow[];
+  items?: EmailItem[];
+  detailBlocks?: Array<{ title?: string; content: string }>;
+  note?: string;
+  warning?: string;
+};
 
 async function getTransporter() {
   const settings = await getAppSettings([
@@ -37,90 +172,775 @@ async function getTransporter() {
   });
 }
 
-export async function sendEmailOTP(email: string, code: string) {
-  const transporter = await getTransporter();
+async function getSenderAddress() {
   const settings = await getAppSettings(["smtp_from"]);
-  const from = settings.smtp_from || env.smtpFrom;
+  return settings.smtp_from || env.smtpFrom || "ТЕХАКС <info@techaks.ru>";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function nl2br(value: string) {
+  return escapeHtml(value).replace(/\n/g, "<br />");
+}
+
+function formatMoney(value?: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "—";
+  return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
+}
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return "—";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function normalizeString(value?: string | number | null) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function isFilled(value?: string | number | null) {
+  return normalizeString(value).length > 0;
+}
+
+function withDefaultSiteName(value?: string) {
+  return value || BRAND.siteName;
+}
+
+function withDefaultSiteUrl(value?: string) {
+  return value || BRAND.siteUrl;
+}
+
+function withDefaultSupportEmail(value?: string) {
+  return value || BRAND.supportEmail;
+}
+
+function mapOrderStatus(status?: string | null) {
+  const map: Record<string, string> = {
+    pending: "Заказ создан",
+    awaiting_payment: "Ожидает оплаты",
+    paid: "Оплачен",
+    processing: "В обработке",
+    confirmed: "Подтверждён",
+    confirmed_by_customer: "Подтверждён клиентом",
+    assembling: "Собирается",
+    assembled: "Собран",
+    ready_for_pickup: "Готов к выдаче",
+    awaiting_dispatch: "Ожидает отправки",
+    handed_to_delivery: "Передан в доставку",
+    in_delivery: "В пути",
+    delivered: "Доставлен",
+    completed: "Выполнен",
+    cancelled: "Отменён",
+    return_requested: "Оформлен возврат",
+    refunded: "Возврат выполнен",
+    problem: "Требует проверки",
+  };
+  return map[normalizeString(status)] || normalizeString(status) || "Не указан";
+}
+
+function mapPaymentStatus(status?: string | null) {
+  const map: Record<string, string> = {
+    unpaid: "Не оплачен",
+    awaiting_payment: "Ожидает оплаты",
+    paid: "Оплачен",
+    partially_paid: "Частично оплачен",
+    partial_refund: "Частичный возврат",
+    refund: "Возврат выполнен",
+    payment_error: "Ошибка оплаты",
+  };
+  return map[normalizeString(status)] || normalizeString(status) || "Не указан";
+}
+
+function mapDeliveryMethod(value?: string | null) {
+  const map: Record<string, string> = {
+    pickup: "Самовывоз",
+    delivery: "Доставка",
+  };
+  return map[normalizeString(value)] || normalizeString(value) || "Не указан";
+}
+
+function mapPaymentMethod(value?: string | null) {
+  const map: Record<string, string> = {
+    cash: "Наличными",
+    card: "Банковской картой",
+    sbp: "СБП",
+  };
+  return map[normalizeString(value)] || normalizeString(value) || "Не указан";
+}
+
+function mapDeliveryStatus(value?: string | null) {
+  const map: Record<string, string> = {
+    not_required: "Не требуется",
+    awaiting_processing: "Ожидает обработки",
+    prepared: "Подготовлен",
+    handed_to_delivery: "Передан в доставку",
+    in_delivery: "В пути",
+    delivered: "Доставлен",
+    return_in_transit: "Возвращается",
+    delivery_error: "Ошибка доставки",
+  };
+  return map[normalizeString(value)] || normalizeString(value) || "Не задано";
+}
+
+function renderSummaryRows(rows: EmailSummaryRow[] = []) {
+  const safeRows = rows.filter(row => isFilled(row.value));
+  if (safeRows.length === 0) return "";
+
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${BRAND.mutedSurface};border:1px solid ${BRAND.border};border-radius:18px;overflow:hidden;">
+      ${safeRows
+        .map(
+          row => `
+            <tr>
+              <td style="padding:12px 18px;border-bottom:1px solid ${BRAND.border};font-size:13px;line-height:20px;color:${BRAND.textSecondary};width:42%;vertical-align:top;">
+                ${escapeHtml(row.label)}
+              </td>
+              <td style="padding:12px 18px;border-bottom:1px solid ${BRAND.border};font-size:14px;line-height:20px;color:${BRAND.textPrimary};font-weight:700;vertical-align:top;">
+                ${escapeHtml(normalizeString(row.value))}
+              </td>
+            </tr>
+          `
+        )
+        .join("")
+        .replace(/border-bottom:1px solid #[^;]+;(?=[\s\S]*$)/, "")}
+    </table>
+  `;
+}
+
+function renderItemsTable(items: EmailItem[] = []) {
+  if (!items.length) return "";
+
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid ${BRAND.border};border-radius:18px;overflow:hidden;">
+      <thead>
+        <tr style="background:${BRAND.mutedSurface};">
+          <th align="left" style="padding:12px 16px;font-size:12px;line-height:16px;color:${BRAND.textSecondary};text-transform:uppercase;letter-spacing:0.08em;">Товар</th>
+          <th align="center" style="padding:12px 12px;font-size:12px;line-height:16px;color:${BRAND.textSecondary};text-transform:uppercase;letter-spacing:0.08em;">Кол-во</th>
+          <th align="right" style="padding:12px 16px;font-size:12px;line-height:16px;color:${BRAND.textSecondary};text-transform:uppercase;letter-spacing:0.08em;">Сумма</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items
+          .map(
+            item => `
+              <tr>
+                <td style="padding:14px 16px;border-top:1px solid ${BRAND.border};font-size:14px;line-height:20px;color:${BRAND.textPrimary};vertical-align:top;">
+                  <div style="font-weight:700;">${escapeHtml(item.title)}</div>
+                  ${
+                    item.sku
+                      ? `<div style="margin-top:4px;font-size:12px;line-height:18px;color:${BRAND.textSecondary};">Артикул: ${escapeHtml(item.sku)}</div>`
+                      : ""
+                  }
+                  <div style="margin-top:4px;font-size:12px;line-height:18px;color:${BRAND.textSecondary};">Цена за единицу: ${formatMoney(item.price)}</div>
+                </td>
+                <td align="center" style="padding:14px 12px;border-top:1px solid ${BRAND.border};font-size:14px;line-height:20px;color:${BRAND.textPrimary};font-weight:700;vertical-align:top;">
+                  ${item.quantity}
+                </td>
+                <td align="right" style="padding:14px 16px;border-top:1px solid ${BRAND.border};font-size:14px;line-height:20px;color:${BRAND.textPrimary};font-weight:700;vertical-align:top;">
+                  ${formatMoney(item.total)}
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderDetailBlocks(blocks: Array<{ title?: string; content: string }> = []) {
+  const safeBlocks = blocks.filter(block => normalizeString(block.content).length > 0);
+  if (!safeBlocks.length) return "";
+
+  return safeBlocks
+    .map(
+      block => `
+        <div style="margin-top:18px;padding:16px 18px;border:1px solid ${BRAND.border};border-radius:18px;background:${BRAND.cardBackground};">
+          ${
+            block.title
+              ? `<div style="margin-bottom:8px;font-size:12px;line-height:16px;color:${BRAND.textSecondary};text-transform:uppercase;letter-spacing:0.08em;font-weight:800;">${escapeHtml(block.title)}</div>`
+              : ""
+          }
+          <div style="font-size:14px;line-height:22px;color:${BRAND.textPrimary};">${nl2br(
+            block.content
+          )}</div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function buildTextVersion(config: TemplateConfig) {
+  const parts: string[] = [config.subject, "", config.intro];
+
+  if (config.summaryRows?.length) {
+    parts.push("");
+    for (const row of config.summaryRows) {
+      if (isFilled(row.value)) {
+        parts.push(`${row.label}: ${normalizeString(row.value)}`);
+      }
+    }
+  }
+
+  if (config.items?.length) {
+    parts.push("", "Состав заказа:");
+    for (const item of config.items) {
+      parts.push(
+        `- ${item.title} — ${item.quantity} шт. × ${formatMoney(item.price)} = ${formatMoney(
+          item.total
+        )}`
+      );
+    }
+  }
+
+  if (config.detailBlocks?.length) {
+    for (const block of config.detailBlocks) {
+      parts.push("");
+      if (block.title) parts.push(`${block.title}:`);
+      parts.push(block.content);
+    }
+  }
+
+  if (config.action?.url) {
+    parts.push("", `${config.action.label}: ${config.action.url}`);
+  }
+
+  if (config.warning) parts.push("", config.warning);
+  if (config.note) parts.push("", config.note);
+  parts.push("", `${BRAND.siteName} — ${BRAND.siteUrl}`, BRAND.supportEmail);
+
+  return parts.join("\n");
+}
+
+function renderEmailLayout(config: TemplateConfig) {
+  const summary = renderSummaryRows(config.summaryRows);
+  const items = renderItemsTable(config.items);
+  const detailBlocks = renderDetailBlocks(config.detailBlocks);
+
+  return `
+    <!doctype html>
+    <html lang="ru">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>${escapeHtml(config.subject)}</title>
+      </head>
+      <body style="margin:0;padding:0;background:${BRAND.background};font-family:Arial,Helvetica,sans-serif;">
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+          ${escapeHtml(config.intro)}
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${BRAND.background};">
+          <tr>
+            <td align="center" style="padding:32px 16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:680px;">
+                <tr>
+                  <td style="padding:0 0 20px 0;text-align:center;">
+                    <img src="${BRAND.logoUrl}" alt="${BRAND.siteName}" width="210" style="display:block;margin:0 auto 10px auto;width:210px;max-width:100%;height:auto;" />
+                    <div style="font-size:12px;line-height:18px;color:#DDE7EA;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">${BRAND.tagline}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:${BRAND.cardBackground};border-radius:28px;padding:32px 32px 28px 32px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 16px 40px rgba(0,0,0,0.12);">
+                    <div style="font-size:30px;line-height:36px;color:${BRAND.textPrimary};font-weight:900;margin-bottom:12px;">
+                      ${escapeHtml(config.title)}
+                    </div>
+                    <div style="font-size:15px;line-height:24px;color:${BRAND.textSecondary};margin-bottom:24px;">
+                      ${escapeHtml(config.intro)}
+                    </div>
+                    ${summary}
+                    ${items ? `<div style="margin-top:20px;">${items}</div>` : ""}
+                    ${detailBlocks}
+                    ${
+                      config.action
+                        ? `
+                      <div style="margin-top:28px;text-align:left;">
+                        <a href="${escapeHtml(config.action.url)}" style="display:inline-block;padding:14px 24px;border-radius:16px;background:${BRAND.accent};color:#0E161A;text-decoration:none;font-size:14px;line-height:20px;font-weight:900;">
+                          ${escapeHtml(config.action.label)}
+                        </a>
+                      </div>
+                    `
+                        : ""
+                    }
+                    ${
+                      config.warning
+                        ? `
+                      <div style="margin-top:22px;padding:14px 16px;border-radius:16px;background:#FFF7E6;color:${BRAND.textPrimary};font-size:13px;line-height:20px;border:1px solid #F2D8A6;">
+                        ${nl2br(config.warning)}
+                      </div>
+                    `
+                        : ""
+                    }
+                    ${
+                      config.note
+                        ? `
+                      <div style="margin-top:18px;font-size:12px;line-height:20px;color:${BRAND.textSecondary};">
+                        ${nl2br(config.note)}
+                      </div>
+                    `
+                        : ""
+                    }
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:18px 8px 0 8px;text-align:center;">
+                    <div style="font-size:12px;line-height:20px;color:#DDE7EA;font-weight:800;">${BRAND.siteName}</div>
+                    <div style="font-size:12px;line-height:20px;color:#DDE7EA;">
+                      <a href="${BRAND.siteUrl}" style="color:#DDE7EA;text-decoration:none;">techaks.ru</a>
+                      &nbsp;&nbsp;•&nbsp;&nbsp;
+                      <a href="mailto:${BRAND.supportEmail}" style="color:#DDE7EA;text-decoration:none;">${BRAND.supportEmail}</a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
+function buildOrderSummaryRows(data: EmailTemplateData): EmailSummaryRow[] {
+  return [
+    { label: "Номер заказа", value: data.orderNumber },
+    { label: "Статус", value: data.orderStatus ? mapOrderStatus(data.orderStatus) : null },
+    { label: "Дата", value: data.orderDate ? formatDate(data.orderDate) : null },
+    { label: "Сумма", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
+    { label: "Оплата", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+    { label: "Статус оплаты", value: data.paymentStatus ? mapPaymentStatus(data.paymentStatus) : null },
+    { label: "Способ доставки", value: data.deliveryMethod ? mapDeliveryMethod(data.deliveryMethod) : null },
+    {
+      label: "Адрес или пункт выдачи",
+      value:
+        data.deliveryAddress ||
+        data.pickupAddress ||
+        (data.deliveryMethod === "pickup" ? "Самовывоз из магазина" : null),
+    },
+  ];
+}
+
+function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateData): TemplateConfig {
+  const customerName = data.customerName || "клиент";
+  const accountUrl = data.accountUrl || DEFAULT_ACCOUNT_URL;
+  const orderUrl = data.orderUrl || DEFAULT_ACCOUNT_URL;
+
+  switch (type) {
+    case "AUTH_REGISTERED":
+      return {
+        subject: "Добро пожаловать в ТЕХАКС",
+        title: "Добро пожаловать в ТЕХАКС",
+        intro: `Здравствуйте, ${customerName}! Вы успешно зарегистрировались в интернет-магазине ТЕХАКС.`,
+        action: { label: "Перейти в личный кабинет", url: accountUrl },
+        summaryRows: [
+          { label: "Имя", value: data.customerName },
+          { label: "Электронная почта", value: data.customerEmail },
+          { label: "Дата регистрации", value: data.registrationDate ? formatDate(data.registrationDate) : null },
+        ],
+        note:
+          "Теперь вы можете отслеживать заказы, сохранять данные доставки и быстрее оформлять покупки.",
+      };
+    case "AUTH_EMAIL_CONFIRM":
+      return {
+        subject: "Подтвердите email для аккаунта ТЕХАКС",
+        title: "Подтвердите электронную почту",
+        intro: `Здравствуйте, ${customerName}! Для завершения регистрации подтвердите ваш email.`,
+        action: data.confirmEmailUrl
+          ? { label: "Подтвердить email", url: data.confirmEmailUrl }
+          : undefined,
+        summaryRows: [
+          { label: "Электронная почта", value: data.customerEmail },
+          { label: "Ссылка действует до", value: data.expiresAt ? formatDate(data.expiresAt) : null },
+        ],
+        warning:
+          "Если вы не создавали аккаунт в ТЕХАКС, просто проигнорируйте это письмо.",
+      };
+    case "AUTH_PASSWORD_RESET":
+      return {
+        subject: "Восстановление пароля в ТЕХАКС",
+        title: "Восстановление пароля",
+        intro: `Здравствуйте, ${customerName}! Мы получили запрос на восстановление пароля для вашего аккаунта в ТЕХАКС.`,
+        action: data.resetPasswordUrl
+          ? { label: "Сбросить пароль", url: data.resetPasswordUrl }
+          : undefined,
+        summaryRows: [
+          { label: "Электронная почта", value: data.customerEmail },
+          { label: "Ссылка действует до", value: data.expiresAt ? formatDate(data.expiresAt) : null },
+          { label: "IP запроса", value: data.requestIp },
+          { label: "Город", value: data.requestLocation },
+        ],
+        warning:
+          "Если вы не запрашивали восстановление пароля, просто проигнорируйте это письмо. Пароль никогда не отправляется по email.",
+      };
+    case "AUTH_PASSWORD_CHANGED":
+      return {
+        subject: "Пароль в ТЕХАКС изменён",
+        title: "Пароль изменён",
+        intro: `Здравствуйте, ${customerName}! Пароль от вашего аккаунта в ТЕХАКС был успешно изменён.`,
+        summaryRows: [
+          { label: "Дата и время", value: data.changedAt ? formatDate(data.changedAt) : null },
+          { label: "Электронная почта", value: data.customerEmail },
+        ],
+        warning:
+          "Если это были не вы, срочно свяжитесь с нами: info@techaks.ru",
+      };
+    case "AUTH_LOGIN_CODE":
+      return {
+        subject: "Код подтверждения входа в ТЕХАКС",
+        title: "Код подтверждения входа",
+        intro: `Здравствуйте! Используйте этот код, чтобы подтвердить вход в аккаунт ТЕХАКС.`,
+        summaryRows: [
+          { label: "Код подтверждения", value: data.pickupCode },
+          { label: "Ссылка действует до", value: data.expiresAt ? formatDate(data.expiresAt) : null },
+        ],
+        warning:
+          "Если вы не запрашивали код подтверждения, просто проигнорируйте письмо.",
+      };
+    case "ORDER_CREATED":
+      return {
+        subject: `Заказ ${data.orderNumber} создан`,
+        title: "Заказ создан",
+        intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} успешно создан.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: buildOrderSummaryRows(data),
+        items: data.items,
+        detailBlocks: data.customerComment
+          ? [{ title: "Комментарий к заказу", content: data.customerComment }]
+          : undefined,
+        note: "Мы свяжемся с вами, если потребуется дополнительное подтверждение заказа.",
+      };
+    case "ORDER_PENDING_PAYMENT":
+      return {
+        subject: `Заказ ${data.orderNumber} ожидает оплаты`,
+        title: "Заказ ожидает оплаты",
+        intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} ожидает оплаты.`,
+        action: data.paymentUrl ? { label: "Оплатить заказ", url: data.paymentUrl } : undefined,
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Сумма к оплате", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
+          { label: "Способ оплаты", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+          { label: "Срок оплаты", value: data.paymentExpiresAt ? formatDate(data.paymentExpiresAt) : null },
+        ],
+      };
+    case "ORDER_PAID":
+      return {
+        subject: `Оплата по заказу ${data.orderNumber} получена`,
+        title: "Оплата получена",
+        intro: `Здравствуйте, ${customerName}! Мы получили оплату по заказу ${data.orderNumber || ""}.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Сумма оплаты", value: typeof data.paidAmount === "number" ? formatMoney(data.paidAmount) : null },
+          { label: "Дата оплаты", value: data.paidAt ? formatDate(data.paidAt) : null },
+          { label: "Способ оплаты", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+          { label: "Статус заказа", value: data.orderStatus ? mapOrderStatus(data.orderStatus) : null },
+        ],
+      };
+    case "ORDER_STATUS_CHANGED":
+      return {
+        subject: `Статус заказа ${data.orderNumber} изменён`,
+        title: "Статус заказа изменён",
+        intro: `Здравствуйте, ${customerName}! Статус вашего заказа ${data.orderNumber || ""} обновлён.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Предыдущий статус", value: data.previousStatus ? mapOrderStatus(data.previousStatus) : null },
+          { label: "Новый статус", value: data.newStatus ? mapOrderStatus(data.newStatus) : data.orderStatus ? mapOrderStatus(data.orderStatus) : null },
+          { label: "Дата обновления", value: data.orderDate ? formatDate(data.orderDate) : null },
+        ],
+        detailBlocks: data.managerComment
+          ? [{ title: "Комментарий менеджера", content: data.managerComment }]
+          : undefined,
+      };
+    case "ORDER_READY_FOR_PICKUP":
+      return {
+        subject: `Заказ ${data.orderNumber} готов к выдаче`,
+        title: "Заказ готов к выдаче",
+        intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} готов к выдаче.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Пункт выдачи", value: data.pickupAddress },
+          { label: "График работы", value: data.pickupWorkingHours },
+          { label: "Код получения", value: data.pickupCode },
+          { label: "Срок хранения", value: data.storageUntil ? formatDate(data.storageUntil) : null },
+        ],
+      };
+    case "ORDER_SHIPPED":
+      return {
+        subject: `Заказ ${data.orderNumber} передан в доставку`,
+        title: "Заказ передан в доставку",
+        intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} передан в доставку.`,
+        action: data.trackingUrl
+          ? { label: "Отследить заказ", url: data.trackingUrl }
+          : { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Служба доставки", value: data.deliveryService },
+          { label: "Трек-номер", value: data.trackingNumber },
+          { label: "Статус доставки", value: data.deliveryStatus ? mapDeliveryStatus(data.deliveryStatus) : null },
+          { label: "Ориентировочная дата", value: data.estimatedDeliveryDate ? formatDate(data.estimatedDeliveryDate) : null },
+          { label: "Адрес доставки", value: data.deliveryAddress },
+        ],
+      };
+    case "ORDER_COMPLETED":
+      return {
+        subject: `Заказ ${data.orderNumber} выполнен`,
+        title: "Заказ выполнен",
+        intro: `Здравствуйте, ${customerName}! Заказ ${data.orderNumber || ""} успешно выполнен.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Дата выполнения", value: data.orderDate ? formatDate(data.orderDate) : null },
+        ],
+        items: data.items,
+        note: "Спасибо, что выбрали ТЕХАКС. Будем рады видеть вас снова.",
+      };
+    case "ORDER_CANCELLED":
+      return {
+        subject: `Заказ ${data.orderNumber} отменён`,
+        title: "Заказ отменён",
+        intro: `Здравствуйте, ${customerName}! Заказ ${data.orderNumber || ""} был отменён.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Дата отмены", value: data.orderDate ? formatDate(data.orderDate) : null },
+          { label: "Статус оплаты", value: data.paymentStatus ? mapPaymentStatus(data.paymentStatus) : null },
+        ],
+        detailBlocks: [
+          ...(data.cancelReason ? [{ title: "Причина отмены", content: data.cancelReason }] : []),
+          ...(data.refundInfo ? [{ title: "Информация о возврате", content: data.refundInfo }] : []),
+        ],
+      };
+    case "ORDER_REFUNDED":
+      return {
+        subject: `Возврат по заказу ${data.orderNumber}`,
+        title: "Возврат по заказу",
+        intro: `Здравствуйте, ${customerName}! По заказу ${data.orderNumber || ""} зафиксировано обновление по возврату.`,
+        action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Статус заказа", value: data.orderStatus ? mapOrderStatus(data.orderStatus) : null },
+          { label: "Статус оплаты", value: data.paymentStatus ? mapPaymentStatus(data.paymentStatus) : null },
+        ],
+        detailBlocks: data.refundInfo
+          ? [{ title: "Информация о возврате", content: data.refundInfo }]
+          : undefined,
+      };
+    case "ADMIN_NEW_ORDER":
+      return {
+        subject: `Новый заказ ${data.orderNumber} на сайте ТЕХАКС`,
+        title: "Новый заказ на сайте",
+        intro: `На сайте ТЕХАКС создан новый заказ ${data.orderNumber || ""}.`,
+        action: {
+          label: "Открыть заказ в админке",
+          url: data.adminOrderUrl || DEFAULT_ADMIN_ORDERS_URL,
+        },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Дата", value: data.orderDate ? formatDate(data.orderDate) : null },
+          { label: "Клиент", value: data.customerName },
+          { label: "Телефон", value: data.customerPhone },
+          { label: "Email", value: data.customerEmail },
+          { label: "Итого", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
+          { label: "Оплата", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+          { label: "Доставка", value: data.deliveryMethod ? mapDeliveryMethod(data.deliveryMethod) : null },
+        ],
+        items: data.items,
+        detailBlocks: data.customerComment
+          ? [{ title: "Комментарий клиента", content: data.customerComment }]
+          : undefined,
+      };
+    case "ADMIN_PAYMENT_FAILED":
+      return {
+        subject: `Проблема с оплатой заказа ${data.orderNumber}`,
+        title: "Проблема с оплатой",
+        intro: `По заказу ${data.orderNumber || ""} произошла ошибка оплаты.`,
+        action: {
+          label: "Открыть заказ в админке",
+          url: data.adminOrderUrl || DEFAULT_ADMIN_ORDERS_URL,
+        },
+        summaryRows: [
+          { label: "Номер заказа", value: data.orderNumber },
+          { label: "Клиент", value: data.customerName },
+          { label: "Сумма", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
+          { label: "Способ оплаты", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+        ],
+        detailBlocks: data.paymentError
+          ? [{ title: "Описание ошибки", content: data.paymentError }]
+          : undefined,
+      };
+    default:
+      return {
+        subject: BRAND.siteName,
+        title: BRAND.siteName,
+        intro: "У вас новое уведомление от интернет-магазина ТЕХАКС.",
+      };
+  }
+}
+
+async function sendTemplateEmail(
+  to: string,
+  type: TransactionalEmailType,
+  data: EmailTemplateData
+) {
+  const transporter = await getTransporter();
+  const from = await getSenderAddress();
+  const config = createTemplateConfig(type, {
+    ...data,
+    siteName: withDefaultSiteName(data.siteName),
+    siteUrl: withDefaultSiteUrl(data.siteUrl),
+    supportEmail: withDefaultSupportEmail(data.supportEmail),
+  });
 
   if (!env.isProduction || !transporter) {
-    console.log(`[MOCK EMAIL] OTP for ${email}: ${code}`);
+    console.log(`[MOCK EMAIL] ${type} for ${to}`);
     return;
   }
 
   await transporter.sendMail({
     from,
-    to: email,
-    subject: `Код подтверждения TechAks: ${code}`,
-    text: `Ваш код подтверждения для входа в TechAks: ${code}. Код действителен 10 минут.`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #15171A; text-transform: uppercase;">Вход в ТЕХАКС</h2>
-        <p>Используйте этот код для подтверждения входа в личный кабинет:</p>
-        <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 5px; border-radius: 8px;">
-          ${code}
-        </div>
-        <p style="color: #666; font-size: 12px; margin-top: 20px;">Если вы не запрашивали этот код, просто проигнорируйте это письмо.</p>
-      </div>
-    `,
+    to,
+    subject: config.subject,
+    text: buildTextVersion(config),
+    html: renderEmailLayout(config),
   });
 }
 
-export async function sendPasswordResetEmail(email: string, resetUrl: string) {
-  const transporter = await getTransporter();
-  const settings = await getAppSettings(["smtp_from"]);
-  const from = settings.smtp_from || env.smtpFrom;
-
-  if (!env.isProduction || !transporter) {
-    console.log(`[MOCK EMAIL] Password reset for ${email}: ${resetUrl}`);
-    return;
-  }
-
-  await transporter.sendMail({
-    from,
-    to: email,
-    subject: "Восстановление пароля TechAks",
-    text: `Перейдите по ссылке для сброса пароля: ${resetUrl}. Ссылка действует 30 минут.`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #15171A; text-transform: uppercase;">Восстановление пароля ТЕХАКС</h2>
-        <p>Нажмите кнопку ниже, чтобы установить новый пароль.</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#05C3D4;color:#111;text-decoration:none;font-weight:700;">
-            Сбросить пароль
-          </a>
-        </p>
-        <p style="word-break: break-all; color: #666; font-size: 12px;">${resetUrl}</p>
-        <p style="color: #666; font-size: 12px; margin-top: 20px;">Ссылка действует 30 минут. Если вы не запрашивали восстановление, просто проигнорируйте письмо.</p>
-      </div>
-    `,
+export async function sendEmailOTP(email: string, code: string) {
+  await sendTemplateEmail(email, "AUTH_LOGIN_CODE", {
+    customerEmail: email,
+    pickupCode: code,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
+}
+
+export async function sendRegistrationWelcomeEmail(input: {
+  email: string;
+  customerName?: string | null;
+  registrationDate?: string | Date | null;
+  accountUrl?: string | null;
+}) {
+  await sendTemplateEmail(input.email, "AUTH_REGISTERED", {
+    customerName: input.customerName,
+    customerEmail: input.email,
+    registrationDate: input.registrationDate ?? new Date(),
+    accountUrl: input.accountUrl || DEFAULT_ACCOUNT_URL,
+  });
+}
+
+export async function sendEmailConfirmationLinkEmail(input: {
+  email: string;
+  customerName?: string | null;
+  confirmEmailUrl: string;
+  expiresAt?: string | Date | null;
+}) {
+  await sendTemplateEmail(input.email, "AUTH_EMAIL_CONFIRM", {
+    customerName: input.customerName,
+    customerEmail: input.email,
+    confirmEmailUrl: input.confirmEmailUrl,
+    expiresAt: input.expiresAt,
+  });
+}
+
+export async function sendPasswordResetEmail(
+  email: string,
+  resetUrl: string,
+  options?: {
+    customerName?: string | null;
+    expiresAt?: string | Date | null;
+    requestIp?: string | null;
+    requestLocation?: string | null;
+  }
+) {
+  await sendTemplateEmail(email, "AUTH_PASSWORD_RESET", {
+    customerName: options?.customerName,
+    customerEmail: email,
+    resetPasswordUrl: resetUrl,
+    expiresAt: options?.expiresAt ?? new Date(Date.now() + 30 * 60 * 1000),
+    requestIp: options?.requestIp,
+    requestLocation: options?.requestLocation,
+  });
+}
+
+export async function sendPasswordChangedEmail(input: {
+  email: string;
+  customerName?: string | null;
+  changedAt?: string | Date | null;
+}) {
+  await sendTemplateEmail(input.email, "AUTH_PASSWORD_CHANGED", {
+    customerName: input.customerName,
+    customerEmail: input.email,
+    changedAt: input.changedAt ?? new Date(),
+  });
+}
+
+export async function sendAdminNewOrderEmail(input: {
+  email: string;
+  data: EmailTemplateData;
+}) {
+  await sendTemplateEmail(input.email, "ADMIN_NEW_ORDER", input.data);
+}
+
+export async function sendAdminPaymentFailedEmail(input: {
+  email: string;
+  data: EmailTemplateData;
+}) {
+  await sendTemplateEmail(input.email, "ADMIN_PAYMENT_FAILED", input.data);
 }
 
 export async function sendOrderNotificationEmail(input: {
   email: string;
   orderNumber: string;
-  eventType:
-    | "order_created"
-    | "order_status_changed"
-    | "payment_success"
-    | "delivery_handed"
-    | "order_cancelled"
-    | "order_refund";
+  eventType: OrderEventType;
   title?: string;
-  message: string;
+  message?: string;
+  data?: EmailTemplateData;
 }) {
-  const transporter = await getTransporter();
-  const settings = await getAppSettings(["smtp_from"]);
-  const from = settings.smtp_from || env.smtpFrom;
-
-  const subjectMap: Record<string, string> = {
-    order_created: `Заказ ${input.orderNumber} создан`,
-    order_status_changed: `Статус заказа ${input.orderNumber} обновлен`,
-    payment_success: `Оплата заказа ${input.orderNumber} подтверждена`,
-    delivery_handed: `Заказ ${input.orderNumber} передан в доставку`,
-    order_cancelled: `Заказ ${input.orderNumber} отменен`,
-    order_refund: `Возврат по заказу ${input.orderNumber}`,
+  const templateTypeMap: Record<OrderEventType, TransactionalEmailType> = {
+    order_created: "ORDER_CREATED",
+    order_status_changed: "ORDER_STATUS_CHANGED",
+    payment_success: "ORDER_PAID",
+    delivery_handed: "ORDER_SHIPPED",
+    order_cancelled: "ORDER_CANCELLED",
+    order_refund: "ORDER_REFUNDED",
   };
+
+  const data: EmailTemplateData = {
+    orderNumber: input.orderNumber,
+    orderUrl: DEFAULT_ACCOUNT_URL,
+    ...(input.data || {}),
+  };
+
+  const type = templateTypeMap[input.eventType];
+  const config = createTemplateConfig(type, data);
+  if (input.title) {
+    config.subject = input.title;
+    config.title = input.title;
+  }
+  if (input.message) {
+    config.detailBlocks = [
+      ...(config.detailBlocks || []),
+      { title: "Комментарий", content: input.message },
+    ];
+  }
+
+  const transporter = await getTransporter();
+  const from = await getSenderAddress();
 
   if (!env.isProduction || !transporter) {
     console.log(
@@ -132,14 +952,8 @@ export async function sendOrderNotificationEmail(input: {
   await transporter.sendMail({
     from,
     to: input.email,
-    subject: input.title || subjectMap[input.eventType] || `Обновление заказа ${input.orderNumber}`,
-    text: input.message,
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:20px;border:1px solid #eee;border-radius:10px;">
-        <h2 style="margin:0 0 12px;color:#15171A;text-transform:uppercase;">ТЕХАКС</h2>
-        <p style="margin:0 0 8px;color:#666;">Заказ: <strong>${input.orderNumber}</strong></p>
-        <p style="margin:0 0 10px;color:#111;line-height:1.55;">${input.message}</p>
-      </div>
-    `,
+    subject: config.subject,
+    text: buildTextVersion(config),
+    html: renderEmailLayout(config),
   });
 }

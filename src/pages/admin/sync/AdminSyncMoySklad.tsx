@@ -99,14 +99,14 @@ export default function AdminSyncMoySklad() {
   });
   const createProfileMutation = trpc.sync.upsertProfile.useMutation({
     onSuccess: () => {
-      toast.success("Профиль синхронизации сохранен");
+      toast.success("Профиль синхронизации сохранён");
       refetchProfiles();
     },
     onError: error => toast.error(error.message),
   });
   const setActiveProfileMutation = trpc.sync.setActiveProfile.useMutation({
     onSuccess: () => {
-      toast.success("Активный профиль обновлен");
+      toast.success("Активный профиль обновлён");
       refetchProfiles();
     },
     onError: error => toast.error(error.message),
@@ -121,7 +121,7 @@ export default function AdminSyncMoySklad() {
   const processWebhookQueueMutation = trpc.sync.processWebhookQueue.useMutation({
     onSuccess: data => {
       toast.success(
-        `Очередь обработана: done ${data.done}, failed ${data.failed}, dead ${data.dead}`
+        `Очередь обработана: выполнено ${data.done}, с ошибкой ${data.failed}, безнадёжно ${data.dead}`
       );
       refetchWebhookQueue();
     },
@@ -138,9 +138,9 @@ export default function AdminSyncMoySklad() {
   const reconcileMutation = trpc.sync.runStocksReconcile.useMutation({
     onSuccess: data => {
       if (data.skipped) {
-        toast.message("Reconcile пропущен: идет full sync");
+        toast.message("Сверка остатков пропущена: сейчас выполняется полная синхронизация");
       } else {
-        toast.success(`Reconcile завершен, записей: ${data.rowsProcessed ?? 0}`);
+        toast.success(`Сверка остатков завершена, записей: ${data.rowsProcessed ?? 0}`);
       }
       refetchReconcileRuns();
     },
@@ -693,25 +693,25 @@ export default function AdminSyncMoySklad() {
       {/* Danger Zone */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-          <div className="text-xs text-gray-500 font-bold">Webhook lag</div>
+          <div className="text-xs text-gray-500 font-bold">Задержка вебхуков</div>
           <div className="text-2xl font-black text-[#15171A]">
             {syncOverview?.webhookLagMinutes ?? 0}м
           </div>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-          <div className="text-xs text-gray-500 font-bold">Failed</div>
+          <div className="text-xs text-gray-500 font-bold">С ошибкой</div>
           <div className="text-2xl font-black text-amber-600">
             {syncOverview?.failedCount ?? 0}
           </div>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-          <div className="text-xs text-gray-500 font-bold">Dead</div>
+          <div className="text-xs text-gray-500 font-bold">Остановлены</div>
           <div className="text-2xl font-black text-red-600">
             {syncOverview?.deadCount ?? 0}
           </div>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-          <div className="text-xs text-gray-500 font-bold">Full sync OK</div>
+          <div className="text-xs text-gray-500 font-bold">Полная синхронизация</div>
           <div className="text-xs font-bold text-[#15171A] mt-1">
             {syncOverview?.lastFullSuccess
               ? new Date(syncOverview.lastFullSuccess).toLocaleString("ru-RU")
@@ -719,7 +719,7 @@ export default function AdminSyncMoySklad() {
           </div>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-          <div className="text-xs text-gray-500 font-bold">Reconcile OK</div>
+          <div className="text-xs text-gray-500 font-bold">Сверка остатков</div>
           <div className="text-xs font-bold text-[#15171A] mt-1">
             {syncOverview?.lastReconcileSuccess
               ? new Date(syncOverview.lastReconcileSuccess).toLocaleString("ru-RU")
@@ -766,7 +766,7 @@ export default function AdminSyncMoySklad() {
               disabled={reconcileMutation.isPending}
               className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:border-gray-300 disabled:opacity-50"
             >
-              {reconcileMutation.isPending ? "Reconcile..." : "Reconcile остатков"}
+              {reconcileMutation.isPending ? "Сверка..." : "Сверить остатки"}
             </button>
             <button
               onClick={() => processWebhookQueueMutation.mutate({ limit: 100 })}
@@ -785,7 +785,7 @@ export default function AdminSyncMoySklad() {
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
-          <div className="text-xs font-bold text-gray-500 mb-3">Чек-лист webhook</div>
+            <div className="text-xs font-bold text-gray-500 mb-3">Проверка вебхука</div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -794,10 +794,10 @@ export default function AdminSyncMoySklad() {
                 ) : (
                   <AlertTriangle size={16} className="text-amber-600" />
                 )}
-                <span>Секрет webhook задан</span>
+                <span>Секрет вебхука задан</span>
               </div>
               <span className={webhookSetup?.hasSecret ? "text-green-700 font-bold" : "text-amber-700 font-bold"}>
-                {webhookSetup?.hasSecret ? "OK" : "Нет"}
+                {webhookSetup?.hasSecret ? "Да" : "Нет"}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -820,7 +820,7 @@ export default function AdminSyncMoySklad() {
                 ) : (
                   <AlertTriangle size={16} className="text-amber-600" />
                 )}
-                <span>Lag в норме (до 10 минут)</span>
+                <span>Задержка в норме (до 10 минут)</span>
               </div>
               <span
                 className={(syncOverview?.webhookLagMinutes ?? 0) <= 10 ? "text-green-700 font-bold" : "text-amber-700 font-bold"}
@@ -838,7 +838,7 @@ export default function AdminSyncMoySklad() {
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
-          <div className="text-xs font-bold text-gray-500 mb-2">Последние reconcile-запуски</div>
+          <div className="text-xs font-bold text-gray-500 mb-2">Последние запуски сверки остатков</div>
           <div className="space-y-2">
             {reconcileRuns.length === 0 ? (
               <div className="text-sm text-gray-500">Пока запусков нет</div>
@@ -869,8 +869,8 @@ export default function AdminSyncMoySklad() {
             { key: "new", label: "Новые" },
             { key: "processing", label: "В обработке" },
             { key: "done", label: "Готово" },
-            { key: "failed", label: "Failed" },
-            { key: "dead", label: "Dead" },
+            { key: "failed", label: "С ошибкой" },
+            { key: "dead", label: "Остановлены" },
           ].map(item => (
             <div key={item.key} className="rounded-xl border border-gray-100 bg-white px-4 py-3">
               <div className="text-xs text-gray-500 font-bold">{item.label}</div>
@@ -882,8 +882,8 @@ export default function AdminSyncMoySklad() {
         </div>
 
         <div className="text-xs text-gray-500 mb-4">
-          Эти счетчики заполняются только если в МойСклад настроен webhook на
-          <span className="font-mono"> /api/webhooks/moysklad</span>. Нули — это нормально, если webhook еще не подключен или не было событий.
+          Эти счетчики заполняются только если в МойСклад настроен вебхук на
+          <span className="font-mono"> /api/webhooks/moysklad</span>. Нули — это нормально, если вебхук ещё не подключен или событий пока не было.
         </div>
 
         {failedOrDeadRows.length > 0 && (
@@ -923,7 +923,7 @@ export default function AdminSyncMoySklad() {
                   className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold disabled:opacity-50 flex items-center gap-2"
                 >
                   <RotateCcw size={14} />
-                  {retryWebhookEventsMutation.isPending ? "Retry..." : "Retry selected"}
+                  {retryWebhookEventsMutation.isPending ? "Повтор..." : "Повторить выбранные события"}
                 </button>
               </div>
             </div>
@@ -946,7 +946,7 @@ export default function AdminSyncMoySklad() {
                 {webhookRows.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-6 text-center text-gray-500">
-                      Событий пока нет. Проверьте webhook в МойСклад и секрет в настройках.
+                      Событий пока нет. Проверьте вебхук в МойСклад и секрет в настройках.
                     </td>
                   </tr>
                 ) : (

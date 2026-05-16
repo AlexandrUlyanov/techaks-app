@@ -5,7 +5,12 @@ import { users, pushSubscriptions, authSessions, passwordResetTokens } from "@db
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
-import { sendEmailOTP, sendPasswordResetEmail } from "../lib/mail";
+import {
+  sendEmailOTP,
+  sendPasswordChangedEmail,
+  sendPasswordResetEmail,
+  sendRegistrationWelcomeEmail,
+} from "../lib/mail";
 import { sendPushNotification } from "../lib/push";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "../lib/env";
@@ -113,6 +118,15 @@ export const authRouter = createRouter({
         status: newUser.status,
       });
 
+      await sendRegistrationWelcomeEmail({
+        email: input.email,
+        customerName: input.fullName,
+        registrationDate: new Date(),
+        accountUrl: `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/account`,
+      }).catch(err => {
+        console.error("registered email failed", err);
+      });
+
       return { success: true, user: newUser, token };
     }),
 
@@ -209,7 +223,10 @@ export const authRouter = createRouter({
       `);
 
       const resetUrl = `${env.isProduction ? "https://techaks.ru" : "http://localhost:5173"}/reset-password?token=${token}`;
-      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+      await sendPasswordResetEmail(normalizedEmail, resetUrl, {
+        customerName: user.fullName,
+        expiresAt,
+      });
 
       return {
         success: true,
@@ -256,6 +273,25 @@ export const authRouter = createRouter({
         .update(passwordResetTokens)
         .set({ usedAt: new Date() })
         .where(eq(passwordResetTokens.id, row.id));
+
+      const [updatedUser] = await db
+        .select({
+          email: users.email,
+          fullName: users.fullName,
+        })
+        .from(users)
+        .where(eq(users.id, row.userId))
+        .limit(1);
+
+      if (updatedUser?.email) {
+        await sendPasswordChangedEmail({
+          email: updatedUser.email,
+          customerName: updatedUser.fullName,
+          changedAt: new Date(),
+        }).catch(err => {
+          console.error("password changed email failed", err);
+        });
+      }
 
       return { success: true, message: "Пароль обновлен. Теперь можно войти." };
     }),
