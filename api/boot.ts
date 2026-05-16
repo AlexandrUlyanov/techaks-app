@@ -161,7 +161,9 @@ app.get("/sitemap-products-1.xml", async c => {
   const stockQuery = db
     .select({
       productId: schema.productStocks.productId,
-      totalStock: sql<number>`SUM(${schema.productStocks.quantity})`,
+      totalStock: sql<number>`SUM(${schema.productStocks.quantity})`.as(
+        "totalStock"
+      ),
     })
     .from(schema.productStocks)
     .groupBy(schema.productStocks.productId)
