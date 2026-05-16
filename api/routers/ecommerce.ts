@@ -593,7 +593,6 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const capabilities = await getOrderDbCapabilities(db);
-      requireAbility(ctx, "read", "Order", { userId: ctx.user.id });
       const phoneForLookup = (ctx.user.phone || input.phone || "").trim();
       const emailForLookup = ctx.user.email?.trim().toLowerCase() || null;
       const relatedUserIds = new Set<number>([ctx.user.id]);
