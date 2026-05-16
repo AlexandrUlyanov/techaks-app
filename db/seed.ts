@@ -6,6 +6,7 @@ import {
   homeCategories,
 } from "../src/data/products";
 import { sql } from "drizzle-orm";
+import { applyProductAutoBlockState } from "@contracts/product-visibility";
 
 async function seed() {
   const db = getDb();
@@ -101,23 +102,30 @@ async function seed() {
 
     await db
       .insert(schema.products)
-      .values({
-        slug: prod.id,
-        name: prod.name,
-        categoryId: categoryId,
-        price: prod.price,
-        oldPrice: prod.oldPrice || null,
-        badge: prod.badge || null,
-        image: prod.image,
-        description: prod.description,
-        specs: prod.specs,
-        inStock: prod.inStock,
-        rating: prod.rating.toString(),
-        reviewCount: prod.reviewCount,
-      })
+      .values(
+        applyProductAutoBlockState({
+          slug: prod.id,
+          name: prod.name,
+          categoryId: categoryId,
+          price: prod.price,
+          isActive: true,
+          oldPrice: prod.oldPrice || null,
+          badge: prod.badge || null,
+          image: prod.image,
+          description: prod.description,
+          specs: prod.specs,
+          inStock: prod.inStock,
+          rating: prod.rating.toString(),
+          reviewCount: prod.reviewCount,
+        })
+      )
       .onDuplicateKeyUpdate({
         set: {
-          price: prod.price,
+          ...applyProductAutoBlockState({
+            price: prod.price,
+            isAutoBlocked: false,
+            autoBlockReason: null,
+          }),
           inStock: prod.inStock,
           rating: prod.rating.toString(),
           reviewCount: prod.reviewCount,

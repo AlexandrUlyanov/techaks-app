@@ -17,12 +17,14 @@ import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
 import { runScheduledFullSync } from "./routers/sync";
+import { buildPublicProductVisibilityCondition } from "./lib/product-visibility";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
 const webhookRateState = new Map<string, { count: number; windowStart: number }>();
 const WEBHOOK_RATE_LIMIT = 180;
 const WEBHOOK_RATE_WINDOW_MS = 60_000;
+const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 
 const xmlEscape = (value: string) =>
   value
@@ -172,7 +174,9 @@ app.get("/sitemap-products-1.xml", async c => {
     })
     .from(schema.products)
     .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
-    .where(sql`${schema.products.price} > 0 AND coalesce(${stockQuery.totalStock}, 0) > 0`);
+    .where(
+      sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
+    );
 
   const rows = products
     .map(product => {
@@ -198,7 +202,9 @@ app.get("/sitemap-images.xml", async c => {
       image: schema.products.image,
     })
     .from(schema.products)
-    .where(sql`${schema.products.price} > 0 AND ${schema.products.image} IS NOT NULL`);
+    .where(
+      sql`${publicProductVisibilityCondition} AND ${schema.products.image} IS NOT NULL`
+    );
 
   const rows = products
     .map(product => {

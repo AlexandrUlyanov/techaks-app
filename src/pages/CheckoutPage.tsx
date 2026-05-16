@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { useTheme } from "next-themes";
 import { useSeo } from "@/lib/seo";
 import { useAuth } from "@/hooks/use-auth";
+import { useCartAvailability } from "@/hooks/use-cart-availability";
 
 export default function CheckoutPage() {
   useSeo({
@@ -39,6 +40,7 @@ export default function CheckoutPage() {
     removeItem,
     clearCart,
   } = useCart();
+  const cartAvailability = useCartAvailability();
   const [orderId, setOrderId] = useState<number | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const { theme } = useTheme();
@@ -80,6 +82,9 @@ export default function CheckoutPage() {
       toast.success("Заказ успешно оформлен!");
     },
     onError: err => {
+      if (err.message.includes("Некоторые товары стали недоступны")) {
+        cartAvailability.refetch();
+      }
       toast.error(err.message || "Ошибка при оформлении заказа");
     },
   });
@@ -99,6 +104,10 @@ export default function CheckoutPage() {
     }
     if (deliveryType === "delivery" && !normalizedAddress) {
       toast.error("Пожалуйста, укажите адрес доставки");
+      return;
+    }
+    if (cartAvailability.isFetching) {
+      toast.message("Подождите, проверяем актуальность товаров в корзине");
       return;
     }
 
@@ -206,6 +215,12 @@ export default function CheckoutPage() {
           ВАША КОРЗИНА{" "}
           <span className="text-muted-foreground/30">И ОФОРМЛЕНИЕ</span>
         </h1>
+
+        {cartAvailability.isFetching && items.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-[#05C3D4]/30 bg-[#05C3D4]/8 px-5 py-4 text-sm font-medium text-foreground">
+            Проверяем актуальность товаров и цен перед оформлением заказа...
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Left Column: Cart Items & Order Form */}

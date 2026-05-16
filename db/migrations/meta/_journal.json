@@ -64,6 +64,13 @@
       "when": 1778900000000,
       "tag": "0008_orders_admin_panel_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1778920000000,
+      "tag": "0009_product_visibility_controls",
+      "breakpoints": true
     }
   ]
 }

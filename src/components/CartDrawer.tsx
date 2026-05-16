@@ -11,6 +11,7 @@ import { Minus, Plus, ShoppingCart, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useCartAvailability } from "@/hooks/use-cart-availability";
 
 interface CartDrawerProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface CartDrawerProps {
 export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const { items, removeItem, updateQuantity, getTotalPrice, getItemCount } =
     useCart();
+  const cartAvailability = useCartAvailability({ enabled: open });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -90,6 +92,11 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
             <ScrollArea className="flex-1 px-6">
               <div className="py-6 space-y-6">
+                {cartAvailability.isFetching && (
+                  <div className="rounded-xl border border-[#05C3D4]/25 bg-[#05C3D4]/8 px-4 py-3 text-xs font-bold text-foreground">
+                    Проверяем доступность товаров...
+                  </div>
+                )}
                 {items.map(item => (
                   <div key={item.id} className="flex gap-4 group">
                     <div className="w-20 h-20 rounded-xl bg-white border border-border p-2 flex items-center justify-center shrink-0">

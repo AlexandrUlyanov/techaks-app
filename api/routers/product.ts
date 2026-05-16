@@ -11,7 +11,7 @@ import {
   manufacturers,
 } from "@db/schema";
 import * as schema from "@db/schema";
-import { eq, asc, desc, like, or, sql } from "drizzle-orm";
+import { and, eq, asc, desc, like, or, sql } from "drizzle-orm";
 import {
   applyCategorySpecStandardization,
   applyCategorySpecValueStandardization,
@@ -27,12 +27,18 @@ import {
   getManufacturerFilterKeys,
   getManufacturerNameFromProductSpecs,
 } from "../lib/manufacturers";
+import {
+  applyProductAutoBlockState,
+  buildPublicProductVisibilityCondition,
+  getAdminProductPublicationStatus,
+} from "../lib/product-visibility";
 
 const productSchema = z.object({
   slug: z.string(),
   name: z.string(),
   categoryId: z.number(),
   price: z.number(),
+  isActive: z.boolean().default(true),
   oldPrice: z.number().nullable(),
   badge: z.string().nullable(),
   image: z.string(),
@@ -101,6 +107,30 @@ function buildManufacturerCondition(normalizedName: string) {
   )`;
 }
 
+const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
+
+const productSelectFields = {
+  id: products.id,
+  msId: products.msId,
+  slug: products.slug,
+  name: products.name,
+  categoryId: products.categoryId,
+  price: products.price,
+  isActive: products.isActive,
+  isAutoBlocked: products.isAutoBlocked,
+  autoBlockReason: products.autoBlockReason,
+  oldPrice: products.oldPrice,
+  badge: products.badge,
+  image: products.image,
+  description: products.description,
+  specs: products.specs,
+  inStock: products.inStock,
+  rating: products.rating,
+  reviewCount: products.reviewCount,
+  createdAt: products.createdAt,
+  categoryName: categories.name,
+};
+
 export const productRouter = createRouter({
   search: publicQuery
     .input(
@@ -119,55 +149,41 @@ export const productRouter = createRouter({
       );
       const specCondition = buildSpecFilterConditions(input.specFilters);
       return await db
-        .select({
-          id: products.id,
-          slug: products.slug,
-          name: products.name,
-          categoryId: products.categoryId,
-          price: products.price,
-          oldPrice: products.oldPrice,
-          badge: products.badge,
-          image: products.image,
-          description: products.description,
-          specs: products.specs as unknown,
-          inStock: products.inStock,
-          rating: products.rating,
-          reviewCount: products.reviewCount,
-          createdAt: products.createdAt,
-          categoryName: categories.name,
-        })
+        .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(specCondition ? sql`${searchCondition} AND ${specCondition}` : searchCondition)
+        .where(
+          specCondition
+            ? sql`${publicProductVisibilityCondition} AND ${searchCondition} AND ${specCondition}`
+            : sql`${publicProductVisibilityCondition} AND ${searchCondition}`
+        )
         .limit(input.limit);
     }),
   getAll: publicQuery.query(async () => {
     const db = getDb();
     return await db
-      .select({
-        id: products.id,
-        msId: products.msId,
-        slug: products.slug,
-        name: products.name,
-        categoryId: products.categoryId,
-        price: products.price,
-        oldPrice: products.oldPrice,
-        badge: products.badge,
-        image: products.image,
-        description: products.description,
-        specs: products.specs as unknown,
-        inStock: products.inStock,
-        rating: products.rating,
-        reviewCount: products.reviewCount,
-        createdAt: products.createdAt,
-        categoryName: categories.name,
-      })
+      .select(productSelectFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(publicProductVisibilityCondition)
       .orderBy(desc(products.createdAt));
   }),
 
-  getPaginated: publicQuery
+  getAdminAll: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Product");
+    const db = getDb();
+    const rows = await db
+      .select(productSelectFields)
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .orderBy(desc(products.createdAt));
+    return rows.map(row => ({
+      ...row,
+      siteStatus: getAdminProductPublicationStatus(row),
+    }));
+  }),
+
+  getPaginated: protectedProcedure
     .input(
       z.object({
         page: z.number().default(1),
@@ -175,7 +191,8 @@ export const productRouter = createRouter({
         search: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Product");
       const db = getDb();
       const offset = (input.page - 1) * input.limit;
 
@@ -189,23 +206,7 @@ export const productRouter = createRouter({
       const total = totalResult[0]?.count || 0;
 
       const items = await db
-        .select({
-          id: products.id,
-          slug: products.slug,
-          name: products.name,
-          categoryId: products.categoryId,
-          price: products.price,
-          oldPrice: products.oldPrice,
-          badge: products.badge,
-          image: products.image,
-          description: products.description,
-          specs: products.specs as unknown,
-          inStock: products.inStock,
-          rating: products.rating,
-          reviewCount: products.reviewCount,
-          createdAt: products.createdAt,
-          categoryName: categories.name,
-        })
+        .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(
@@ -234,13 +235,17 @@ export const productRouter = createRouter({
           .from(productStocks)
           .innerJoin(stores, eq(productStocks.storeId, stores.id))
           .where(
-            sql`${productStocks.productId} IN (${sql.join(productIds, sql`, `)})`
+            sql`${productStocks.productId} IN (${sql.join(
+              productIds.map(productId => sql`${productId}`),
+              sql`, `
+            )})`
           );
       }
 
       const itemsWithStocks = items.map(item => ({
         ...item,
         stocks: stocksData.filter(s => s.productId === item.id),
+        siteStatus: getAdminProductPublicationStatus(item),
       }));
 
       return {
@@ -256,26 +261,10 @@ export const productRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const result = await db
-        .select({
-          id: products.id,
-          slug: products.slug,
-          name: products.name,
-          categoryId: products.categoryId,
-          price: products.price,
-          oldPrice: products.oldPrice,
-          badge: products.badge,
-          image: products.image,
-          description: products.description,
-          specs: products.specs as unknown,
-          inStock: products.inStock,
-          rating: products.rating,
-          reviewCount: products.reviewCount,
-          createdAt: products.createdAt,
-          categoryName: categories.name,
-        })
+        .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(eq(products.slug, input.slug))
+        .where(and(eq(products.slug, input.slug), publicProductVisibilityCondition))
         .limit(1);
       return result[0] || null;
     }),
@@ -311,30 +300,13 @@ export const productRouter = createRouter({
       );
 
       return await db
-        .select({
-          id: products.id,
-          msId: products.msId,
-          slug: products.slug,
-          name: products.name,
-          categoryId: products.categoryId,
-          price: products.price,
-          oldPrice: products.oldPrice,
-          badge: products.badge,
-          image: products.image,
-          description: products.description,
-          specs: products.specs,
-          inStock: products.inStock,
-          rating: products.rating,
-          reviewCount: products.reviewCount,
-          createdAt: products.createdAt,
-          categoryName: categories.name,
-        })
+        .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(
           specCondition
-            ? sql`${manufacturerCondition} AND ${specCondition}`
-            : manufacturerCondition
+            ? sql`${publicProductVisibilityCondition} AND ${manufacturerCondition} AND ${specCondition}`
+            : sql`${publicProductVisibilityCondition} AND ${manufacturerCondition}`
         );
     }),
 
@@ -355,37 +327,17 @@ export const productRouter = createRouter({
       const db = getDb();
       const categorySlug = input?.categorySlug ?? "all";
       const specFilters = input?.specFilters ?? [];
-      const visibilityCondition = sql`${products.price} > 0`;
-
-      const selectFields = {
-        id: products.id,
-        msId: products.msId,
-        slug: products.slug,
-        name: products.name,
-        categoryId: products.categoryId,
-        price: products.price,
-        oldPrice: products.oldPrice,
-        badge: products.badge,
-        image: products.image,
-        description: products.description,
-        specs: products.specs,
-        inStock: products.inStock,
-        rating: products.rating,
-        reviewCount: products.reviewCount,
-        createdAt: products.createdAt,
-        categoryName: categories.name,
-      };
 
       if (categorySlug === "all") {
         const specCondition = buildSpecFilterConditions(specFilters);
         return await db
-          .select(selectFields)
+          .select(productSelectFields)
           .from(products)
           .leftJoin(categories, eq(products.categoryId, categories.id))
           .where(
             specCondition
-              ? sql`${visibilityCondition} AND ${specCondition}`
-              : visibilityCondition
+              ? sql`${publicProductVisibilityCondition} AND ${specCondition}`
+              : publicProductVisibilityCondition
           );
       }
 
@@ -397,16 +349,19 @@ export const productRouter = createRouter({
       const targetIds = collectDescendantCategoryIds(allCats, targetCat.id);
 
       const specCondition = buildSpecFilterConditions(specFilters);
-      const categoryCondition = sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`;
+      const categoryCondition = sql`${products.categoryId} IN (${sql.join(
+        targetIds.map(categoryId => sql`${categoryId}`),
+        sql`, `
+      )})`;
 
       return await db
-        .select(selectFields)
+        .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .where(
           specCondition
-            ? sql`${categoryCondition} AND ${visibilityCondition} AND ${specCondition}`
-            : sql`${categoryCondition} AND ${visibilityCondition}`
+            ? sql`${categoryCondition} AND ${publicProductVisibilityCondition} AND ${specCondition}`
+            : sql`${categoryCondition} AND ${publicProductVisibilityCondition}`
         );
     }),
 
@@ -437,7 +392,9 @@ export const productRouter = createRouter({
         })
         .from(products)
         .leftJoin(productStocks, eq(productStocks.productId, products.id))
-        .where(sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)})`)
+        .where(
+          sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)}) AND ${publicProductVisibilityCondition}`
+        )
         .groupBy(
           products.id,
           products.slug,
@@ -480,10 +437,11 @@ export const productRouter = createRouter({
           count: sql<number>`count(distinct ${productSpecValues.productId})`,
         })
         .from(productSpecValues)
+        .innerJoin(products, eq(productSpecValues.productId, products.id))
         .where(
           categoryIds
-            ? sql`${productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)})`
-            : undefined
+            ? sql`${productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)}) AND ${publicProductVisibilityCondition}`
+            : publicProductVisibilityCondition
         )
         .groupBy(
           productSpecValues.specKey,
@@ -550,7 +508,9 @@ export const productRouter = createRouter({
       const matchingProducts = await db
         .select({ id: products.id })
         .from(products)
-        .where(buildManufacturerCondition(manufacturer.normalizedName));
+        .where(
+          sql`${publicProductVisibilityCondition} AND ${buildManufacturerCondition(manufacturer.normalizedName)}`
+        );
 
       if (matchingProducts.length === 0) return [];
 
@@ -743,7 +703,7 @@ export const productRouter = createRouter({
       const product = await db
         .select()
         .from(products)
-        .where(eq(products.slug, input.slug))
+        .where(and(eq(products.slug, input.slug), publicProductVisibilityCondition))
         .limit(1);
 
       if (!product[0]) return [];
@@ -781,14 +741,15 @@ export const productRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Product");
       const db = getDb();
+      const payload = applyProductAutoBlockState(input.data);
       if (input.id) {
         await db
           .update(products)
-          .set(input.data)
+          .set(payload)
           .where(eq(products.id, input.id));
         return { success: true, id: input.id };
       } else {
-        const result = await db.insert(products).values(input.data);
+        const result = await db.insert(products).values(payload);
         return { success: true, id: result[0].insertId };
       }
     }),
@@ -809,7 +770,8 @@ export const productRouter = createRouter({
         id: products.id,
         specs: products.specs,
       })
-      .from(products);
+      .from(products)
+      .where(publicProductVisibilityCondition);
 
     const counts = new Map<string, number>();
     for (const row of rows) {

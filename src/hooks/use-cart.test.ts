@@ -77,4 +77,32 @@ describe("useCart", () => {
 
     expect(useCart.getState().getTotalPrice()).toBe(450);
   });
+
+  it("should replace items with validated cart payload", () => {
+    useCart
+      .getState()
+      .addItem({ id: 1, slug: "p1", name: "P1", price: 100, image: "img.jpg" });
+
+    useCart.getState().replaceItems([
+      {
+        id: 2,
+        slug: "p2",
+        name: "P2",
+        price: 250,
+        image: "next.jpg",
+        quantity: 3,
+      },
+    ]);
+
+    expect(useCart.getState().items).toEqual([
+      {
+        id: 2,
+        slug: "p2",
+        name: "P2",
+        price: 250,
+        image: "next.jpg",
+        quantity: 3,
+      },
+    ]);
+  });
 });

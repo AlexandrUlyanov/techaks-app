@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
 import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
+import {
+  AUTO_BLOCK_REASON_ZERO_PRICE,
+  hasInvalidProductPrice,
+} from "@contracts/product-visibility";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,14 +27,24 @@ export default function AdminProducts() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [slugValue, setSlugValue] = useState("");
   const [manualSlug, setManualSlug] = useState(false);
+  const [draftPrice, setDraftPrice] = useState<string>("");
+  const [draftIsActive, setDraftIsActive] = useState(true);
 
   useEffect(() => {
     if (editingProduct) {
       setSlugValue(editingProduct.slug || "");
       setManualSlug(!!editingProduct.slug);
+      setDraftPrice(
+        editingProduct.price === undefined || editingProduct.price === null
+          ? ""
+          : String(editingProduct.price)
+      );
+      setDraftIsActive(editingProduct.isActive ?? true);
     } else {
       setSlugValue("");
       setManualSlug(false);
+      setDraftPrice("");
+      setDraftIsActive(true);
     }
   }, [editingProduct]);
 
@@ -77,6 +91,7 @@ export default function AdminProducts() {
       name: formData.get("name") as string,
       categoryId: parseInt(formData.get("categoryId") as string),
       price: parseInt(formData.get("price") as string),
+      isActive: formData.get("isActive") === "on",
       oldPrice: formData.get("oldPrice")
         ? parseInt(formData.get("oldPrice") as string)
         : null,
@@ -94,6 +109,41 @@ export default function AdminProducts() {
       data,
     });
   };
+
+  const getPublicationStatus = (product: any) => {
+    if (product.isActive === false) {
+      return {
+        label: "Отключен вручную",
+        hint: "Администратор отключил отображение товара на сайте.",
+        className: "bg-slate-100 text-slate-700",
+      };
+    }
+
+    if (
+      product.isAutoBlocked === true ||
+      product.autoBlockReason === AUTO_BLOCK_REASON_ZERO_PRICE ||
+      hasInvalidProductPrice(product.price)
+    ) {
+      return {
+        label: "Не отображается: цена не указана или равна 0",
+        hint:
+          "После появления цены больше 0 товар появится на сайте только если ручная активность включена.",
+        className: "bg-amber-100 text-amber-800",
+      };
+    }
+
+    return {
+      label: "Отображается на сайте",
+      hint: "Товар доступен на витрине и может быть куплен.",
+      className: "bg-emerald-100 text-emerald-700",
+    };
+  };
+
+  const editingStatus = getPublicationStatus({
+    ...(editingProduct ?? {}),
+    price: draftPrice === "" ? null : Number(draftPrice),
+    isActive: draftIsActive,
+  });
 
   return (
     <div className="space-y-6">
@@ -140,6 +190,9 @@ export default function AdminProducts() {
                   Цена
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                  Статус на сайте
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
                   Наличие
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">
@@ -151,7 +204,7 @@ export default function AdminProducts() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     Загрузка...
@@ -160,7 +213,7 @@ export default function AdminProducts() {
               ) : products.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     Товары не найдены
@@ -200,6 +253,23 @@ export default function AdminProducts() {
                           {p.oldPrice} ₽
                         </div>
                       )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const status = getPublicationStatus(p);
+                        return (
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${status.className}`}
+                            >
+                              {status.label}
+                            </span>
+                            <div className="text-xs text-gray-500 max-w-[220px] leading-relaxed">
+                              {status.hint}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       {p.stocks && p.stocks.length > 0 ? (
@@ -302,6 +372,18 @@ export default function AdminProducts() {
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="text-sm font-semibold text-gray-900">
+                  Статус товара на сайте
+                </div>
+                <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${editingStatus.className}`}>
+                  {editingStatus.label}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                  {editingStatus.hint}
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">
@@ -374,7 +456,8 @@ export default function AdminProducts() {
                   <input
                     type="number"
                     name="price"
-                    defaultValue={editingProduct.price}
+                    value={draftPrice}
+                    onChange={e => setDraftPrice(e.target.value)}
                     required
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
                   />
@@ -443,6 +526,30 @@ export default function AdminProducts() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4] font-mono text-xs"
                 />
               </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={draftIsActive}
+                  onChange={e => setDraftIsActive(e.target.checked)}
+                  id="isActive"
+                />
+                <label
+                  htmlFor="isActive"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Активен на сайте
+                </label>
+              </div>
+
+              {(hasInvalidProductPrice(draftPrice === "" ? null : Number(draftPrice)) ||
+                editingStatus.label !== "Отображается на сайте") && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  Товар не появится на сайте, пока цена не станет больше 0 и
+                  ручная активность не будет включена.
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input

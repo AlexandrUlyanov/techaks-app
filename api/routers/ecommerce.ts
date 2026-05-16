@@ -7,6 +7,7 @@ import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
 import { sendOrderNotificationEmail } from "../lib/mail";
+import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import {
   buildOrdersCsv,
   buildOrdersExportTable,
@@ -463,7 +464,125 @@ async function getOrderItemCoreForUpdate(
   }
 }
 
+type RequestedCartItem = {
+  productId: number;
+  quantity: number;
+};
+
+async function resolvePurchasableCartItems(
+  db: ReturnType<typeof getDb>,
+  inputItems: RequestedCartItem[]
+) {
+  const requestedProductIds = Array.from(
+    new Set(inputItems.map(item => item.productId))
+  );
+
+  if (requestedProductIds.length === 0) {
+    return {
+      purchasableItems: [] as Array<{
+        productId: number;
+        quantity: number;
+        name: string;
+        slug: string;
+        image: string;
+        price: number;
+      }>,
+      removedProductIds: [] as number[],
+    };
+  }
+
+  const productRows = await db
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      image: products.image,
+      price: products.price,
+      isActive: products.isActive,
+      isAutoBlocked: products.isAutoBlocked,
+      autoBlockReason: products.autoBlockReason,
+    })
+    .from(products)
+    .where(inArray(products.id, requestedProductIds));
+
+  const productById = new Map(productRows.map(product => [product.id, product]));
+  const removedProductIds = new Set<number>();
+  const purchasableItems: Array<{
+    productId: number;
+    quantity: number;
+    name: string;
+    slug: string;
+    image: string;
+    price: number;
+  }> = [];
+
+  for (const item of inputItems) {
+    const product = productById.get(item.productId);
+    if (
+      !product ||
+      !isProductVisibleOnSite({
+        price: product.price,
+        isActive: product.isActive,
+        isAutoBlocked: product.isAutoBlocked,
+        autoBlockReason: product.autoBlockReason,
+      })
+    ) {
+      removedProductIds.add(item.productId);
+      continue;
+    }
+
+    purchasableItems.push({
+      productId: product.id,
+      quantity: item.quantity,
+      name: product.name,
+      slug: product.slug,
+      image: product.image,
+      price: Number(product.price),
+    });
+  }
+
+  return {
+    purchasableItems,
+    removedProductIds: Array.from(removedProductIds),
+  };
+}
+
 export const ecommerceRouter = createRouter({
+  validateCartItems: publicQuery
+    .input(
+      z.object({
+        items: z.array(
+          z.object({
+            productId: z.number(),
+            quantity: z.number().min(1),
+          })
+        ),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const { purchasableItems, removedProductIds } = await resolvePurchasableCartItems(
+        db,
+        input.items
+      );
+
+      return {
+        items: purchasableItems.map(item => ({
+          id: item.productId,
+          slug: item.slug,
+          name: item.name,
+          image: item.image,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        removedProductIds,
+        message:
+          removedProductIds.length > 0
+            ? "Некоторые товары стали недоступны и были удалены из корзины."
+            : null,
+      };
+    }),
+
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
     .input(
@@ -503,22 +622,24 @@ export const ecommerceRouter = createRouter({
       const authenticatedEmail = ctx.user?.email?.trim().toLowerCase() || null;
       const contactEmail = normalizedEmail ?? authenticatedEmail;
 
-      const trustedTotal = input.items.reduce(
+      const { purchasableItems, removedProductIds } = await resolvePurchasableCartItems(
+        db,
+        input.items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        }))
+      );
+
+      if (purchasableItems.length !== input.items.length || removedProductIds.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Некоторые товары стали недоступны и были удалены из корзины.",
+        });
+      }
+
+      const trustedTotal = purchasableItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
-      );
-      const orderedProducts = input.items.length
-        ? await db
-            .select({
-              id: products.id,
-              name: products.name,
-              slug: products.slug,
-            })
-            .from(products)
-            .where(inArray(products.id, input.items.map(item => item.productId)))
-        : [];
-      const productMap = new Map(
-        orderedProducts.map(product => [product.id, product] as const)
       );
       const orderNumber = `TA-${Date.now().toString().slice(-9)}-${Math.floor(
         100 + Math.random() * 900
@@ -637,7 +758,7 @@ export const ecommerceRouter = createRouter({
       const orderId = newOrder[0].insertId;
 
       // 3. Create order items
-      for (const item of input.items) {
+      for (const item of purchasableItems) {
         if (canUseModernOrderInsertSchema(capabilities)) {
           await db.insert(orderItems).values({
             orderId,
@@ -656,10 +777,10 @@ export const ecommerceRouter = createRouter({
             ) VALUES (
               ${orderId},
               ${item.productId},
-              ${item.quantity},
-              ${item.price}
-            )
-          `);
+            ${item.quantity},
+            ${item.price}
+          )
+        `);
         }
       }
 
@@ -686,10 +807,9 @@ export const ecommerceRouter = createRouter({
             subtotal: trustedTotal,
             totalAmount: trustedTotal,
             orderUrl: ACCOUNT_ORDERS_URL,
-            items: input.items.map(item => {
-              const product = productMap.get(item.productId);
+            items: purchasableItems.map(item => {
               return {
-                title: product?.name || `Товар #${item.productId}`,
+                title: item.name,
                 quantity: item.quantity,
                 price: item.price,
                 total: item.price * item.quantity,

@@ -34,7 +34,7 @@ export default function AdminBanners() {
   const utils = trpc.useUtils();
   const { data: banners = [], isLoading } = trpc.banner.getAll.useQuery();
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
-  const { data: products = [] } = trpc.product.getAll.useQuery();
+  const { data: products = [] } = trpc.product.getAdminAll.useQuery();
 
   const upsertMutation = trpc.banner.upsert.useMutation({
     onSuccess: () => {

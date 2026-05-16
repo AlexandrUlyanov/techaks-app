@@ -17,6 +17,7 @@ import { previewProductNormalization } from "../lib/product-normalization";
 import { getAppSetting } from "../lib/app-settings";
 import { processMoyskladWebhookQueue } from "../lib/moysklad-webhook-worker";
 import { runMoyskladStockReconcile } from "../lib/moysklad-reconcile";
+import { applyProductAutoBlockState } from "../lib/product-visibility";
 import { defineAbilityFor } from "../../contracts/ability";
 
 const moyskladApi = axios.create({
@@ -1015,6 +1016,16 @@ export const syncRouter = createRouter({
               }
 
               if (syncPrices) updateData.price = price;
+              if (syncPrices) {
+                Object.assign(
+                  updateData,
+                  applyProductAutoBlockState({
+                    price,
+                    isAutoBlocked: existingProd[0].isAutoBlocked ?? false,
+                    autoBlockReason: existingProd[0].autoBlockReason ?? null,
+                  })
+                );
+              }
               if (syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
               if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
@@ -1027,17 +1038,20 @@ export const syncRouter = createRouter({
                 slug = `${baseSlug}-${counter++}`;
               }
 
-              const [res] = await db.insert(schema.products).values({
-                msId,
-                slug: slug, 
-                name: item.name, 
-                categoryId: categoryId || 1, 
-                price, 
-                description: item.description || "", 
-                image: imagePath, 
-                specs, 
-                inStock,
-              });
+              const [res] = await db.insert(schema.products).values(
+                applyProductAutoBlockState({
+                  msId,
+                  slug,
+                  name: item.name,
+                  categoryId: categoryId || 1,
+                  price,
+                  description: item.description || "",
+                  image: imagePath,
+                  specs,
+                  inStock,
+                  isActive: true,
+                })
+              );
               dbProductId = res.insertId;
             }
             msProductIdToLocalId.set(msId, dbProductId);

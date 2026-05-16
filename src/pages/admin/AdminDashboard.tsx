@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 export default function AdminDashboard() {
-  const { data: products = [] } = trpc.product.getAll.useQuery();
+  const { data: products = [] } = trpc.product.getAdminAll.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
 
   const stats = [

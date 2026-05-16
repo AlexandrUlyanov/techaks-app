@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
+import { isProductVisibleOnSite } from "@contracts/product-visibility";
 
 type Badge =
   | "top_category"
@@ -209,6 +210,9 @@ async function getProductsWithStock(categoryId?: number) {
       name: schema.products.name,
       categoryId: schema.products.categoryId,
       price: schema.products.price,
+      isActive: schema.products.isActive,
+      isAutoBlocked: schema.products.isAutoBlocked,
+      autoBlockReason: schema.products.autoBlockReason,
       oldPrice: schema.products.oldPrice,
       badge: schema.products.badge,
       image: schema.products.image,
@@ -233,6 +237,9 @@ async function getProductsWithStock(categoryId?: number) {
       schema.products.name,
       schema.products.categoryId,
       schema.products.price,
+      schema.products.isActive,
+      schema.products.isAutoBlocked,
+      schema.products.autoBlockReason,
       schema.products.oldPrice,
       schema.products.badge,
       schema.products.image,
@@ -437,6 +444,9 @@ export async function listMerchandisingProducts(input: {
       categoryId: schema.products.categoryId,
       categoryName: schema.categories.name,
       price: schema.products.price,
+      isActive: schema.products.isActive,
+      isAutoBlocked: schema.products.isAutoBlocked,
+      autoBlockReason: schema.products.autoBlockReason,
       oldPrice: schema.products.oldPrice,
       badge: schema.products.badge,
       image: schema.products.image,
@@ -499,11 +509,22 @@ export async function getRecommendedProducts(input: {
   await ensureMerchandisingScores();
   const result = await listMerchandisingProducts({
     page: 1,
-    limit: input.limit,
+    limit: Math.max(input.limit * 3, input.limit),
     categoryId: input.categoryId,
     stockStatus: "in_stock",
   });
-  return result.items.filter(item => item.id !== input.excludeProductId).slice(0, input.limit);
+  return result.items
+    .filter(
+      item =>
+        item.id !== input.excludeProductId &&
+        isProductVisibleOnSite({
+          price: item.price,
+          isActive: (item as any).isActive,
+          isAutoBlocked: (item as any).isAutoBlocked,
+          autoBlockReason: (item as any).autoBlockReason,
+        })
+    )
+    .slice(0, input.limit);
 }
 
 export async function updateManualMerchandising(input: {

@@ -15,6 +15,7 @@ interface CartStore {
   addItem: (product: Omit<CartItem, "quantity">) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
+  replaceItems: (items: CartItem[]) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
   getItemCount: () => number;
@@ -56,6 +57,7 @@ export const useCart = create<CartStore>()(
           ),
         });
       },
+      replaceItems: items => set({ items }),
       clearCart: () => set({ items: [] }),
       getTotalPrice: () => {
         return get().items.reduce(

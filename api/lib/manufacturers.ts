@@ -2,6 +2,7 @@ import { asc, desc, eq, inArray } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import { getAppSettings } from "./app-settings";
+import { buildPublicProductVisibilityCondition } from "./product-visibility";
 import {
   normalizeSpecKeyForDisplay,
   normalizeSpecToken,
@@ -755,9 +756,31 @@ export async function getManufacturers(input?: {
       asc(schema.manufacturers.name)
     );
 
-  return rows.filter(row =>
-    input?.withProductsOnly ? row.productCount > 0 : true
-  );
+  if (!input?.withProductsOnly) {
+    return rows;
+  }
+
+  const visibleProducts = await db
+    .select({
+      specs: schema.products.specs,
+    })
+    .from(schema.products)
+    .where(buildPublicProductVisibilityCondition());
+
+  const visibleCounts = new Map<string, number>();
+  for (const product of visibleProducts) {
+    const manufacturerName = getManufacturerNameFromSpecs(product.specs);
+    if (!manufacturerName) continue;
+    const normalizedName = normalizeSpecToken(manufacturerName).slice(0, 255);
+    visibleCounts.set(normalizedName, (visibleCounts.get(normalizedName) ?? 0) + 1);
+  }
+
+  return rows
+    .map(row => ({
+      ...row,
+      productCount: visibleCounts.get(row.normalizedName) ?? 0,
+    }))
+    .filter(row => row.productCount > 0);
 }
 
 export async function updateManufacturer(input: {

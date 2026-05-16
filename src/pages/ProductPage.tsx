@@ -80,8 +80,11 @@ export default function ProductPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">
-            Товар не найден
+            Товар временно недоступен
           </h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Возможно, товар снят с витрины или для него пока не указана актуальная цена.
+          </p>
           <Link
             to="/catalog"
             className="mt-4 inline-flex items-center gap-2 text-[#05C3D4] hover:underline"
