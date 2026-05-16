@@ -223,8 +223,8 @@ async function getProductsWithStock(categoryId?: number) {
       reviewCount: schema.products.reviewCount,
       createdAt: schema.products.createdAt,
       categoryName: schema.categories.name,
-      totalStock: sql<number>`coalesce(sum(${schema.productStocks.quantity}), 0)`,
-      storeCount: sql<number>`count(distinct ${schema.productStocks.storeId})`,
+      totalStock: sql<number>`coalesce(sum(${schema.productStocks.quantity}), 0)`.as("totalStock"),
+      storeCount: sql<number>`count(distinct ${schema.productStocks.storeId})`.as("storeCount"),
     })
     .from(schema.products)
     .leftJoin(schema.categories, eq(schema.categories.id, schema.products.categoryId))
@@ -456,8 +456,8 @@ export async function listMerchandisingProducts(input: {
       rating: schema.products.rating,
       reviewCount: schema.products.reviewCount,
       createdAt: schema.products.createdAt,
-      totalStock: sql<number>`coalesce(stock.total_stock, 0)`,
-      storeCount: sql<number>`coalesce(stock.store_count, 0)`,
+      totalStock: sql<number>`coalesce(stock.total_stock, 0)`.as("totalStock"),
+      storeCount: sql<number>`coalesce(stock.store_count, 0)`.as("storeCount"),
       totalScore: schema.productMerchandising.totalScore,
       priceScore: schema.productMerchandising.priceScore,
       stockScore: schema.productMerchandising.stockScore,
