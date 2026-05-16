@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
 import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
@@ -35,6 +36,124 @@ function buildPlaceholderEmail(phone: string) {
 
 function isPlaceholderEmail(email?: string | null) {
   return Boolean(email && email.toLowerCase().endsWith(PLACEHOLDER_EMAIL_DOMAIN));
+}
+
+type AccountOrderViewer = {
+  id: number;
+  phone: string | null;
+  email: string | null;
+};
+
+async function resolveAccountViewerContext(
+  db: ReturnType<typeof getDb>,
+  user: AccountOrderViewer
+) {
+  const phoneForLookup = (user.phone || "").trim();
+  const emailForLookup = user.email?.trim().toLowerCase() || null;
+  const relatedUserIds = new Set<number>([user.id]);
+  const userIdentityConditions = [];
+
+  if (phoneForLookup) {
+    userIdentityConditions.push(eq(users.phone, phoneForLookup));
+  }
+  if (emailForLookup) {
+    userIdentityConditions.push(eq(users.email, emailForLookup));
+  }
+
+  if (userIdentityConditions.length > 0) {
+    const relatedUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        userIdentityConditions.length === 1
+          ? userIdentityConditions[0]
+          : or(...userIdentityConditions)
+      );
+    for (const relatedUser of relatedUsers) {
+      relatedUserIds.add(relatedUser.id);
+    }
+  }
+
+  return {
+    phoneForLookup,
+    emailForLookup,
+    relatedUserIds,
+  };
+}
+
+function buildAccountOrderLookupConditions(
+  relatedUserIds: Set<number>,
+  phoneForLookup: string,
+  emailForLookup: string | null,
+  capabilities: Awaited<ReturnType<typeof getOrderDbCapabilities>>
+) {
+  const relatedUserIdList = Array.from(relatedUserIds);
+  const orderLookupConditions =
+    relatedUserIdList.length > 1
+      ? [inArray(orders.userId, relatedUserIdList)]
+      : [eq(orders.userId, relatedUserIdList[0])];
+
+  if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
+    orderLookupConditions.push(eq(orders.customerPhone, phoneForLookup));
+  }
+  if (emailForLookup && capabilities.hasOrdersCustomerFields) {
+    orderLookupConditions.push(eq(orders.customerEmail, emailForLookup));
+  }
+
+  return orderLookupConditions;
+}
+
+async function canViewerAccessOrder(
+  db: ReturnType<typeof getDb>,
+  orderId: number,
+  viewer: AccountOrderViewer,
+  capabilities: Awaited<ReturnType<typeof getOrderDbCapabilities>>
+) {
+  const { phoneForLookup, emailForLookup, relatedUserIds } =
+    await resolveAccountViewerContext(db, viewer);
+
+  if (capabilities.detected && !canUseRichOrdersSchema(capabilities)) {
+    const legacyConditions = Array.from(relatedUserIds).map(
+      relatedUserId => sql`user_id = ${relatedUserId}`
+    );
+    if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
+      legacyConditions.push(sql`customer_phone = ${phoneForLookup}`);
+    }
+    if (emailForLookup && capabilities.hasOrdersCustomerFields) {
+      legacyConditions.push(sql`customer_email = ${emailForLookup}`);
+    }
+
+    const raw = await db.execute<any[]>(sql`
+      SELECT id
+      FROM orders
+      WHERE id = ${orderId}
+        AND (${sql.join(legacyConditions, sql` OR `)})
+      LIMIT 1
+    `);
+    return rowsFromExecute<any>(raw).length > 0;
+  }
+
+  const orderLookupConditions = buildAccountOrderLookupConditions(
+    relatedUserIds,
+    phoneForLookup,
+    emailForLookup,
+    capabilities
+  );
+
+  const result = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.id, orderId),
+        orderLookupConditions.length === 1
+          ? orderLookupConditions[0]
+          : or(...orderLookupConditions)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0;
 }
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
@@ -593,30 +712,12 @@ export const ecommerceRouter = createRouter({
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const capabilities = await getOrderDbCapabilities(db);
-      const phoneForLookup = (ctx.user.phone || input.phone || "").trim();
-      const emailForLookup = ctx.user.email?.trim().toLowerCase() || null;
-      const relatedUserIds = new Set<number>([ctx.user.id]);
-
-      const userIdentityConditions = [];
-      if (phoneForLookup) {
-        userIdentityConditions.push(eq(users.phone, phoneForLookup));
-      }
-      if (emailForLookup) {
-        userIdentityConditions.push(eq(users.email, emailForLookup));
-      }
-      if (userIdentityConditions.length > 0) {
-        const relatedUsers = await db
-          .select({ id: users.id })
-          .from(users)
-          .where(
-            userIdentityConditions.length === 1
-              ? userIdentityConditions[0]
-              : or(...userIdentityConditions)
-          );
-        for (const relatedUser of relatedUsers) {
-          relatedUserIds.add(relatedUser.id);
-        }
-      }
+      const { phoneForLookup, emailForLookup, relatedUserIds } =
+        await resolveAccountViewerContext(db, {
+          id: ctx.user.id,
+          phone: ctx.user.phone || input.phone || null,
+          email: ctx.user.email || null,
+        });
 
       if (capabilities.detected && !canUseRichOrdersSchema(capabilities)) {
         console.info("getUserOrders using legacy compatibility mode");
@@ -648,17 +749,12 @@ export const ecommerceRouter = createRouter({
         return rowsFromExecute<any>(raw);
       }
 
-      const relatedUserIdList = Array.from(relatedUserIds);
-      const orderLookupConditions =
-        relatedUserIdList.length > 1
-          ? [inArray(orders.userId, relatedUserIdList)]
-          : [eq(orders.userId, relatedUserIdList[0])];
-      if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
-        orderLookupConditions.push(eq(orders.customerPhone, phoneForLookup));
-      }
-      if (emailForLookup && capabilities.hasOrdersCustomerFields) {
-        orderLookupConditions.push(eq(orders.customerEmail, emailForLookup));
-      }
+      const orderLookupConditions = buildAccountOrderLookupConditions(
+        relatedUserIds,
+        phoneForLookup,
+        emailForLookup,
+        capabilities
+      );
 
       return await db
         .select({
@@ -677,6 +773,70 @@ export const ecommerceRouter = createRouter({
         .orderBy(desc(orders.createdAt))
         .where(or(...orderLookupConditions));
     }),
+
+  getMyOrders: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const capabilities = await getOrderDbCapabilities(db);
+    const { phoneForLookup, emailForLookup, relatedUserIds } =
+      await resolveAccountViewerContext(db, {
+        id: ctx.user.id,
+        phone: ctx.user.phone || null,
+        email: ctx.user.email || null,
+      });
+
+    if (capabilities.detected && !canUseRichOrdersSchema(capabilities)) {
+      const legacyConditions = Array.from(relatedUserIds).map(
+        relatedUserId => sql`user_id = ${relatedUserId}`
+      );
+      if (phoneForLookup && capabilities.hasOrdersCustomerFields) {
+        legacyConditions.push(sql`customer_phone = ${phoneForLookup}`);
+      }
+      if (emailForLookup && capabilities.hasOrdersCustomerFields) {
+        legacyConditions.push(sql`customer_email = ${emailForLookup}`);
+      }
+      const raw = await db.execute<any[]>(sql`
+        SELECT
+          id,
+          user_id AS userId,
+          NULL AS orderNumber,
+          status,
+          total_price AS totalPrice,
+          delivery_type AS deliveryType,
+          address,
+          payment_type AS paymentType,
+          payment_status AS paymentStatus,
+          created_at AS createdAt
+        FROM orders
+        WHERE ${sql.join(legacyConditions, sql` OR `)}
+        ORDER BY created_at DESC
+      `);
+      return rowsFromExecute<any>(raw);
+    }
+
+    const orderLookupConditions = buildAccountOrderLookupConditions(
+      relatedUserIds,
+      phoneForLookup,
+      emailForLookup,
+      capabilities
+    );
+
+    return await db
+      .select({
+        id: orders.id,
+        userId: orders.userId,
+        orderNumber: orders.orderNumber,
+        status: orders.status,
+        totalPrice: orders.totalPrice,
+        deliveryType: orders.deliveryType,
+        address: orders.address,
+        paymentType: orders.paymentType,
+        paymentStatus: orders.paymentStatus,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .orderBy(desc(orders.createdAt))
+      .where(or(...orderLookupConditions));
+  }),
 
   listOrders: protectedProcedure
     .input(
@@ -1075,6 +1235,308 @@ export const ecommerceRouter = createRouter({
           "Карточка заказа открыта в режиме совместимости с legacy-БД: часть новых полей недоступна.",
         ],
       };
+    }),
+
+  getMyOrderDetails: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+      const allowed = await canViewerAccessOrder(
+        db,
+        input.orderId,
+        {
+          id: ctx.user.id,
+          phone: ctx.user.phone || null,
+          email: ctx.user.email || null,
+        },
+        capabilities
+      );
+
+      if (!allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Заказ недоступен" });
+      }
+
+      if (canUseRichOrdersSchema(capabilities)) {
+        const orderRows = await db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            status: orders.status,
+            paymentStatus: orders.paymentStatus,
+            deliveryStatus: orders.deliveryStatus,
+            totalPrice: orders.totalPrice,
+            subtotal: orders.subtotal,
+            discountTotal: orders.discountTotal,
+            deliveryPrice: orders.deliveryPrice,
+            paidAmount: orders.paidAmount,
+            paymentType: orders.paymentType,
+            paymentMethod: orders.paymentMethod,
+            deliveryType: orders.deliveryType,
+            deliveryService: orders.deliveryService,
+            deliveryCity: orders.deliveryCity,
+            deliveryRegion: orders.deliveryRegion,
+            deliveryPostalCode: orders.deliveryPostalCode,
+            deliveryTrackNumber: orders.deliveryTrackNumber,
+            deliveryComment: orders.deliveryComment,
+            address: orders.address,
+            customerComment: orders.customerComment,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+          })
+          .from(orders)
+          .where(eq(orders.id, input.orderId))
+          .limit(1);
+
+        if (!orderRows[0]) {
+          throw new Error("Заказ не найден");
+        }
+
+        const items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            sku: orderItems.sku,
+            productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
+            image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
+            quantity: orderItems.quantity,
+            price: orderItems.price,
+            discount: orderItems.discount,
+            total: orderItems.total,
+            stockStatus: orderItems.stockStatus,
+          })
+          .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
+          .where(eq(orderItems.orderId, input.orderId))
+          .orderBy(orderItems.id);
+
+        return {
+          ...withFallbackDeliveryStatus(orderRows[0]),
+          items,
+          compatibilityMode: "modern" as const,
+          compatibilityWarnings: [] as string[],
+        };
+      }
+
+      const legacyOrderResult = await db.execute<any[]>(sql`
+        SELECT
+          o.id,
+          NULL AS orderNumber,
+          o.status,
+          o.payment_status AS paymentStatus,
+          NULL AS deliveryStatus,
+          o.total_price AS totalPrice,
+          o.total_price AS subtotal,
+          0 AS discountTotal,
+          0 AS deliveryPrice,
+          0 AS paidAmount,
+          o.payment_type AS paymentType,
+          NULL AS paymentMethod,
+          o.delivery_type AS deliveryType,
+          NULL AS deliveryService,
+          NULL AS deliveryCity,
+          NULL AS deliveryRegion,
+          NULL AS deliveryPostalCode,
+          NULL AS deliveryTrackNumber,
+          NULL AS deliveryComment,
+          o.address,
+          NULL AS customerComment,
+          o.created_at AS createdAt,
+          o.created_at AS updatedAt
+        FROM orders o
+        WHERE o.id = ${input.orderId}
+        LIMIT 1
+      `);
+      const legacyOrderRows = rowsFromExecute<any>(legacyOrderResult);
+      if (!legacyOrderRows[0]) throw new Error("Заказ не найден");
+
+      const legacyItemsResult = await db.execute<any[]>(sql`
+        SELECT
+          oi.id,
+          oi.order_id AS orderId,
+          oi.product_id AS productId,
+          NULL AS sku,
+          p.name AS productName,
+          p.image AS image,
+          oi.quantity,
+          oi.price,
+          0 AS discount,
+          (oi.quantity * oi.price) AS total,
+          'in_stock' AS stockStatus
+        FROM order_items oi
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ${input.orderId}
+        ORDER BY oi.id ASC
+      `);
+      const legacyItemsRows = rowsFromExecute<any>(legacyItemsResult);
+
+      return {
+        ...mapLegacyOrderDetailsRow(legacyOrderRows[0]),
+        items: legacyItemsRows.map(mapLegacyOrderItemRow),
+        compatibilityMode: "legacy" as const,
+        compatibilityWarnings: [
+          "Детали заказа открыты в режиме совместимости: часть новых полей может быть недоступна.",
+        ],
+      };
+    }),
+
+  getMyOrderHistory: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      let capabilities = await getOrderDbCapabilities(db);
+      const allowed = await canViewerAccessOrder(
+        db,
+        input.orderId,
+        {
+          id: ctx.user.id,
+          phone: ctx.user.phone || null,
+          email: ctx.user.email || null,
+        },
+        capabilities
+      );
+
+      if (!allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Заказ недоступен" });
+      }
+
+      if (!capabilities.hasOrderHistoryTable && !capabilities.hasOrderCommentsTable) {
+        const refreshedCapabilities = await getOrderDbCapabilities(db, {
+          forceRefresh: true,
+        });
+        capabilities = refreshedCapabilities;
+      }
+
+      if (!capabilities.hasOrderHistoryTable && !capabilities.hasOrderCommentsTable) {
+        return {
+          history: [],
+          comments: [],
+          compatibilityMode: "legacy" as const,
+          warning:
+            "История и комментарии заказа пока недоступны: в legacy-схеме отсутствуют нужные таблицы.",
+        };
+      }
+
+      try {
+        const history = capabilities.hasOrderHistoryTable
+          ? await db
+              .select({
+                id: orderHistory.id,
+                orderId: orderHistory.orderId,
+                userId: orderHistory.userId,
+                actionType: orderHistory.actionType,
+                oldValue: orderHistory.oldValue,
+                newValue: orderHistory.newValue,
+                comment: orderHistory.comment,
+                createdAt: orderHistory.createdAt,
+              })
+              .from(orderHistory)
+              .where(eq(orderHistory.orderId, input.orderId))
+              .orderBy(desc(orderHistory.createdAt))
+          : [];
+
+        const comments = capabilities.hasOrderCommentsTable
+          ? await db
+              .select({
+                id: orderComments.id,
+                orderId: orderComments.orderId,
+                userId: orderComments.userId,
+                commentType: orderComments.commentType,
+                comment: orderComments.comment,
+                createdAt: orderComments.createdAt,
+              })
+              .from(orderComments)
+              .where(eq(orderComments.orderId, input.orderId))
+              .orderBy(desc(orderComments.createdAt))
+          : [];
+
+        return {
+          history,
+          comments: comments.filter(comment => comment.commentType !== "internal"),
+          compatibilityMode:
+            capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
+              ? ("modern" as const)
+              : ("legacy" as const),
+          warning:
+            capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
+              ? undefined
+              : "Часть ленты заказа недоступна: отдельные таблицы истории или комментариев отсутствуют.",
+        };
+      } catch (err) {
+        console.error("getMyOrderHistory fallback", err);
+        return {
+          history: [],
+          comments: [],
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Не удалось загрузить историю заказа полностью. Возвращен безопасный пустой результат.",
+        };
+      }
+    }),
+
+  addMyOrderComment: protectedProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        comment: z.string().trim().min(1).max(2000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      let capabilities = await getOrderDbCapabilities(db);
+      const allowed = await canViewerAccessOrder(
+        db,
+        input.orderId,
+        {
+          id: ctx.user.id,
+          phone: ctx.user.phone || null,
+          email: ctx.user.email || null,
+        },
+        capabilities
+      );
+
+      if (!allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Заказ недоступен" });
+      }
+
+      if (!capabilities.hasOrderCommentsTable) {
+        capabilities = await getOrderDbCapabilities(db, { forceRefresh: true });
+      }
+
+      if (!capabilities.hasOrderCommentsTable) {
+        await safeInsertOrderHistory(db, {
+          orderId: input.orderId,
+          userId: ctx.user?.id ?? null,
+          actionType: "customer_comment_skipped_legacy",
+          newValue: { comment: input.comment } as any,
+          comment:
+            "Сообщение клиента не сохранено: таблица order_comments отсутствует в legacy-схеме.",
+        });
+        return {
+          success: true,
+          compatibilityMode: "legacy" as const,
+          warning:
+            "Сообщение не сохранено отдельно: в текущей legacy-схеме нет таблицы комментариев.",
+        };
+      }
+
+      await db.insert(orderComments).values({
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        commentType: "client",
+        comment: input.comment,
+      });
+
+      await safeInsertOrderHistory(db, {
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "customer_comment_added",
+        newValue: { commentType: "client", comment: input.comment } as any,
+        comment: "Клиент добавил сообщение к заказу.",
+      });
+
+      return { success: true, compatibilityMode: "modern" as const };
     }),
 
   addOrderComment: protectedProcedure
