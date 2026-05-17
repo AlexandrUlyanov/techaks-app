@@ -306,13 +306,26 @@ export const syncRuns = mysqlTable("sync_runs", {
   runType: varchar("run_type", { length: 40 }).notNull().default("full"),
   status: varchar("status", { length: 20 }).notNull().default("running"),
   message: text("message"),
+  phase: varchar("phase", { length: 80 }),
   configSnapshot: json("config_snapshot"),
   statsJson: json("stats_json"),
+  progressJson: json("progress_json"),
+  heartbeatAt: timestamp("heartbeat_at"),
+  lockOwner: varchar("lock_owner", { length: 64 }),
+  workerId: varchar("worker_id", { length: 64 }),
+  cancelRequested: boolean("cancel_requested").notNull().default(false),
+  abortReason: text("abort_reason"),
   startedAt: timestamp("started_at").notNull().defaultNow(),
   finishedAt: timestamp("finished_at"),
 }, table => ({
   profileIdx: index("sync_runs_profile_idx").on(table.profileId),
   statusIdx: index("sync_runs_status_idx").on(table.status, table.startedAt),
+  runTypeStatusIdx: index("sync_runs_run_type_status_idx").on(
+    table.runType,
+    table.status,
+    table.startedAt
+  ),
+  heartbeatIdx: index("sync_runs_heartbeat_idx").on(table.status, table.heartbeatAt),
 }));
 
 export const webhookEvents = mysqlTable("webhook_events", {

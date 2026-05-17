@@ -134,27 +134,51 @@ export const settingsRouter = createRouter({
 
   getMoySklad: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
-    const settings = await getAppSettings(["moysklad_token"]);
+    const settings = await getAppSettings([
+      "moysklad_token",
+      "moysklad_webhook_secret",
+    ]);
     const token = settings.moysklad_token?.trim() || "";
+    const webhookSecret = settings.moysklad_webhook_secret?.trim() || "";
     return {
       hasToken: Boolean(token),
       tokenMasked: token
         ? `${token.slice(0, 4)}••••••••${token.slice(-4)}`
         : "",
+      hasWebhookSecret: Boolean(webhookSecret),
+      webhookSecretMasked: webhookSecret
+        ? `${webhookSecret.slice(0, 4)}••••••••${webhookSecret.slice(-4)}`
+        : "",
     };
   }),
 
   saveMoySklad: protectedProcedure
-    .input(z.object({ token: z.string().trim().min(1) }))
+    .input(
+      z.object({
+        token: z.string().trim().optional().default(""),
+        webhookSecret: z.string().trim().optional().default(""),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
-      await setAppSetting("moysklad_token", input.token);
+      if (input.token) {
+        await setAppSetting("moysklad_token", input.token);
+      }
+      if (input.webhookSecret) {
+        await setAppSetting("moysklad_webhook_secret", input.webhookSecret);
+      }
       return { success: true };
     }),
 
   clearMoySkladToken: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
     await setAppSetting("moysklad_token", "");
+    return { success: true };
+  }),
+
+  clearMoySkladWebhookSecret: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    await setAppSetting("moysklad_webhook_secret", "");
     return { success: true };
   }),
 

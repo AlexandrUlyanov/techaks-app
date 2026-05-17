@@ -18,9 +18,45 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 
+type RuntimeSettingsForm = {
+  webhookWorkerEnabled: boolean;
+  webhookWorkerIntervalSeconds: number;
+  reconcileEnabled: boolean;
+  reconcileIntervalMinutes: number;
+  fullSyncEnabled: boolean;
+  fullSyncTime: string;
+  fullSyncTimezone: string;
+  fullSyncMaxDurationMinutes: number;
+  fullSyncHeartbeatTimeoutMinutes: number;
+};
+
+type ProgressSnapshot = {
+  phase?: string;
+  message?: string;
+  productsProcessed?: number;
+  categoriesProcessed?: number;
+  stocksProcessed?: number;
+  assortmentOffset?: number;
+  assortmentBatchSize?: number;
+  stockOffset?: number;
+  stockBatchSize?: number;
+};
+
 export default function AdminSyncMoySklad() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [profileName, setProfileName] = useState("Конфиг по умолчанию");
+  const [stopReason, setStopReason] = useState("");
+  const [runtimeForm, setRuntimeForm] = useState<RuntimeSettingsForm>({
+    webhookWorkerEnabled: true,
+    webhookWorkerIntervalSeconds: 60,
+    reconcileEnabled: true,
+    reconcileIntervalMinutes: 30,
+    fullSyncEnabled: true,
+    fullSyncTime: "03:00",
+    fullSyncTimezone: "UTC",
+    fullSyncMaxDurationMinutes: 120,
+    fullSyncHeartbeatTimeoutMinutes: 15,
+  });
 
   // Credentials
   const [login, setLogin] = useState(() => localStorage.getItem("ms_login") || "");
@@ -63,6 +99,18 @@ export default function AdminSyncMoySklad() {
     undefined,
     { refetchInterval: 15000 }
   );
+  const {
+    data: runtimeSettings,
+    refetch: refetchRuntimeSettings,
+  } = trpc.sync.getRuntimeSettings.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const {
+    data: currentRunStatus,
+    refetch: refetchCurrentRunStatus,
+  } = trpc.sync.getCurrentRunStatus.useQuery(undefined, {
+    refetchInterval: 5000,
+  });
   const { data: reconcileRuns = [], refetch: refetchReconcileRuns } =
     trpc.sync.getRecentReconcileRuns.useQuery(undefined, {
       refetchInterval: 30000,
@@ -146,6 +194,39 @@ export default function AdminSyncMoySklad() {
     },
     onError: error => toast.error(error.message),
   });
+  const saveRuntimeSettingsMutation = trpc.sync.saveRuntimeSettings.useMutation({
+    onSuccess: () => {
+      toast.success("Настройки расписания и watchdog сохранены");
+      refetchRuntimeSettings();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const stopFullSyncMutation = trpc.sync.requestFullSyncStop.useMutation({
+    onSuccess: data => {
+      toast.success(data.message);
+      setStopReason("");
+      refetchCurrentRunStatus();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const clearStaleLockMutation = trpc.sync.clearStaleFullSyncLock.useMutation({
+    onSuccess: data => {
+      toast.success(data.message);
+      refetchCurrentRunStatus();
+    },
+    onError: error => toast.error(error.message),
+  });
+  const watchdogCheckMutation = trpc.sync.runFullSyncWatchdogCheck.useMutation({
+    onSuccess: data => {
+      if ((data.staleRuns ?? 0) > 0) {
+        toast.warning(`Watchdog восстановил запусков: ${data.staleRuns}`);
+      } else {
+        toast.success("Watchdog проверил активные запуски, зависших не найдено");
+      }
+      refetchCurrentRunStatus();
+    },
+    onError: error => toast.error(error.message),
+  });
 
   useEffect(() => {
     if (!savedConfig) return;
@@ -160,6 +241,22 @@ export default function AdminSyncMoySklad() {
       setSelectedCategories(savedConfig.selectedCategories);
     }
   }, [savedConfig]);
+
+  useEffect(() => {
+    if (!runtimeSettings) return;
+    setRuntimeForm({
+      webhookWorkerEnabled: runtimeSettings.webhookWorkerEnabled,
+      webhookWorkerIntervalSeconds: runtimeSettings.webhookWorkerIntervalSeconds,
+      reconcileEnabled: runtimeSettings.reconcileEnabled,
+      reconcileIntervalMinutes: runtimeSettings.reconcileIntervalMinutes,
+      fullSyncEnabled: runtimeSettings.fullSyncEnabled,
+      fullSyncTime: runtimeSettings.fullSyncTime,
+      fullSyncTimezone: runtimeSettings.fullSyncTimezone,
+      fullSyncMaxDurationMinutes: runtimeSettings.fullSyncMaxDurationMinutes,
+      fullSyncHeartbeatTimeoutMinutes:
+        runtimeSettings.fullSyncHeartbeatTimeoutMinutes,
+    });
+  }, [runtimeSettings]);
 
   const handleFetchStores = async () => {
     if (!msSettings?.hasToken && (!login || !password)) {
@@ -333,6 +430,27 @@ export default function AdminSyncMoySklad() {
     const rem = sec % 60;
     return `${min}м ${rem}с`;
   };
+
+  const formatDateTime = (value?: string | Date | null) =>
+    value ? new Date(value).toLocaleString("ru-RU") : "—";
+
+  const getMinutesAgo = (value?: string | Date | null) => {
+    if (!value) return null;
+    const ms = new Date(value).getTime();
+    if (!Number.isFinite(ms)) return null;
+    return Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  };
+
+  const getProgressSnapshot = (value: unknown): ProgressSnapshot => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value as ProgressSnapshot;
+  };
+
+  const currentProgress = getProgressSnapshot(currentRunStatus?.progressJson);
+  const heartbeatAgeMinutes = getMinutesAgo(currentRunStatus?.heartbeatAt);
+  const lockAgeMinutes = lockStatus?.startedAt
+    ? Math.max(0, Math.floor((Date.now() - lockStatus.startedAt) / 60000))
+    : null;
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -724,6 +842,320 @@ export default function AdminSyncMoySklad() {
             {syncOverview?.lastReconcileSuccess
               ? new Date(syncOverview.lastReconcileSuccess).toLocaleString("ru-RU")
               : "—"}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-gray-100 bg-white p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-[#15171A]">
+              Расписание и watchdog
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Здесь управляется ночной full sync, heartbeat timeout и операторские действия.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => watchdogCheckMutation.mutate()}
+              disabled={watchdogCheckMutation.isPending}
+              className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:border-gray-300 disabled:opacity-50"
+            >
+              {watchdogCheckMutation.isPending ? "Проверка..." : "Проверить watchdog"}
+            </button>
+            <button
+              onClick={() => {
+                refetchRuntimeSettings();
+                refetchCurrentRunStatus();
+              }}
+              className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold hover:border-gray-300"
+            >
+              Обновить
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-5 space-y-4">
+            <div className="font-bold text-[#15171A]">Планировщик</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Вебхук worker включён</span>
+                <select
+                  value={runtimeForm.webhookWorkerEnabled ? "true" : "false"}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      webhookWorkerEnabled: e.target.value === "true",
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                >
+                  <option value="true">Да</option>
+                  <option value="false">Нет</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Интервал worker (сек.)</span>
+                <input
+                  type="number"
+                  min={10}
+                  max={3600}
+                  value={runtimeForm.webhookWorkerIntervalSeconds}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      webhookWorkerIntervalSeconds: Number(e.target.value || 60),
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Сверка остатков включена</span>
+                <select
+                  value={runtimeForm.reconcileEnabled ? "true" : "false"}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      reconcileEnabled: e.target.value === "true",
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                >
+                  <option value="true">Да</option>
+                  <option value="false">Нет</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Интервал reconcile (мин.)</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={runtimeForm.reconcileIntervalMinutes}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      reconcileIntervalMinutes: Number(e.target.value || 30),
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Ночной full sync включён</span>
+                <select
+                  value={runtimeForm.fullSyncEnabled ? "true" : "false"}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      fullSyncEnabled: e.target.value === "true",
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                >
+                  <option value="true">Да</option>
+                  <option value="false">Нет</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Время full sync</span>
+                <input
+                  type="time"
+                  value={runtimeForm.fullSyncTime}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      fullSyncTime: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                />
+              </label>
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-sm font-semibold text-gray-700">Часовой пояс</span>
+                <input
+                  type="text"
+                  value={runtimeForm.fullSyncTimezone}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      fullSyncTimezone: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                  placeholder="UTC или Europe/Moscow"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Макс. длительность full sync (мин.)</span>
+                <input
+                  type="number"
+                  min={15}
+                  max={1440}
+                  value={runtimeForm.fullSyncMaxDurationMinutes}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      fullSyncMaxDurationMinutes: Number(e.target.value || 120),
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Timeout heartbeat (мин.)</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={runtimeForm.fullSyncHeartbeatTimeoutMinutes}
+                  onChange={e =>
+                    setRuntimeForm(prev => ({
+                      ...prev,
+                      fullSyncHeartbeatTimeoutMinutes: Number(e.target.value || 15),
+                    }))
+                  }
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                onClick={() => saveRuntimeSettingsMutation.mutate(runtimeForm)}
+                disabled={saveRuntimeSettingsMutation.isPending}
+                className="px-5 py-3 rounded-xl bg-[#15171A] text-white font-bold disabled:opacity-50 flex items-center gap-2"
+              >
+                {saveRuntimeSettingsMutation.isPending ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Сохранить runtime-настройки
+              </button>
+              <div className="text-xs text-gray-500">
+                Последний slot key:{" "}
+                <span className="font-mono">
+                  {runtimeSettings?.schedulerLastFullSyncKey ?? "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-[#15171A] text-white p-5 space-y-4">
+            <div className="font-bold">Текущий full sync</div>
+
+            {currentRunStatus ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl bg-white/10 p-3">
+                    <div className="text-white/60 text-xs font-bold">Статус</div>
+                    <div className="font-bold mt-1">{currentRunStatus.status}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/10 p-3">
+                    <div className="text-white/60 text-xs font-bold">Фаза</div>
+                    <div className="font-bold mt-1">{currentRunStatus.phase ?? "—"}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/10 p-3">
+                    <div className="text-white/60 text-xs font-bold">Старт</div>
+                    <div className="font-bold mt-1 text-xs">{formatDateTime(currentRunStatus.startedAt)}</div>
+                  </div>
+                  <div className="rounded-xl bg-white/10 p-3">
+                    <div className="text-white/60 text-xs font-bold">Heartbeat</div>
+                    <div className="font-bold mt-1 text-xs">
+                      {formatDateTime(currentRunStatus.heartbeatAt)}
+                      {heartbeatAgeMinutes !== null ? ` (${heartbeatAgeMinutes}м назад)` : ""}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-[#05C3D4]/15 border border-[#05C3D4]/30 p-4">
+                  <div className="text-xs font-bold text-[#9debf3] mb-2">
+                    Текущий прогресс
+                  </div>
+                  <div className="text-sm font-medium">
+                    {currentProgress.message ?? currentRunStatus.message ?? "Синхронизация выполняется"}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                    <div>Товаров: <span className="font-bold">{currentProgress.productsProcessed ?? 0}</span></div>
+                    <div>Категорий: <span className="font-bold">{currentProgress.categoriesProcessed ?? 0}</span></div>
+                    <div>Остатков: <span className="font-bold">{currentProgress.stocksProcessed ?? 0}</span></div>
+                    <div>Фаза: <span className="font-bold">{currentProgress.phase ?? currentRunStatus.phase ?? "—"}</span></div>
+                    <div>Assortment offset: <span className="font-bold">{currentProgress.assortmentOffset ?? "—"}</span></div>
+                    <div>Stock offset: <span className="font-bold">{currentProgress.stockOffset ?? "—"}</span></div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-white/70">
+                    Причина остановки
+                  </label>
+                  <input
+                    type="text"
+                    value={stopReason}
+                    onChange={e => setStopReason(e.target.value)}
+                    className="w-full bg-white text-[#15171A] border-0 rounded-xl px-4 py-3 outline-none"
+                    placeholder="Например: окно работ завершено"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() =>
+                      stopFullSyncMutation.mutate({
+                        reason: stopReason.trim() || undefined,
+                      })
+                    }
+                    disabled={stopFullSyncMutation.isPending}
+                    className="px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold disabled:opacity-50"
+                  >
+                    {stopFullSyncMutation.isPending ? "Остановка..." : "Остановить синхронизацию"}
+                  </button>
+                  <button
+                    onClick={() => clearStaleLockMutation.mutate()}
+                    disabled={clearStaleLockMutation.isPending}
+                    className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold disabled:opacity-50"
+                  >
+                    {clearStaleLockMutation.isPending ? "Очистка..." : "Очистить stale lock"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-white/10 p-4 text-sm">
+                  Сейчас активного full sync нет.
+                </div>
+                <button
+                  onClick={() => clearStaleLockMutation.mutate()}
+                  disabled={clearStaleLockMutation.isPending}
+                  className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold disabled:opacity-50"
+                >
+                  {clearStaleLockMutation.isPending ? "Очистка..." : "Очистить lock, если он завис"}
+                </button>
+              </div>
+            )}
+
+            <div className="rounded-xl bg-white/5 p-4 text-xs space-y-1">
+              <div>
+                Lock:{" "}
+                <span className="font-bold">{lockStatus?.locked ? "активен" : "свободен"}</span>
+              </div>
+              <div>
+                Owner: <span className="font-mono">{lockStatus?.owner ?? "—"}</span>
+              </div>
+              <div>
+                Возраст lock:{" "}
+                <span className="font-bold">
+                  {lockAgeMinutes !== null ? `${lockAgeMinutes}м` : "—"}
+                </span>
+              </div>
+              <div>
+                Истекает: <span className="font-bold">{lockStatus?.expiresAt ? formatDateTime(new Date(lockStatus.expiresAt)) : "—"}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

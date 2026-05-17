@@ -14,10 +14,16 @@ import {
   rebuildProductSpecIndex,
 } from "../lib/product-normalization-service";
 import { previewProductNormalization } from "../lib/product-normalization";
-import { getAppSetting } from "../lib/app-settings";
+import { getAppSetting, setAppSetting } from "../lib/app-settings";
 import { processMoyskladWebhookQueue } from "../lib/moysklad-webhook-worker";
 import { runMoyskladStockReconcile } from "../lib/moysklad-reconcile";
+import { runMoyskladFullSyncWatchdog } from "../lib/moysklad-full-sync-watchdog";
 import { applyProductAutoBlockState } from "../lib/product-visibility";
+import {
+  getSyncRuntimeSettings,
+  saveSyncRuntimeSettings,
+  syncRuntimeSettingsInputSchema,
+} from "../lib/sync-runtime-settings";
 import { defineAbilityFor } from "../../contracts/ability";
 
 const moyskladApi = axios.create({
@@ -95,6 +101,25 @@ type SyncLogDetails = {
   errors: string[];
   stats: Record<string, number>;
   logFileUrl: string | null;
+};
+
+type SyncProgressSnapshot = {
+  phase: string;
+  message: string;
+  productsProcessed?: number;
+  categoriesProcessed?: number;
+  stocksProcessed?: number;
+  preservedDescriptions?: number;
+  normalizedProducts?: number;
+  normalizedSpecs?: number;
+  normalizationConflicts?: number;
+  indexedSpecValues?: number;
+  assortmentOffset?: number;
+  assortmentBatchSize?: number;
+  stockOffset?: number;
+  stockBatchSize?: number;
+  selectedStoresCount?: number;
+  selectedCategoriesCount?: number;
 };
 
 const SYNC_LOCK_KEY = "moysklad_full_sync_lock";
@@ -202,6 +227,65 @@ function asSpecRecord(value: unknown): Record<string, string> {
 
 function getMsIdFromHref(href?: string | null): string | null {
   return href?.split("/").pop()?.split("?")[0] ?? null;
+}
+
+function buildSyncProgressSnapshot(
+  phase: string,
+  message: string,
+  stats: Record<string, number>,
+  extra: Partial<SyncProgressSnapshot> = {}
+): SyncProgressSnapshot {
+  return {
+    phase,
+    message,
+    productsProcessed: Number(stats.products ?? 0),
+    categoriesProcessed: Number(stats.categories ?? 0),
+    stocksProcessed: Number(stats.stocks ?? 0),
+    preservedDescriptions: Number(stats.preservedDescriptions ?? 0),
+    normalizedProducts: Number(stats.normalizedProducts ?? 0),
+    normalizedSpecs: Number(stats.normalizedSpecs ?? 0),
+    normalizationConflicts: Number(stats.normalizationConflicts ?? 0),
+    indexedSpecValues: Number(stats.indexedSpecValues ?? 0),
+    ...extra,
+  };
+}
+
+function getStaleSyncReason(args: {
+  startedAt: Date | string | null | undefined;
+  heartbeatAt: Date | string | null | undefined;
+  maxDurationMinutes: number;
+  heartbeatTimeoutMinutes: number;
+}) {
+  const startedAt = args.startedAt
+    ? args.startedAt instanceof Date
+      ? args.startedAt
+      : new Date(args.startedAt)
+    : null;
+  const heartbeatAt = args.heartbeatAt
+    ? args.heartbeatAt instanceof Date
+      ? args.heartbeatAt
+      : new Date(args.heartbeatAt)
+    : null;
+  const now = Date.now();
+
+  if (
+    startedAt &&
+    !Number.isNaN(startedAt.getTime()) &&
+    now - startedAt.getTime() > args.maxDurationMinutes * 60_000
+  ) {
+    return `Превышено максимальное время синхронизации (${args.maxDurationMinutes} мин.)`;
+  }
+
+  const heartbeatBase = heartbeatAt && !Number.isNaN(heartbeatAt.getTime()) ? heartbeatAt : startedAt;
+  if (
+    heartbeatBase &&
+    !Number.isNaN(heartbeatBase.getTime()) &&
+    now - heartbeatBase.getTime() > args.heartbeatTimeoutMinutes * 60_000
+  ) {
+    return `Пропал heartbeat синхронизации (${args.heartbeatTimeoutMinutes} мин.)`;
+  }
+
+  return null;
 }
 
 async function fetchAllRows(endpoint: string, authHeader: string, limit = 1000): Promise<MsRow[]> {
@@ -554,6 +638,143 @@ export const syncRouter = createRouter({
     return { success: true, ...result };
   }),
 
+  runFullSyncWatchdogCheck: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Sync");
+    const result = await runMoyskladFullSyncWatchdog();
+    return { success: true, ...result };
+  }),
+
+  requestFullSyncStop: protectedProcedure
+    .input(
+      z
+        .object({
+          reason: z.string().trim().min(3).max(500).optional(),
+        })
+        .optional()
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const db = getDb();
+      const [run] = await db
+        .select()
+        .from(schema.syncRuns)
+        .where(and(eq(schema.syncRuns.runType, "full"), eq(schema.syncRuns.status, "running")))
+        .orderBy(desc(schema.syncRuns.startedAt))
+        .limit(1);
+
+      if (!run) {
+        return { success: true, stopped: false, message: "Активная полная синхронизация не найдена." };
+      }
+
+      const reason = input?.reason?.trim() || "Остановлено вручную оператором";
+      const message = `Запрошена остановка синхронизации: ${reason}`;
+
+      await db
+        .update(schema.syncRuns)
+        .set({
+          cancelRequested: true,
+          abortReason: reason,
+          message,
+          heartbeatAt: new Date(),
+          progressJson: buildSyncProgressSnapshot(
+            run.phase ?? "cancelling",
+            message,
+            (run.statsJson as Record<string, number> | null) ?? {},
+            {
+              phase: run.phase ?? "cancelling",
+              message,
+            }
+          ),
+        })
+        .where(eq(schema.syncRuns.id, run.id));
+
+      await db.insert(schema.syncLogs).values({
+        type: "moysklad_control",
+        status: "running",
+        message,
+        details: {
+          runId: run.id,
+          requestedBy: ctx.user?.id ?? null,
+          lockOwner: run.lockOwner ?? null,
+        },
+      });
+
+      return { success: true, stopped: true, runId: run.id, message };
+    }),
+
+  clearStaleFullSyncLock: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Sync");
+    const db = getDb();
+    const runtimeSettings = await getSyncRuntimeSettings();
+    const rawLock = await getAppSetting(SYNC_LOCK_KEY);
+    const payload = parseLockPayload(rawLock);
+
+    if (!payload) {
+      return { success: true, cleared: false, message: "Lock уже отсутствует." };
+    }
+
+    const [run] = await db
+      .select()
+      .from(schema.syncRuns)
+      .where(and(eq(schema.syncRuns.runType, "full"), eq(schema.syncRuns.status, "running")))
+      .orderBy(desc(schema.syncRuns.startedAt))
+      .limit(1);
+
+    if (!run) {
+      await releaseSyncLock(payload.owner);
+      await db.insert(schema.syncLogs).values({
+        type: "moysklad_control",
+        status: "success",
+        message: "Stale lock очищен: активный full sync не найден.",
+        details: {
+          lockOwner: payload.owner,
+          requestedBy: ctx.user?.id ?? null,
+        },
+      });
+      return {
+        success: true,
+        cleared: true,
+        message: "Lock очищен: активный full sync не найден.",
+      };
+    }
+
+    const staleReason = getStaleSyncReason({
+      startedAt: run.startedAt,
+      heartbeatAt: run.heartbeatAt,
+      maxDurationMinutes: runtimeSettings.fullSyncMaxDurationMinutes,
+      heartbeatTimeoutMinutes: runtimeSettings.fullSyncHeartbeatTimeoutMinutes,
+    });
+
+    if (!staleReason) {
+      throw new Error("Нельзя снять lock: активная синхронизация выглядит живой.");
+    }
+
+    if (run.lockOwner && run.lockOwner === payload.owner) {
+      await releaseSyncLock(payload.owner);
+    } else {
+      await setAppSetting(SYNC_LOCK_KEY, null);
+    }
+
+    await db.insert(schema.syncLogs).values({
+      type: "moysklad_control",
+      status: "success",
+      message: `Stale lock очищен вручную: ${staleReason}`,
+      details: {
+        runId: run.id,
+        lockOwner: payload.owner,
+        runLockOwner: run.lockOwner ?? null,
+        requestedBy: ctx.user?.id ?? null,
+      },
+    });
+
+    return {
+      success: true,
+      cleared: true,
+      message: `Stale lock очищен вручную: ${staleReason}`,
+      runId: run.id,
+    };
+  }),
+
   getRecentReconcileRuns: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Sync");
     const db = getDb();
@@ -618,6 +839,32 @@ export const syncRouter = createRouter({
       webhookLagMinutes: lagMinutes,
     };
   }),
+
+  getCurrentRunStatus: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    const db = getDb();
+    const [run] = await db
+      .select()
+      .from(schema.syncRuns)
+      .where(and(eq(schema.syncRuns.runType, "full"), eq(schema.syncRuns.status, "running")))
+      .orderBy(desc(schema.syncRuns.startedAt))
+      .limit(1);
+
+    return run ?? null;
+  }),
+
+  getRuntimeSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    return getSyncRuntimeSettings();
+  }),
+
+  saveRuntimeSettings: protectedProcedure
+    .input(syncRuntimeSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const settings = await saveSyncRuntimeSettings(input);
+      return { success: true, settings };
+    }),
 
   getWebhookSetupStatus: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Sync");
@@ -704,6 +951,7 @@ export const syncRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "sync", "Sync");
       let lockOwner: string | null = null;
+      const workerId = `api:${process.pid}`;
       let activeProfile: typeof schema.syncProfiles.$inferSelect | null = null;
       let selectedStores = input.selectedStores;
       let selectedCategories = input.selectedCategories;
@@ -750,6 +998,10 @@ export const syncRouter = createRouter({
       };
       let currentLogId: number | null = null;
       let currentRunId: number | null = null;
+      let currentPhase = "starting";
+      let nextHeartbeatAt = 0;
+
+      const shouldHeartbeat = () => Date.now() >= nextHeartbeatAt;
 
       const saveLogFile = () => {
         try {
@@ -761,6 +1013,78 @@ export const syncRouter = createRouter({
         } catch (e) {
           console.error("Failed to save log file", e);
         }
+      };
+
+      const updateRunStatus = async ({
+        status,
+        message,
+        phase,
+        progress,
+        forceHeartbeat = false,
+        finishedAt,
+        statsJson,
+        abortReason,
+      }: {
+        status?: "running" | "success" | "error";
+        message?: string;
+        phase?: string;
+        progress?: Partial<SyncProgressSnapshot>;
+        forceHeartbeat?: boolean;
+        finishedAt?: Date | null;
+        statsJson?: Record<string, number>;
+        abortReason?: string | null;
+      }) => {
+        if (!currentRunId) return;
+        if (phase) currentPhase = phase;
+
+        const mergedProgress = progress
+          ? buildSyncProgressSnapshot(
+              currentPhase,
+              message ?? progress.message ?? "Синхронизация выполняется",
+              logDetails.stats,
+              progress
+            )
+          : undefined;
+
+        const shouldWriteHeartbeatNow = forceHeartbeat || shouldHeartbeat();
+        if (!status && !message && !phase && !mergedProgress && !statsJson && !abortReason && !shouldWriteHeartbeatNow) {
+          return;
+        }
+
+        const patch: Partial<typeof schema.syncRuns.$inferInsert> = {};
+        if (status) patch.status = status;
+        if (message) patch.message = message;
+        if (phase) patch.phase = phase;
+        if (mergedProgress) patch.progressJson = mergedProgress;
+        if (typeof finishedAt !== "undefined") patch.finishedAt = finishedAt;
+        if (statsJson) patch.statsJson = statsJson;
+        if (typeof abortReason !== "undefined") patch.abortReason = abortReason;
+        if (shouldWriteHeartbeatNow) {
+          patch.heartbeatAt = new Date();
+          nextHeartbeatAt = Date.now() + 10_000;
+        }
+
+        await db
+          .update(schema.syncRuns)
+          .set(patch)
+          .where(eq(schema.syncRuns.id, currentRunId));
+      };
+
+      const abortIfStopRequested = async () => {
+        if (!currentRunId) return;
+        const [runState] = await db
+          .select({
+            cancelRequested: schema.syncRuns.cancelRequested,
+            abortReason: schema.syncRuns.abortReason,
+          })
+          .from(schema.syncRuns)
+          .where(eq(schema.syncRuns.id, currentRunId))
+          .limit(1);
+
+        if (!runState?.cancelRequested) return;
+
+        const reason = runState.abortReason?.trim() || "Остановлено вручную оператором";
+        throw new Error(`Синхронизация остановлена вручную: ${reason}`);
       };
 
       try {
@@ -787,6 +1111,7 @@ export const syncRouter = createRouter({
           runType: "full",
           status: "running",
           message: "Синхронизация запущена",
+          phase: "starting",
           configSnapshot: {
             selectedStores,
             selectedCategories,
@@ -794,8 +1119,21 @@ export const syncRouter = createRouter({
             syncStocks,
             syncPrices,
           },
+          progressJson: buildSyncProgressSnapshot(
+            "starting",
+            "Синхронизация запущена",
+            logDetails.stats,
+            {
+              selectedStoresCount: selectedStores?.length ?? 0,
+              selectedCategoriesCount: selectedCategories?.length ?? 0,
+            }
+          ),
+          heartbeatAt: new Date(),
+          lockOwner,
+          workerId,
         });
         currentRunId = runRes.insertId;
+        nextHeartbeatAt = Date.now() + 10_000;
 
         const updateLog = async (status: string, message: string) => {
             if (currentLogId) {
@@ -803,11 +1141,23 @@ export const syncRouter = createRouter({
             }
         };
 
+        await abortIfStopRequested();
+
         // 1. Категории
         const categoryMap = new Map<string, number>();
         if (syncProducts && selectedCategories && selectedCategories.length > 0) {
           logDetails.steps.push("Синхронизация категорий");
           await updateLog('running', 'Синхронизация категорий...');
+          await updateRunStatus({
+            phase: "categories",
+            message: "Синхронизация категорий...",
+            progress: {
+              phase: "categories",
+              message: "Синхронизация категорий...",
+              selectedCategoriesCount: selectedCategories.length,
+            },
+            forceHeartbeat: true,
+          });
           writeLog("Fetching folders...");
           
           const msFolders = (await fetchAllRows(
@@ -817,6 +1167,7 @@ export const syncRouter = createRouter({
           writeLog(`Found ${msFolders.length} folders in MoySklad`);
 
           for (const msFolder of msFolders) {
+            await abortIfStopRequested();
             if (!selectedCategories.includes(msFolder.id)) continue;
             const existing = await db.select().from(schema.categories).where(eq(schema.categories.msId, msFolder.id)).limit(1);
             if (existing.length > 0) {
@@ -837,6 +1188,16 @@ export const syncRouter = createRouter({
               categoryMap.set(msFolder.id, res.insertId);
             }
             logDetails.stats.categories++;
+            if (shouldHeartbeat()) {
+              await abortIfStopRequested();
+              await updateRunStatus({
+                progress: {
+                  phase: "categories",
+                  message: "Синхронизация категорий...",
+                  selectedCategoriesCount: selectedCategories.length,
+                },
+              });
+            }
           }
 
           for (const msFolder of msFolders) {
@@ -858,6 +1219,16 @@ export const syncRouter = createRouter({
         // 2. Склады (Магазины)
         logDetails.steps.push("Синхронизация складов");
         await updateLog('running', 'Синхронизация складов...');
+        await updateRunStatus({
+          phase: "stores",
+          message: "Синхронизация складов...",
+          progress: {
+            phase: "stores",
+            message: "Синхронизация складов...",
+            selectedStoresCount: selectedStores?.length ?? 0,
+          },
+          forceHeartbeat: true,
+        });
         writeLog("Fetching stores...");
         
         let localStores = await db.select().from(schema.stores);
@@ -896,6 +1267,7 @@ export const syncRouter = createRouter({
         }
 
         for (const msStore of allMsStores) {
+          await abortIfStopRequested();
           const typedMsStore: MsStoreRow = {
             id: String(msStore.id ?? ""),
             name: String(msStore.name ?? ""),
@@ -918,6 +1290,16 @@ export const syncRouter = createRouter({
         // 3. Товары
         logDetails.steps.push("Синхронизация товаров");
         await updateLog('running', 'Синхронизация товаров...');
+        await updateRunStatus({
+          phase: "products",
+          message: "Синхронизация товаров...",
+          progress: {
+            phase: "products",
+            message: "Синхронизация товаров...",
+            selectedCategoriesCount: selectedCategories?.length ?? 0,
+          },
+          forceHeartbeat: true,
+        });
         
         let offset = 0;
         const limit = 500;
@@ -941,13 +1323,25 @@ export const syncRouter = createRouter({
         };
 
         while (hasMore) {
+          await abortIfStopRequested();
           writeLog(`Fetching assortment offset ${offset}...`);
           const assortmentRes = await fetchAssortmentWithRetry(offset);
           const items = assortmentRes.data.rows;
+          await updateRunStatus({
+            progress: {
+              phase: "products",
+              message: "Синхронизация товаров...",
+              assortmentOffset: offset,
+              assortmentBatchSize: items.length,
+              selectedCategoriesCount: selectedCategories?.length ?? 0,
+            },
+            forceHeartbeat: true,
+          });
           if (items.length < limit) hasMore = false;
           offset += limit;
 
           for (const item of items) {
+            await abortIfStopRequested();
             // Respect API rate limits (approx 3 req/sec max)
             await delay(333);
 
@@ -1068,6 +1462,18 @@ export const syncRouter = createRouter({
             }
             msProductIdToLocalId.set(msId, dbProductId);
             logDetails.stats.products++;
+            if (shouldHeartbeat()) {
+              await abortIfStopRequested();
+              await updateRunStatus({
+                progress: {
+                  phase: "products",
+                  message: "Синхронизация товаров...",
+                  assortmentOffset: offset,
+                  assortmentBatchSize: items.length,
+                  selectedCategoriesCount: selectedCategories?.length ?? 0,
+                },
+              });
+            }
           }
         }
 
@@ -1084,6 +1490,16 @@ export const syncRouter = createRouter({
 
           logDetails.steps.push("Синхронизация остатков");
           await updateLog('running', 'Синхронизация остатков...');
+          await updateRunStatus({
+            phase: "stocks",
+            message: "Синхронизация остатков...",
+            progress: {
+              phase: "stocks",
+              message: "Синхронизация остатков...",
+              selectedStoresCount: selectedStores?.length ?? 0,
+            },
+            forceHeartbeat: true,
+          });
           writeLog("Fetching detailed stock report by store...");
           await db.execute(sql`DELETE FROM product_stocks`);
           
@@ -1107,14 +1523,26 @@ export const syncRouter = createRouter({
           };
 
           while (stockHasMore) {
+            await abortIfStopRequested();
             writeLog(`Fetching stocks offset ${stockOffset}...`);
             const stockRes = await fetchStockWithRetry(stockOffset);
             const stockItems = stockRes.data.rows;
             writeLog(`Got ${stockItems.length} stock items from API.`);
+            await updateRunStatus({
+              progress: {
+                phase: "stocks",
+                message: "Синхронизация остатков...",
+                stockOffset,
+                stockBatchSize: stockItems.length,
+                selectedStoresCount: selectedStores?.length ?? 0,
+              },
+              forceHeartbeat: true,
+            });
             if (stockItems.length < 1000) stockHasMore = false;
             stockOffset += 1000;
 
             for (const item of stockItems) {
+              await abortIfStopRequested();
               // meta.href might look like "https://.../entity/product/cbfcce03-9560-11f0-0a80-10030006c3a6?expand=supplier"
               const msProductId = getMsIdFromHref(item.meta?.href);
               if (!msProductId) {
@@ -1130,6 +1558,7 @@ export const syncRouter = createRouter({
               }
 
               for (const storeStock of item.stockByStore) {
+                await abortIfStopRequested();
                 const quantity = storeStock.stock || 0;
                 if (quantity <= 0) continue;
                 
@@ -1170,6 +1599,18 @@ export const syncRouter = createRouter({
                   writeLog(`[DEBUG STOCK] Inserting stock: product=${localProductId}, store=${localStoreId}, qty=${quantity}`);
                   await db.insert(schema.productStocks).values({ productId: localProductId, storeId: localStoreId, quantity });
                   logDetails.stats.stocks++;
+                  if (shouldHeartbeat()) {
+                    await abortIfStopRequested();
+                    await updateRunStatus({
+                      progress: {
+                        phase: "stocks",
+                        message: "Синхронизация остатков...",
+                        stockOffset,
+                        stockBatchSize: stockItems.length,
+                        selectedStoresCount: selectedStores?.length ?? 0,
+                      },
+                    });
+                  }
                 } else {
                   writeLog(`[DEBUG STOCK] Missed match: msStoreId=${msStoreId}, storeName=${storeStock.name}. Cannot link to local DB.`);
                 }
@@ -1181,6 +1622,15 @@ export const syncRouter = createRouter({
         if (syncProducts) {
           logDetails.steps.push("Нормализация характеристик");
           await updateLog('running', 'Нормализация характеристик...');
+          await updateRunStatus({
+            phase: "normalization",
+            message: "Нормализация характеристик...",
+            progress: {
+              phase: "normalization",
+              message: "Нормализация характеристик...",
+            },
+            forceHeartbeat: true,
+          });
           writeLog("Normalizing description specs after MoySklad sync...");
           const normalization = await normalizeProductDescriptions({
             limit: 10000,
@@ -1199,6 +1649,15 @@ export const syncRouter = createRouter({
         } else {
           logDetails.steps.push("Переиндексация характеристик");
           await updateLog('running', 'Переиндексация характеристик...');
+          await updateRunStatus({
+            phase: "reindex",
+            message: "Переиндексация характеристик...",
+            progress: {
+              phase: "reindex",
+              message: "Переиндексация характеристик...",
+            },
+            forceHeartbeat: true,
+          });
           const indexResult = await rebuildProductSpecIndex(10000);
           logDetails.stats.indexedSpecValues = indexResult.indexedValues;
           writeLog(`Spec index rebuilt. Products: ${indexResult.indexedProducts}, values: ${indexResult.indexedValues}`);
@@ -1207,17 +1666,18 @@ export const syncRouter = createRouter({
         writeLog(`Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}`);
         saveLogFile();
         await updateLog('success', 'Синхронизация успешно завершена');
-        if (currentRunId) {
-          await db
-            .update(schema.syncRuns)
-            .set({
-              status: "success",
-              message: "Синхронизация успешно завершена",
-              statsJson: logDetails.stats,
-              finishedAt: new Date(),
-            })
-            .where(eq(schema.syncRuns.id, currentRunId));
-        }
+        await updateRunStatus({
+          status: "success",
+          message: "Синхронизация успешно завершена",
+          phase: "completed",
+          progress: {
+            phase: "completed",
+            message: "Синхронизация успешно завершена",
+          },
+          statsJson: logDetails.stats,
+          finishedAt: new Date(),
+          forceHeartbeat: true,
+        });
         return { success: true, message: "Синхронизация успешно завершена" };
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error, "Ошибка синхронизации");
@@ -1237,17 +1697,19 @@ export const syncRouter = createRouter({
             type: 'moysklad', status: 'error', message: 'Ошибка: ' + errorMessage, details: logDetails
           });
         }
-        if (currentRunId) {
-          await db
-            .update(schema.syncRuns)
-            .set({
-              status: "error",
-              message: errorMessage,
-              statsJson: logDetails.stats,
-              finishedAt: new Date(),
-            })
-            .where(eq(schema.syncRuns.id, currentRunId));
-        }
+        await updateRunStatus({
+          status: "error",
+          message: errorMessage,
+          phase: "error",
+          progress: {
+            phase: "error",
+            message: errorMessage,
+          },
+          statsJson: logDetails.stats,
+          abortReason: errorMessage,
+          finishedAt: new Date(),
+          forceHeartbeat: true,
+        });
         throw new Error(getErrorMessage(error, "Ошибка синхронизации"));
       } finally {
         await releaseSyncLock(lockOwner);

@@ -1,165 +1,154 @@
 # Operations Index
 
-Дата обновления: 2026-05-15  
+Дата обновления: 2026-05-16  
 Проект: TechAks
 
 ## Назначение
 
-Этот документ — единая точка входа в операционную документацию проекта.
+Этот документ — единая точка входа в operational-документацию проекта.
 
-Его цель:
+Он нужен, чтобы быстро:
 
-- быстро понять текущее состояние production;
+- понять текущее состояние production;
 - найти актуальные документы по deploy и safety;
-- найти все материалы по rollout раздела `Заказы`;
-- не искать вручную по десяткам отдельных markdown/sql-файлов.
+- отделить живые документы от исторических rollout-отчётов;
+- не путать current state с archival snapshot-материалами.
+
+## Начинать отсюда
+
+Если нужен самый короткий путь в проект:
+
+1. [project-current-status.md](</E:/work/ru/tehax/s/app/docs/project-current-status.md>)
+2. [deployment-safety.md](</E:/work/ru/tehax/s/app/docs/deployment-safety.md>)
+3. [deploy-pipeline-final-safety-status.md](</E:/work/ru/tehax/s/app/docs/deploy-pipeline-final-safety-status.md>)
+4. [admin-operations.md](</E:/work/ru/tehax/s/app/docs/admin-operations.md>)
 
 ## Статусы документов
 
-Для документов по `Orders` теперь действует простая маркировка:
+Для rollout-документов по `Orders` и другим фазам используем такую маркировку:
 
 - `current` — актуальный operational source of truth;
-- `reference` — рабочий справочный документ;
-- `archival` — исторический след решений;
-- `draft` — черновик будущей фазы.
+- `reference` — полезный рабочий reference;
+- `archival` — исторический snapshot, хранится для контекста;
+- `draft` — черновик следующей фазы, не выполнять автоматически.
 
-Сводная матрица статусов:
+Матрица по orders:
 
 - [orders-documents-status.md](</E:/work/ru/tehax/s/app/docs/orders-documents-status.md>)
 
-## 1. Текущее production-состояние
+## 1. Current project state
 
-### Финальный статус заказов
+- [project-current-status.md](</E:/work/ru/tehax/s/app/docs/project-current-status.md>)  
+  Короткая актуальная картина проекта: deploy, orders, product visibility, production state.
 
-- [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)  
-  Финальная фиксация production-состояния после push, deploy и smoke-test раздела `Заказы`.
-
-### Финальный статус безопасности deploy pipeline
-
-- [deploy-pipeline-final-safety-status.md](</E:/work/ru/tehax/s/app/docs/deploy-pipeline-final-safety-status.md>)  
-  Подтверждает, что обычный deploy больше не должен автоматически менять production-БД.
-
-## 2. Базовые правила безопасности
+## 2. Deploy and DB safety
 
 - [deployment-safety.md](</E:/work/ru/tehax/s/app/docs/deployment-safety.md>)  
-  Базовые правила безопасного deploy и обращения с production-БД.
+  Главные правила: обычный deploy не меняет production-БД.
+
+- [deploy-pipeline-final-safety-status.md](</E:/work/ru/tehax/s/app/docs/deploy-pipeline-final-safety-status.md>)  
+  Финальная фиксация безопасного CI/CD pipeline.
+
+## 3. Admin and sync operations
 
 - [admin-operations.md](</E:/work/ru/tehax/s/app/docs/admin-operations.md>)  
-  Операционные заметки по админке и ручным действиям.
+  Операционные заметки по админке, товарам, заказам, удалению тестовых данных и sync.
 
-## 3. Orders — production stabilization и rollout
+- [sync-epic-plan.md](</E:/work/ru/tehax/s/app/docs/sync-epic-plan.md>)  
+  Более широкий reference по развитию sync-направления.
 
-### Stabilization / post-deploy
+- [sync-fullsync-watchdog-scheduler-tz.md](</E:/work/ru/tehax/s/app/docs/sync-fullsync-watchdog-scheduler-tz.md>)  
+  Подробное ТЗ на next phase для full sync watchdog, scheduler settings и operational observability.
 
-- [orders-production-stabilization-report.md](</E:/work/ru/tehax/s/app/docs/orders-production-stabilization-report.md>)  
-  Отчёт по стабилизации раздела `Заказы` после deploy.
+- [sync-operations-runbook.md](</E:/work/ru/tehax/s/app/docs/sync-operations-runbook.md>)  
+  Практический runbook по эксплуатации нового sync-контура: runtime settings, watchdog, stop flow и stale lock recovery.
 
-### Production additive rollout
+## 4. Product visibility
 
-- [orders-production-additive-rollout-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-additive-rollout-result.md>)  
-  Результат controlled additive rollout на production.
+### Current
 
-### Phase 3.1 follow-up
+- [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)  
+  Текущий production status по visibility-control товаров.
 
-- [orders-phase3-1-followup-result.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-1-followup-result.md>)  
-  Follow-up по устранению оставшегося schema/code mismatch.
+### Historical / execution artifacts
 
-## 4. Orders — планирование и migration strategy
+- [product-visibility-backfill-plan.md](</E:/work/ru/tehax/s/app/docs/product-visibility-backfill-plan.md>)  
+  Исторический backfill plan. Сейчас важен как reference того, как выполнялся rollout.
 
-### Основные migration plan документы
+SQL-артефакты:
 
-- [orders-safe-migration-plan.md](</E:/work/ru/tehax/s/app/docs/orders-safe-migration-plan.md>)  
-  Основной `reference` migration plan.
+- [product-visibility-backfill-audit.sql](</E:/work/ru/tehax/s/app/docs/sql/product-visibility-backfill-audit.sql>)
+- [product-visibility-backfill-apply.sql](</E:/work/ru/tehax/s/app/docs/sql/product-visibility-backfill-apply.sql>)
 
-- [orders-phase3-safe-migration-plan.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-safe-migration-plan.md>)  
-  `archival` planning artifact раннего этапа.
+## 5. Orders — current and reference
 
-Оба документа относятся к безопасному приведению схемы заказов к новой модели без destructive changes, но как основной reference сейчас лучше использовать `orders-safe-migration-plan.md`.
+### Current / reference
 
-### Read-only audit и proposal
+- [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
+- [orders-phase3-1-followup-result.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-1-followup-result.md>)
+- [orders-production-additive-rollout-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-additive-rollout-result.md>)
+- [orders-production-readonly-audit-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-readonly-audit-result.md>)
 
-- [orders-production-readonly-audit-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-readonly-audit-result.md>)  
-  Результат read-only production audit.
+### Historical / planning trail
 
-- [orders-production-rollout-proposal.md](</E:/work/ru/tehax/s/app/docs/orders-production-rollout-proposal.md>)  
-  Предложение production rollout strategy.
+- [orders-production-stabilization-report.md](</E:/work/ru/tehax/s/app/docs/orders-production-stabilization-report.md>)
+- [orders-production-rollout-proposal.md](</E:/work/ru/tehax/s/app/docs/orders-production-rollout-proposal.md>)
+- [orders-safe-migration-plan.md](</E:/work/ru/tehax/s/app/docs/orders-safe-migration-plan.md>)
+- [orders-phase3-safe-migration-plan.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-safe-migration-plan.md>)
 
-### Staging-related материалы
+### Batch D / indexes
 
-- [orders-staging-rollout-runbook.md](</E:/work/ru/tehax/s/app/docs/orders-staging-rollout-runbook.md>)
-- [orders-staging-readonly-audit-result.md](</E:/work/ru/tehax/s/app/docs/orders-staging-readonly-audit-result.md>)
-- [orders-staging-rollout-result.md](</E:/work/ru/tehax/s/app/docs/orders-staging-rollout-result.md>)
-- [orders-staging-indexes-readiness.md](</E:/work/ru/tehax/s/app/docs/orders-staging-indexes-readiness.md>)
+- [orders-batch-d-production-readiness.md](</E:/work/ru/tehax/s/app/docs/orders-batch-d-production-readiness.md>)
+- [orders-batch-d-rollout-runbook.md](</E:/work/ru/tehax/s/app/docs/orders-batch-d-rollout-runbook.md>)
+- [orders-non-destructive-index-plan.md](</E:/work/ru/tehax/s/app/docs/orders-non-destructive-index-plan.md>)
 
-Сейчас они нужны главным образом как trace принятия решений, потому что фактический rollout пошёл напрямую на production controlled additive path.
+Важно:
 
-## 5. Orders — будущие фазы
+- документы по Batch D сейчас отражают snapshot до очистки тестовых orders-данных;
+- их нужно читать как planning/reference, а не как текущие counts production.
 
-### Backfill
+### Draft / future
 
-- [orders-backfill-plan.md](</E:/work/ru/tehax/s/app/docs/orders-backfill-plan.md>)  
-  План backfill без выполнения.
+- [orders-backfill-plan.md](</E:/work/ru/tehax/s/app/docs/orders-backfill-plan.md>)
+- [orders-legacy-status-mapping-draft.md](</E:/work/ru/tehax/s/app/docs/orders-legacy-status-mapping-draft.md>)
 
-### Legacy status mapping
+## 6. SQL artifacts
 
-- [orders-legacy-status-mapping-draft.md](</E:/work/ru/tehax/s/app/docs/orders-legacy-status-mapping-draft.md>)  
-  Draft по маппингу старых статусов в новую модель.
+Orders SQL:
 
-### Индексы
+- [docs/sql/orders-readonly-audit.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-readonly-audit.sql>)
+- [docs/sql/orders-additive-batch-a-orders.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-a-orders.sql>)
+- [docs/sql/orders-additive-batch-a2-remaining-orders-columns.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-a2-remaining-orders-columns.sql>)
+- [docs/sql/orders-additive-batch-b-order-items.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-b-order-items.sql>)
+- [docs/sql/orders-additive-batch-c-history-comments.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-c-history-comments.sql>)
+- [docs/sql/orders-additive-batch-d-indexes.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-d-indexes.sql>)
+- [docs/sql/orders-post-rollout-validation.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-post-rollout-validation.sql>)
 
-- [orders-non-destructive-index-plan.md](</E:/work/ru/tehax/s/app/docs/orders-non-destructive-index-plan.md>)  
-  Отдельный план non-destructive индексов.
+Product visibility SQL:
 
-## 6. SQL-артефакты Orders
+- [docs/sql/product-visibility-backfill-audit.sql](</E:/work/ru/tehax/s/app/docs/sql/product-visibility-backfill-audit.sql>)
+- [docs/sql/product-visibility-backfill-apply.sql](</E:/work/ru/tehax/s/app/docs/sql/product-visibility-backfill-apply.sql>)
 
-SQL-артефакты лежат в каталоге:
+## 7. Product/spec normalization
 
-- [docs/sql](</E:/work/ru/tehax/s/app/docs/sql>)
+- [product-spec-normalization.md](</E:/work/ru/tehax/s/app/docs/product-spec-normalization.md>)
 
-Ключевые файлы:
+## 8. Что сейчас считать source of truth
 
-- [orders-readonly-audit.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-readonly-audit.sql>)
-- [orders-additive-batch-a-orders.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-a-orders.sql>)
-- [orders-additive-batch-a2-remaining-orders-columns.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-a2-remaining-orders-columns.sql>)
-- [orders-additive-batch-b-order-items.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-b-order-items.sql>)
-- [orders-additive-batch-c-history-comments.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-c-history-comments.sql>)
-- [orders-additive-batch-d-indexes.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-additive-batch-d-indexes.sql>)
-- [orders-post-rollout-validation.sql](</E:/work/ru/tehax/s/app/docs/sql/orders-post-rollout-validation.sql>)
+Если нужен минимальный набор актуальных документов, используем:
 
-## 7. Что сейчас считается source of truth
-
-Если нужна максимально короткая операционная картина проекта на текущий момент, начинаем отсюда:
-
-1. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
-2. [deploy-pipeline-final-safety-status.md](</E:/work/ru/tehax/s/app/docs/deploy-pipeline-final-safety-status.md>)
-3. [deployment-safety.md](</E:/work/ru/tehax/s/app/docs/deployment-safety.md>)
-4. [orders-documents-status.md](</E:/work/ru/tehax/s/app/docs/orders-documents-status.md>)
-
-Если нужен именно полный исторический контекст по rollout заказов:
-
-1. [orders-production-stabilization-report.md](</E:/work/ru/tehax/s/app/docs/orders-production-stabilization-report.md>)
-2. [orders-production-readonly-audit-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-readonly-audit-result.md>)
-3. [orders-production-additive-rollout-result.md](</E:/work/ru/tehax/s/app/docs/orders-production-additive-rollout-result.md>)
-4. [orders-phase3-1-followup-result.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-1-followup-result.md>)
+1. [project-current-status.md](</E:/work/ru/tehax/s/app/docs/project-current-status.md>)
+2. [deployment-safety.md](</E:/work/ru/tehax/s/app/docs/deployment-safety.md>)
+3. [admin-operations.md](</E:/work/ru/tehax/s/app/docs/admin-operations.md>)
+4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 8. Что нельзя делать без отдельного подтверждения
+## 9. Что нельзя делать без отдельного подтверждения
 
-По-прежнему запрещено без отдельного решения:
-
-- запускать destructive migrations;
-- удалять таблицы или колонки;
-- менять типы существующих колонок;
-- выполнять backfill по историческим заказам;
-- запускать `Batch D indexes` без отдельного controlled rollout;
-- отключать compatibility mode;
-- выполнять любые production DB operations как часть обычного deploy.
-
-## 9. Рекомендуемый следующий шаг
-
-Следующий логичный operational step:
-
-- отдельно подготовить controlled plan для `Batch D indexes`;
-- не смешивать его с обычным deploy;
-- не совмещать индексы с backfill;
-- rollout индексов делать только отдельной короткой фазой.
+- destructive migrations;
+- drop таблиц/колонок на production;
+- изменение типов существующих production-колонок;
+- массовый backfill как часть обычного deploy;
+- `db:push --force` против production;
+- отключение compatibility mode;
+- любые DB-операции в автоматическом deploy.

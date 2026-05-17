@@ -15,9 +15,15 @@ import * as schema from "@db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
+import { runMoyskladFullSyncWatchdog } from "./lib/moysklad-full-sync-watchdog";
 import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
 import { runScheduledFullSync } from "./routers/sync";
 import { buildPublicProductVisibilityCondition } from "./lib/product-visibility";
+import {
+  getSyncRuntimeSettings,
+  getSyncSchedulerSlot,
+  setSyncSchedulerLastFullSyncKey,
+} from "./lib/sync-runtime-settings";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -465,16 +471,38 @@ if (env.isProduction) {
     });
   }, 30 * 60_000);
 
-  let lastNightlyRunKey = "";
   setInterval(() => {
-    const now = new Date();
-    const runKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-    if (now.getHours() !== 3 || now.getMinutes() !== 0) return;
-    if (lastNightlyRunKey === runKey) return;
-
-    lastNightlyRunKey = runKey;
-    runScheduledFullSync().catch(error => {
-      console.error("[nightly-full-sync] failed:", error);
+    runMoyskladFullSyncWatchdog().catch(error => {
+      console.error("[full-sync-watchdog] cycle failed:", error);
     });
+  }, 60_000);
+
+  setInterval(() => {
+    void (async () => {
+      try {
+        const runtimeSettings = await getSyncRuntimeSettings();
+        if (!runtimeSettings.fullSyncEnabled) return;
+
+        const slot = getSyncSchedulerSlot(
+          new Date(),
+          runtimeSettings.fullSyncTime,
+          runtimeSettings.fullSyncTimezone
+        );
+
+        if (!slot.matches) return;
+        if (runtimeSettings.schedulerLastFullSyncKey === slot.slotKey) return;
+
+        await setSyncSchedulerLastFullSyncKey(slot.slotKey);
+
+        runScheduledFullSync().catch(error => {
+          console.error(
+            `[nightly-full-sync] failed for slot ${slot.slotKey} (${slot.timeZone}):`,
+            error
+          );
+        });
+      } catch (error) {
+        console.error("[nightly-full-sync] scheduler cycle failed:", error);
+      }
+    })();
   }, 60_000);
 }

@@ -28,6 +28,7 @@ export default function AdminSettings() {
     useState("logo_dev");
   const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
   const [msToken, setMsToken] = useState("");
+  const [msWebhookSecret, setMsWebhookSecret] = useState("");
   
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
@@ -76,8 +77,9 @@ export default function AdminSettings() {
   const saveMsMutation = trpc.settings.saveMoySklad.useMutation({
     onSuccess: () => {
       utils.settings.getMoySklad.invalidate();
-      alert("Токен МойСклад сохранен.");
+      alert("Настройки МойСклад сохранены.");
       setMsToken("");
+      setMsWebhookSecret("");
     },
   });
 
@@ -88,6 +90,15 @@ export default function AdminSettings() {
       setMsToken("");
     },
   });
+
+  const clearMsWebhookSecretMutation =
+    trpc.settings.clearMoySkladWebhookSecret.useMutation({
+      onSuccess: () => {
+        utils.settings.getMoySklad.invalidate();
+        alert("Секрет вебхука МойСклад удален.");
+        setMsWebhookSecret("");
+      },
+    });
 
   const testMutation = trpc.settings.testGemini.useMutation({
     onSuccess: () => {
@@ -396,7 +407,7 @@ export default function AdminSettings() {
         <div className="border-b border-gray-100 px-6 py-5">
           <h2 className="text-lg font-black text-[#15171A]">МойСклад</h2>
           <p className="mt-1 text-sm text-gray-500">
-            API токен используется для синхронизации товаров, остатков и цен.
+            API-токен используется для синхронизации товаров, остатков и цен. Секрет вебхука нужен для безопасного приема событий от МойСклад.
           </p>
         </div>
 
@@ -429,16 +440,56 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {(saveMsMutation.error || clearMsMutation.error) && (
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Сохраненный секрет вебхука
+              </label>
+              <div className="flex h-11 items-center rounded-lg border border-gray-200 px-3 text-sm text-gray-500">
+                {msData?.webhookSecretMasked || "Секрет вебхука пока не задан"}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Новый секрет вебхука
+              </label>
+              <input
+                type="password"
+                value={msWebhookSecret}
+                onChange={e => setMsWebhookSecret(e.target.value)}
+                placeholder={
+                  msData?.hasWebhookSecret
+                    ? "Оставьте пустым, чтобы сохранить текущий секрет"
+                    : "Вставьте секрет для /api/webhooks/moysklad"
+                }
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              />
+            </div>
+          </div>
+
+          {(saveMsMutation.error ||
+            clearMsMutation.error ||
+            clearMsWebhookSecretMutation.error) && (
             <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {saveMsMutation.error?.message || clearMsMutation.error?.message}
+              {saveMsMutation.error?.message ||
+                clearMsMutation.error?.message ||
+                clearMsWebhookSecretMutation.error?.message}
             </div>
           )}
 
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => saveMsMutation.mutate({ token: msToken })}
-              disabled={saveMsMutation.isPending || !msToken.trim()}
+              onClick={() =>
+                saveMsMutation.mutate({
+                  token: msToken,
+                  webhookSecret: msWebhookSecret,
+                })
+              }
+              disabled={
+                saveMsMutation.isPending ||
+                (!msToken.trim() && !msWebhookSecret.trim())
+              }
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
             >
               {saveMsMutation.isPending ? (
@@ -446,7 +497,7 @@ export default function AdminSettings() {
               ) : (
                 <Save size={16} />
               )}
-              Сохранить токен МойСклад
+              Сохранить настройки МойСклад
             </button>
 
             <button
@@ -464,6 +515,27 @@ export default function AdminSettings() {
               )}
               Удалить токен
             </button>
+
+            <button
+              onClick={() => {
+                if (!confirm("Удалить сохраненный секрет вебхука МойСклад?")) return;
+                clearMsWebhookSecretMutation.mutate();
+              }}
+              disabled={clearMsWebhookSecretMutation.isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-bold text-red-600 disabled:opacity-50"
+            >
+              {clearMsWebhookSecretMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              Удалить секрет вебхука
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            URL для вебхука МойСклад:{" "}
+            <span className="font-mono">https://techaks.ru/api/webhooks/moysklad</span>
           </div>
         </div>
       </section>

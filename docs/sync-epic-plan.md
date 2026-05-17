@@ -5,6 +5,11 @@
 **Цель:** сохранить конфиг полной синхронизации, перевести дневную актуализацию на вебхуки, оставить full/reconcile как страховку.  
 **Ограничения прод-сервера:** `1 vCPU / 1 GB RAM / 10 GB disk`.
 
+Актуальное подробное ТЗ на следующую operational фазу:
+
+- [sync-fullsync-watchdog-scheduler-tz.md](</E:/work/ru/tehax/s/app/docs/sync-fullsync-watchdog-scheduler-tz.md>)
+- [sync-operations-runbook.md](</E:/work/ru/tehax/s/app/docs/sync-operations-runbook.md>)
+
 ---
 
 ## Milestones
@@ -23,9 +28,18 @@
 - `SYNC-302` done
 - `SYNC-303` done
 - `SYNC-304` done
-- `SYNC-401` in_progress
-- `SYNC-402` in_progress
+- `SYNC-401` done
+- `SYNC-402` done
 - `SYNC-403` done (runbook добавлен в `docs/admin-operations.md`)
+- `SYNC-410` done
+- `SYNC-411` done
+- `SYNC-412` done
+- `SYNC-413` done
+- `SYNC-414` done
+- `SYNC-415` done
+- `SYNC-416` done
+- `SYNC-417` done
+- `SYNC-418` done
 
 ## M1 — Profiles + Full Sync Runtime
 **Срок:** 3-5 дней  
