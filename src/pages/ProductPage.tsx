@@ -8,6 +8,11 @@ import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { buildCanonical, useSeo } from "@/lib/seo";
+import {
+  getMerchandisingBadgeLabel,
+  getMerchandisingBadgeStyle,
+  normalizeMerchandisingBadges,
+} from "@/lib/merchandising-badges";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -116,6 +121,9 @@ export default function ProductPage() {
   const isInStock = Boolean(product.inStock);
   const manufacturer = productManufacturer ?? null;
   const hasManufacturer = Boolean(manufacturer);
+  const merchandisingBadges = normalizeMerchandisingBadges(
+    (product as { merchandisingBadges?: unknown }).merchandisingBadges
+  ).slice(0, 4);
   const hasOldPrice =
     typeof product.oldPrice === "number" && product.oldPrice > product.price;
   const productSpecs =
@@ -210,6 +218,18 @@ export default function ProductPage() {
             {/* Gallery */}
             <div className="lg:w-[50%]">
               <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
+                {merchandisingBadges.length > 0 && (
+                  <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
+                    {merchandisingBadges.map(itemBadge => (
+                      <span
+                        key={itemBadge}
+                        className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow-sm`}
+                      >
+                        {getMerchandisingBadgeLabel(itemBadge)}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {hasManufacturer && (
                   <Link
                     to={manufacturer?.href || "#"}

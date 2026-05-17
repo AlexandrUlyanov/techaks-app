@@ -5,11 +5,16 @@ import {
   Save,
   Search,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   Warehouse,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
+import {
+  getMerchandisingBadgeLabel,
+  getMerchandisingBadgeStyle,
+  MERCH_BADGE_LABELS,
+  normalizeMerchandisingBadges,
+} from "@/lib/merchandising-badges";
 
 type EditState = {
   manualPriority: number;
@@ -17,17 +22,6 @@ type EditState = {
   isFeatured: boolean;
   isHiddenFromPromo: boolean;
   comment: string;
-};
-
-const BADGE_LABELS: Record<string, string> = {
-  top_category: "Топ категории",
-  excellent_price: "Отличная цена",
-  store_choice: "Выбор магазина",
-  new: "Новинка",
-  recommend: "Рекомендуем",
-  profitable: "Выгодно",
-  in_stock: "В наличии",
-  low_stock: "Осталось мало",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,10 +36,6 @@ const STATUS_LABELS: Record<string, string> = {
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
-}
-
-function normalizeBadges(badges: unknown): string[] {
-  return Array.isArray(badges) ? badges.map(String) : [];
 }
 
 function scoreColor(score: number) {
@@ -134,12 +124,19 @@ export default function AdminMerchandising() {
   }): EditState => {
     const fallback = {
       manualPriority: item.manualPriority ?? 0,
-      badges: normalizeBadges(item.badges),
+      badges: normalizeMerchandisingBadges(item.badges),
       isFeatured: Boolean(item.isFeatured),
       isHiddenFromPromo: Boolean(item.isHiddenFromPromo),
       comment: item.comment ?? "",
     };
     return { ...fallback, ...(edits[item.id] ?? {}) };
+  };
+
+  const toggleBadge = (productId: number, badgeCode: string, edit: EditState, fallback: EditState) => {
+    const nextBadges = edit.badges.includes(badgeCode)
+      ? edit.badges.filter(itemBadge => itemBadge !== badgeCode)
+      : [...edit.badges, badgeCode];
+    patchEdit(productId, { badges: nextBadges }, fallback);
   };
 
   return (
@@ -220,7 +217,7 @@ export default function AdminMerchandising() {
             className="h-11 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
           >
             <option value="">Любой бейдж</option>
-            {Object.entries(BADGE_LABELS).map(([value, label]) => (
+            {Object.entries(MERCH_BADGE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -299,7 +296,7 @@ export default function AdminMerchandising() {
               {(products.data?.items ?? []).map(item => {
                 const edit = getEdit(item);
                 const fallback = getEdit({ ...item, ...edits[item.id] });
-                const hasStoreChoice = edit.badges.includes("store_choice");
+                const selectedBadges = new Set(edit.badges);
 
                 return (
                   <tr key={item.id} className="border-t border-gray-100 align-top hover:bg-gray-50">
@@ -338,11 +335,19 @@ export default function AdminMerchandising() {
                     </td>
                     <td className="py-3 pr-3">
                       <div className="flex max-w-[220px] flex-wrap gap-1.5">
-                        {normalizeBadges(item.badges).map(itemBadge => (
-                          <span key={itemBadge} className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-gray-600">
-                            {BADGE_LABELS[itemBadge] ?? itemBadge}
-                          </span>
-                        ))}
+                        {Object.keys(MERCH_BADGE_LABELS).map(itemBadge => {
+                          const active = selectedBadges.has(itemBadge);
+                          return (
+                            <button
+                              key={itemBadge}
+                              type="button"
+                              onClick={() => toggleBadge(item.id, itemBadge, edit, fallback)}
+                              className={`${active ? getMerchandisingBadgeStyle(itemBadge) : "bg-gray-100 text-gray-500"} rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide transition hover:opacity-80`}
+                            >
+                              {getMerchandisingBadgeLabel(itemBadge)}
+                            </button>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="py-3 pr-3">
@@ -361,22 +366,7 @@ export default function AdminMerchandising() {
                           placeholder="Комментарий"
                           className="h-9 rounded-md border border-gray-200 px-2 text-xs outline-none focus:border-[#05C3D4]"
                         />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextBadges = hasStoreChoice
-                                ? edit.badges.filter(itemBadge => itemBadge !== "store_choice")
-                                : [...edit.badges, "store_choice"];
-                              patchEdit(item.id, { badges: nextBadges }, fallback);
-                            }}
-                            className={`inline-flex h-8 items-center gap-1 rounded-md px-2 text-[10px] font-black uppercase ${
-                              hasStoreChoice ? "bg-[#05C3D4] text-black" : "bg-gray-100 text-gray-500"
-                            }`}
-                          >
-                            <Sparkles size={13} />
-                            Выбор
-                          </button>
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => patchEdit(item.id, { isHiddenFromPromo: !edit.isHiddenFromPromo }, fallback)}
@@ -387,6 +377,9 @@ export default function AdminMerchandising() {
                             <EyeOff size={13} />
                             Скрыть
                           </button>
+                        </div>
+                        <div className="text-[10px] font-bold text-gray-400">
+                          Клик по бейджу слева переключает его и он появится на витрине после сохранения.
                         </div>
                       </div>
                     </td>

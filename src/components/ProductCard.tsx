@@ -2,6 +2,11 @@ import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
+import {
+  getMerchandisingBadgeLabel,
+  getMerchandisingBadgeStyle,
+  normalizeMerchandisingBadges,
+} from "@/lib/merchandising-badges";
 
 interface ProductCardProps {
   product: {
@@ -11,6 +16,8 @@ interface ProductCardProps {
     price: number;
     oldPrice?: number | null;
     badge?: string | null;
+    badges?: unknown;
+    merchandisingBadges?: unknown;
     image: string;
     categoryId: number;
     categoryName?: string;
@@ -35,6 +42,9 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     Хит: "bg-white text-black",
     Новинка: "bg-[#05C3D4] text-black",
   };
+  const merchandisingBadges = normalizeMerchandisingBadges(
+    product.merchandisingBadges ?? product.badges
+  ).slice(0, 3);
 
   const rating = Number(product.rating ?? 0);
   const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
@@ -101,9 +111,21 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
       <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm relative after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
         <Link to={`/product/${product.slug}`} className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4">
           <div className="relative h-[112px] sm:h-[132px] bg-white rounded-lg flex items-center justify-center p-3 overflow-hidden">
+            {merchandisingBadges.length > 0 && (
+              <div className="absolute left-2 top-2 z-10 flex max-w-[130px] flex-wrap gap-1">
+                {merchandisingBadges.map(itemBadge => (
+                  <span
+                    key={itemBadge}
+                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
+                  >
+                    {getMerchandisingBadgeLabel(itemBadge)}
+                  </span>
+                ))}
+              </div>
+            )}
             {product.badge && (
               <span
-                className={`absolute top-2 left-2 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[9px] font-black uppercase px-2 py-0.5 rounded`}
+                className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
               >
                 {product.badge}
               </span>
@@ -167,9 +189,21 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm hover:shadow-lg relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
       <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
         <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
+          {merchandisingBadges.length > 0 && (
+            <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-wrap gap-1">
+              {merchandisingBadges.map(itemBadge => (
+                <span
+                  key={itemBadge}
+                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase shadow-sm`}
+                >
+                  {getMerchandisingBadgeLabel(itemBadge)}
+                </span>
+              ))}
+            </div>
+          )}
           {product.badge && (
             <span
-              className={`absolute top-2 left-2 z-10 ${badgeColors[product.badge] || "bg-gray-500"} text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-sm`}
+              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase shadow-sm`}
             >
               {product.badge}
             </span>

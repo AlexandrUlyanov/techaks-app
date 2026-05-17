@@ -177,6 +177,7 @@ const productSelectFields = {
   reviewCount: products.reviewCount,
   createdAt: products.createdAt,
   categoryName: categories.name,
+  merchandisingBadges: schema.productMerchandising.badges,
 };
 
 export const productRouter = createRouter({
@@ -200,6 +201,7 @@ export const productRouter = createRouter({
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(
           specCondition
             ? sql`${publicProductVisibilityCondition} AND ${searchCondition} AND ${specCondition}`
@@ -213,6 +215,7 @@ export const productRouter = createRouter({
       .select(productSelectFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
       .where(publicProductVisibilityCondition)
       .orderBy(desc(products.createdAt));
   }),
@@ -224,6 +227,7 @@ export const productRouter = createRouter({
       .select(productSelectFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
       .orderBy(desc(products.createdAt));
     return rows.map(row => ({
       ...row,
@@ -258,6 +262,7 @@ export const productRouter = createRouter({
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(whereClause)
         .orderBy(desc(products.createdAt))
         .limit(input.limit)
@@ -309,6 +314,7 @@ export const productRouter = createRouter({
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(and(eq(products.slug, input.slug), publicProductVisibilityCondition))
         .limit(1);
       return result[0] || null;
@@ -348,6 +354,7 @@ export const productRouter = createRouter({
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(
           specCondition
             ? sql`${publicProductVisibilityCondition} AND ${manufacturerCondition} AND ${specCondition}`
@@ -379,6 +386,7 @@ export const productRouter = createRouter({
           .select(productSelectFields)
           .from(products)
           .leftJoin(categories, eq(products.categoryId, categories.id))
+          .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
           .where(
             specCondition
               ? sql`${publicProductVisibilityCondition} AND ${specCondition}`
@@ -403,6 +411,7 @@ export const productRouter = createRouter({
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(
           specCondition
             ? sql`${categoryCondition} AND ${publicProductVisibilityCondition} AND ${specCondition}`
