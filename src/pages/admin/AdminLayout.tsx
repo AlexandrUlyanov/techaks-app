@@ -14,109 +14,196 @@ import {
   FolderTree,
   SlidersHorizontal,
   TrendingUp,
+  ShieldCheck,
+  Blocks,
 } from "lucide-react";
 
-const navItems = [
-  { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
-  { name: "Заказы", href: "/admin/leads", icon: MessageSquare },
-  { name: "Категории", href: "/admin/categories", icon: FolderTree },
-  { name: "Товары", href: "/admin/products", icon: Package },
-  { name: "Магазины", href: "/admin/stores", icon: Store },
-  { name: "Акции", href: "/admin/banners", icon: Gift },
-  { name: "Мерчендайзинг", href: "/admin/merchandising", icon: TrendingUp },
-  { name: "Блог", href: "/admin/blog", icon: FileText },
-  { name: "Синхронизации", href: "/admin/sync", icon: RefreshCw },
-  { name: "Нормализация", href: "/admin/normalize-specs", icon: SlidersHorizontal },
-  { name: "Настройки", href: "/admin/settings", icon: Settings },
+type NavItem = {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  match?: (pathname: string) => boolean;
+};
+
+const navGroups: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: "Операции",
+    items: [
+      { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
+      { name: "Заказы", href: "/admin/leads", icon: MessageSquare },
+      {
+        name: "Синхронизации",
+        href: "/admin/sync",
+        icon: RefreshCw,
+        match: pathname => pathname.startsWith("/admin/sync"),
+      },
+    ],
+  },
+  {
+    title: "Каталог",
+    items: [
+      { name: "Категории", href: "/admin/categories", icon: FolderTree },
+      { name: "Товары", href: "/admin/products", icon: Package },
+      { name: "Магазины", href: "/admin/stores", icon: Store },
+      { name: "Мерчендайзинг", href: "/admin/merchandising", icon: TrendingUp },
+      {
+        name: "Нормализация",
+        href: "/admin/normalize-specs",
+        icon: SlidersHorizontal,
+      },
+    ],
+  },
+  {
+    title: "Контент и система",
+    items: [
+      { name: "Акции", href: "/admin/banners", icon: Gift },
+      { name: "Блог", href: "/admin/blog", icon: FileText },
+      { name: "Настройки", href: "/admin/settings", icon: Settings },
+    ],
+  },
 ];
+
+function getCurrentItem(pathname: string) {
+  for (const group of navGroups) {
+    for (const item of group.items) {
+      if (item.match ? item.match(pathname) : pathname === item.href) {
+        return { group: group.title, item };
+      }
+    }
+  }
+
+  return null;
+}
 
 export default function AdminLayout() {
   const location = useLocation();
+  const current = getCurrentItem(location.pathname);
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#15171A] text-white flex flex-col border-r border-white/5">
-        <div className="p-8 border-b border-white/5">
-          <Link to="/admin" className="flex flex-col leading-none group">
-            <span className="text-xl font-black tracking-tighter uppercase font-heading">
-              ТЕХ<span className="text-[#05C3D4]">АКС</span>
-            </span>
-            <span className="text-[7px] font-bold tracking-[0.2em] text-white/20 uppercase mt-1">
-              ADMIN PANEL
-            </span>
-          </Link>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1 mt-4">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive =
-              location.pathname === item.href ||
-              (item.href === "/admin/sync" &&
-                location.pathname.startsWith("/admin/sync"));
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  isActive
-                    ? "bg-[#05C3D4] text-black shadow-[0_0_15px_rgba(5,195,212,0.15)]"
-                    : "text-white/40 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Icon size={16} />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-white/5 space-y-1">
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-white/40 hover:bg-white/5 hover:text-white transition-all"
-          >
-            <Home size={16} />
-            На сайт
-          </Link>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-red-500/60 hover:bg-red-500/10 transition-all">
-            <LogOut size={16} />
-            Выйти
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-[#F8F9FA]">
-        {/* Header */}
-        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-10">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-            <span>Администрирование</span>
-            <ChevronRight size={12} className="text-gray-300" />
-            <span className="text-black">
-              {navItems.find(n => n.href === location.pathname)?.name ||
-                "Профиль"}
-            </span>
+    <div className="min-h-screen bg-[#F4F6F8]">
+      <div className="grid min-h-screen lg:grid-cols-[272px_minmax(0,1fr)]">
+        <aside className="flex flex-col border-r border-black/5 bg-[#15171A] text-white">
+          <div className="border-b border-white/10 px-7 py-7">
+            <Link to="/admin" className="flex flex-col gap-1">
+              <span className="text-2xl font-black uppercase tracking-tight">
+                ТЕХ<span className="text-[#05C3D4]">АКС</span>
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">
+                Панель управления
+              </span>
+            </Link>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm font-semibold text-[#0a0a0a]">
-                Администратор
+
+          <nav className="flex-1 space-y-7 overflow-y-auto px-4 py-6">
+            {navGroups.map(group => (
+              <div key={group.title} className="space-y-2">
+                <div className="px-3 text-[10px] font-black uppercase tracking-[0.22em] text-white/25">
+                  {group.title}
+                </div>
+                <div className="space-y-1">
+                  {group.items.map(item => {
+                    const Icon = item.icon;
+                    const isActive = item.match
+                      ? item.match(location.pathname)
+                      : location.pathname === item.href;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                          isActive
+                            ? "bg-white text-[#15171A] shadow-sm"
+                            : "text-white/55 hover:bg-white/6 hover:text-white"
+                        }`}
+                      >
+                        <Icon
+                          size={17}
+                          className={isActive ? "text-[#05C3D4]" : "text-white/35"}
+                        />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="text-xs text-gray-500">admin@techaks.ru</div>
-            </div>
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-bold">
-              A
+            ))}
+          </nav>
+
+          <div className="border-t border-white/10 px-4 py-4">
+            <div className="space-y-1">
+              <Link
+                to="/"
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-white/55 transition-colors hover:bg-white/6 hover:text-white"
+              >
+                <Home size={17} className="text-white/35" />
+                <span>На сайт</span>
+              </Link>
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-rose-300/80 transition-colors hover:bg-rose-500/10 hover:text-rose-200">
+                <LogOut size={17} className="text-rose-300/60" />
+                <span>Выйти</span>
+              </button>
             </div>
           </div>
-        </header>
+        </aside>
 
-        {/* Page Content */}
-        <div className="p-8 overflow-y-auto">
-          <Outlet />
-        </div>
-      </main>
+        <main className="flex min-h-screen flex-col">
+          <header className="border-b border-black/5 bg-white/90 px-6 py-4 backdrop-blur lg:px-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">
+                  <span>Администрирование</span>
+                  <ChevronRight size={12} className="text-gray-300" />
+                  <span>{current?.group ?? "Обзор"}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-xl font-black text-[#15171A]">
+                    {current?.item.name ?? "Панель"}
+                  </h1>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[#05C3D4]/20 bg-[#F7FEFF] px-3 py-1 text-xs font-bold text-[#0099A8]">
+                    <ShieldCheck size={14} />
+                    Рабочий режим
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="hidden items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 md:flex">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#05C3D4] shadow-sm">
+                    <Blocks size={18} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-gray-400">
+                      Контур
+                    </div>
+                    <div className="text-sm font-semibold text-[#15171A]">
+                      Операционный backoffice
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-[#15171A]">
+                      Администратор
+                    </div>
+                    <div className="text-xs text-gray-500">admin@techaks.ru</div>
+                  </div>
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#15171A] text-sm font-black text-white">
+                    A
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
+            <div className="mx-auto max-w-[1600px]">
+              <Outlet />
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

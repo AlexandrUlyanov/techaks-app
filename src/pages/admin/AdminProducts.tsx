@@ -11,6 +11,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
+  Package,
+  EyeOff,
+  CircleDollarSign,
 } from "lucide-react";
 import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
 import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
@@ -18,10 +22,14 @@ import {
   AUTO_BLOCK_REASON_ZERO_PRICE,
   hasInvalidProductPrice,
 } from "@contracts/product-visibility";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminSection from "@/components/admin/AdminSection";
+import AdminStatCard from "@/components/admin/AdminStatCard";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
+  const [showCatalogUtilities, setShowCatalogUtilities] = useState(false);
   const limit = 20;
 
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -80,7 +88,7 @@ export default function AdminProducts() {
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setPage(1); // Reset to first page on search
+    setPage(1);
   };
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
@@ -145,224 +153,292 @@ export default function AdminProducts() {
     isActive: draftIsActive,
   });
 
+  const visibleProducts = products.filter(product => {
+    const status = getPublicationStatus(product);
+    return status.label === "Отображается на сайте";
+  }).length;
+  const autoBlockedProducts = products.filter(product => {
+    return (
+      product.isAutoBlocked === true ||
+      product.autoBlockReason === AUTO_BLOCK_REASON_ZERO_PRICE ||
+      hasInvalidProductPrice(product.price)
+    );
+  }).length;
+
   return (
     <div className="space-y-6">
-      <ManufacturerCatalogPanel />
-      <ProductSpecStandardizationPanel categories={categories as any} />
+      <AdminPageHeader
+        eyebrow="Каталог"
+        title="Товары"
+        description="Основной рабочий сценарий здесь — поиск, просмотр и редактирование карточек. Служебные инструменты каталогизации и стандартизации остаются доступны, но не мешают ежедневному CRUD."
+        actions={
+          <button
+            onClick={() => setEditingProduct({})}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7]"
+          >
+            <Plus size={18} />
+            Добавить товар
+          </button>
+        }
+      />
 
-      {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={18}
-          />
-          <input
-            type="text"
-            placeholder="Поиск товаров..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
-          />
-        </div>
-        <button
-          onClick={() => setEditingProduct({})}
-          className="flex items-center gap-2 px-4 py-2 bg-[#05C3D4] text-white rounded-lg hover:bg-[#0097a7] transition-colors font-medium"
-        >
-          <Plus size={18} />
-          Добавить товар
-        </button>
+      <div className="grid gap-4 md:grid-cols-3">
+        <AdminStatCard
+          label="Текущая выборка"
+          value={pagedData?.total ?? 0}
+          hint={`Страница ${page} из ${totalPages}`}
+          icon={Package}
+          tone="accent"
+        />
+        <AdminStatCard
+          label="Отображаются на сайте"
+          value={visibleProducts}
+          hint="В текущей таблице"
+          icon={CircleDollarSign}
+          tone="success"
+        />
+        <AdminStatCard
+          label="Автоблокировка / нет цены"
+          value={autoBlockedProducts}
+          hint="Товар не виден на витрине"
+          icon={EyeOff}
+          tone={autoBlockedProducts > 0 ? "warning" : "default"}
+        />
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Товар
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Категория
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Цена
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Статус на сайте
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Наличие
-                </th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">
-                  Действия
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    Загрузка...
-                  </td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    Товары не найдены
-                  </td>
-                </tr>
-              ) : (
-                products.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-100 rounded p-1 flex items-center justify-center">
-                          <img
-                            src={p.image}
-                            alt=""
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        </div>
-                        <div>
-                          <div className="font-medium text-[#0a0a0a]">
-                            {p.name}
-                          </div>
-                          <div className="text-xs text-gray-400">{p.slug}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-600">
-                        {p.categoryName || "—"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-[#0a0a0a]">
-                        {p.price} ₽
-                      </div>
-                      {p.oldPrice && (
-                        <div className="text-xs text-gray-400 line-through">
-                          {p.oldPrice} ₽
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {(() => {
-                        const status = getPublicationStatus(p);
-                        return (
-                          <div className="space-y-1">
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${status.className}`}
-                            >
-                              {status.label}
-                            </span>
-                            <div className="text-xs text-gray-500 max-w-[220px] leading-relaxed">
-                              {status.hint}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-6 py-4">
-                      {p.stocks && p.stocks.length > 0 ? (
-                        <div className="space-y-1">
-                          {p.stocks.map((s: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="text-xs flex items-center justify-between gap-2 bg-gray-50 px-2 py-1 rounded"
-                            >
-                              <span
-                                className="text-gray-600 truncate max-w-[120px]"
-                                title={s.storeName}
-                              >
-                                {s.storeName}
-                              </span>
-                              <span className="font-bold">{s.quantity} шт</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded">
-                          <X size={12} /> Нет в наличии
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setEditingProduct(p)}
-                          className="p-2 text-gray-400 hover:text-[#05C3D4] hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                        <a
-                          href={`/product/${p.slug}`}
-                          target="_blank"
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <ExternalLink size={16} />
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <AdminSection
+        title="Список товаров"
+        description="Сначала работаем со списком. Инструментальные панели каталогизации и стандартизации вынесены ниже как отдельная служебная зона."
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-xl">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Поиск товаров..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#05C3D4]"
+              />
+            </div>
 
-        {/* Pagination Controls */}
-        {!isLoading && totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-            <div className="text-sm text-gray-500">
-              Страница {page} из {totalPages} ({pagedData?.total} товаров)
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-2 border border-gray-200 rounded-lg bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-2 border border-gray-200 rounded-lg bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowCatalogUtilities(prev => !prev)}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+            >
+              <ChevronsUpDown size={16} />
+              {showCatalogUtilities
+                ? "Скрыть служебные панели"
+                : "Показать служебные панели"}
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* Modal */}
-      {editingProduct && (
+          <div className="overflow-hidden rounded-2xl border border-gray-200">
+            <div className="overflow-x-auto bg-white">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Товар
+                    </th>
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Категория
+                    </th>
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Цена
+                    </th>
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Статус на сайте
+                    </th>
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Наличие
+                    </th>
+                    <th className="px-6 py-4 text-sm font-semibold text-gray-600">
+                      Действия
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        Загрузка...
+                      </td>
+                    </tr>
+                  ) : products.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        Товары не найдены
+                      </td>
+                    </tr>
+                  ) : (
+                    products.map(product => {
+                      const status = getPublicationStatus(product);
+                      return (
+                        <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 p-1">
+                                <img
+                                  src={product.image}
+                                  alt=""
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              </div>
+                              <div>
+                                <div className="font-medium text-[#0a0a0a]">
+                                  {product.name}
+                                </div>
+                                <div className="text-xs text-gray-400">{product.slug}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-gray-600">
+                              {product.categoryName || "—"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-semibold text-[#0a0a0a]">
+                              {product.price} ₽
+                            </div>
+                            {product.oldPrice ? (
+                              <div className="text-xs text-gray-400 line-through">
+                                {product.oldPrice} ₽
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="space-y-1">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${status.className}`}
+                              >
+                                {status.label}
+                              </span>
+                              <div className="max-w-[220px] text-xs leading-relaxed text-gray-500">
+                                {status.hint}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {product.stocks && product.stocks.length > 0 ? (
+                              <div className="space-y-1">
+                                {product.stocks.map((stock: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between gap-2 rounded bg-gray-50 px-2 py-1 text-xs"
+                                  >
+                                    <span
+                                      className="max-w-[120px] truncate text-gray-600"
+                                      title={stock.storeName}
+                                    >
+                                      {stock.storeName}
+                                    </span>
+                                    <span className="font-bold">{stock.quantity} шт</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+                                <X size={12} /> Нет в наличии
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setEditingProduct(product)}
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#05C3D4]"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(product.id)}
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <a
+                                href={`/product/${product.slug}`}
+                                target="_blank"
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                              >
+                                <ExternalLink size={16} />
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {!isLoading && totalPages > 1 ? (
+              <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 p-4">
+                <div className="text-sm text-gray-500">
+                  Страница {page} из {totalPages} ({pagedData?.total} товаров)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                    disabled={page === 1}
+                    className="rounded-xl border border-gray-200 bg-white p-2 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={page === totalPages}
+                    className="rounded-xl border border-gray-200 bg-white p-2 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </AdminSection>
+
+      {showCatalogUtilities ? (
+        <div className="space-y-6">
+          <AdminSection
+            title="Служебные панели каталога"
+            description="Эти инструменты нужны не в каждом ежедневном сценарии, поэтому они вынесены в отдельную рабочую зону и не давят на основной экран товаров."
+            tone="subtle"
+          >
+            <div className="space-y-6">
+              <ManufacturerCatalogPanel />
+              <ProductSpecStandardizationPanel categories={categories as any} />
+            </div>
+          </AdminSection>
+        </div>
+      ) : null}
+
+      {editingProduct ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setEditingProduct(null)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-[#0a0a0a]">
-                {editingProduct.id ? "Редактировать товар" : "Новый товар"}
-              </h2>
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white p-6">
+              <div>
+                <h2 className="text-xl font-bold text-[#0a0a0a]">
+                  {editingProduct.id ? "Редактировать товар" : "Новый товар"}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Основные поля редактируются здесь. Статус публикации на сайте
+                  всегда показывается сразу, чтобы не потерять смысл изменений.
+                </p>
+              </div>
               <button
                 onClick={() => setEditingProduct(null)}
                 className="text-gray-400 hover:text-gray-600"
@@ -371,12 +447,14 @@ export default function AdminProducts() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <form onSubmit={handleSave} className="space-y-5 p-6">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <div className="text-sm font-semibold text-gray-900">
                   Статус товара на сайте
                 </div>
-                <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${editingStatus.className}`}>
+                <div
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${editingStatus.className}`}
+                >
                   {editingStatus.label}
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-gray-600">
@@ -392,13 +470,13 @@ export default function AdminProducts() {
                   <input
                     name="name"
                     defaultValue={editingProduct.name}
-                    onChange={(e) => {
+                    onChange={e => {
                       if (!manualSlug) {
                         setSlugValue(slugify(e.target.value));
                       }
                     }}
                     required
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
                 <div className="space-y-1">
@@ -408,12 +486,12 @@ export default function AdminProducts() {
                   <input
                     name="slug"
                     value={slugValue}
-                    onChange={(e) => {
+                    onChange={e => {
                       setSlugValue(e.target.value);
                       setManualSlug(true);
                     }}
                     required
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
               </div>
@@ -427,11 +505,11 @@ export default function AdminProducts() {
                     name="categoryId"
                     defaultValue={editingProduct.categoryId}
                     required
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
                       </option>
                     ))}
                   </select>
@@ -443,7 +521,7 @@ export default function AdminProducts() {
                   <input
                     name="badge"
                     defaultValue={editingProduct.badge}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
               </div>
@@ -459,7 +537,7 @@ export default function AdminProducts() {
                     value={draftPrice}
                     onChange={e => setDraftPrice(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
                 <div className="space-y-1">
@@ -470,7 +548,7 @@ export default function AdminProducts() {
                     type="number"
                     name="oldPrice"
                     defaultValue={editingProduct.oldPrice}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
                 <div className="space-y-1">
@@ -481,7 +559,7 @@ export default function AdminProducts() {
                     name="rating"
                     defaultValue={editingProduct.rating || "5.0"}
                     required
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                   />
                 </div>
               </div>
@@ -494,7 +572,7 @@ export default function AdminProducts() {
                   name="image"
                   defaultValue={editingProduct.image}
                   required
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                 />
               </div>
 
@@ -507,7 +585,7 @@ export default function AdminProducts() {
                   defaultValue={editingProduct.description}
                   required
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-[#05C3D4]"
                 />
               </div>
 
@@ -517,13 +595,9 @@ export default function AdminProducts() {
                 </label>
                 <textarea
                   name="specs"
-                  defaultValue={JSON.stringify(
-                    editingProduct.specs || {},
-                    null,
-                    2
-                  )}
+                  defaultValue={JSON.stringify(editingProduct.specs || {}, null, 2)}
                   rows={5}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4] font-mono text-xs"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 font-mono text-xs outline-none focus:border-[#05C3D4]"
                 />
               </div>
 
@@ -535,21 +609,18 @@ export default function AdminProducts() {
                   onChange={e => setDraftIsActive(e.target.checked)}
                   id="isActive"
                 />
-                <label
-                  htmlFor="isActive"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
                   Активен на сайте
                 </label>
               </div>
 
-              {(hasInvalidProductPrice(draftPrice === "" ? null : Number(draftPrice)) ||
-                editingStatus.label !== "Отображается на сайте") && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              {hasInvalidProductPrice(draftPrice === "" ? null : Number(draftPrice)) ||
+              editingStatus.label !== "Отображается на сайте" ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                   Товар не появится на сайте, пока цена не станет больше 0 и
                   ручная активность не будет включена.
                 </div>
-              )}
+              ) : null}
 
               <div className="flex items-center gap-2">
                 <input
@@ -558,37 +629,34 @@ export default function AdminProducts() {
                   defaultChecked={editingProduct.inStock ?? true}
                   id="inStock"
                 />
-                <label
-                  htmlFor="inStock"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="inStock" className="text-sm font-medium text-gray-700">
                   В наличии
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+              <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
-                  className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                  className="rounded-xl px-4 py-2 font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
                   disabled={upsertMutation.isPending}
-                  className="flex items-center gap-2 px-6 py-2 bg-[#05C3D4] text-white font-medium rounded-lg hover:bg-[#0097a7] transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#05C3D4] px-6 py-2 font-medium text-white transition-colors hover:bg-[#0097a7] disabled:opacity-50"
                 >
-                  {upsertMutation.isPending && (
+                  {upsertMutation.isPending ? (
                     <Loader2 size={16} className="animate-spin" />
-                  )}
+                  ) : null}
                   {editingProduct.id ? "Сохранить изменения" : "Создать товар"}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
