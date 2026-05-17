@@ -38,29 +38,8 @@ type AccountOrder = {
   createdAt?: string | Date | null;
   latestManagerCommentAt?: string | Date | null;
   latestClientCommentAt?: string | Date | null;
+  latestCustomerReadManagerAt?: string | Date | null;
 };
-
-const ORDER_MESSAGE_SEEN_STORAGE_KEY = "techaks-order-message-seen";
-
-function readSeenConversationMap() {
-  if (typeof window === "undefined") return {} as Record<string, string>;
-  try {
-    const raw = window.localStorage.getItem(ORDER_MESSAGE_SEEN_STORAGE_KEY);
-    if (!raw) return {} as Record<string, string>;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {} as Record<string, string>;
-  }
-}
-
-function markConversationSeen(orderId: number, seenAt: string) {
-  if (typeof window === "undefined") return;
-  const current = readSeenConversationMap();
-  current[String(orderId)] = seenAt;
-  window.localStorage.setItem(ORDER_MESSAGE_SEEN_STORAGE_KEY, JSON.stringify(current));
-  window.dispatchEvent(new CustomEvent("techaks-order-conversation-seen"));
-}
 
 const orderStatusLabels: Record<string, string> = {
   pending: "Новый",
@@ -194,6 +173,15 @@ function AccountOrderCard({
       toast.error(err.message || "Не удалось отправить сообщение");
     },
   });
+  const markConversationRead = trpc.ecommerce.markMyOrderConversationRead.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getMyOrders.invalidate(),
+        utils.ecommerce.getMyOrderNotifications.invalidate(),
+        utils.ecommerce.getMyOrderHistory.invalidate({ orderId: order.id }),
+      ]);
+    },
+  });
 
   const compatibilityWarnings = useMemo(
     () => [
@@ -218,15 +206,42 @@ function AccountOrderCard({
 
   const hasUnreadManagerReply = useMemo(() => {
     if (!latestManagerCommentIso) return false;
-    const seenAt = readSeenConversationMap()[String(order.id)];
-    return !seenAt || new Date(latestManagerCommentIso).getTime() > new Date(seenAt).getTime();
-  }, [latestManagerCommentIso, order.id]);
+    const serverSeenAt =
+      feed?.readState?.latestCustomerReadManagerAt ??
+      order.latestCustomerReadManagerAt ??
+      null;
+    if (!serverSeenAt) return true;
+    return (
+      new Date(latestManagerCommentIso).getTime() >
+      new Date(serverSeenAt).getTime()
+    );
+  }, [
+    feed?.readState?.latestCustomerReadManagerAt,
+    latestManagerCommentIso,
+    order.latestCustomerReadManagerAt,
+  ]);
 
   useEffect(() => {
     if (expanded && latestManagerCommentIso) {
-      markConversationSeen(order.id, latestManagerCommentIso);
+      const serverSeenAt =
+        feed?.readState?.latestCustomerReadManagerAt ??
+        order.latestCustomerReadManagerAt ??
+        null;
+      const shouldMark =
+        !serverSeenAt ||
+        new Date(latestManagerCommentIso).getTime() > new Date(serverSeenAt).getTime();
+      if (shouldMark && !markConversationRead.isPending) {
+        markConversationRead.mutate({ orderId: order.id });
+      }
     }
-  }, [expanded, latestManagerCommentIso, order.id]);
+  }, [
+    expanded,
+    feed?.readState?.latestCustomerReadManagerAt,
+    latestManagerCommentIso,
+    markConversationRead,
+    order.id,
+    order.latestCustomerReadManagerAt,
+  ]);
 
   return (
     <div className="bg-card border border-border rounded-3xl shadow-sm hover:shadow-xl transition-all">

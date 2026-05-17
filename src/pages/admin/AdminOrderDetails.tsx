@@ -41,6 +41,7 @@ export default function AdminOrderDetails() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [markedClientReadAt, setMarkedClientReadAt] = useState<string | null>(null);
 
   const {
     data: order,
@@ -112,6 +113,14 @@ export default function AdminOrderDetails() {
     },
     onError: err => toast.error(err.message || "Ошибка удаления заказа"),
   });
+  const markConversationRead = trpc.ecommerce.markOrderConversationRead.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+    },
+  });
 
   const formatPrice = (value: number | null | undefined) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
@@ -125,6 +134,27 @@ export default function AdminOrderDetails() {
     setCustomerEmail(order.customerEmail || "");
     setAddress(order.address || "");
   }, [order]);
+
+  useEffect(() => {
+    const latestClientCommentAt = feed?.readState?.latestClientCommentAt;
+    if (!latestClientCommentAt || markedClientReadAt === String(latestClientCommentAt)) {
+      return;
+    }
+    const latestClientMs = new Date(latestClientCommentAt).getTime();
+    const latestReadMs = feed?.readState?.latestAdminReadClientAt
+      ? new Date(feed.readState.latestAdminReadClientAt).getTime()
+      : 0;
+    if (Number.isFinite(latestClientMs) && latestClientMs > latestReadMs) {
+      setMarkedClientReadAt(String(latestClientCommentAt));
+      markConversationRead.mutate({ orderId });
+    }
+  }, [
+    feed?.readState?.latestAdminReadClientAt,
+    feed?.readState?.latestClientCommentAt,
+    markedClientReadAt,
+    markConversationRead,
+    orderId,
+  ]);
 
   const printDocument = (mode: "order" | "picking" | "invoice") => {
     if (!order) return;
@@ -210,6 +240,14 @@ export default function AdminOrderDetails() {
   const internalComments = (feed?.comments ?? []).filter(
     item => item.commentType === "internal"
   );
+  const latestClientCommentMs = feed?.readState?.latestClientCommentAt
+    ? new Date(feed.readState.latestClientCommentAt).getTime()
+    : 0;
+  const latestAdminReadClientMs = feed?.readState?.latestAdminReadClientAt
+    ? new Date(feed.readState.latestAdminReadClientAt).getTime()
+    : 0;
+  const hasUnreadClientMessage =
+    latestClientCommentMs > 0 && latestClientCommentMs > latestAdminReadClientMs;
 
   const itemTotal = useMemo(
     () =>
@@ -239,6 +277,12 @@ export default function AdminOrderDetails() {
               <span className="inline-flex items-center gap-2 rounded-full border border-[#05C3D4]/20 bg-[#F7FEFF] px-3 py-1 text-xs font-bold text-[#0099A8]">
                 <MessageSquarePlus size={14} />
                 Есть переписка с клиентом
+              </span>
+            ) : null}
+            {hasUnreadClientMessage ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                <MessageSquarePlus size={14} />
+                Новое сообщение клиента
               </span>
             ) : null}
           </div>

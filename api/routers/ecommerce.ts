@@ -902,6 +902,15 @@ export const ecommerceRouter = createRouter({
                 FROM ${orderComments}
                 WHERE ${orderComments.orderId} = ${orders.id}
                   AND ${orderComments.commentType} = 'manager'
+            )`
+            : sql<Date | null>`NULL`,
+          latestCustomerReadManagerAt: capabilities.hasOrderHistoryTable
+            ? sql<Date | null>`(
+                SELECT MAX(${orderHistory.createdAt})
+                FROM ${orderHistory}
+                WHERE ${orderHistory.orderId} = ${orders.id}
+                  AND ${orderHistory.actionType} = 'customer_conversation_read'
+                  AND ${orderHistory.userId} = ${ctx.user.id}
               )`
             : sql<Date | null>`NULL`,
         })
@@ -1036,6 +1045,15 @@ export const ecommerceRouter = createRouter({
           WHERE ${orderComments.orderId} = ${orders.id}
             AND ${orderComments.commentType} = 'manager'
         )`,
+        latestCustomerReadManagerAt: capabilities.hasOrderHistoryTable
+          ? sql<Date | null>`(
+              SELECT MAX(${orderHistory.createdAt})
+              FROM ${orderHistory}
+              WHERE ${orderHistory.orderId} = ${orders.id}
+                AND ${orderHistory.actionType} = 'customer_conversation_read'
+                AND ${orderHistory.userId} = ${ctx.user.id}
+            )`
+          : sql<Date | null>`NULL`,
       })
       .from(orders)
       .where(and(
@@ -1050,10 +1068,52 @@ export const ecommerceRouter = createRouter({
       .orderBy(desc(orders.createdAt));
 
     return {
-      items,
+      items: items.filter(item => {
+        if (!item.latestManagerCommentAt) return false;
+        if (!item.latestCustomerReadManagerAt) return true;
+        return (
+          new Date(item.latestManagerCommentAt).getTime() >
+          new Date(item.latestCustomerReadManagerAt).getTime()
+        );
+      }),
       compatibilityMode: "modern" as const,
     };
   }),
+
+  markMyOrderConversationRead: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+      const allowed = await canViewerAccessOrder(
+        db,
+        input.orderId,
+        {
+          id: ctx.user.id,
+          phone: ctx.user.phone || null,
+          email: ctx.user.email || null,
+        },
+        capabilities
+      );
+
+      if (!allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Заказ недоступен" });
+      }
+
+      if (!capabilities.hasOrderHistoryTable) {
+        return { success: true, compatibilityMode: "legacy" as const };
+      }
+
+      await safeInsertOrderHistory(db, {
+        orderId: input.orderId,
+        userId: ctx.user.id,
+        actionType: "customer_conversation_read",
+        newValue: { readAt: new Date().toISOString() } as any,
+        comment: "Клиент просмотрел переписку по заказу.",
+      });
+
+      return { success: true, compatibilityMode: "modern" as const };
+    }),
 
   listOrders: protectedProcedure
     .input(
@@ -1071,6 +1131,7 @@ export const ecommerceRouter = createRouter({
           managerId: z.number().optional(),
           dateFrom: z.coerce.date().optional(),
           dateTo: z.coerce.date().optional(),
+          conversationState: z.enum(["needs_response", "unread"]).optional(),
         })
         .optional()
     )
@@ -1134,6 +1195,14 @@ export const ecommerceRouter = createRouter({
                     AND ${orderComments.commentType} = 'manager'
                 )`
               : sql<Date | null>`NULL`,
+            latestAdminReadClientAt: capabilities.hasOrderHistoryTable
+              ? sql<Date | null>`(
+                  SELECT MAX(${orderHistory.createdAt})
+                  FROM ${orderHistory}
+                  WHERE ${orderHistory.orderId} = ${orders.id}
+                    AND ${orderHistory.actionType} = 'manager_conversation_read'
+                )`
+              : sql<Date | null>`NULL`,
           })
           .from(orders)
           .leftJoin(users, eq(orders.userId, users.id))
@@ -1162,6 +1231,9 @@ export const ecommerceRouter = createRouter({
         deliveryTypes: input?.deliveryTypes,
         dateFrom: input?.dateFrom,
         dateTo: input?.dateTo,
+        conversationState: capabilities.hasOrderCommentsTable
+          ? input?.conversationState
+          : undefined,
         supportsUserEmail: capabilities.hasUsersEmail,
         supportsUserFullName: capabilities.hasUsersFullName,
       });
@@ -1236,6 +1308,17 @@ export const ecommerceRouter = createRouter({
                   )`
                 : sql`NULL`
             } AS latestManagerCommentAt
+            ,
+            ${
+              capabilities.hasOrderHistoryTable
+                ? sql`(
+                    SELECT MAX(oh.created_at)
+                    FROM order_history oh
+                    WHERE oh.order_id = o.id
+                      AND oh.action_type = 'manager_conversation_read'
+                  )`
+                : sql`NULL`
+            } AS latestAdminReadClientAt
           FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
           ${legacyWhereSql}
@@ -1721,9 +1804,39 @@ export const ecommerceRouter = createRouter({
               .orderBy(desc(orderComments.createdAt))
           : [];
 
+        const [readState] = capabilities.hasOrderHistoryTable
+          ? await db
+              .select({
+                latestManagerCommentAt: capabilities.hasOrderCommentsTable
+                  ? sql<Date | null>`(
+                      SELECT MAX(${orderComments.createdAt})
+                      FROM ${orderComments}
+                      WHERE ${orderComments.orderId} = ${input.orderId}
+                        AND ${orderComments.commentType} = 'manager'
+                    )`
+                  : sql<Date | null>`NULL`,
+                latestCustomerReadManagerAt: sql<Date | null>`(
+                  SELECT MAX(${orderHistory.createdAt})
+                  FROM ${orderHistory}
+                  WHERE ${orderHistory.orderId} = ${input.orderId}
+                    AND ${orderHistory.actionType} = 'customer_conversation_read'
+                    AND ${orderHistory.userId} = ${ctx.user.id}
+                )`,
+              })
+              .from(orders)
+              .where(eq(orders.id, input.orderId))
+              .limit(1)
+          : [
+              {
+                latestManagerCommentAt: null,
+                latestCustomerReadManagerAt: null,
+              },
+            ];
+
         return {
           history,
           comments: comments.filter(comment => comment.commentType !== "internal"),
+          readState,
           compatibilityMode:
             capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
               ? ("modern" as const)
@@ -1857,6 +1970,38 @@ export const ecommerceRouter = createRouter({
         newValue: { commentType: input.commentType, comment: input.comment } as any,
       });
 
+      if (input.commentType === "manager") {
+        await safeInsertOrderHistory(db, {
+          orderId: input.orderId,
+          userId: ctx.user?.id ?? null,
+          actionType: "manager_conversation_read",
+          newValue: { readAt: new Date().toISOString(), reason: "manager_reply" } as any,
+          comment: "Менеджер ответил клиенту и просмотрел переписку.",
+        });
+      }
+
+      return { success: true, compatibilityMode: "modern" as const };
+    }),
+
+  markOrderConversationRead: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Order");
+      const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+
+      if (!capabilities.hasOrderHistoryTable) {
+        return { success: true, compatibilityMode: "legacy" as const };
+      }
+
+      await safeInsertOrderHistory(db, {
+        orderId: input.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "manager_conversation_read",
+        newValue: { readAt: new Date().toISOString() } as any,
+        comment: "Менеджер просмотрел переписку с клиентом.",
+      });
+
       return { success: true, compatibilityMode: "modern" as const };
     }),
 
@@ -1914,9 +2059,47 @@ export const ecommerceRouter = createRouter({
           .orderBy(desc(orderComments.createdAt))
           : [];
 
+        const [readState] = capabilities.hasOrderHistoryTable
+          ? await db
+              .select({
+                latestClientCommentAt: capabilities.hasOrderCommentsTable
+                  ? sql<Date | null>`(
+                      SELECT MAX(${orderComments.createdAt})
+                      FROM ${orderComments}
+                      WHERE ${orderComments.orderId} = ${input.orderId}
+                        AND ${orderComments.commentType} = 'client'
+                    )`
+                  : sql<Date | null>`NULL`,
+                latestManagerCommentAt: capabilities.hasOrderCommentsTable
+                  ? sql<Date | null>`(
+                      SELECT MAX(${orderComments.createdAt})
+                      FROM ${orderComments}
+                      WHERE ${orderComments.orderId} = ${input.orderId}
+                        AND ${orderComments.commentType} = 'manager'
+                    )`
+                  : sql<Date | null>`NULL`,
+                latestAdminReadClientAt: sql<Date | null>`(
+                  SELECT MAX(${orderHistory.createdAt})
+                  FROM ${orderHistory}
+                  WHERE ${orderHistory.orderId} = ${input.orderId}
+                    AND ${orderHistory.actionType} = 'manager_conversation_read'
+                )`,
+              })
+              .from(orders)
+              .where(eq(orders.id, input.orderId))
+              .limit(1)
+          : [
+              {
+                latestClientCommentAt: null,
+                latestManagerCommentAt: null,
+                latestAdminReadClientAt: null,
+              },
+            ];
+
         return {
           history,
           comments,
+          readState,
           compatibilityMode:
             capabilities.hasOrderHistoryTable && capabilities.hasOrderCommentsTable
               ? ("modern" as const)

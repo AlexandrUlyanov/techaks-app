@@ -61,6 +61,8 @@ type QuickTabKey =
   | "paid"
   | "assembly"
   | "in_delivery"
+  | "needs_response"
+  | "unread_messages"
   | "completed"
   | "cancelled"
   | "problem";
@@ -72,6 +74,8 @@ const QUICK_TABS: Array<{ key: QuickTabKey; label: string }> = [
   { key: "paid", label: "Оплаченные" },
   { key: "assembly", label: "К сборке" },
   { key: "in_delivery", label: "В доставке" },
+  { key: "needs_response", label: "Требуют ответа" },
+  { key: "unread_messages", label: "Новые сообщения" },
   { key: "completed", label: "Выполненные" },
   { key: "cancelled", label: "Отмененные" },
   { key: "problem", label: "Проблемные" },
@@ -193,6 +197,12 @@ export default function AdminLeads() {
               ? [paymentFilter]
               : undefined,
       deliveryTypes: deliveryTypeFilter ? [deliveryTypeFilter] : undefined,
+      conversationState:
+        quickTab === "needs_response"
+          ? ("needs_response" as const)
+          : quickTab === "unread_messages"
+            ? ("unread" as const)
+            : undefined,
     }),
     [
       limit,
@@ -249,6 +259,15 @@ export default function AdminLeads() {
       latestClientCommentAt > 0 &&
       latestClientCommentAt >= latestManagerCommentAt
     );
+  }).length;
+  const unreadConversations = orders.filter(order => {
+    const latestClientCommentAt = (order as any).latestClientCommentAt
+      ? new Date((order as any).latestClientCommentAt).getTime()
+      : 0;
+    const latestAdminReadClientAt = (order as any).latestAdminReadClientAt
+      ? new Date((order as any).latestAdminReadClientAt).getTime()
+      : 0;
+    return latestClientCommentAt > 0 && latestClientCommentAt > latestAdminReadClientAt;
   }).length;
 
   const deliveryOrders = orders.filter(order => order.deliveryType === "delivery").length;
@@ -317,7 +336,7 @@ export default function AdminLeads() {
         <AdminStatCard
           label="Ждут ответа"
           value={pendingConversations}
-          hint="Клиент писал последним"
+          hint={`Новых сообщений: ${unreadConversations}`}
           icon={MessageSquare}
           tone={pendingConversations > 0 ? "warning" : "default"}
         />
@@ -516,10 +535,15 @@ export default function AdminLeads() {
             const latestManagerCommentAt = (order as any).latestManagerCommentAt
               ? new Date((order as any).latestManagerCommentAt).getTime()
               : 0;
+            const latestAdminReadClientAt = (order as any).latestAdminReadClientAt
+              ? new Date((order as any).latestAdminReadClientAt).getTime()
+              : 0;
             const hasPendingCustomerMessage =
               clientCommentsCount > 0 &&
               latestClientCommentAt > 0 &&
               latestClientCommentAt >= latestManagerCommentAt;
+            const hasUnreadCustomerMessage =
+              latestClientCommentAt > 0 && latestClientCommentAt > latestAdminReadClientAt;
 
             return (
               <article
@@ -571,6 +595,17 @@ export default function AdminLeads() {
                         >
                           <MessageSquare size={14} />
                           {hasPendingCustomerMessage ? "Ждёт ответа" : "Есть переписка"}
+                        </Link>
+                      ) : null}
+
+                      {hasUnreadCustomerMessage ? (
+                        <Link
+                          to={`/admin/leads/${order.id}`}
+                          className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-3 py-1 text-xs font-black uppercase tracking-wider text-white"
+                          title="Менеджер ещё не открывал последнее сообщение клиента"
+                        >
+                          <MessageSquare size={14} />
+                          Новое сообщение
                         </Link>
                       ) : null}
                     </div>

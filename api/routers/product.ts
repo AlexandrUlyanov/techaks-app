@@ -54,6 +54,10 @@ const specFilterSchema = z.object({
   normalizedValue: z.string(),
 });
 
+const adminVisibilityFilterSchema = z
+  .enum(["all", "site_active", "manual_disabled", "auto_blocked", "zero_price"])
+  .default("all");
+
 function buildSpecFilterConditions(specFilters?: z.infer<typeof specFilterSchema>[]) {
   if (!specFilters?.length) return undefined;
 
@@ -105,6 +109,50 @@ function buildManufacturerCondition(normalizedName: string) {
       AND ${productSpecValues.normalizedKey} IN (${sql.join(keys, sql`, `)})
       AND ${productSpecValues.normalizedValue} = ${normalizedName}
   )`;
+}
+
+function buildAdminProductWhere(input?: {
+  search?: string;
+  visibility?: z.infer<typeof adminVisibilityFilterSchema>;
+}) {
+  const conditions = [];
+  const search = input?.search?.trim();
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        like(products.name, pattern),
+        like(products.slug, pattern),
+        like(products.badge, pattern)
+      )
+    );
+  }
+
+  switch (input?.visibility ?? "all") {
+    case "site_active":
+      conditions.push(
+        and(
+          eq(products.isActive, true),
+          eq(products.isAutoBlocked, false),
+          sql`${products.price} > 0`
+        )
+      );
+      break;
+    case "manual_disabled":
+      conditions.push(eq(products.isActive, false));
+      break;
+    case "auto_blocked":
+      conditions.push(eq(products.isAutoBlocked, true));
+      break;
+    case "zero_price":
+      conditions.push(sql`${products.price} <= 0`);
+      break;
+    case "all":
+    default:
+      break;
+  }
+
+  return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
@@ -189,31 +237,28 @@ export const productRouter = createRouter({
         page: z.number().default(1),
         limit: z.number().default(20),
         search: z.string().optional(),
+        visibility: adminVisibilityFilterSchema.optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Product");
       const db = getDb();
       const offset = (input.page - 1) * input.limit;
+      const whereClause = buildAdminProductWhere(input);
 
-      const totalResult =
-        input.search && input.search.trim() !== ""
-          ? await db
+      const totalResult = whereClause
+        ? await db
           .select({ count: sql<number>`count(*)` })
           .from(products)
-          .where(like(products.name, `%${input.search}%`))
-          : await db.select({ count: sql<number>`count(*)` }).from(products);
+          .where(whereClause)
+        : await db.select({ count: sql<number>`count(*)` }).from(products);
       const total = totalResult[0]?.count || 0;
 
       const items = await db
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(
-          input.search && input.search.trim() !== ""
-            ? like(products.name, `%${input.search}%`)
-            : undefined
-        )
+        .where(whereClause)
         .orderBy(desc(products.createdAt))
         .limit(input.limit)
         .offset(offset);
@@ -752,6 +797,18 @@ export const productRouter = createRouter({
         const result = await db.insert(products).values(payload);
         return { success: true, id: result[0].insertId };
       }
+    }),
+
+  updateProductActivity: protectedProcedure
+    .input(z.object({ id: z.number(), isActive: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
+      const db = getDb();
+      await db
+        .update(products)
+        .set({ isActive: input.isActive })
+        .where(eq(products.id, input.id));
+      return { success: true };
     }),
 
   deleteProduct: protectedProcedure

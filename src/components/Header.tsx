@@ -7,23 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/providers/trpc";
 import { CatalogTrigger } from "./Catalog/CatalogMenu";
 
-const ORDER_MESSAGE_SEEN_STORAGE_KEY = "techaks-order-message-seen";
-
-function readSeenConversationMap() {
-  if (typeof window === "undefined") return {} as Record<string, string>;
-  try {
-    const raw = window.localStorage.getItem(ORDER_MESSAGE_SEEN_STORAGE_KEY);
-    if (!raw) return {} as Record<string, string>;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {} as Record<string, string>;
-  }
-}
-
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [, setSeenVersion] = useState(0);
   const { theme, setTheme } = useTheme();
   const { getItemCount } = useCart();
   const { isAuthenticated } = useAuth();
@@ -60,28 +45,15 @@ export default function Header() {
     };
     document.addEventListener("mousedown", handleClickOutside);
 
-    const handleSeenUpdate = () => setSeenVersion(prev => prev + 1);
-    window.addEventListener("techaks-order-conversation-seen", handleSeenUpdate);
-
     return () => {
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener(
-        "techaks-order-conversation-seen",
-        handleSeenUpdate
-      );
     };
   }, []);
 
   const unreadManagerMessagesCount = (() => {
     if (!isAuthenticated || !orderNotifications?.items?.length) return 0;
-    const seenMap = readSeenConversationMap();
-    return orderNotifications.items.filter(item => {
-      if (!item.latestManagerCommentAt) return false;
-      const latestManagerIso = new Date(item.latestManagerCommentAt).toISOString();
-      const seenAt = seenMap[String(item.orderId)];
-      return !seenAt || new Date(latestManagerIso).getTime() > new Date(seenAt).getTime();
-    }).length;
+    return orderNotifications.items.length;
   })();
 
   const toggleTheme = () => {

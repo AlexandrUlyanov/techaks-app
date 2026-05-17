@@ -15,6 +15,7 @@ import {
   Package,
   EyeOff,
   CircleDollarSign,
+  Power,
 } from "lucide-react";
 import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
 import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
@@ -28,6 +29,9 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [visibilityFilter, setVisibilityFilter] = useState<
+    "all" | "site_active" | "manual_disabled" | "auto_blocked" | "zero_price"
+  >("all");
   const [page, setPage] = useState(1);
   const [showCatalogUtilities, setShowCatalogUtilities] = useState(false);
   const limit = 20;
@@ -62,6 +66,7 @@ export default function AdminProducts() {
     page,
     limit,
     search: searchTerm,
+    visibility: visibilityFilter,
   });
 
   const products = pagedData?.items || [];
@@ -75,6 +80,12 @@ export default function AdminProducts() {
   });
 
   const deleteMutation = trpc.product.deleteProduct.useMutation({
+    onSuccess: () => {
+      utils.product.getPaginated.invalidate();
+    },
+  });
+
+  const updateActivityMutation = trpc.product.updateProductActivity.useMutation({
     onSuccess: () => {
       utils.product.getPaginated.invalidate();
     },
@@ -212,7 +223,8 @@ export default function AdminProducts() {
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full max-w-xl">
+            <div className="grid w-full gap-3 lg:grid-cols-[minmax(280px,1fr)_260px]">
+              <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={18}
@@ -224,6 +236,21 @@ export default function AdminProducts() {
                 onChange={handleSearch}
                 className="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm outline-none focus:border-[#05C3D4]"
               />
+              </div>
+              <select
+                value={visibilityFilter}
+                onChange={event => {
+                  setVisibilityFilter(event.target.value as typeof visibilityFilter);
+                  setPage(1);
+                }}
+                className="h-11 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              >
+                <option value="all">Все товары</option>
+                <option value="site_active">Активные на сайте</option>
+                <option value="manual_disabled">Отключённые вручную</option>
+                <option value="auto_blocked">Автоматически заблокированные</option>
+                <option value="zero_price">Без цены / цена 0</option>
+              </select>
             </div>
 
             <button
@@ -320,6 +347,27 @@ export default function AdminProducts() {
                               >
                                 {status.label}
                               </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateActivityMutation.mutate({
+                                    id: product.id,
+                                    isActive: !(product.isActive ?? true),
+                                  })
+                                }
+                                disabled={updateActivityMutation.isPending}
+                                className="mt-1 inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-bold text-gray-600 transition hover:border-[#05C3D4] hover:text-[#05C3D4] disabled:opacity-50"
+                                title={
+                                  product.isActive === false
+                                    ? "Включить ручную активность"
+                                    : "Отключить вручную"
+                                }
+                              >
+                                <Power size={12} />
+                                {product.isActive === false
+                                  ? "Включить"
+                                  : "Отключить"}
+                              </button>
                               <div className="max-w-[220px] text-xs leading-relaxed text-gray-500">
                                 {status.hint}
                               </div>

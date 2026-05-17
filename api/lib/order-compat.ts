@@ -1,5 +1,5 @@
 import { and, gte, inArray, lte, or, sql } from "drizzle-orm";
-import { orderItems, orders } from "../../db/schema";
+import { orderComments, orderHistory, orderItems, orders } from "../../db/schema";
 import type { getDb } from "../queries/connection";
 
 export type DbClient = ReturnType<typeof getDb>;
@@ -572,6 +572,7 @@ export function buildModernOrderWhere(input?: {
   managerId?: number;
   dateFrom?: Date;
   dateTo?: Date;
+  conversationState?: "needs_response" | "unread";
 }) {
   const whereConditions: any[] = [];
   if (input?.statuses?.length) whereConditions.push(inArray(orders.status, input.statuses));
@@ -591,6 +592,44 @@ export function buildModernOrderWhere(input?: {
   if (typeof input?.managerId === "number") whereConditions.push(sql`${orders.managerId} = ${input.managerId}`);
   if (input?.dateFrom) whereConditions.push(gte(orders.createdAt, input.dateFrom));
   if (input?.dateTo) whereConditions.push(lte(orders.createdAt, input.dateTo));
+  if (input?.conversationState === "needs_response") {
+    whereConditions.push(sql`EXISTS (
+      SELECT 1 FROM ${orderComments} client_comments
+      WHERE client_comments.order_id = ${orders.id}
+        AND client_comments.comment_type = 'client'
+        AND client_comments.created_at = (
+          SELECT MAX(client_latest.created_at)
+          FROM ${orderComments} client_latest
+          WHERE client_latest.order_id = ${orders.id}
+            AND client_latest.comment_type = 'client'
+        )
+        AND client_comments.created_at > COALESCE((
+          SELECT MAX(manager_latest.created_at)
+          FROM ${orderComments} manager_latest
+          WHERE manager_latest.order_id = ${orders.id}
+            AND manager_latest.comment_type = 'manager'
+        ), TIMESTAMP('1970-01-01 00:00:00'))
+    )`);
+  }
+  if (input?.conversationState === "unread") {
+    whereConditions.push(sql`EXISTS (
+      SELECT 1 FROM ${orderComments} client_comments
+      WHERE client_comments.order_id = ${orders.id}
+        AND client_comments.comment_type = 'client'
+        AND client_comments.created_at = (
+          SELECT MAX(client_latest.created_at)
+          FROM ${orderComments} client_latest
+          WHERE client_latest.order_id = ${orders.id}
+            AND client_latest.comment_type = 'client'
+        )
+        AND client_comments.created_at > COALESCE((
+          SELECT MAX(read_latest.created_at)
+          FROM ${orderHistory} read_latest
+          WHERE read_latest.order_id = ${orders.id}
+            AND read_latest.action_type = 'manager_conversation_read'
+        ), TIMESTAMP('1970-01-01 00:00:00'))
+    )`);
+  }
   const search = input?.search?.trim();
   if (search) {
     const like = `%${search}%`;
@@ -624,6 +663,7 @@ export function buildLegacyOrderWhereSql(input?: {
   dateTo?: Date;
   supportsUserEmail?: boolean;
   supportsUserFullName?: boolean;
+  conversationState?: "needs_response" | "unread";
 }) {
   const conditions = [sql`1 = 1`];
   if (input?.statuses?.length) {
@@ -649,6 +689,44 @@ export function buildLegacyOrderWhereSql(input?: {
   }
   if (input?.dateFrom) conditions.push(sql`o.created_at >= ${input.dateFrom}`);
   if (input?.dateTo) conditions.push(sql`o.created_at <= ${input.dateTo}`);
+  if (input?.conversationState === "needs_response") {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM order_comments client_comments
+      WHERE client_comments.order_id = o.id
+        AND client_comments.comment_type = 'client'
+        AND client_comments.created_at = (
+          SELECT MAX(client_latest.created_at)
+          FROM order_comments client_latest
+          WHERE client_latest.order_id = o.id
+            AND client_latest.comment_type = 'client'
+        )
+        AND client_comments.created_at > COALESCE((
+          SELECT MAX(manager_latest.created_at)
+          FROM order_comments manager_latest
+          WHERE manager_latest.order_id = o.id
+            AND manager_latest.comment_type = 'manager'
+        ), TIMESTAMP('1970-01-01 00:00:00'))
+    )`);
+  }
+  if (input?.conversationState === "unread") {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM order_comments client_comments
+      WHERE client_comments.order_id = o.id
+        AND client_comments.comment_type = 'client'
+        AND client_comments.created_at = (
+          SELECT MAX(client_latest.created_at)
+          FROM order_comments client_latest
+          WHERE client_latest.order_id = o.id
+            AND client_latest.comment_type = 'client'
+        )
+        AND client_comments.created_at > COALESCE((
+          SELECT MAX(read_latest.created_at)
+          FROM order_history read_latest
+          WHERE read_latest.order_id = o.id
+            AND read_latest.action_type = 'manager_conversation_read'
+        ), TIMESTAMP('1970-01-01 00:00:00'))
+    )`);
+  }
 
   const search = input?.search?.trim();
   if (search) {
