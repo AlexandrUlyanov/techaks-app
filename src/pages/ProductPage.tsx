@@ -506,34 +506,39 @@ export default function ProductPage() {
         </div>
       </section>
 
-      <section id="reviews" className="border-t border-border bg-card py-20">
+      <section
+        id="reviews"
+        className={`border-t border-border bg-card ${shouldShowReviewSection ? "py-20" : "py-10 md:py-12"}`}
+      >
         <div className="container-main">
           {!shouldShowReviewSection ? (
-            <div className="mx-auto max-w-3xl">
-              <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm md:p-10">
-                <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
-                  Отзывы
-                </span>
-                <div className="text-2xl font-black uppercase tracking-tight text-[#15171A]">
-                  Пока отзывов нет
+            <div className="rounded-[1.75rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] px-5 py-4 shadow-sm md:px-6 md:py-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
+                    Отзывы о товаре
+                  </div>
+                  <div className="mt-2 text-base font-black uppercase tracking-tight text-[#15171A] md:text-lg">
+                    Пока отзывов нет
+                  </div>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    Можно оставить первый отзыв и помочь следующему покупателю быстрее понять товар.
+                  </p>
                 </div>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
-                </p>
                 {isAuthenticated ? (
                   <button
                     type="button"
                     onClick={revealReviewSection}
-                    className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
                   >
                     Оставить первый отзыв
                   </button>
                 ) : (
                   <Link
                     to="/login"
-                    className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
                   >
-                    Войти и оставить первый отзыв
+                    Войти и оставить отзыв
                   </Link>
                 )}
               </div>
