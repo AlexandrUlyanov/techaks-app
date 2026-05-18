@@ -219,11 +219,8 @@ export default function ProductPage() {
   const availableStoreCount = storesWithStock.length;
   const totalStock = storesWithStock.reduce((sum, item) => sum + item.quantity, 0);
   const hasLowStock = storesWithStock.some(item => item.quantity <= 3);
-  const stockStoresLabel = formatRussianCount(availableStoreCount, [
-    "магазине",
-    "магазинах",
-    "магазинах",
-  ]);
+  const stockStoresLabel =
+    availableStoreCount === 1 ? "магазине" : "магазинах";
   const availabilitySummary = availableStoreCount
     ? `В ${availableStoreCount} ${stockStoresLabel}`
     : "Уточняйте наличие у менеджера";
