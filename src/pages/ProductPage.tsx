@@ -1,5 +1,15 @@
 import { useParams, Link, useLocation } from "react-router";
-import { Star, MessageCircle, ArrowLeft, ShoppingCart } from "lucide-react";
+import {
+  Star,
+  MessageCircle,
+  ArrowLeft,
+  ShoppingCart,
+  ShieldCheck,
+  Truck,
+  MapPin,
+  ChevronDown,
+  Sparkles,
+} from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
@@ -7,6 +17,12 @@ import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { buildCanonical, useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +39,7 @@ export default function ProductPage() {
   const [showForm, setShowForm] = useState(false);
   const [reviewSort, setReviewSort] = useState<"newest" | "highest" | "lowest" | "verified">("newest");
   const [showReviewSection, setShowReviewSection] = useState(false);
+  const [showStores, setShowStores] = useState(false);
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
 
@@ -172,6 +189,88 @@ export default function ProductPage() {
     product.specs && typeof product.specs === "object"
       ? (product.specs as Record<string, unknown>)
       : null;
+  const specEntries = Object.entries(productSpecs ?? {}).filter(([key]) => !isManufacturerSpec(key));
+  const prioritizedSpecKeys = [
+    "тип",
+    "совместимость",
+    "мощность",
+    "интерфейс",
+    "емкость",
+    "длина",
+    "цвет",
+    "модель",
+    "гарантия",
+  ];
+  const keySpecEntries = specEntries
+    .slice()
+    .sort(([a], [b]) => {
+      const aIndex = prioritizedSpecKeys.findIndex(item => a.toLowerCase().includes(item));
+      const bIndex = prioritizedSpecKeys.findIndex(item => b.toLowerCase().includes(item));
+      const normalizedA = aIndex === -1 ? 999 : aIndex;
+      const normalizedB = bIndex === -1 ? 999 : bIndex;
+      return normalizedA - normalizedB;
+    })
+    .slice(0, 6);
+  const keySpecEntryKeys = new Set(keySpecEntries.map(([key]) => key));
+  const secondarySpecEntries = specEntries.filter(([key]) => !keySpecEntryKeys.has(key));
+  const warrantyValue =
+    specEntries.find(([key]) => key.trim().toLowerCase().includes("гарант"))?.[1] ?? null;
+  const storesWithStock = typedStock.filter(item => item.quantity > 0);
+  const availableStoreCount = storesWithStock.length;
+  const totalStock = storesWithStock.reduce((sum, item) => sum + item.quantity, 0);
+  const hasLowStock = storesWithStock.some(item => item.quantity <= 3);
+  const stockStoresLabel = formatRussianCount(availableStoreCount, [
+    "магазине",
+    "магазинах",
+    "магазинах",
+  ]);
+  const availabilitySummary = availableStoreCount
+    ? `В ${availableStoreCount} ${stockStoresLabel}`
+    : "Уточняйте наличие у менеджера";
+  const trustItems = [
+    hasPublishedReviews
+      ? {
+          icon: Star,
+          label: "Рейтинг",
+          value: `${Number(product.rating).toFixed(1)} · ${reviewCountLabel}`,
+          tone: "accent",
+        }
+      : {
+          icon: Sparkles,
+          label: "Отзывы",
+          value: "Пока без отзывов",
+          tone: "muted",
+        },
+    {
+      icon: MapPin,
+      label: "Наличие",
+      value: availableStoreCount ? availabilitySummary : "Проверим по запросу",
+      tone: isInStock ? "success" : "muted",
+    },
+    {
+      icon: ShieldCheck,
+      label: "Гарантия",
+      value: warrantyValue ? String(warrantyValue) : "Уточним при покупке",
+      tone: "muted",
+    },
+  ] as const;
+  const quickBenefits = [
+    {
+      icon: Truck,
+      title: "Самовывоз и доставка",
+      text: availableStoreCount ? "Покажем остатки по магазинам и быстро оформим выдачу." : "Подскажем ближайший магазин и срок поставки.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Проверка перед покупкой",
+      text: "Подтвердим актуальную комплектацию и статус товара перед выдачей.",
+    },
+    {
+      icon: MessageCircle,
+      title: "Поддержка в Telegram",
+      text: "Можно сразу уточнить совместимость, доставку и наличие у менеджера.",
+    },
+  ];
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -267,9 +366,9 @@ export default function ProductPage() {
       {/* Product Detail */}
       <section className="py-12 md:py-20">
         <div className="container-main">
-          <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:gap-16">
             {/* Gallery */}
-            <div className="lg:w-[50%]">
+            <div className="min-w-0">
               <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
                 {merchandisingBadges.length > 0 && (
                   <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
@@ -315,190 +414,254 @@ export default function ProductPage() {
             </div>
 
             {/* Info */}
-            <div className="flex-1">
-              {/* Rating */}
-              {hasPublishedReviews ? (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1 rounded-lg border border-border bg-muted px-3 py-1.5">
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          size={14}
-                          className={
-                            i < Math.round(Number(product.rating))
-                              ? "fill-[#05C3D4] text-[#05C3D4]"
-                              : "text-muted-foreground/20"
-                          }
-                        />
-                      ))}
-                    </div>
-                    <span className="ml-2 text-sm font-black text-foreground">
-                      {product.rating}
-                    </span>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    ({reviewCountLabel})
-                  </span>
-                </div>
-              ) : null}
-
-              {/* Price */}
-              <div className={hasPublishedReviews ? "mt-10" : "mt-2"}>
-                <div
-                  className="p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm"
-                >
-                  <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
-                  <div className="relative z-10">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">
-                      Актуальная цена
-                    </span>
-                    <div className="flex items-center gap-5">
-                      <span className="text-4xl md:text-[42px] font-black text-[#05C3D4] font-heading leading-none">
-                        {formatPrice(product.price)}
-                      </span>
-                      {hasOldPrice && (
-                        <div className="flex flex-col">
-                          <span className="text-lg text-muted-foreground/40 line-through font-bold">
-                            {formatPrice(product.oldPrice as number)}
-                          </span>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
-                            Выгода {formatPrice((product.oldPrice as number) - product.price)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA moved here */}
-                <div className="mt-6 flex flex-col gap-4">
-                  <Button
-                    size="lg"
-                    onClick={handleAddToCart}
-                    className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
-                  >
-                    <ShoppingCart size={20} className="mr-2" />
-                    ДОБАВИТЬ В КОРЗИНУ
-                  </Button>
-                </div>
-              </div>
-
-              {/* Stock & FOMO */}
-              <div className="mt-10 space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
-                  Наличие в магазинах
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {typedStock.length > 0 ? (
-                    typedStock.map((s, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1" title={String(s.storeName)}>
-                            {String(s.storeName)}
-                          </span>
-                          <div
-                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
-                          >
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`}
-                            />
-                            <span className="text-[10px] font-black">
-                              {s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}
+            <div className="min-w-0">
+              <div className="lg:sticky lg:top-24">
+                <div className="rounded-[2rem] border border-border bg-card p-5 shadow-sm md:p-6">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {trustItems.map(item => {
+                      const Icon = item.icon;
+                      const toneClass =
+                        item.tone === "accent"
+                          ? "border-[#05C3D4]/25 bg-[#F4FEFF]"
+                          : item.tone === "success"
+                            ? "border-emerald-200 bg-emerald-50/70"
+                            : "border-border bg-white";
+                      return (
+                        <div
+                          key={`${item.label}-${item.value}`}
+                          className={`group rounded-2xl border px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm ${toneClass}`}
+                        >
+                          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#05C3D4] transition-transform duration-300 group-hover:scale-110">
+                              <Icon size={14} />
                             </span>
+                            {item.label}
+                          </div>
+                          <div className="mt-3 text-sm font-black leading-5 text-[#15171A]">
+                            {item.value}
                           </div>
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">
-                          {String(s.storeAddress)}
-                        </p>
+                      );
+                    })}
+                  </div>
 
-                        {s.quantity > 0 && s.quantity <= 3 && (
-                          <div className="absolute top-0 right-0">
-                            <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
-                              Мало
+                  <div className="mt-5 rounded-[1.75rem] border border-border bg-white p-6 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Актуальная цена
+                        </span>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <span className="text-4xl font-black leading-none text-[#05C3D4] md:text-[42px]">
+                            {formatPrice(product.price)}
+                          </span>
+                          {hasOldPrice ? (
+                            <div className="flex flex-col">
+                              <span className="text-base font-bold text-muted-foreground/45 line-through">
+                                {formatPrice(product.oldPrice as number)}
+                              </span>
+                              <span className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">
+                                Выгода {formatPrice((product.oldPrice as number) - product.price)}
+                              </span>
                             </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#F7FEFF] px-4 py-3 text-right">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
+                          Наличие
+                        </div>
+                        <div className="mt-1 text-sm font-black text-[#15171A]">
+                          {isInStock ? availabilitySummary : "Сейчас нет в свободном наличии"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <Button
+                        size="lg"
+                        onClick={handleAddToCart}
+                        className="group h-15 min-h-[60px] w-full rounded-2xl bg-[#05C3D4] text-sm tracking-[0.18em] text-white dark:text-black shadow-[0_4px_20px_rgba(5,195,212,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#27E6F2]"
+                      >
+                        <ShoppingCart size={20} className="mr-2 transition-transform duration-300 group-hover:translate-x-0.5" />
+                        ДОБАВИТЬ В КОРЗИНУ
+                      </Button>
+                      <a
+                        href="https://t.me/tech_aks"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex min-h-[60px] items-center justify-center gap-3 rounded-2xl border border-border bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                      >
+                        <MessageCircle size={18} className="transition-transform duration-300 group-hover:scale-110" />
+                        Вопрос
+                      </a>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                      {quickBenefits.map(item => {
+                        const Icon = item.icon;
+                        return (
+                          <div
+                            key={item.title}
+                            className="group rounded-2xl border border-border bg-[#FCFCFD] px-4 py-4 transition-all duration-300 hover:border-[#05C3D4]/25 hover:bg-white"
+                          >
+                            <div className="flex items-center gap-2 text-[#05C3D4]">
+                              <Icon size={16} className="transition-transform duration-300 group-hover:scale-110" />
+                              <span className="text-xs font-black uppercase tracking-[0.14em] text-[#15171A]">
+                                {item.title}
+                              </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                              {item.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                  <div className="rounded-[1.75rem] border border-border bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Наличие и выдача
+                        </div>
+                        <div className="mt-3 text-lg font-black text-[#15171A]">
+                          {availabilitySummary}
+                        </div>
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                          {availableStoreCount > 0
+                            ? `Сейчас доступно ${totalStock} шт. по выбранным магазинам. Можно быстро проверить, где удобнее забрать товар.`
+                            : "Если товар нужен срочно, мы подскажем ближайший магазин или доступный срок поставки."}
+                        </p>
+                      </div>
+                      {hasLowStock ? (
+                        <div className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-600">
+                          Остаток ограничен
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowStores(current => !current)}
+                      className="group mt-5 inline-flex items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-black text-[#15171A] transition-all duration-300 hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                    >
+                      <MapPin size={16} className="transition-transform duration-300 group-hover:scale-110" />
+                      {showStores ? "Скрыть магазины" : "Показать магазины"}
+                      <ChevronDown size={16} className={`transition-transform duration-300 ${showStores ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showStores ? (
+                      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {typedStock.length > 0 ? (
+                          typedStock.map((s, i) => (
+                            <div
+                              key={i}
+                              className="relative rounded-2xl border border-border bg-[#FCFCFD] p-4 transition-all duration-300 hover:border-[#05C3D4]/30 hover:bg-white"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span
+                                  className="line-clamp-1 text-xs font-black uppercase tracking-tight text-foreground/85"
+                                  title={String(s.storeName)}
+                                >
+                                  {String(s.storeName)}
+                                </span>
+                                <div
+                                  className={`flex items-center gap-1.5 rounded-md px-2 py-1 ${s.quantity > 0 ? "bg-emerald-50 text-emerald-600" : "bg-destructive/10 text-destructive"}`}
+                                >
+                                  <div
+                                    className={`h-1.5 w-1.5 rounded-full ${s.quantity > 0 ? "bg-emerald-500 animate-pulse" : "bg-destructive"}`}
+                                  />
+                                  <span className="text-[10px] font-black">
+                                    {s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+                                {String(s.storeAddress)}
+                              </p>
+                              {s.quantity > 0 && s.quantity <= 3 ? (
+                                <div className="absolute right-0 top-0 rounded-bl-lg bg-orange-500 px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter text-white">
+                                  Мало
+                                </div>
+                              ) : null}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-4 text-center">
+                            <span className="text-xs font-bold uppercase text-muted-foreground">
+                              Информацию о наличии уточняйте у менеджера
+                            </span>
                           </div>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
-                      <span className="text-xs font-bold text-muted-foreground uppercase">
-                        Информацию о наличии уточняйте у менеджера
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {isInStock &&
-                  typedStock.some(s => s.quantity > 0 && s.quantity <= 3) && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
-                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                        Товар заканчивается в некоторых магазинах!
-                      </span>
-                    </div>
-                  )}
-              </div>
-
-              {/* Description */}
-              {hasDescription && (
-                <div className="mt-10">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
-                    Описание
-                  </h3>
-                  <p className="text-base text-muted-foreground leading-relaxed font-medium">
-                    {normalizedDescription}
-                  </p>
-                </div>
-              )}
-
-              {/* Specs */}
-              {productSpecs && (
-                <div className="mt-10">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
-                    Характеристики
-                  </h3>
-                  <div className="grid grid-cols-1 gap-1">
-                    {Object.entries(
-                      productSpecs
-                    )
-                      .filter(([key]) => !isManufacturerSpec(key))
-                      .map(([key, value]) => {
-                        return (
-                        <div
-                          key={key}
-                          className="flex justify-between items-center gap-6 py-3 border-b border-border px-1 group"
-                        >
-                          <span className="text-sm font-bold text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                            {key}
-                          </span>
-                          <span className="text-right text-sm font-black text-foreground/80">
-                            {String(value)}
-                          </span>
-                        </div>
-                        );
-                      })}
+                    ) : null}
                   </div>
-                </div>
-              )}
 
-              {/* CTA */}
-              <div className="mt-12 flex flex-col gap-4">
-                <div className="flex flex-wrap gap-4">
-                  <a
-                    href="https://t.me/tech_aks"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-3 h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-[0.1em] hover:bg-muted transition-all active:scale-95"
-                  >
-                    <MessageCircle size={18} className="text-[#05C3D4]" />
-                    ЗАДАТЬ ВОПРОС В TELEGRAM
-                  </a>
+                  {keySpecEntries.length > 0 ? (
+                    <div className="rounded-[1.75rem] border border-border bg-white p-5 shadow-sm">
+                      <div className="mb-4 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                        Ключевые характеристики
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {keySpecEntries.map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="rounded-2xl border border-border bg-[#FCFCFD] px-4 py-4 transition-all duration-300 hover:border-[#05C3D4]/25 hover:bg-white"
+                          >
+                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                              {key}
+                            </div>
+                            <div className="mt-3 text-sm font-black leading-6 text-[#15171A]">
+                              {String(value)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(secondarySpecEntries.length > 0 || hasDescription) ? (
+                    <Accordion type="single" collapsible className="rounded-[1.75rem] border border-border bg-white px-5 shadow-sm">
+                      {hasDescription ? (
+                        <AccordionItem value="description" className="border-b border-border/70">
+                          <AccordionTrigger className="py-5 text-left text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground hover:no-underline">
+                            Описание товара
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-5 text-sm leading-7 text-muted-foreground">
+                            {normalizedDescription}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ) : null}
+                      {secondarySpecEntries.length > 0 ? (
+                        <AccordionItem value="specs" className="border-b-0">
+                          <AccordionTrigger className="py-5 text-left text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground hover:no-underline">
+                            Все характеристики
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-5">
+                            <div className="grid gap-1">
+                              {secondarySpecEntries.map(([key, value]) => (
+                                <div
+                                  key={key}
+                                  className="flex items-center justify-between gap-6 border-b border-border px-1 py-3 last:border-b-0"
+                                >
+                                  <span className="text-sm font-bold text-muted-foreground/70">
+                                    {key}
+                                  </span>
+                                  <span className="text-right text-sm font-black text-foreground/85">
+                                    {String(value)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ) : null}
+                    </Accordion>
+                  ) : null}
                 </div>
               </div>
             </div>
