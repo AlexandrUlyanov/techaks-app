@@ -4,6 +4,7 @@ import { getDb } from "../queries/connection";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import { getAppSetting, setAppSetting } from "./app-settings";
 import { filterDisabledMerchandisingBadges, normalizeMerchandisingBadges } from "@/lib/merchandising-badges";
+import { getStorefrontBadgeLabels } from "./merchandising-ai-badges";
 
 type Badge =
   | "top_category"
@@ -522,13 +523,20 @@ export async function listMerchandisingProducts(input: {
     .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, schema.products.id))
     .where(where);
 
+  const aiBadgeMap = await getStorefrontBadgeLabels(items.map(item => item.id));
+
   return {
-    items: items.map(item => ({
-      ...item,
-      totalStock: Number(item.totalStock || 0),
-      storeCount: Number(item.storeCount || 0),
-      badges: filterDisabledMerchandisingBadges(item.badges, disabledBadges),
-    })),
+    items: items.map(item => {
+      const manualBadges = filterDisabledMerchandisingBadges(item.badges, disabledBadges);
+      const aiBadges = aiBadgeMap.get(item.id) ?? [];
+      return {
+        ...item,
+        totalStock: Number(item.totalStock || 0),
+        storeCount: Number(item.storeCount || 0),
+        badges: manualBadges,
+        merchandisingBadges: Array.from(new Set([...manualBadges, ...aiBadges])),
+      };
+    }),
     total: Number(total || 0),
     page: input.page,
     totalPages: Math.ceil(Number(total || 0) / input.limit),

@@ -34,6 +34,7 @@ import {
 } from "../lib/product-visibility";
 import { getMerchandisingDisabledBadges } from "../lib/merchandising-score";
 import { filterDisabledMerchandisingBadges } from "@/lib/merchandising-badges";
+import { getStorefrontBadgeLabels } from "../lib/merchandising-ai-badges";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -186,9 +187,24 @@ async function attachVisibleMerchandisingBadges<T extends { merchandisingBadges?
   rows: T[]
 ) {
   const disabledBadges = await getMerchandisingDisabledBadges();
+  const rowIds = rows
+    .map(row => {
+      const candidate = row as T & { id?: unknown };
+      return typeof candidate.id === "number" ? candidate.id : null;
+    })
+    .filter((id): id is number => typeof id === "number");
+  const aiBadgeMap = await getStorefrontBadgeLabels(rowIds);
   return rows.map(row => ({
     ...row,
-    merchandisingBadges: filterDisabledMerchandisingBadges(row.merchandisingBadges, disabledBadges),
+    merchandisingBadges: Array.from(
+      new Set([
+        ...filterDisabledMerchandisingBadges(row.merchandisingBadges, disabledBadges),
+        ...(() => {
+          const candidate = row as T & { id?: unknown };
+          return typeof candidate.id === "number" ? aiBadgeMap.get(candidate.id) ?? [] : [];
+        })(),
+      ])
+    ),
   }));
 }
 

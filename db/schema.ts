@@ -537,3 +537,105 @@ export const merchandisingHistory = mysqlTable("merchandising_history", {
   productIdx: index("merchandising_history_product_idx").on(table.productId),
   createdAtIdx: index("merchandising_history_created_at_idx").on(table.createdAt),
 }));
+
+export const badgeCatalog = mysqlTable("badge_catalog", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 120 }).notNull().unique(),
+  label: varchar("label", { length: 120 }).notNull(),
+  description: text("description"),
+  badgeType: varchar("badge_type", { length: 30 }).notNull().default("manual"),
+  audience: varchar("audience", { length: 20 }).notNull().default("customer"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  icon: varchar("icon", { length: 80 }),
+  colorToken: varchar("color_token", { length: 80 }),
+  sortOrder: int("sort_order").notNull().default(0),
+  maxProductsPerItem: int("max_products_per_item").notNull().default(1),
+  isVisibleOnSite: boolean("is_visible_on_site").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  typeStatusIdx: index("badge_catalog_type_status_idx").on(table.badgeType, table.status, table.sortOrder),
+  sourceStatusIdx: index("badge_catalog_source_status_idx").on(table.source, table.status, table.updatedAt),
+}));
+
+export const badgeCategoryScopes = mysqlTable("badge_category_scope", {
+  id: serial("id").primaryKey(),
+  badgeId: int("badge_id").notNull(),
+  scopeType: varchar("scope_type", { length: 20 }).notNull().default("category"),
+  scopeId: int("scope_id"),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  priority: int("priority").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  badgeIdx: index("badge_category_scope_badge_idx").on(table.badgeId),
+  scopeIdx: index("badge_category_scope_scope_idx").on(table.scopeType, table.scopeId, table.isEnabled),
+  badgeScopeUnique: unique("badge_category_scope_unique").on(table.badgeId, table.scopeType, table.scopeId),
+}));
+
+export const badgeAssignmentRules = mysqlTable("badge_assignment_rules", {
+  id: serial("id").primaryKey(),
+  badgeId: int("badge_id").notNull(),
+  categoryId: int("category_id").notNull(),
+  ruleType: varchar("rule_type", { length: 30 }).notNull().default("ai_generated"),
+  ruleJson: json("rule_json").notNull(),
+  confidenceThreshold: int("confidence_threshold").notNull().default(60),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  badgeIdx: index("badge_assignment_rules_badge_idx").on(table.badgeId, table.isEnabled),
+  categoryIdx: index("badge_assignment_rules_category_idx").on(table.categoryId, table.isEnabled),
+}));
+
+export const productBadgeAssignments = mysqlTable("product_badge_assignments", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  badgeId: int("badge_id").notNull(),
+  assignmentSource: varchar("assignment_source", { length: 20 }).notNull().default("manual"),
+  confidence: int("confidence"),
+  explanation: text("explanation"),
+  status: varchar("status", { length: 20 }).notNull().default("suggested"),
+  isVisibleOnSite: boolean("is_visible_on_site").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  productIdx: index("product_badge_assignments_product_idx").on(table.productId, table.status),
+  badgeIdx: index("product_badge_assignments_badge_idx").on(table.badgeId, table.status),
+  productBadgeUnique: unique("product_badge_assignments_unique").on(table.productId, table.badgeId),
+}));
+
+export const badgeAiRuns = mysqlTable("badge_ai_runs", {
+  id: serial("id").primaryKey(),
+  runType: varchar("run_type", { length: 40 }).notNull(),
+  categoryId: int("category_id"),
+  model: varchar("model", { length: 120 }).notNull(),
+  promptVersion: varchar("prompt_version", { length: 40 }).notNull().default("v1"),
+  status: varchar("status", { length: 20 }).notNull().default("running"),
+  inputSnapshot: json("input_snapshot"),
+  resultJson: json("result_json"),
+  errorText: text("error_text"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
+}, table => ({
+  categoryRunIdx: index("badge_ai_runs_category_run_idx").on(table.categoryId, table.runType, table.startedAt),
+  statusIdx: index("badge_ai_runs_status_idx").on(table.status, table.startedAt),
+}));
+
+export const badgeHistory = mysqlTable("badge_history", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(),
+  entityId: int("entity_id").notNull(),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+  oldValue: json("old_value"),
+  newValue: json("new_value"),
+  comment: text("comment"),
+  userId: varchar("user_id", { length: 255 }).notNull().default("admin"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  entityIdx: index("badge_history_entity_idx").on(table.entityType, table.entityId, table.createdAt),
+  actionIdx: index("badge_history_action_idx").on(table.actionType, table.createdAt),
+}));

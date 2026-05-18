@@ -133,7 +133,12 @@ Product visibility SQL:
 
 - [product-spec-normalization.md](</E:/work/ru/tehax/s/app/docs/product-spec-normalization.md>)
 
-## 8. Что сейчас считать source of truth
+## 8. Merchandising and AI badges
+
+- [ai-merchandising-badge-system-tz.md](</E:/work/ru/tehax/s/app/docs/ai-merchandising-badge-system-tz.md>)  
+  Подробное ТЗ на следующий уровень merchandising-системы: каталог бейджей, AI category suggestions, assignment engine, review flow и quality layer.
+
+## 9. Что сейчас считать source of truth
 
 Если нужен минимальный набор актуальных документов, используем:
 
@@ -143,7 +148,7 @@ Product visibility SQL:
 4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 9. Что нельзя делать без отдельного подтверждения
+## 10. Что нельзя делать без отдельного подтверждения
 
 - destructive migrations;
 - drop таблиц/колонок на production;
