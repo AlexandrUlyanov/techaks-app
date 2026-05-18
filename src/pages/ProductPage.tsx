@@ -1,8 +1,8 @@
-import { useParams, Link } from "react-router";
+import { useParams, Link, useLocation } from "react-router";
 import { Star, MessageCircle, ArrowLeft, ShoppingCart } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
@@ -19,8 +19,10 @@ import {
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
+  const location = useLocation();
   const [showForm, setShowForm] = useState(false);
   const [reviewSort, setReviewSort] = useState<"newest" | "highest" | "lowest" | "verified">("newest");
+  const [showReviewSection, setShowReviewSection] = useState(false);
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
 
@@ -146,6 +148,8 @@ export default function ProductPage() {
     (product as { merchandisingBadges?: unknown }).merchandisingBadges
   ).slice(0, 4);
   const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
+  const hasReviewItems = (reviewFeed?.items ?? []).length > 0;
+  const shouldShowReviewSection = hasReviewItems || showReviewSection;
   const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
     "отзыв",
     "отзыва",
@@ -193,6 +197,28 @@ export default function ProductPage() {
     // CRO: Redirecting directly to checkout/cart page to reduce steps
     window.location.href = "/checkout";
   };
+
+  const revealReviewSection = () => {
+    setShowReviewSection(true);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document
+          .getElementById("review-composer")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    });
+  };
+
+  useEffect(() => {
+    if (hasReviewItems) {
+      setShowReviewSection(true);
+      return;
+    }
+
+    if (location.hash === "#reviews" || location.hash === "#review-composer") {
+      setShowReviewSection(true);
+    }
+  }, [hasReviewItems, location.hash]);
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
@@ -318,7 +344,7 @@ export default function ProductPage() {
               ) : null}
 
               {/* Price */}
-              <div className="mt-10">
+              <div className={hasPublishedReviews ? "mt-10" : "mt-2"}>
                 <div
                   className="p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm"
                 >
@@ -482,172 +508,189 @@ export default function ProductPage() {
 
       <section id="reviews" className="border-t border-border bg-card py-20">
         <div className="container-main">
-          <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="space-y-6">
-              <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-                  Доверие
+          {!shouldShowReviewSection ? (
+            <div className="mx-auto max-w-3xl">
+              <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm md:p-10">
+                <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
+                  Отзывы
                 </span>
-                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  ОТЗЫВЫ <span className="text-muted-foreground/30">О ТОВАРЕ</span>
-                </h2>
-              </div>
-
-              <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
-                <div className="flex items-end gap-5">
-                  <div className="text-6xl font-black text-[#05C3D4]">
-                    {reviewFeed?.summary.avgRating?.toFixed(1) || "0.0"}
-                  </div>
-                  <div className="pb-2">
-                    <div className="text-sm font-bold text-[#15171A]">
-                      {formatRussianCount(reviewFeed?.summary.totalCount ?? 0, [
-                        "отзыв",
-                        "отзыва",
-                        "отзывов",
-                      ])}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Подтверждённых покупок: {reviewFeed?.summary.verifiedCount ?? 0}
-                    </div>
-                  </div>
+                <div className="text-2xl font-black uppercase tracking-tight text-[#15171A]">
+                  Пока отзывов нет
                 </div>
-                <div className="mt-6 space-y-3">
-                  {[5, 4, 3, 2, 1].map(stars => {
-                    const total = reviewFeed?.summary.totalCount ?? 0;
-                    const count = reviewFeed?.summary.ratingBreakdown?.[stars as 1 | 2 | 3 | 4 | 5] ?? 0;
-                    const width = total > 0 ? `${(count / total) * 100}%` : "0%";
-                    return (
-                      <div key={stars} className="grid grid-cols-[42px_1fr_42px] items-center gap-3 text-sm">
-                        <span className="font-bold text-[#15171A]">{stars}★</span>
-                        <div className="h-2 rounded-full bg-muted">
-                          <div className="h-2 rounded-full bg-[#05C3D4]" style={{ width }} />
-                        </div>
-                        <span className="text-right text-muted-foreground">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div id="review-composer">
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
+                </p>
                 {isAuthenticated ? (
-                  <ReviewComposer
-                    productId={product.id}
-                    productName={product.name}
-                    existingReview={reviewEligibility?.existingReview}
-                    verifiedPurchase={reviewEligibility?.verifiedPurchase}
-                  />
+                  <button
+                    type="button"
+                    onClick={revealReviewSection}
+                    className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                  >
+                    Оставить первый отзыв
+                  </button>
                 ) : (
-                  <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
-                    <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
-                    </p>
-                    <Link
-                      to="/login"
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                    >
-                      Войти и оставить отзыв
-                    </Link>
-                  </div>
+                  <Link
+                    to="/login"
+                    className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                  >
+                    Войти и оставить первый отзыв
+                  </Link>
                 )}
               </div>
             </div>
-
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm font-bold text-muted-foreground">
-                  Реальные отзывы покупателей и ответы магазина
+          ) : (
+            <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+              <div className="space-y-6">
+                <div>
+                  <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
+                    Доверие
+                  </span>
+                  <h2 className="text-4xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-5xl">
+                    ОТЗЫВЫ <span className="text-muted-foreground/30">О ТОВАРЕ</span>
+                  </h2>
                 </div>
-                {(reviewFeed?.items ?? []).length > 0 ? (
-                  <select
-                    value={reviewSort}
-                    onChange={event => setReviewSort(event.target.value as typeof reviewSort)}
-                    className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-[#05C3D4]"
-                  >
-                    <option value="newest">Сначала новые</option>
-                    <option value="verified">Сначала подтверждённые</option>
-                    <option value="highest">Сначала высокие оценки</option>
-                    <option value="lowest">Сначала низкие оценки</option>
-                  </select>
-                ) : null}
-              </div>
 
-              {(reviewFeed?.items ?? []).length === 0 ? (
-                <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm">
-                  <div className="text-lg font-black text-[#15171A]">Пока отзывов нет</div>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                    У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
-                  </p>
+                <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
+                  <div className="flex items-end gap-5">
+                    <div className="text-6xl font-black text-[#05C3D4]">
+                      {reviewFeed?.summary.avgRating?.toFixed(1) || "0.0"}
+                    </div>
+                    <div className="pb-2">
+                      <div className="text-sm font-bold text-[#15171A]">
+                        {formatRussianCount(reviewFeed?.summary.totalCount ?? 0, [
+                          "отзыв",
+                          "отзыва",
+                          "отзывов",
+                        ])}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Подтверждённых покупок: {reviewFeed?.summary.verifiedCount ?? 0}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 space-y-3">
+                    {[5, 4, 3, 2, 1].map(stars => {
+                      const total = reviewFeed?.summary.totalCount ?? 0;
+                      const count = reviewFeed?.summary.ratingBreakdown?.[stars as 1 | 2 | 3 | 4 | 5] ?? 0;
+                      const width = total > 0 ? `${(count / total) * 100}%` : "0%";
+                      return (
+                        <div key={stars} className="grid grid-cols-[42px_1fr_42px] items-center gap-3 text-sm">
+                          <span className="font-bold text-[#15171A]">{stars}★</span>
+                          <div className="h-2 rounded-full bg-muted">
+                            <div className="h-2 rounded-full bg-[#05C3D4]" style={{ width }} />
+                          </div>
+                          <span className="text-right text-muted-foreground">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div id="review-composer">
                   {isAuthenticated ? (
-                    <a
-                      href="#review-composer"
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                    >
-                      Оставить первый отзыв
-                    </a>
+                    <ReviewComposer
+                      productId={product.id}
+                      productName={product.name}
+                      existingReview={reviewEligibility?.existingReview}
+                      verifiedPurchase={reviewEligibility?.verifiedPurchase}
+                    />
                   ) : (
-                    <Link
-                      to="/login"
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                    >
-                      Войти и оставить первый отзыв
-                    </Link>
+                    <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
+                      <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
+                      </p>
+                      <Link
+                        to="/login"
+                        className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                      >
+                        Войти и оставить отзыв
+                      </Link>
+                    </div>
                   )}
                 </div>
-              ) : (
-                (reviewFeed?.items ?? []).map(review => (
-                  <article key={review.id} className="rounded-[2rem] border border-border bg-white p-6 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-black text-[#15171A]">{review.title}</h3>
-                          {review.isVerifiedPurchase ? (
-                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                              Подтверждённая покупка
+              </div>
+
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm font-bold text-muted-foreground">
+                    Реальные отзывы покупателей и ответы магазина
+                  </div>
+                  {hasReviewItems ? (
+                    <select
+                      value={reviewSort}
+                      onChange={event => setReviewSort(event.target.value as typeof reviewSort)}
+                      className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-[#05C3D4]"
+                    >
+                      <option value="newest">Сначала новые</option>
+                      <option value="verified">Сначала подтверждённые</option>
+                      <option value="highest">Сначала высокие оценки</option>
+                      <option value="lowest">Сначала низкие оценки</option>
+                    </select>
+                  ) : null}
+                </div>
+
+                {!hasReviewItems ? (
+                  <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm">
+                    <div className="text-lg font-black text-[#15171A]">Пока отзывов нет</div>
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                      У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
+                    </p>
+                  </div>
+                ) : (
+                  (reviewFeed?.items ?? []).map(review => (
+                    <article key={review.id} className="rounded-[2rem] border border-border bg-white p-6 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-black text-[#15171A]">{review.title}</h3>
+                            {review.isVerifiedPurchase ? (
+                              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                                Подтверждённая покупка
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {review.authorName} · {new Date(review.publishedAt || "").toLocaleDateString("ru-RU")}
+                          </div>
+                        </div>
+                        <div className="text-lg font-black text-[#05C3D4]">{review.rating}/5</div>
+                      </div>
+                      {review.pros ? (
+                        <p className="mt-4 text-sm text-emerald-700"><strong>Достоинства:</strong> {review.pros}</p>
+                      ) : null}
+                      {review.cons ? (
+                        <p className="mt-2 text-sm text-rose-700"><strong>Недостатки:</strong> {review.cons}</p>
+                      ) : null}
+                      <p className="mt-4 text-sm leading-7 text-[#15171A]">{review.text}</p>
+                      {(review.usageContext || review.usageDuration) ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {review.usageContext ? (
+                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                              Где использовали: {review.usageContext}
+                            </span>
+                          ) : null}
+                          {review.usageDuration ? (
+                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                              Срок: {review.usageDuration}
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-1 text-sm text-muted-foreground">
-                          {review.authorName} · {new Date(review.publishedAt || "").toLocaleDateString("ru-RU")}
+                      ) : null}
+                      {review.storeReply ? (
+                        <div className="mt-5 rounded-2xl border border-[#05C3D4]/20 bg-[#F7FEFF] p-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
+                            Ответ магазина
+                          </div>
+                          <div className="mt-2 text-sm leading-6 text-[#15171A]">{review.storeReply}</div>
                         </div>
-                      </div>
-                      <div className="text-lg font-black text-[#05C3D4]">{review.rating}/5</div>
-                    </div>
-                    {review.pros ? (
-                      <p className="mt-4 text-sm text-emerald-700"><strong>Достоинства:</strong> {review.pros}</p>
-                    ) : null}
-                    {review.cons ? (
-                      <p className="mt-2 text-sm text-rose-700"><strong>Недостатки:</strong> {review.cons}</p>
-                    ) : null}
-                    <p className="mt-4 text-sm leading-7 text-[#15171A]">{review.text}</p>
-                    {(review.usageContext || review.usageDuration) ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {review.usageContext ? (
-                          <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                            Где использовали: {review.usageContext}
-                          </span>
-                        ) : null}
-                        {review.usageDuration ? (
-                          <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                            Срок: {review.usageDuration}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {review.storeReply ? (
-                      <div className="mt-5 rounded-2xl border border-[#05C3D4]/20 bg-[#F7FEFF] p-4">
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
-                          Ответ магазина
-                        </div>
-                        <div className="mt-2 text-sm leading-6 text-[#15171A]">{review.storeReply}</div>
-                      </div>
-                    ) : null}
-                  </article>
-                ))
-              )}
+                      ) : null}
+                    </article>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
