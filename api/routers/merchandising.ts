@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import {
+  bulkUpdateMerchandisingBadge,
+  getMerchandisingDisabledBadges,
   getMerchandisingSummary,
   getRecommendedProducts,
   listMerchandisingProducts,
   recalculateMerchandisingScores,
+  saveMerchandisingDisabledBadges,
   updateManualMerchandising,
 } from "../lib/merchandising-score";
 import { getDb } from "../queries/connection";
@@ -37,11 +40,20 @@ export const merchandisingRouter = createRouter({
     requireAbility(ctx, "read", "Merchandising");
     const summary = await getMerchandisingSummary();
     const products = await listMerchandisingProducts({ page: 1, limit: 50 });
+    const disabledBadges = await getMerchandisingDisabledBadges();
 
     return {
       generatedAt: new Date().toISOString(),
+      disabledBadges,
       ...summary,
       items: products.items,
+    };
+  }),
+
+  badgeSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Merchandising");
+    return {
+      disabledBadges: await getMerchandisingDisabledBadges(),
     };
   }),
 
@@ -128,5 +140,63 @@ export const merchandisingRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Merchandising");
       return updateManualMerchandising(input);
+    }),
+
+  updateBadgeSettings: protectedProcedure
+    .input(
+      z.object({
+        disabledBadges: z.array(z.string()).default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Merchandising");
+      const disabledBadges = await saveMerchandisingDisabledBadges(input.disabledBadges);
+      return { success: true, disabledBadges };
+    }),
+
+  bulkBadgeAction: protectedProcedure
+    .input(
+      z.object({
+        badge: z.string(),
+        action: z.enum([
+          "add_filtered",
+          "remove_filtered",
+          "remove_all",
+          "disable_globally",
+          "enable_globally",
+        ]),
+        categoryId: z.number().optional(),
+        status: z.string().optional(),
+        scoreMin: z.number().optional(),
+        stockStatus: z.enum(["in_stock", "out_of_stock"]).optional(),
+        search: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Merchandising");
+
+      if (input.action === "disable_globally" || input.action === "enable_globally") {
+        const current = new Set(await getMerchandisingDisabledBadges());
+        if (input.action === "disable_globally") current.add(input.badge);
+        else current.delete(input.badge);
+        const disabledBadges = await saveMerchandisingDisabledBadges(Array.from(current));
+        return { success: true, mode: input.action, disabledBadges };
+      }
+
+      const result = await bulkUpdateMerchandisingBadge({
+        badge: input.badge,
+        action: input.action === "add_filtered" ? "add" : "remove",
+        categoryId: input.action === "remove_all" ? undefined : input.categoryId,
+        status: input.action === "remove_all" ? undefined : input.status,
+        scoreMin: input.action === "remove_all" ? undefined : input.scoreMin,
+        stockStatus: input.action === "remove_all" ? undefined : input.stockStatus,
+        search: input.action === "remove_all" ? undefined : input.search,
+        updatedBy: String(ctx.user?.id ?? "admin"),
+      });
+
+      return {
+        mode: input.action,
+        ...result,
+      };
     }),
 });

@@ -32,6 +32,8 @@ import {
   buildPublicProductVisibilityCondition,
   getAdminProductPublicationStatus,
 } from "../lib/product-visibility";
+import { getMerchandisingDisabledBadges } from "../lib/merchandising-score";
+import { filterDisabledMerchandisingBadges } from "@/lib/merchandising-badges";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -180,6 +182,16 @@ const productSelectFields = {
   merchandisingBadges: schema.productMerchandising.badges,
 };
 
+async function attachVisibleMerchandisingBadges<T extends { merchandisingBadges?: unknown }>(
+  rows: T[]
+) {
+  const disabledBadges = await getMerchandisingDisabledBadges();
+  return rows.map(row => ({
+    ...row,
+    merchandisingBadges: filterDisabledMerchandisingBadges(row.merchandisingBadges, disabledBadges),
+  }));
+}
+
 export const productRouter = createRouter({
   search: publicQuery
     .input(
@@ -197,7 +209,7 @@ export const productRouter = createRouter({
         like(products.description, searchTerm)
       );
       const specCondition = buildSpecFilterConditions(input.specFilters);
-      return await db
+      const rows = await db
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -208,16 +220,18 @@ export const productRouter = createRouter({
             : sql`${publicProductVisibilityCondition} AND ${searchCondition}`
         )
         .limit(input.limit);
+      return attachVisibleMerchandisingBadges(rows);
     }),
   getAll: publicQuery.query(async () => {
     const db = getDb();
-    return await db
+    const rows = await db
       .select(productSelectFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
       .where(publicProductVisibilityCondition)
       .orderBy(desc(products.createdAt));
+    return attachVisibleMerchandisingBadges(rows);
   }),
 
   getAdminAll: protectedProcedure.query(async ({ ctx }) => {
@@ -229,10 +243,11 @@ export const productRouter = createRouter({
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
       .orderBy(desc(products.createdAt));
-    return rows.map(row => ({
-      ...row,
-      siteStatus: getAdminProductPublicationStatus(row),
-    }));
+      const withBadges = await attachVisibleMerchandisingBadges(rows);
+      return withBadges.map(row => ({
+        ...row,
+        siteStatus: getAdminProductPublicationStatus(row),
+      }));
   }),
 
   getPaginated: protectedProcedure
@@ -292,7 +307,8 @@ export const productRouter = createRouter({
           );
       }
 
-      const itemsWithStocks = items.map(item => ({
+      const visibleBadgeItems = await attachVisibleMerchandisingBadges(items);
+      const itemsWithStocks = visibleBadgeItems.map(item => ({
         ...item,
         stocks: stocksData.filter(s => s.productId === item.id),
         siteStatus: getAdminProductPublicationStatus(item),
@@ -317,7 +333,8 @@ export const productRouter = createRouter({
         .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
         .where(and(eq(products.slug, input.slug), publicProductVisibilityCondition))
         .limit(1);
-      return result[0] || null;
+      const [item] = await attachVisibleMerchandisingBadges(result);
+      return item || null;
     }),
 
   getCategories: publicQuery.query(async () => {
@@ -350,7 +367,7 @@ export const productRouter = createRouter({
         manufacturer.normalizedName
       );
 
-      return await db
+      const rows = await db
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -360,6 +377,7 @@ export const productRouter = createRouter({
             ? sql`${publicProductVisibilityCondition} AND ${manufacturerCondition} AND ${specCondition}`
             : sql`${publicProductVisibilityCondition} AND ${manufacturerCondition}`
         );
+      return attachVisibleMerchandisingBadges(rows);
     }),
 
   getByCategory: publicQuery
@@ -382,7 +400,7 @@ export const productRouter = createRouter({
 
       if (categorySlug === "all") {
         const specCondition = buildSpecFilterConditions(specFilters);
-        return await db
+        const rows = await db
           .select(productSelectFields)
           .from(products)
           .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -392,6 +410,7 @@ export const productRouter = createRouter({
               ? sql`${publicProductVisibilityCondition} AND ${specCondition}`
               : publicProductVisibilityCondition
           );
+        return attachVisibleMerchandisingBadges(rows);
       }
 
       const allCats = await db.select().from(categories);
@@ -407,7 +426,7 @@ export const productRouter = createRouter({
         sql`, `
       )})`;
 
-      return await db
+      const rows = await db
         .select(productSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -417,6 +436,7 @@ export const productRouter = createRouter({
             ? sql`${categoryCondition} AND ${publicProductVisibilityCondition} AND ${specCondition}`
             : sql`${categoryCondition} AND ${publicProductVisibilityCondition}`
         );
+      return attachVisibleMerchandisingBadges(rows);
     }),
 
   getTopByCategoryStock: publicQuery

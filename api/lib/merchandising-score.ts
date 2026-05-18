@@ -2,6 +2,8 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
+import { getAppSetting, setAppSetting } from "./app-settings";
+import { filterDisabledMerchandisingBadges, normalizeMerchandisingBadges } from "@/lib/merchandising-badges";
 
 type Badge =
   | "top_category"
@@ -21,6 +23,8 @@ type ProductInput = typeof schema.products.$inferSelect & {
 
 type Rule = typeof schema.merchandisingRules.$inferSelect;
 type Merch = typeof schema.productMerchandising.$inferSelect;
+
+const DISABLED_BADGES_SETTING_KEY = "merchandising_disabled_badges";
 
 const DEFAULT_RULE = {
   priceWeight: 25,
@@ -120,6 +124,44 @@ function statusFor(product: ProductInput, contentScore: number, marginScore: num
 function mergeBadges(autoBadges: Badge[], manualBadges: unknown): Badge[] {
   const manual = Array.isArray(manualBadges) ? manualBadges.map(String) : [];
   return Array.from(new Set([...autoBadges, ...manual])) as Badge[];
+}
+
+function buildMerchandisingConditions(input: {
+  categoryId?: number;
+  badge?: string;
+  status?: string;
+  scoreMin?: number;
+  stockStatus?: "in_stock" | "out_of_stock";
+  search?: string;
+}) {
+  const conditions = [];
+  if (input.categoryId) conditions.push(eq(schema.products.categoryId, input.categoryId));
+  if (input.status) conditions.push(eq(schema.productMerchandising.status, input.status));
+  if (input.scoreMin !== undefined) {
+    conditions.push(sql`${schema.productMerchandising.totalScore} >= ${input.scoreMin}`);
+  }
+  if (input.stockStatus === "in_stock") conditions.push(sql`coalesce(stock.total_stock, 0) > 0`);
+  if (input.stockStatus === "out_of_stock") conditions.push(sql`coalesce(stock.total_stock, 0) <= 0`);
+  if (input.badge) conditions.push(sql`json_contains(${schema.productMerchandising.badges}, ${JSON.stringify(input.badge)})`);
+  if (input.search) conditions.push(sql`${schema.products.name} like ${`%${input.search}%`}`);
+  return conditions;
+}
+
+export async function getMerchandisingDisabledBadges() {
+  const raw = await getAppSetting(DISABLED_BADGES_SETTING_KEY);
+  if (!raw) return [] as string[];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? Array.from(new Set(parsed.map(String).filter(Boolean))) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveMerchandisingDisabledBadges(disabledBadges: string[]) {
+  const normalized = Array.from(new Set(disabledBadges.map(String).filter(Boolean)));
+  await setAppSetting(DISABLED_BADGES_SETTING_KEY, JSON.stringify(normalized));
+  return normalized;
 }
 
 function calculateProductScore(
@@ -422,19 +464,10 @@ export async function listMerchandisingProducts(input: {
   await ensureMerchandisingScores();
   const db = getDb();
   const offset = (input.page - 1) * input.limit;
-  const conditions = [];
-  if (input.categoryId) conditions.push(eq(schema.products.categoryId, input.categoryId));
-  if (input.status) conditions.push(eq(schema.productMerchandising.status, input.status));
-  if (input.scoreMin !== undefined) {
-    conditions.push(sql`${schema.productMerchandising.totalScore} >= ${input.scoreMin}`);
-  }
-  if (input.stockStatus === "in_stock") conditions.push(sql`coalesce(stock.total_stock, 0) > 0`);
-  if (input.stockStatus === "out_of_stock") conditions.push(sql`coalesce(stock.total_stock, 0) <= 0`);
-  if (input.badge) conditions.push(sql`json_contains(${schema.productMerchandising.badges}, ${JSON.stringify(input.badge)})`);
-  if (input.search) conditions.push(sql`${schema.products.name} like ${`%${input.search}%`}`);
-
+  const conditions = buildMerchandisingConditions(input);
   const where = conditions.length ? and(...conditions) : undefined;
   const stockJoin = sql`(select product_id, sum(quantity) as total_stock, count(distinct store_id) as store_count from product_stocks group by product_id) stock`;
+  const disabledBadges = await getMerchandisingDisabledBadges();
 
   const items = await db
     .select({
@@ -494,6 +527,7 @@ export async function listMerchandisingProducts(input: {
       ...item,
       totalStock: Number(item.totalStock || 0),
       storeCount: Number(item.storeCount || 0),
+      badges: filterDisabledMerchandisingBadges(item.badges, disabledBadges),
     })),
     total: Number(total || 0),
     page: input.page,
@@ -588,4 +622,102 @@ export async function updateManualMerchandising(input: {
   await recalculateMerchandisingScores();
 
   return { success: true };
+}
+
+export async function bulkUpdateMerchandisingBadge(input: {
+  badge: string;
+  action: "add" | "remove";
+  categoryId?: number;
+  status?: string;
+  scoreMin?: number;
+  stockStatus?: "in_stock" | "out_of_stock";
+  search?: string;
+  updatedBy?: string;
+}) {
+  await ensureMerchandisingScores();
+  const db = getDb();
+  const stockJoin = sql`(select product_id, sum(quantity) as total_stock, count(distinct store_id) as store_count from product_stocks group by product_id) stock`;
+  const conditions = buildMerchandisingConditions(input);
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      productId: schema.products.id,
+      badges: schema.productMerchandising.badges,
+    })
+    .from(schema.products)
+    .leftJoin(stockJoin, sql`stock.product_id = ${schema.products.id}`)
+    .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, schema.products.id))
+    .where(where);
+
+  const changed = rows
+    .map(row => {
+      const current = normalizeMerchandisingBadges(row.badges);
+      const next =
+        input.action === "add"
+          ? Array.from(new Set([...current, input.badge]))
+          : current.filter(item => item !== input.badge);
+      const isChanged = next.length !== current.length || next.some((item, index) => item !== current[index]);
+      return isChanged
+        ? {
+            productId: row.productId,
+            oldBadges: current,
+            newBadges: next,
+          }
+        : null;
+    })
+    .filter(Boolean) as Array<{ productId: number; oldBadges: string[]; newBadges: string[] }>;
+
+  for (const item of changed) {
+    await db
+      .insert(schema.productMerchandising)
+      .values({
+        productId: item.productId,
+        totalScore: 0,
+        priceScore: 0,
+        stockScore: 0,
+        marginScore: 50,
+        contentScore: 0,
+        newnessScore: 0,
+        categoryPriorityScore: 50,
+        manualPriority: 0,
+        penaltyScore: 0,
+        badges: item.newBadges,
+        status: "manual_review",
+        isFeatured: false,
+        isHiddenFromPromo: false,
+        comment: null,
+        updatedBy: input.updatedBy ?? "admin",
+      })
+      .onDuplicateKeyUpdate({
+        set: {
+          badges: item.newBadges,
+          updatedBy: input.updatedBy ?? "admin",
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
+  const historyRows = changed.map(item => ({
+    productId: item.productId,
+    userId: input.updatedBy ?? "admin",
+    actionType: input.action === "add" ? "bulk_badge_add" : "bulk_badge_remove",
+    oldValue: { badges: item.oldBadges },
+    newValue: { badges: item.newBadges, badge: input.badge },
+    comment: `${input.action === "add" ? "Массово добавлен" : "Массово удален"} бейдж ${input.badge}`,
+  }));
+
+  for (let index = 0; index < historyRows.length; index += 200) {
+    const batch = historyRows.slice(index, index + 200);
+    if (batch.length > 0) {
+      await db.insert(schema.merchandisingHistory).values(batch);
+    }
+  }
+
+  return {
+    success: true,
+    affectedProducts: changed.length,
+    badge: input.badge,
+    action: input.action,
+  };
 }

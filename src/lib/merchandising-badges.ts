@@ -9,6 +9,17 @@ export const MERCH_BADGE_LABELS: Record<string, string> = {
   low_stock: "Осталось мало",
 };
 
+export const MANUAL_MERCH_BADGE_OPTIONS = [
+  "top_category",
+  "excellent_price",
+  "store_choice",
+  "new",
+  "recommend",
+  "profitable",
+] as const;
+
+export const AUTO_MERCH_BADGE_OPTIONS = ["in_stock", "low_stock"] as const;
+
 export const MERCH_BADGE_STYLES: Record<string, string> = {
   top_category: "bg-[#15171A] text-white",
   excellent_price: "bg-[#05C3D4] text-black",
@@ -32,4 +43,12 @@ export function getMerchandisingBadgeLabel(value: string) {
 
 export function getMerchandisingBadgeStyle(value: string) {
   return MERCH_BADGE_STYLES[value] ?? "bg-gray-100 text-gray-700";
+}
+
+export function filterDisabledMerchandisingBadges(
+  badges: unknown,
+  disabledBadges: readonly string[]
+) {
+  const disabled = new Set(disabledBadges);
+  return normalizeMerchandisingBadges(badges).filter(badge => !disabled.has(badge));
 }

@@ -10,11 +10,14 @@ import {
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import {
+  AUTO_MERCH_BADGE_OPTIONS,
   getMerchandisingBadgeLabel,
   getMerchandisingBadgeStyle,
+  MANUAL_MERCH_BADGE_OPTIONS,
   MERCH_BADGE_LABELS,
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
+import { toast } from "sonner";
 
 type EditState = {
   manualPriority: number;
@@ -55,8 +58,12 @@ export default function AdminMerchandising() {
   const [stockStatus, setStockStatus] = useState("");
   const [scoreMin, setScoreMin] = useState("");
   const [edits, setEdits] = useState<Record<number, EditState>>({});
+  const [bulkBadge, setBulkBadge] = useState<string>("store_choice");
 
   const categoriesQuery = trpc.product.getCategories.useQuery();
+  const badgeSettings = trpc.merchandising.badgeSettings.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
   const dashboard = trpc.merchandising.dashboard.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -86,6 +93,30 @@ export default function AdminMerchandising() {
     onSuccess: () => {
       utils.merchandising.dashboard.invalidate();
       utils.merchandising.products.invalidate();
+    },
+  });
+  const updateBadgeSettings = trpc.merchandising.updateBadgeSettings.useMutation({
+    onSuccess: data => {
+      toast.success("Глобальные настройки бейджей сохранены");
+      utils.merchandising.badgeSettings.setData(undefined, {
+        disabledBadges: data.disabledBadges,
+      });
+      utils.merchandising.dashboard.invalidate();
+      utils.merchandising.products.invalidate();
+      utils.product.invalidate();
+    },
+  });
+  const bulkBadgeAction = trpc.merchandising.bulkBadgeAction.useMutation({
+    onSuccess: data => {
+      toast.success("Массовое действие выполнено");
+      if ("disabledBadges" in data && data.disabledBadges) {
+        utils.merchandising.badgeSettings.setData(undefined, {
+          disabledBadges: data.disabledBadges,
+        });
+      }
+      utils.merchandising.dashboard.invalidate();
+      utils.merchandising.products.invalidate();
+      utils.product.invalidate();
     },
   });
 
@@ -139,6 +170,15 @@ export default function AdminMerchandising() {
     patchEdit(productId, { badges: nextBadges }, fallback);
   };
 
+  const disabledBadges = new Set(badgeSettings.data?.disabledBadges ?? dashboard.data?.disabledBadges ?? []);
+  const currentFilters = {
+    categoryId: categoryId ? Number(categoryId) : undefined,
+    status: status || undefined,
+    stockStatus: stockStatus ? (stockStatus as "in_stock" | "out_of_stock") : undefined,
+    scoreMin: scoreMin ? Number(scoreMin) : undefined,
+    search: search.trim() || undefined,
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -177,6 +217,94 @@ export default function AdminMerchandising() {
             <div className="mt-2 text-2xl font-black text-[#15171A]">{value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-lg border border-gray-100 bg-white p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <h2 className="text-sm font-black uppercase tracking-widest text-[#15171A]">
+              Массовое управление бейджами
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Здесь можно массово добавлять или убирать ручные merchandising-бейджи по текущему фильтру, а также
+              глобально скрывать конкретный бейдж на витрине. Глобальное скрытие безопаснее для авто-бейджей:
+              даже если робот пересчитает их снова, на сайте они не появятся.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[220px_repeat(4,minmax(0,1fr))]">
+            <select
+              value={bulkBadge}
+              onChange={event => setBulkBadge(event.target.value)}
+              className="h-11 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+            >
+              {Object.entries(MERCH_BADGE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => bulkBadgeAction.mutate({ badge: bulkBadge, action: "add_filtered", ...currentFilters })}
+              disabled={bulkBadgeAction.isPending}
+              className="h-11 rounded-lg border border-gray-200 px-4 text-sm font-black text-[#15171A] transition hover:border-[#05C3D4] disabled:opacity-50"
+            >
+              Добавить по фильтру
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkBadgeAction.mutate({ badge: bulkBadge, action: "remove_filtered", ...currentFilters })}
+              disabled={bulkBadgeAction.isPending}
+              className="h-11 rounded-lg border border-gray-200 px-4 text-sm font-black text-[#15171A] transition hover:border-rose-300 disabled:opacity-50"
+            >
+              Убрать по фильтру
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkBadgeAction.mutate({ badge: bulkBadge, action: "remove_all" })}
+              disabled={bulkBadgeAction.isPending}
+              className="h-11 rounded-lg border border-rose-200 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+            >
+              Убрать у всех товаров
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                bulkBadgeAction.mutate({
+                  badge: bulkBadge,
+                  action: disabledBadges.has(bulkBadge) ? "enable_globally" : "disable_globally",
+                })
+              }
+              disabled={bulkBadgeAction.isPending || updateBadgeSettings.isPending}
+              className={`h-11 rounded-lg px-4 text-sm font-black transition disabled:opacity-50 ${
+                disabledBadges.has(bulkBadge)
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              }`}
+            >
+              {disabledBadges.has(bulkBadge) ? "Вернуть на витрину" : "Скрыть на всём сайте"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Object.keys(MERCH_BADGE_LABELS).map(itemBadge => (
+            <button
+              key={itemBadge}
+              type="button"
+              onClick={() => {
+                const next = new Set(disabledBadges);
+                if (next.has(itemBadge)) next.delete(itemBadge);
+                else next.add(itemBadge);
+                updateBadgeSettings.mutate({ disabledBadges: Array.from(next) });
+              }}
+              disabled={updateBadgeSettings.isPending}
+              className={`${disabledBadges.has(itemBadge) ? "bg-gray-200 text-gray-500 line-through" : getMerchandisingBadgeStyle(itemBadge)} rounded-md px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition disabled:opacity-50`}
+            >
+              {getMerchandisingBadgeLabel(itemBadge)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="rounded-lg border border-gray-100 bg-white p-4">
@@ -335,7 +463,7 @@ export default function AdminMerchandising() {
                     </td>
                     <td className="py-3 pr-3">
                       <div className="flex max-w-[220px] flex-wrap gap-1.5">
-                        {Object.keys(MERCH_BADGE_LABELS).map(itemBadge => {
+                        {MANUAL_MERCH_BADGE_OPTIONS.map(itemBadge => {
                           const active = selectedBadges.has(itemBadge);
                           return (
                             <button
@@ -348,6 +476,16 @@ export default function AdminMerchandising() {
                             </button>
                           );
                         })}
+                      </div>
+                      <div className="mt-2 flex max-w-[220px] flex-wrap gap-1.5">
+                        {AUTO_MERCH_BADGE_OPTIONS.map(itemBadge => (
+                          <span
+                            key={itemBadge}
+                            className={`${selectedBadges.has(itemBadge) ? getMerchandisingBadgeStyle(itemBadge) : "bg-gray-100 text-gray-400"} rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide`}
+                          >
+                            {getMerchandisingBadgeLabel(itemBadge)}
+                          </span>
+                        ))}
                       </div>
                     </td>
                     <td className="py-3 pr-3">
@@ -379,7 +517,7 @@ export default function AdminMerchandising() {
                           </button>
                         </div>
                         <div className="text-[10px] font-bold text-gray-400">
-                          Клик по бейджу слева переключает его и он появится на витрине после сохранения.
+                          Клик по ручным бейджам слева переключает их и они появятся на витрине после сохранения.
                         </div>
                       </div>
                     </td>
