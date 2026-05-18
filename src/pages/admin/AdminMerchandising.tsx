@@ -24,6 +24,7 @@ import {
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
 import { toast } from "sonner";
+import AdminMerchandisingNav from "@/pages/admin/merchandising/AdminMerchandisingNav";
 
 type EditState = {
   manualPriority: number;
@@ -314,6 +315,42 @@ export default function AdminMerchandising() {
           <RefreshCw size={17} className={recalculate.isPending ? "animate-spin" : ""} />
           Пересчитать все
         </button>
+      </div>
+
+      <AdminMerchandisingNav />
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        {[
+          [
+            "Каталог бейджей",
+            "Отдельный экран со словарём формулировок, статусами и scope по категориям.",
+            "/admin/merchandising/badges",
+          ],
+          [
+            "AI-генерация",
+            "Категорийный запуск агента, review предложений и утверждение смысла.",
+            "/admin/merchandising/ai",
+          ],
+          [
+            "Назначения",
+            "Preview совпадений по товарам и controlled bulk apply после проверки.",
+            "/admin/merchandising/assignments",
+          ],
+          [
+            "Качество",
+            "Покрытие категорий, recent runs и общая health-картина badge-системы.",
+            "/admin/merchandising/quality",
+          ],
+        ].map(([title, text, href]) => (
+          <a
+            key={String(href)}
+            href={String(href)}
+            className="rounded-lg border border-gray-100 bg-white p-4 transition hover:border-[#05C3D4]/40 hover:shadow-sm"
+          >
+            <div className="text-sm font-black text-[#15171A]">{title}</div>
+            <div className="mt-2 text-sm leading-6 text-gray-500">{text}</div>
+          </a>
+        ))}
       </div>
 
       {(dashboard.error || products.error) && (

@@ -45,7 +45,12 @@ const navGroups: Array<{ title: string; items: NavItem[] }> = [
       { name: "Категории", href: "/admin/categories", icon: FolderTree },
       { name: "Товары", href: "/admin/products", icon: Package },
       { name: "Магазины", href: "/admin/stores", icon: Store },
-      { name: "Мерчендайзинг", href: "/admin/merchandising", icon: TrendingUp },
+      {
+        name: "Мерчендайзинг",
+        href: "/admin/merchandising",
+        icon: TrendingUp,
+        match: pathname => pathname.startsWith("/admin/merchandising"),
+      },
       {
         name: "Нормализация",
         href: "/admin/normalize-specs",

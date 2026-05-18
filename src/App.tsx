@@ -35,6 +35,10 @@ import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminCategories from "@/pages/admin/AdminCategories";
 import AdminNormalizeSpecs from "@/pages/admin/AdminNormalizeSpecs";
 import AdminMerchandising from "@/pages/admin/AdminMerchandising";
+import AdminMerchandisingAi from "@/pages/admin/merchandising/AdminMerchandisingAi";
+import AdminMerchandisingAssignments from "@/pages/admin/merchandising/AdminMerchandisingAssignments";
+import AdminMerchandisingBadges from "@/pages/admin/merchandising/AdminMerchandisingBadges";
+import AdminMerchandisingQuality from "@/pages/admin/merchandising/AdminMerchandisingQuality";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import SyncLayout from "@/pages/admin/sync/SyncLayout";
 import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
@@ -91,6 +95,10 @@ export default function App() {
               <Route path="stores" element={<AdminStores />} />
               <Route path="banners" element={<AdminBanners />} />
               <Route path="merchandising" element={<AdminMerchandising />} />
+              <Route path="merchandising/badges" element={<AdminMerchandisingBadges />} />
+              <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
+              <Route path="merchandising/assignments" element={<AdminMerchandisingAssignments />} />
+              <Route path="merchandising/quality" element={<AdminMerchandisingQuality />} />
               <Route path="blog" element={<AdminBlog />} />
               <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
