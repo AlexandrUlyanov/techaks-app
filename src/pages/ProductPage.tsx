@@ -145,6 +145,7 @@ export default function ProductPage() {
   const merchandisingBadges = normalizeMerchandisingBadges(
     (product as { merchandisingBadges?: unknown }).merchandisingBadges
   ).slice(0, 4);
+  const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
   const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
     "отзыв",
     "отзыва",
@@ -290,29 +291,31 @@ export default function ProductPage() {
             {/* Info */}
             <div className="flex-1">
               {/* Rating */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 bg-muted px-3 py-1.5 rounded-lg border border-border">
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        className={
-                          i < Math.round(Number(product.rating))
-                            ? "fill-[#05C3D4] text-[#05C3D4]"
-                            : "text-muted-foreground/20"
-                        }
-                      />
-                    ))}
+              {hasPublishedReviews ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 rounded-lg border border-border bg-muted px-3 py-1.5">
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          className={
+                            i < Math.round(Number(product.rating))
+                              ? "fill-[#05C3D4] text-[#05C3D4]"
+                              : "text-muted-foreground/20"
+                          }
+                        />
+                      ))}
+                    </div>
+                    <span className="ml-2 text-sm font-black text-foreground">
+                      {product.rating}
+                    </span>
                   </div>
-                  <span className="ml-2 text-sm font-black text-foreground">
-                    {product.rating}
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    ({reviewCountLabel})
                   </span>
                 </div>
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  ({reviewCountLabel})
-                </span>
-              </div>
+              ) : null}
 
               {/* Price */}
               <div className="mt-10">
@@ -526,27 +529,29 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {isAuthenticated ? (
-                <ReviewComposer
-                  productId={product.id}
-                  productName={product.name}
-                  existingReview={reviewEligibility?.existingReview}
-                  verifiedPurchase={reviewEligibility?.verifiedPurchase}
-                />
-              ) : (
-                <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
-                  <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
-                  </p>
-                  <Link
-                    to="/login"
-                    className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                  >
-                    Войти и оставить отзыв
-                  </Link>
-                </div>
-              )}
+              <div id="review-composer">
+                {isAuthenticated ? (
+                  <ReviewComposer
+                    productId={product.id}
+                    productName={product.name}
+                    existingReview={reviewEligibility?.existingReview}
+                    verifiedPurchase={reviewEligibility?.verifiedPurchase}
+                  />
+                ) : (
+                  <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
+                    <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
+                    </p>
+                    <Link
+                      to="/login"
+                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                    >
+                      Войти и оставить отзыв
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-5">
@@ -554,21 +559,41 @@ export default function ProductPage() {
                 <div className="text-sm font-bold text-muted-foreground">
                   Реальные отзывы покупателей и ответы магазина
                 </div>
-                <select
-                  value={reviewSort}
-                  onChange={event => setReviewSort(event.target.value as typeof reviewSort)}
-                  className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-[#05C3D4]"
-                >
-                  <option value="newest">Сначала новые</option>
-                  <option value="verified">Сначала подтверждённые</option>
-                  <option value="highest">Сначала высокие оценки</option>
-                  <option value="lowest">Сначала низкие оценки</option>
-                </select>
+                {(reviewFeed?.items ?? []).length > 0 ? (
+                  <select
+                    value={reviewSort}
+                    onChange={event => setReviewSort(event.target.value as typeof reviewSort)}
+                    className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-[#05C3D4]"
+                  >
+                    <option value="newest">Сначала новые</option>
+                    <option value="verified">Сначала подтверждённые</option>
+                    <option value="highest">Сначала высокие оценки</option>
+                    <option value="lowest">Сначала низкие оценки</option>
+                  </select>
+                ) : null}
               </div>
 
               {(reviewFeed?.items ?? []).length === 0 ? (
-                <div className="rounded-[2rem] border border-border bg-white p-8 text-sm text-muted-foreground shadow-sm">
-                  Пока отзывов нет. Первый честный отзыв часто помогает следующему покупателю принять решение.
+                <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm">
+                  <div className="text-lg font-black text-[#15171A]">Пока отзывов нет</div>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                    У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
+                  </p>
+                  {isAuthenticated ? (
+                    <a
+                      href="#review-composer"
+                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                    >
+                      Оставить первый отзыв
+                    </a>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
+                    >
+                      Войти и оставить первый отзыв
+                    </Link>
+                  )}
                 </div>
               ) : (
                 (reviewFeed?.items ?? []).map(review => (
