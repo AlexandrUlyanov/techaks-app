@@ -315,7 +315,7 @@ export default function ProductPage() {
             </div>
 
             {/* Info */}
-            <div className="flex-1">
+            <div className="flex-1 space-y-8">
               {/* Rating */}
               {hasPublishedReviews ? (
                 <div className="flex items-center gap-4">
@@ -344,7 +344,7 @@ export default function ProductPage() {
               ) : null}
 
               {/* Price */}
-              <div className={hasPublishedReviews ? "mt-10" : "mt-2"}>
+              <div className={hasPublishedReviews ? "" : "-mt-1"}>
                 <div
                   className="p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm"
                 >
@@ -372,7 +372,7 @@ export default function ProductPage() {
                 </div>
 
                 {/* CTA moved here */}
-                <div className="mt-6 flex flex-col gap-4">
+                <div className="mt-5 flex flex-col gap-4">
                   <Button
                     size="lg"
                     onClick={handleAddToCart}
@@ -385,24 +385,31 @@ export default function ProductPage() {
               </div>
 
               {/* Stock & FOMO */}
-              <div className="mt-10 space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
-                  Наличие в магазинах
-                </h3>
+              <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+                    Наличие в магазинах
+                  </h3>
+                  {typedStock.length > 0 ? (
+                    <span className="rounded-full border border-border bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                      {typedStock.filter(s => s.quantity > 0).length} точк{typedStock.filter(s => s.quantity > 0).length === 1 ? "а" : "и"}
+                    </span>
+                  ) : null}
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {typedStock.length > 0 ? (
                     typedStock.map((s, i) => (
                       <div
                         key={i}
-                        className="flex flex-col p-4 bg-muted/30 border border-border rounded-2xl relative overflow-hidden group hover:border-[#05C3D4]/30 transition-all"
+                        className="relative flex flex-col rounded-xl border border-border/70 bg-white/90 p-4 transition-all hover:border-[#05C3D4]/25"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-black uppercase tracking-tight text-foreground/80 line-clamp-1" title={String(s.storeName)}>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <span className="line-clamp-1 text-[11px] font-black uppercase tracking-tight text-foreground/85" title={String(s.storeName)}>
                             {String(s.storeName)}
                           </span>
                           <div
-                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
+                            className={`flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
                           >
                             <div
                               className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`}
@@ -412,7 +419,7 @@ export default function ProductPage() {
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] font-medium text-muted-foreground leading-snug">
+                        <p className="text-[11px] font-medium leading-5 text-muted-foreground">
                           {String(s.storeAddress)}
                         </p>
 
@@ -433,13 +440,12 @@ export default function ProductPage() {
                     </div>
                   )}
                 </div>
-
                 {isInStock &&
                   typedStock.some(s => s.quantity > 0 && s.quantity <= 3) && (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/10 rounded-xl border border-orange-500/20 w-fit animate-in fade-in slide-in-from-left duration-700">
-                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
+                    <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 animate-in fade-in slide-in-from-left duration-700">
+                      <div className="h-2 w-2 rounded-full bg-orange-500 animate-ping" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                        Товар заканчивается в некоторых магазинах!
+                        Товар заканчивается в некоторых магазинах
                       </span>
                     </div>
                   )}
@@ -447,7 +453,7 @@ export default function ProductPage() {
 
               {/* Description */}
               {hasDescription && (
-                <div className="mt-10">
+                <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
                     Описание
                   </h3>
@@ -459,7 +465,7 @@ export default function ProductPage() {
 
               {/* Specs */}
               {productSpecs && (
-                <div className="mt-10">
+                <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mb-4">
                     Характеристики
                   </h3>
@@ -488,7 +494,7 @@ export default function ProductPage() {
               )}
 
               {/* CTA */}
-              <div className="mt-12 flex flex-col gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-4">
                   <a
                     href="https://t.me/tech_aks"
