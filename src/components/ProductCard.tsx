@@ -7,6 +7,7 @@ import {
   getMerchandisingBadgeStyle,
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
+import { formatRussianCount } from "@/lib/russian-plurals";
 
 interface ProductCardProps {
   product: {
@@ -48,6 +49,11 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
   const rating = Number(product.rating ?? 0);
   const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
+  const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
+    "отзыв",
+    "отзыва",
+    "отзывов",
+  ]);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -150,7 +156,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             {hasRating && (
               <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
                 <Star size={12} className="fill-[#05C3D4] text-[#05C3D4]" />
-                {rating.toFixed(1)} · {product.reviewCount} отзывов
+                {rating.toFixed(1)} · {reviewCountLabel}
               </div>
             )}
             <div className="mt-auto flex items-end justify-between gap-3">
@@ -229,7 +235,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             <div className="mt-2 flex items-center gap-1">
                 <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
                 <span className="text-[10px] font-bold text-muted-foreground">
-                  {rating.toFixed(1)} · {product.reviewCount}
+                  {rating.toFixed(1)} · {reviewCountLabel}
                 </span>
             </div>
           )}

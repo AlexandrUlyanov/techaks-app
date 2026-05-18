@@ -8,6 +8,7 @@ import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { buildCanonical, useSeo } from "@/lib/seo";
+import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
 import {
@@ -144,6 +145,11 @@ export default function ProductPage() {
   const merchandisingBadges = normalizeMerchandisingBadges(
     (product as { merchandisingBadges?: unknown }).merchandisingBadges
   ).slice(0, 4);
+  const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
+    "отзыв",
+    "отзыва",
+    "отзывов",
+  ]);
   const hasOldPrice =
     typeof product.oldPrice === "number" && product.oldPrice > product.price;
   const productSpecs =
@@ -304,7 +310,7 @@ export default function ProductPage() {
                   </span>
                 </div>
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  ({product.reviewCount} отзывов)
+                  ({reviewCountLabel})
                 </span>
               </div>
 
@@ -491,7 +497,11 @@ export default function ProductPage() {
                   </div>
                   <div className="pb-2">
                     <div className="text-sm font-bold text-[#15171A]">
-                      {reviewFeed?.summary.totalCount ?? 0} отзывов
+                      {formatRussianCount(reviewFeed?.summary.totalCount ?? 0, [
+                        "отзыв",
+                        "отзыва",
+                        "отзывов",
+                      ])}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Подтверждённых покупок: {reviewFeed?.summary.verifiedCount ?? 0}
