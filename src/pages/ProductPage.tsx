@@ -69,6 +69,7 @@ export default function ProductPage() {
       retry: false,
     }
   );
+  const hasReviewItems = (reviewFeed?.items ?? []).length > 0;
 
   const breadcrumbs = useMemo(() => {
     if (!product || !categories.length) return [];
@@ -97,6 +98,17 @@ export default function ProductPage() {
     canonicalPath: seoCanonicalPath,
     noindex: !product,
   });
+
+  useEffect(() => {
+    if (hasReviewItems) {
+      setShowReviewSection(true);
+      return;
+    }
+
+    if (location.hash === "#reviews" || location.hash === "#review-composer") {
+      setShowReviewSection(true);
+    }
+  }, [hasReviewItems, location.hash]);
 
   if (isLoading) {
     return (
@@ -148,7 +160,6 @@ export default function ProductPage() {
     (product as { merchandisingBadges?: unknown }).merchandisingBadges
   ).slice(0, 4);
   const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
-  const hasReviewItems = (reviewFeed?.items ?? []).length > 0;
   const shouldShowReviewSection = hasReviewItems || showReviewSection;
   const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
     "отзыв",
@@ -208,17 +219,6 @@ export default function ProductPage() {
       }, 60);
     });
   };
-
-  useEffect(() => {
-    if (hasReviewItems) {
-      setShowReviewSection(true);
-      return;
-    }
-
-    if (location.hash === "#reviews" || location.hash === "#review-composer") {
-      setShowReviewSection(true);
-    }
-  }, [hasReviewItems, location.hash]);
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
