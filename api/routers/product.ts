@@ -35,6 +35,7 @@ import {
 import { getMerchandisingDisabledBadges } from "../lib/merchandising-score";
 import { filterDisabledMerchandisingBadges } from "@/lib/merchandising-badges";
 import { getStorefrontBadgeLabels } from "../lib/merchandising-ai-badges";
+import { getProductReservationSummary, getProductStoreAvailability } from "../lib/product-reservations";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -798,15 +799,15 @@ export const productRouter = createRouter({
 
       if (!product[0]) return [];
 
-      return await db
-        .select({
-          storeName: stores.name,
-          storeAddress: stores.address,
-          quantity: productStocks.quantity,
-        })
-        .from(productStocks)
-        .innerJoin(stores, eq(productStocks.storeId, stores.id))
-        .where(eq(productStocks.productId, product[0].id));
+      return await getProductStoreAvailability(db, product[0].id);
+    }),
+
+  getReservationSummary: protectedProcedure
+    .input(z.object({ productId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Product");
+      const db = getDb();
+      return getProductReservationSummary(db, input.productId);
     }),
 
   getReviews: publicQuery

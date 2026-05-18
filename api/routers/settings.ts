@@ -72,6 +72,30 @@ export const settingsRouter = createRouter({
       return { success: true };
     }),
 
+  getReservationSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    const settings = await getAppSettings(["reservation_duration_minutes"]);
+    const stored = Number(settings.reservation_duration_minutes || 180);
+    return {
+      durationMinutes: Number.isFinite(stored) && stored >= 15 ? stored : 180,
+    };
+  }),
+
+  saveReservationSettings: protectedProcedure
+    .input(
+      z.object({
+        durationMinutes: z.number().int().min(15).max(7 * 24 * 60),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      await setAppSetting(
+        "reservation_duration_minutes",
+        String(input.durationMinutes)
+      );
+      return { success: true };
+    }),
+
   saveGemini: protectedProcedure
     .input(
       z.object({

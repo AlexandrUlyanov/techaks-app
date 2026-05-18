@@ -26,6 +26,7 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 const ORDER_STATUS_OPTIONS = [
   { value: "", label: "Все статусы" },
   { value: "pending", label: "Новый" },
+  { value: "waiting_call", label: "Ждёт звонка" },
   { value: "confirmed", label: "Подтвержден" },
   { value: "processing", label: "В обработке" },
   { value: "assembling", label: "Собирается" },
@@ -86,6 +87,12 @@ function OrderStatusPill({ status }: { status: string }) {
     switch (value) {
       case "pending":
         return { label: "Новый", color: "bg-blue-100 text-blue-700", icon: Clock };
+      case "waiting_call":
+        return {
+          label: "Ждёт звонка",
+          color: "bg-fuchsia-100 text-fuchsia-700",
+          icon: Phone,
+        };
       case "confirmed":
         return {
           label: "Подтвержден",
@@ -327,7 +334,9 @@ export default function AdminLeads() {
           label="Новые и ожидают"
           value={
             orders.filter(order =>
-              ["pending", "awaiting_payment", "processing"].includes(order.status)
+              ["pending", "waiting_call", "awaiting_payment", "processing"].includes(
+                order.status
+              )
             ).length
           }
           hint="Текущая выборка"
@@ -500,6 +509,7 @@ export default function AdminLeads() {
               className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
             >
               <option value="processing">В обработке</option>
+              <option value="waiting_call">Ждёт звонка</option>
               <option value="assembling">Собирается</option>
               <option value="awaiting_dispatch">Ожидает отправки</option>
               <option value="in_delivery">Доставляется</option>
@@ -580,6 +590,14 @@ export default function AdminLeads() {
                       {order.source === "legacy" ? (
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">
                           Legacy
+                        </span>
+                      ) : order.source === "one_click" ? (
+                        <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fuchsia-700">
+                          Заказ в 1 клик
+                        </span>
+                      ) : order.source === "reservation" ? (
+                        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-700">
+                          Из резерва
                         </span>
                       ) : null}
 

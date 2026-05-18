@@ -107,4 +107,32 @@
   .brand-graphite {
     @apply bg-[#15171A] dark:bg-[#0A0B0D];
   }
+
+  .product-action-button .product-action-icon svg {
+    transition:
+      transform 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .product-action-button:hover:not(:disabled) .product-action-icon-cart svg {
+    transform: translateX(2px);
+  }
+
+  .product-action-button:hover:not(:disabled) .product-action-icon-one-click svg {
+    transform: scale(1.05);
+  }
+
+  .product-action-button:hover:not(:disabled) .product-action-icon-reserve svg {
+    transform: translateY(-1px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .product-action-button .product-action-icon svg {
+      transition: none;
+    }
+
+    .product-action-button:hover:not(:disabled) .product-action-icon svg {
+      transform: none;
+    }
+  }
 }

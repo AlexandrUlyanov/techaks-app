@@ -27,6 +27,7 @@ import { trpc } from "@/providers/trpc";
 import AdminLayout from "@/pages/admin/AdminLayout";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
+import AdminReservations from "@/pages/admin/AdminReservations";
 import AdminStores from "@/pages/admin/AdminStores";
 import AdminLeads from "@/pages/admin/AdminLeads";
 import AdminOrderDetails from "@/pages/admin/AdminOrderDetails";
@@ -91,6 +92,7 @@ export default function App() {
               <Route index element={<AdminDashboard />} />
               <Route path="leads" element={<AdminLeads />} />
               <Route path="leads/:id" element={<AdminOrderDetails />} />
+              <Route path="reservations" element={<AdminReservations />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="stores" element={<AdminStores />} />

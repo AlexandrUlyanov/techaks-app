@@ -2,13 +2,31 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
 import { sendOrderNotificationEmail, sendReviewRequestEmail } from "../lib/mail";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import { ensureReviewRequestRowsForOrder } from "../lib/product-reviews";
+import {
+  assertReservableProduct,
+  assertStoreExists,
+  assertValidReservationPhone,
+  backfillUserPhoneIfMissing,
+  DEFAULT_RESERVATION_DURATION_MINUTES,
+  expireDueReservations,
+  findExistingActiveReservation,
+  getProductReservationSummary,
+  getProductStoreAvailability,
+  getReservationDurationMinutes,
+  getReservationExpiryDate,
+  RESERVATION_STATUS_ACTIVE,
+  RESERVATION_STATUS_CANCELLED,
+  RESERVATION_STATUS_CONVERTED,
+  RESERVATION_STATUS_EXPIRED,
+} from "../lib/product-reservations";
+import { normalizePhone } from "@contracts/phone";
 import {
   buildOrdersCsv,
   buildOrdersExportTable,
@@ -160,6 +178,7 @@ async function canViewerAccessOrder(
 
 const ORDER_STATUS_FLOW: Record<string, string[]> = {
   pending: ["confirmed", "awaiting_payment", "processing", "cancelled", "problem"],
+  waiting_call: ["confirmed", "processing", "cancelled", "problem"],
   awaiting_payment: ["paid", "processing", "cancelled", "problem"],
   paid: ["processing", "confirmed_by_customer", "ready_for_pickup", "cancelled", "problem"],
   processing: ["confirmed_by_customer", "ready_for_pickup", "assembling", "cancelled", "problem"],
@@ -606,7 +625,550 @@ async function resolvePurchasableCartItems(
   };
 }
 
+async function resolveOrCreateCustomerUser(
+  db: ReturnType<typeof getDb>,
+  input: {
+    ctxUser?: typeof users.$inferSelect | null;
+    phone: string;
+    fullName: string;
+    email?: string | null;
+  }
+) {
+  const normalizedPhone = normalizePhone(input.phone);
+  const normalizedFullName = input.fullName.trim();
+  const normalizedEmail = input.email?.trim().toLowerCase() || null;
+
+  let resolvedUser = input.ctxUser ?? null;
+
+  if (!resolvedUser && normalizedEmail) {
+    const existingByEmail = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+    resolvedUser = existingByEmail[0] ?? null;
+  }
+
+  if (!resolvedUser && normalizedPhone) {
+    const existingByPhone = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, normalizedPhone))
+      .limit(1);
+    resolvedUser = existingByPhone[0] ?? null;
+  }
+
+  if (resolvedUser) {
+    const userPatch: Partial<typeof users.$inferInsert> = {};
+    if (normalizedPhone && (!resolvedUser.phone || resolvedUser.phone.trim().length === 0)) {
+      userPatch.phone = normalizedPhone;
+    }
+    if (
+      normalizedFullName &&
+      (!resolvedUser.fullName || resolvedUser.fullName.trim().length === 0)
+    ) {
+      userPatch.fullName = normalizedFullName;
+    }
+    if (
+      normalizedEmail &&
+      isPlaceholderEmail(resolvedUser.email) &&
+      resolvedUser.email !== normalizedEmail
+    ) {
+      userPatch.email = normalizedEmail;
+    }
+    if (Object.keys(userPatch).length > 0) {
+      await db.update(users).set(userPatch).where(eq(users.id, resolvedUser.id));
+    }
+    return {
+      userId: resolvedUser.id,
+      user: resolvedUser,
+      normalizedPhone,
+      normalizedFullName,
+      normalizedEmail,
+    };
+  }
+
+  const newUser = await db.insert(users).values({
+    email: normalizedEmail || buildPlaceholderEmail(normalizedPhone),
+    phone: normalizedPhone,
+    fullName: normalizedFullName,
+    role: "customer",
+    status: "active",
+  });
+
+  return {
+    userId: Number(newUser[0].insertId),
+    user: null,
+    normalizedPhone,
+    normalizedFullName,
+    normalizedEmail,
+  };
+}
+
+async function createSingleItemOrder(
+  db: ReturnType<typeof getDb>,
+  input: {
+    userId: number | null;
+    product: { id: number; name: string; image: string; price: number };
+    store: { id: number; name: string; address: string };
+    phone: string;
+    fullName: string;
+    email?: string | null;
+    quantity: number;
+    source: string;
+    status: string;
+    reservationId?: number | null;
+  }
+) {
+  const orderNumber = `TA-${Date.now().toString().slice(-9)}-${Math.floor(
+    100 + Math.random() * 900
+  )}`;
+  const trustedTotal = input.product.price * input.quantity;
+
+  const newOrder = await db.insert(orders).values({
+    userId: input.userId,
+    storeId: input.store.id,
+    reservationId: input.reservationId ?? null,
+    orderNumber,
+    customerName: input.fullName,
+    customerPhone: input.phone,
+    customerEmail: input.email ?? null,
+    source: input.source,
+    totalPrice: trustedTotal,
+    subtotal: trustedTotal,
+    paidAmount: 0,
+    deliveryType: "pickup",
+    address: input.store.address,
+    deliveryStatus: "not_required",
+    paymentType: "cash",
+    paymentMethod: "cash",
+    status: input.status,
+  });
+
+  const orderId = Number(newOrder[0].insertId);
+  await db.insert(orderItems).values({
+    orderId,
+    productId: input.product.id,
+    productName: input.product.name,
+    image: input.product.image,
+    quantity: input.quantity,
+    price: input.product.price,
+    total: trustedTotal,
+  });
+
+  return {
+    orderId,
+    orderNumber,
+    totalPrice: trustedTotal,
+  };
+}
+
 export const ecommerceRouter = createRouter({
+  getReservationSettings: publicQuery.query(async () => {
+    return {
+      durationMinutes: await getReservationDurationMinutes(),
+      defaultDurationMinutes: DEFAULT_RESERVATION_DURATION_MINUTES,
+    };
+  }),
+
+  createReservation: publicQuery
+    .input(
+      z.object({
+        productId: z.number(),
+        storeId: z.number(),
+        quantity: z.number().int().min(1).max(20).default(1),
+        phone: z.string().trim().optional(),
+        customerName: z.string().trim().max(255).optional(),
+        comment: z.string().trim().max(1000).optional(),
+        source: z.enum(["product_card", "product_page", "admin"]).default("product_page"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const now = new Date();
+      const durationMinutes = await getReservationDurationMinutes();
+      const fallbackPhone = ctx.user?.phone || "";
+      const phone = assertValidReservationPhone(input.phone?.trim() || fallbackPhone);
+      const customerName =
+        input.customerName?.trim() || ctx.user?.fullName?.trim() || null;
+
+      const result = await db.transaction(async tx => {
+        await expireDueReservations(tx, now);
+
+        const product = await assertReservableProduct(tx, input.productId);
+        const store = await assertStoreExists(tx, input.storeId);
+
+        const existing = await findExistingActiveReservation(tx, {
+          productId: input.productId,
+          storeId: input.storeId,
+          userId: ctx.user?.id ?? null,
+          phone,
+          now,
+        });
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Товар уже зарезервирован",
+          });
+        }
+
+        const stockLockResult = await tx.execute(sql`
+          SELECT quantity
+          FROM ${productStocks}
+          WHERE ${productStocks.productId} = ${input.productId}
+            AND ${productStocks.storeId} = ${input.storeId}
+          LIMIT 1
+          FOR UPDATE
+        `);
+        const stockLockRows = Array.isArray((stockLockResult as any)?.[0])
+          ? (stockLockResult as any)[0]
+          : (stockLockResult as any[]);
+        const rawStockQty = Number(stockLockRows?.[0]?.quantity ?? 0);
+
+        if (rawStockQty <= 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "В этом магазине товар закончился.",
+          });
+        }
+
+        const activeReservationsResult = await tx.execute(sql`
+          SELECT ${productReservations.id}, ${productReservations.quantity}
+          FROM ${productReservations}
+          WHERE ${productReservations.productId} = ${input.productId}
+            AND ${productReservations.storeId} = ${input.storeId}
+            AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+            AND ${productReservations.reservedUntil} > ${now}
+          FOR UPDATE
+        `);
+        const activeReservationRows = Array.isArray((activeReservationsResult as any)?.[0])
+          ? (activeReservationsResult as any)[0]
+          : (activeReservationsResult as any[]);
+        const activeReservedQty = (activeReservationRows as Array<{ quantity: number }>).reduce(
+          (sum, row) => sum + Number(row.quantity ?? 0),
+          0
+        );
+        const availableQty = Math.max(0, rawStockQty - activeReservedQty);
+
+        if (availableQty <= 0 || availableQty < input.quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              availableQty <= 0
+                ? "В этом магазине товар закончился."
+                : "Товар уже недоступен для резерва.",
+          });
+        }
+
+        const reservedUntil = getReservationExpiryDate(durationMinutes, now);
+        const insertResult = await tx.insert(productReservations).values({
+          productId: input.productId,
+          storeId: input.storeId,
+          userId: ctx.user?.id ?? null,
+          phone,
+          customerName,
+          quantity: input.quantity,
+          status: RESERVATION_STATUS_ACTIVE,
+          reservedUntil,
+          source: input.source,
+          comment: input.comment?.trim() || null,
+          updatedAt: now,
+        });
+
+        await backfillUserPhoneIfMissing(tx, {
+          userId: ctx.user?.id ?? null,
+          phone,
+        });
+
+        return {
+          id: Number(insertResult[0].insertId),
+          status: RESERVATION_STATUS_ACTIVE,
+          reservedUntil,
+          product: {
+            id: product.id,
+            name: product.name,
+            price: Number(product.price),
+          },
+          store,
+          quantity: input.quantity,
+          availableQtyAfterReservation: Math.max(0, availableQty - input.quantity),
+        };
+      });
+
+      return result;
+    }),
+
+  cancelReservation: protectedProcedure
+    .input(z.object({ reservationId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await expireDueReservations(db);
+
+      const [reservation] = await db
+        .select()
+        .from(productReservations)
+        .where(eq(productReservations.id, input.reservationId))
+        .limit(1);
+
+      if (!reservation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Резерв не найден." });
+      }
+
+      const canManageAny =
+        ctx.ability?.can("manage", "all") || ctx.ability?.can("update", "Reservation");
+      if (!canManageAny && reservation.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Резерв недоступен." });
+      }
+
+      if (reservation.status !== RESERVATION_STATUS_ACTIVE) {
+        return { success: true, status: reservation.status };
+      }
+
+      await db
+        .update(productReservations)
+        .set({
+          status: RESERVATION_STATUS_CANCELLED,
+          updatedAt: new Date(),
+        })
+        .where(eq(productReservations.id, input.reservationId));
+
+      return { success: true, status: RESERVATION_STATUS_CANCELLED };
+    }),
+
+  createOneClickOrder: publicQuery
+    .input(
+      z.object({
+        productId: z.number(),
+        storeId: z.number().optional().nullable(),
+        quantity: z.number().int().min(1).max(20).default(1),
+        phone: z.string().trim().optional(),
+        customerName: z.string().trim().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const now = new Date();
+      const phone = assertValidReservationPhone(input.phone?.trim() || ctx.user?.phone || "");
+      const customerName =
+        input.customerName?.trim() || ctx.user?.fullName?.trim() || "Клиент";
+      const email = ctx.user?.email?.trim().toLowerCase() || null;
+
+      await expireDueReservations(db, now);
+      const product = await assertReservableProduct(db, input.productId);
+      const availability = await getProductStoreAvailability(db, input.productId);
+      const availableStores = availability.filter(
+        (row: (typeof availability)[number]) => row.availableQty >= input.quantity
+      );
+
+      const resolvedStoreId =
+        typeof input.storeId === "number" && input.storeId > 0
+          ? input.storeId
+          : availableStores.length === 1
+            ? availableStores[0].storeId
+            : null;
+
+      if (!resolvedStoreId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Выберите магазин, в котором хотите оформить товар.",
+        });
+      }
+
+      const selectedStoreAvailability = availableStores.find(
+        (row: (typeof availability)[number]) => row.storeId === resolvedStoreId
+      );
+      if (!selectedStoreAvailability || selectedStoreAvailability.availableQty < input.quantity) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "В этом магазине товар закончился.",
+        });
+      }
+
+      const store = await assertStoreExists(db, resolvedStoreId);
+      const customer = await resolveOrCreateCustomerUser(db, {
+        ctxUser: ctx.user ?? null,
+        phone,
+        fullName: customerName,
+        email,
+      });
+
+      const order = await createSingleItemOrder(db, {
+        userId: customer.userId,
+        product: {
+          id: product.id,
+          name: product.name,
+          image: product.image,
+          price: Number(product.price),
+        },
+        store,
+        phone: customer.normalizedPhone,
+        fullName: customer.normalizedFullName,
+        email: customer.normalizedEmail,
+        quantity: input.quantity,
+        source: "one_click",
+        status: "waiting_call",
+      });
+
+      await safeInsertOrderHistory(db, {
+        orderId: order.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "one_click_order_created",
+        newValue: {
+          storeId: store.id,
+          productId: product.id,
+          quantity: input.quantity,
+        } as any,
+        comment: "Быстрый заказ создан через кнопку «Купить в 1 клик».",
+      });
+
+      return {
+        success: true,
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        status: "waiting_call",
+      };
+    }),
+
+  listReservations: protectedProcedure
+    .input(
+      z
+        .object({
+          status: z
+            .enum([
+              RESERVATION_STATUS_ACTIVE,
+              RESERVATION_STATUS_EXPIRED,
+              RESERVATION_STATUS_CANCELLED,
+              RESERVATION_STATUS_CONVERTED,
+            ])
+            .optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Reservation");
+      const db = getDb();
+      await expireDueReservations(db);
+
+      const whereClause = input?.status
+        ? eq(productReservations.status, input.status)
+        : undefined;
+
+      const rows = await db
+        .select({
+          id: productReservations.id,
+          productId: productReservations.productId,
+          storeId: productReservations.storeId,
+          userId: productReservations.userId,
+          phone: productReservations.phone,
+          customerName: productReservations.customerName,
+          quantity: productReservations.quantity,
+          status: productReservations.status,
+          reservedUntil: productReservations.reservedUntil,
+          source: productReservations.source,
+          comment: productReservations.comment,
+          createdAt: productReservations.createdAt,
+          updatedAt: productReservations.updatedAt,
+          productName: products.name,
+          productSlug: products.slug,
+          storeName: stores.name,
+          storeAddress: stores.address,
+        })
+        .from(productReservations)
+        .innerJoin(products, eq(productReservations.productId, products.id))
+        .innerJoin(stores, eq(productReservations.storeId, stores.id))
+        .where(whereClause)
+        .orderBy(desc(productReservations.createdAt));
+
+      return rows;
+    }),
+
+  getProductReservationSummary: protectedProcedure
+    .input(z.object({ productId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Reservation");
+      const db = getDb();
+      return getProductReservationSummary(db, input.productId);
+    }),
+
+  convertReservationToOrder: protectedProcedure
+    .input(z.object({ reservationId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Reservation");
+      const db = getDb();
+      await expireDueReservations(db);
+
+      const [reservation] = await db
+        .select()
+        .from(productReservations)
+        .where(eq(productReservations.id, input.reservationId))
+        .limit(1);
+
+      if (!reservation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Резерв не найден." });
+      }
+      if (reservation.status !== RESERVATION_STATUS_ACTIVE) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Оформить заказ можно только из активного резерва.",
+        });
+      }
+
+      const product = await assertReservableProduct(db, reservation.productId);
+      const store = await assertStoreExists(db, reservation.storeId);
+
+      const customer = await resolveOrCreateCustomerUser(db, {
+        ctxUser: null,
+        phone: reservation.phone,
+        fullName: reservation.customerName?.trim() || "Клиент",
+        email: null,
+      });
+
+      const order = await createSingleItemOrder(db, {
+        userId: customer.userId,
+        product: {
+          id: product.id,
+          name: product.name,
+          image: product.image,
+          price: Number(product.price),
+        },
+        store,
+        phone: reservation.phone,
+        fullName: reservation.customerName?.trim() || "Клиент",
+        email: customer.normalizedEmail,
+        quantity: reservation.quantity,
+        source: "reservation",
+        status: "waiting_call",
+        reservationId: reservation.id,
+      });
+
+      await db
+        .update(productReservations)
+        .set({
+          status: RESERVATION_STATUS_CONVERTED,
+          updatedAt: new Date(),
+        })
+        .where(eq(productReservations.id, input.reservationId));
+
+      await safeInsertOrderHistory(db, {
+        orderId: order.orderId,
+        userId: ctx.user?.id ?? null,
+        actionType: "order_created_from_reservation",
+        newValue: {
+          reservationId: reservation.id,
+          storeId: reservation.storeId,
+          productId: reservation.productId,
+        } as any,
+        comment: "Заказ оформлен из активного резерва.",
+      });
+
+      return {
+        success: true,
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+      };
+    }),
+
   validateCartItems: publicQuery
     .input(
       z.object({
@@ -1206,6 +1768,8 @@ export const ecommerceRouter = createRouter({
         const items = await db
           .select({
             id: orders.id,
+            storeId: orders.storeId,
+            reservationId: orders.reservationId,
             orderNumber: orders.orderNumber,
             userId: orders.userId,
             status: orders.status,
@@ -1420,6 +1984,7 @@ export const ecommerceRouter = createRouter({
         id: z.number(),
         status: z.enum([
           "pending",
+          "waiting_call",
           "confirmed",
           "shipped",
           "delivered",
@@ -1510,6 +2075,8 @@ export const ecommerceRouter = createRouter({
         const orderRows = await db
           .select({
             id: orders.id,
+            storeId: orders.storeId,
+            reservationId: orders.reservationId,
             orderNumber: orders.orderNumber,
             status: orders.status,
             paymentStatus: orders.paymentStatus,

@@ -35,6 +35,7 @@ export default function AdminSettings() {
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
+  const { data: reservationSettings } = trpc.settings.getReservationSettings.useQuery();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [apiKey, setApiKey] = useState("");
@@ -48,6 +49,7 @@ export default function AdminSettings() {
   const [msWebhookSecret, setMsWebhookSecret] = useState("");
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
+  const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
 
   useEffect(() => {
     if (maintenanceData) {
@@ -55,6 +57,12 @@ export default function AdminSettings() {
       setMaintenanceReopenDate(maintenanceData.reopenDate || "");
     }
   }, [maintenanceData]);
+
+  useEffect(() => {
+    if (reservationSettings) {
+      setReservationDurationMinutes(reservationSettings.durationMinutes);
+    }
+  }, [reservationSettings]);
 
   useEffect(() => {
     if (!data) return;
@@ -105,6 +113,14 @@ export default function AdminSettings() {
         utils.settings.getMoySklad.invalidate();
         alert("Секрет вебхука МойСклад удален.");
         setMsWebhookSecret("");
+      },
+    });
+
+  const saveReservationSettingsMutation =
+    trpc.settings.saveReservationSettings.useMutation({
+      onSuccess: () => {
+        utils.settings.getReservationSettings.invalidate();
+        alert("Настройки резерва сохранены.");
       },
     });
 
@@ -686,6 +702,55 @@ export default function AdminSettings() {
 
       {activeTab === "site" ? (
         <div className="space-y-6">
+          <AdminSection
+            title="Резерв товара"
+            description="Срок действия резерва используется на карточке товара и в админке. После истечения срока резерв перестаёт уменьшать доступный остаток."
+          >
+            <div className="space-y-5">
+              <div className="max-w-md space-y-2">
+                <label className="text-sm font-bold text-[#15171A]">
+                  Срок действия резерва (в минутах)
+                </label>
+                <input
+                  type="number"
+                  min={15}
+                  max={10080}
+                  value={reservationDurationMinutes}
+                  onChange={e =>
+                    setReservationDurationMinutes(Math.max(15, Number(e.target.value) || 180))
+                  }
+                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                />
+                <p className="text-xs text-gray-500">
+                  По умолчанию резерв держится 180 минут. Истёкшие резервы больше не уменьшают доступный остаток.
+                </p>
+              </div>
+
+              {saveReservationSettingsMutation.error ? (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {saveReservationSettingsMutation.error.message}
+                </div>
+              ) : null}
+
+              <button
+                onClick={() =>
+                  saveReservationSettingsMutation.mutate({
+                    durationMinutes: reservationDurationMinutes,
+                  })
+                }
+                disabled={saveReservationSettingsMutation.isPending}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+              >
+                {saveReservationSettingsMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+                Сохранить срок резерва
+              </button>
+            </div>
+          </AdminSection>
+
           <AdminSection
             title="Техническое обслуживание"
             description="Временное отключение сайта для пользователей. В это время показывается страница-заглушка с обратным отсчетом."

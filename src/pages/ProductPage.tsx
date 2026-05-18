@@ -1,16 +1,20 @@
 import { useParams, Link, useLocation } from "react-router";
-import { Star, MessageCircle, ArrowLeft, ShoppingCart } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { buildCanonical, useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
+import ProductActionButtons from "@/components/product/ProductActionButtons";
+import StoreAvailabilityList from "@/components/product/StoreAvailabilityList";
+import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
+import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
+import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
   getMerchandisingBadgeStyle,
@@ -23,6 +27,11 @@ export default function ProductPage() {
   const [showForm, setShowForm] = useState(false);
   const [reviewSort, setReviewSort] = useState<"newest" | "highest" | "lowest" | "verified">("newest");
   const [showReviewSection, setShowReviewSection] = useState(false);
+  const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [oneClickDialogOpen, setOneClickDialogOpen] = useState(false);
+  const [selectedReservationStore, setSelectedReservationStore] =
+    useState<ProductStoreAvailability | null>(null);
+  const [reservedStoreId, setReservedStoreId] = useState<number | null>(null);
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
 
@@ -32,11 +41,7 @@ export default function ProductPage() {
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
   });
-  const typedStock = stock as Array<{
-    storeName: string;
-    storeAddress: string;
-    quantity: number;
-  }>;
+  const typedStock = stock as ProductStoreAvailability[];
   const { data: productManufacturer } =
     trpc.manufacturer.getByProductSlug.useQuery(
       { slug: slug || "" },
@@ -70,6 +75,8 @@ export default function ProductPage() {
     }
   );
   const hasReviewItems = (reviewFeed?.items ?? []).length > 0;
+  const availableStores = typedStock.filter(store => store.availableQty > 0);
+  const lowAvailabilityStores = availableStores.filter(store => store.availableQty <= 3);
 
   const breadcrumbs = useMemo(() => {
     if (!product || !categories.length) return [];
@@ -218,6 +225,11 @@ export default function ProductPage() {
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 60);
     });
+  };
+
+  const openReservationDialog = (store: ProductStoreAvailability) => {
+    setSelectedReservationStore(store);
+    setReservationDialogOpen(true);
   };
 
   return (
@@ -373,14 +385,12 @@ export default function ProductPage() {
 
                 {/* CTA moved here */}
                 <div className="mt-5 flex flex-col gap-4">
-                  <Button
-                    size="lg"
-                    onClick={handleAddToCart}
-                    className="magnetic w-full h-16 text-sm tracking-[0.2em] rounded-2xl bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] transition-colors relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_40px_rgba(5,195,212,0.3)]"
-                  >
-                    <ShoppingCart size={20} className="mr-2" />
-                    ДОБАВИТЬ В КОРЗИНУ
-                  </Button>
+                  <ProductActionButtons
+                    onAddToCart={handleAddToCart}
+                    onOpenOneClick={() => setOneClickDialogOpen(true)}
+                    disableCart={availableStores.length === 0}
+                    disableOneClick={availableStores.length === 0}
+                  />
                 </div>
               </div>
 
@@ -392,56 +402,26 @@ export default function ProductPage() {
                   </h3>
                   {typedStock.length > 0 ? (
                     <span className="rounded-full border border-border bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                      {typedStock.filter(s => s.quantity > 0).length} точк{typedStock.filter(s => s.quantity > 0).length === 1 ? "а" : "и"}
+                      {availableStores.length} точк{availableStores.length === 1 ? "а" : "и"}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {typedStock.length > 0 ? (
-                    typedStock.map((s, i) => (
-                      <div
-                        key={i}
-                        className="relative flex flex-col rounded-xl border border-border/70 bg-white/90 p-4 transition-all hover:border-[#05C3D4]/25"
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <span className="line-clamp-1 text-[11px] font-black uppercase tracking-tight text-foreground/85" title={String(s.storeName)}>
-                            {String(s.storeName)}
-                          </span>
-                          <div
-                            className={`flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 ${s.quantity > 0 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-destructive/10 text-destructive"}`}
-                          >
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full ${s.quantity > 0 ? "bg-[#22c55e] animate-pulse" : "bg-destructive"}`}
-                            />
-                            <span className="text-[10px] font-black">
-                              {s.quantity > 0 ? `${s.quantity} шт.` : "Нет"}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[11px] font-medium leading-5 text-muted-foreground">
-                          {String(s.storeAddress)}
-                        </p>
-
-                        {s.quantity > 0 && s.quantity <= 3 && (
-                          <div className="absolute top-0 right-0">
-                            <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">
-                              Мало
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
-                      <span className="text-xs font-bold text-muted-foreground uppercase">
-                        Информацию о наличии уточняйте у менеджера
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {typedStock.length > 0 ? (
+                  <StoreAvailabilityList
+                    stores={typedStock}
+                    reservedStoreId={reservedStoreId}
+                    onReserve={openReservationDialog}
+                  />
+                ) : (
+                  <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
+                    <span className="text-xs font-bold text-muted-foreground uppercase">
+                      Информацию о наличии уточняйте у менеджера
+                    </span>
+                  </div>
+                )}
                 {isInStock &&
-                  typedStock.some(s => s.quantity > 0 && s.quantity <= 3) && (
+                  lowAvailabilityStores.length > 0 && (
                     <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 animate-in fade-in slide-in-from-left duration-700">
                       <div className="h-2 w-2 rounded-full bg-orange-500 animate-ping" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
@@ -704,6 +684,23 @@ export default function ProductPage() {
           )}
         </div>
       </section>
+
+      <ReservationConfirmDialog
+        open={reservationDialogOpen}
+        onOpenChange={setReservationDialogOpen}
+        product={{ id: product.id, name: product.name }}
+        store={selectedReservationStore}
+        onReserved={payload => {
+          setReservedStoreId(payload.store.id);
+        }}
+      />
+
+      <OneClickOrderDialog
+        open={oneClickDialogOpen}
+        onOpenChange={setOneClickDialogOpen}
+        product={{ id: product.id, name: product.name }}
+        stores={typedStock}
+      />
 
       {/* Lead Form Modal */}
       {showForm && (

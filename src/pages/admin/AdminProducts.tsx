@@ -68,6 +68,10 @@ export default function AdminProducts() {
     search: searchTerm,
     visibility: visibilityFilter,
   });
+  const { data: reservationSummary } = trpc.product.getReservationSummary.useQuery(
+    { productId: editingProduct?.id ?? 0 },
+    { enabled: Boolean(editingProduct?.id) }
+  );
 
   const products = pagedData?.items || [];
   const totalPages = pagedData?.totalPages || 1;
@@ -509,6 +513,54 @@ export default function AdminProducts() {
                   {editingStatus.hint}
                 </p>
               </div>
+
+              {editingProduct.id && reservationSummary ? (
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Остатки и резервы по магазинам
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {reservationSummary.stores.length > 0 ? (
+                      reservationSummary.stores.map((store: any) => (
+                        <div
+                          key={store.storeId}
+                          className="rounded-2xl border border-gray-100 bg-gray-50 p-4"
+                        >
+                          <div className="font-semibold text-[#15171A]">
+                            {store.storeName}
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            {store.storeAddress}
+                          </div>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-xl bg-white px-3 py-2 text-sm">
+                              Остаток МойСклад:{" "}
+                              <span className="font-bold">{store.rawStockQty}</span>
+                            </div>
+                            <div className="rounded-xl bg-white px-3 py-2 text-sm">
+                              В резерве:{" "}
+                              <span className="font-bold">{store.activeReservedQty}</span>
+                            </div>
+                            <div className="rounded-xl bg-white px-3 py-2 text-sm">
+                              Доступно:{" "}
+                              <span className="font-bold">{store.availableQty}</span>
+                            </div>
+                          </div>
+                          {store.hasConflict ? (
+                            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                              Активных резервов больше, чем внешнего остатка. Нужна ручная проверка.
+                            </div>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                        По этому товару пока нет остатков по магазинам.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">

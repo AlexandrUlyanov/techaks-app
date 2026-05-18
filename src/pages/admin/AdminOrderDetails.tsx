@@ -248,6 +248,8 @@ export default function AdminOrderDetails() {
     : 0;
   const hasUnreadClientMessage =
     latestClientCommentMs > 0 && latestClientCommentMs > latestAdminReadClientMs;
+  const storeId = "storeId" in order ? order.storeId : null;
+  const reservationId = "reservationId" in order ? order.reservationId : null;
 
   const itemTotal = useMemo(
     () =>
@@ -358,7 +360,15 @@ export default function AdminOrderDetails() {
         <AdminStatCard
           label="Статус заказа"
           value={order.status || "Не задан"}
-          hint={order.source === "legacy" ? "Legacy-режим" : order.source || "Источник не указан"}
+          hint={
+            order.source === "legacy"
+              ? "Legacy-режим"
+              : order.source === "one_click"
+                ? "Заказ в 1 клик"
+                : order.source === "reservation"
+                  ? "Оформлен из резерва"
+                  : order.source || "Источник не указан"
+          }
           icon={Package}
           tone="accent"
         />
@@ -443,6 +453,26 @@ export default function AdminOrderDetails() {
                     ? "Курьерская доставка"
                     : "Самовывоз"}
                 </div>
+                {(storeId || reservationId) ? (
+                  <div className="mb-3 rounded-xl border border-[#05C3D4]/15 bg-[#F7FEFF] px-3 py-3 text-sm text-gray-700">
+                    {storeId ? (
+                      <div>
+                        Магазин получения:{" "}
+                        <span className="font-semibold text-[#15171A]">
+                          #{storeId}
+                        </span>
+                      </div>
+                    ) : null}
+                    {reservationId ? (
+                      <div className="mt-1">
+                        Связанный резерв:{" "}
+                        <span className="font-semibold text-[#15171A]">
+                          #{reservationId}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <textarea
                   value={address}
                   onChange={e => setAddress(e.target.value)}

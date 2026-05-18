@@ -44,6 +44,7 @@ type AccountOrder = {
 
 const orderStatusLabels: Record<string, string> = {
   pending: "Новый",
+  waiting_call: "Ждёт звонка",
   confirmed: "Подтвержден",
   awaiting_payment: "Ожидает оплаты",
   paid: "Оплачен",

@@ -249,6 +249,8 @@ export const passwordResetTokens = mysqlTable(
 export const orders = mysqlTable("orders", {
   id: serial("id").primaryKey(),
   userId: int("user_id"),
+  storeId: int("store_id"),
+  reservationId: int("reservation_id"),
   orderNumber: varchar("order_number", { length: 64 }),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
   deliveryStatus: varchar("delivery_status", { length: 30 })
@@ -307,6 +309,8 @@ export const orders = mysqlTable("orders", {
   customerPhoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),
   customerEmailIdx: index("orders_customer_email_idx").on(table.customerEmail),
   deliveryTrackIdx: index("orders_delivery_track_idx").on(table.deliveryTrackNumber),
+  storeIdx: index("orders_store_idx").on(table.storeId, table.createdAt),
+  reservationIdx: index("orders_reservation_idx").on(table.reservationId),
 }));
 
 export const orderItems = mysqlTable("order_items", {
@@ -360,6 +364,44 @@ export const productStocks = mysqlTable("product_stocks", {
   storeId: int("store_id").notNull(),
   quantity: int("quantity").notNull().default(0),
 });
+
+export const productReservations = mysqlTable("product_reservations", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  storeId: int("store_id").notNull(),
+  userId: int("user_id"),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  customerName: varchar("customer_name", { length: 255 }),
+  quantity: int("quantity").notNull().default(1),
+  status: varchar("status", { length: 30 }).notNull().default("active"),
+  reservedUntil: timestamp("reserved_until").notNull(),
+  source: varchar("source", { length: 40 }).notNull().default("product_page"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  productStoreStatusIdx: index("product_reservations_product_store_status_idx").on(
+    table.productId,
+    table.storeId,
+    table.status,
+    table.reservedUntil
+  ),
+  userStatusIdx: index("product_reservations_user_status_idx").on(
+    table.userId,
+    table.status,
+    table.updatedAt
+  ),
+  phoneStatusIdx: index("product_reservations_phone_status_idx").on(
+    table.phone,
+    table.status,
+    table.updatedAt
+  ),
+  storeStatusIdx: index("product_reservations_store_status_idx").on(
+    table.storeId,
+    table.status,
+    table.reservedUntil
+  ),
+}));
 
 export const syncLogs = mysqlTable("sync_logs", {
   id: serial("id").primaryKey(),
