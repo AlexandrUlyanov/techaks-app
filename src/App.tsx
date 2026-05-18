@@ -35,6 +35,7 @@ import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminCategories from "@/pages/admin/AdminCategories";
 import AdminNormalizeSpecs from "@/pages/admin/AdminNormalizeSpecs";
 import AdminMerchandising from "@/pages/admin/AdminMerchandising";
+import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminMerchandisingAi from "@/pages/admin/merchandising/AdminMerchandisingAi";
 import AdminMerchandisingAssignments from "@/pages/admin/merchandising/AdminMerchandisingAssignments";
 import AdminMerchandisingBadges from "@/pages/admin/merchandising/AdminMerchandisingBadges";
@@ -99,6 +100,7 @@ export default function App() {
               <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
               <Route path="merchandising/assignments" element={<AdminMerchandisingAssignments />} />
               <Route path="merchandising/quality" element={<AdminMerchandisingQuality />} />
+              <Route path="reviews" element={<AdminReviews />} />
               <Route path="blog" element={<AdminBlog />} />
               <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 

@@ -22,6 +22,7 @@ export type Actions =
 export type Subjects =
   | "all"
   | "Product"
+  | "Review"
   | "Category"
   | "Store"
   | "Lead"
@@ -46,6 +47,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
   } else if (role === "admin") {
     can("manage", [
       "Product",
+      "Review",
       "Category",
       "Store",
       "Lead",
@@ -67,8 +69,8 @@ export function defineAbilityFor(user: { id: number; role: string }) {
     can("read", "Product");
     can("read", "AdminPanel");
   } else if (role === "manager") {
-    can("read", ["Lead", "Order", "Product", "Store"]);
-    can("update", ["Lead", "Order"]);
+    can("read", ["Lead", "Order", "Product", "Store", "Review"]);
+    can("update", ["Lead", "Order", "Review"]);
     can("read", "AdminPanel");
   } else if (role === "warehouse") {
     can("read", ["Order", "Product", "Store"]);
@@ -76,7 +78,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
     can("read", "AdminPanel");
   } else {
     // customer
-    can("read", ["Product", "Category", "Store", "Banner", "BlogPost"]);
+    can("read", ["Product", "Review", "Category", "Store", "Banner", "BlogPost"]);
     can("create", ["Lead", "Order"]);
     can("read", "Order", { userId: user.id } as any);
   }

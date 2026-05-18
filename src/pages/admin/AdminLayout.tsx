@@ -8,6 +8,7 @@ import {
   Home,
   ChevronRight,
   MessageSquare,
+  Star,
   Gift,
   FileText,
   RefreshCw,
@@ -31,6 +32,7 @@ const navGroups: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { name: "Дашборд", href: "/admin", icon: LayoutDashboard },
       { name: "Заказы", href: "/admin/leads", icon: MessageSquare },
+      { name: "Отзывы", href: "/admin/reviews", icon: Star },
       {
         name: "Синхронизации",
         href: "/admin/sync",

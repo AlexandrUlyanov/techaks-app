@@ -2,12 +2,13 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
-import { sendOrderNotificationEmail } from "../lib/mail";
+import { sendOrderNotificationEmail, sendReviewRequestEmail } from "../lib/mail";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
+import { ensureReviewRequestRowsForOrder } from "../lib/product-reviews";
 import {
   buildOrdersCsv,
   buildOrdersExportTable,
@@ -280,6 +281,64 @@ function withFallbackDeliveryStatus<T extends {
       deliveryType: row.deliveryType ?? null,
     }),
   };
+}
+
+async function sendReviewInvitationsForCompletedOrder(
+  db: ReturnType<typeof getDb>,
+  orderId: number
+) {
+  const inserted = await ensureReviewRequestRowsForOrder(db, orderId);
+  if (inserted.length === 0) return { created: 0, sent: 0 };
+
+  const requestLookup = new Map(
+    inserted.map(item => [`${item.orderId}:${item.productId}:${item.userId}`, item] as const)
+  );
+
+  const rows = await db
+    .select({
+      orderId: orders.id,
+      orderNumber: orders.orderNumber,
+      userId: users.id,
+      customerName: users.fullName,
+      customerEmail: users.email,
+      productId: products.id,
+      productName: products.name,
+      productSlug: products.slug,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .innerJoin(products, eq(orderItems.productId, products.id))
+    .innerJoin(users, eq(orders.userId, users.id))
+    .where(eq(orderItems.orderId, orderId));
+
+  let sent = 0;
+  for (const row of rows) {
+    if (!requestLookup.has(`${row.orderId}:${row.productId}:${row.userId}`)) continue;
+    await sendReviewRequestEmail({
+      email: row.customerEmail,
+      customerName: row.customerName,
+      orderNumber: row.orderNumber,
+      productName: row.productName,
+      reviewUrl: `${PUBLIC_SITE_URL}/product/${row.productSlug}#reviews`,
+    }).catch(err => {
+      console.error("review invitation email failed", err);
+    });
+    await db
+      .update(productReviewRequests)
+      .set({
+        initialSentAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(productReviewRequests.orderId, row.orderId),
+          eq(productReviewRequests.productId, row.productId)
+        )
+      );
+    sent += 1;
+  }
+
+  return { created: inserted.length, sent };
 }
 
 async function loadOrdersForExport(
@@ -1430,6 +1489,11 @@ export const ecommerceRouter = createRouter({
           message: `Новый статус заказа: ${input.status}.`,
         }).catch(err => {
           console.error("order_status email failed", err);
+        });
+      }
+      if (input.status === "delivered" || input.status === "completed") {
+        await sendReviewInvitationsForCompletedOrder(db, input.id).catch(err => {
+          console.error("review invitation flow failed", err);
         });
       }
       return { success: true };

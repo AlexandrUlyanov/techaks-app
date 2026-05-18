@@ -35,6 +35,7 @@ type TransactionalEmailType =
   | "AUTH_PASSWORD_RESET"
   | "AUTH_PASSWORD_CHANGED"
   | "AUTH_LOGIN_CODE"
+  | "ORDER_REVIEW_REQUEST"
   | "ORDER_CREATED"
   | "ORDER_PENDING_PAYMENT"
   | "ORDER_PAID"
@@ -121,6 +122,8 @@ export type EmailTemplateData = {
   customerComment?: string | null;
   cancelReason?: string | null;
   refundInfo?: string | null;
+  productName?: string | null;
+  isReminder?: boolean | null;
 
   requestIp?: string | null;
   requestLocation?: string | null;
@@ -623,6 +626,25 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
           : undefined,
         note: "Мы свяжемся с вами, если потребуется дополнительное подтверждение заказа.",
       };
+    case "ORDER_REVIEW_REQUEST":
+      return {
+        subject: data.isReminder
+          ? `Напоминаем про отзыв о товаре ${data.productName || ""}`
+          : `Оставьте отзыв о товаре ${data.productName || ""}`,
+        title: data.isReminder ? "Напоминаем об отзыве" : "Поделитесь впечатлением о товаре",
+        intro: data.isReminder
+          ? `Здравствуйте, ${customerName}! Напоминаем: вы всё ещё можете оставить отзыв о товаре ${data.productName || ""}.`
+          : `Здравствуйте, ${customerName}! Вы недавно получили товар ${data.productName || ""}. Будем рады вашему отзыву.`,
+        action: data.orderUrl
+          ? { label: "Оставить отзыв", url: data.orderUrl }
+          : undefined,
+        summaryRows: [
+          { label: "Товар", value: data.productName },
+          { label: "Номер заказа", value: data.orderNumber },
+        ],
+        note:
+          "Ваш отзыв поможет другим покупателям выбрать подходящий товар, а нам — лучше улучшать ассортимент и карточки товаров.",
+      };
     case "ORDER_PENDING_PAYMENT":
       return {
         subject: `Заказ ${data.orderNumber} ожидает оплаты`,
@@ -955,5 +977,23 @@ export async function sendOrderNotificationEmail(input: {
     subject: config.subject,
     text: buildTextVersion(config),
     html: renderEmailLayout(config),
+  });
+}
+
+export async function sendReviewRequestEmail(input: {
+  email: string;
+  customerName?: string | null;
+  orderNumber?: string | null;
+  productName: string;
+  reviewUrl: string;
+  isReminder?: boolean;
+}) {
+  await sendTemplateEmail(input.email, "ORDER_REVIEW_REQUEST", {
+    customerName: input.customerName,
+    customerEmail: input.email,
+    orderNumber: input.orderNumber,
+    productName: input.productName,
+    orderUrl: input.reviewUrl,
+    isReminder: input.isReminder ?? false,
   });
 }

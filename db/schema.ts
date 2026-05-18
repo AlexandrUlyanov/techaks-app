@@ -82,6 +82,93 @@ export const reviews = mysqlTable("reviews", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const productReviews = mysqlTable("product_reviews", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  userId: int("user_id").notNull(),
+  orderId: int("order_id"),
+  status: varchar("status", { length: 30 }).notNull().default("pending_moderation"),
+  rating: int("rating").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  text: text("text").notNull(),
+  pros: text("pros"),
+  cons: text("cons"),
+  usageContext: varchar("usage_context", { length: 120 }),
+  usageDuration: varchar("usage_duration", { length: 120 }),
+  isRecommended: boolean("is_recommended"),
+  isVerifiedPurchase: boolean("is_verified_purchase").notNull().default(false),
+  moderationNote: text("moderation_note"),
+  publishedAt: timestamp("published_at"),
+  rejectedAt: timestamp("rejected_at"),
+  hiddenAt: timestamp("hidden_at"),
+  storeReply: text("store_reply"),
+  storeReplyAuthorId: int("store_reply_author_id"),
+  storeReplyCreatedAt: timestamp("store_reply_created_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  productStatusIdx: index("product_reviews_product_status_idx").on(
+    table.productId,
+    table.status,
+    table.publishedAt
+  ),
+  userProductIdx: unique("product_reviews_user_product_unique").on(
+    table.userId,
+    table.productId
+  ),
+  userStatusIdx: index("product_reviews_user_status_idx").on(
+    table.userId,
+    table.status,
+    table.updatedAt
+  ),
+  orderIdx: index("product_reviews_order_idx").on(table.orderId),
+}));
+
+export const productReviewHistory = mysqlTable("product_review_history", {
+  id: serial("id").primaryKey(),
+  reviewId: int("review_id").notNull(),
+  actorUserId: int("actor_user_id"),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+  oldStatus: varchar("old_status", { length: 30 }),
+  newStatus: varchar("new_status", { length: 30 }),
+  note: text("note"),
+  payloadJson: json("payload_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  reviewIdx: index("product_review_history_review_idx").on(
+    table.reviewId,
+    table.createdAt
+  ),
+  actionIdx: index("product_review_history_action_idx").on(
+    table.actionType,
+    table.createdAt
+  ),
+}));
+
+export const productReviewRequests = mysqlTable("product_review_requests", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  userId: int("user_id").notNull(),
+  orderId: int("order_id").notNull(),
+  requestStatus: varchar("request_status", { length: 30 }).notNull().default("pending"),
+  initialSentAt: timestamp("initial_sent_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  orderProductUnique: unique("product_review_requests_order_product_unique").on(
+    table.orderId,
+    table.productId
+  ),
+  userStatusIdx: index("product_review_requests_user_status_idx").on(
+    table.userId,
+    table.requestStatus,
+    table.updatedAt
+  ),
+  productIdx: index("product_review_requests_product_idx").on(table.productId),
+}));
+
 export const banners = mysqlTable("banners", {
   id: serial("id").primaryKey(),
   slug: varchar("slug", { length: 255 }).notNull().default("").unique(),

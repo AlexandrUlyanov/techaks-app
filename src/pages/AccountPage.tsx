@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSeo } from "@/lib/seo";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
+import ReviewComposer from "@/components/reviews/ReviewComposer";
 
 type AccountOrder = {
   id: number;
@@ -130,13 +131,16 @@ function AccountOrderCard({
   order,
   expanded,
   onToggle,
+  myReviewsByProductId,
 }: {
   order: AccountOrder;
   expanded: boolean;
   onToggle: () => void;
+  myReviewsByProductId: Record<number, any>;
 }) {
   const utils = trpc.useUtils();
   const [message, setMessage] = useState("");
+  const [editingReviewProductId, setEditingReviewProductId] = useState<number | null>(null);
 
   const {
     data: details,
@@ -394,22 +398,63 @@ function AccountOrderCard({
                       details.items.map(item => (
                         <div
                           key={item.id}
-                          className="flex items-start justify-between gap-4 rounded-2xl border border-border p-4"
+                          className="rounded-2xl border border-border p-4"
                         >
-                          <div className="min-w-0">
-                            <div className="font-semibold leading-snug">
-                              {item.productName || `Товар #${item.productId}`}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="font-semibold leading-snug">
+                                {item.productName || `Товар #${item.productId}`}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                SKU: {item.sku || "—"}
+                              </div>
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {item.quantity} шт. × {formatPrice(item.price)}
+                              </div>
+                              {item.productId ? (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  {myReviewsByProductId[item.productId]?.isVerifiedPurchase ? (
+                                    <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                                      Подтверждённая покупка
+                                    </span>
+                                  ) : null}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      setEditingReviewProductId(current =>
+                                        current === item.productId ? null : item.productId
+                                      )
+                                    }
+                                  >
+                                    <Star size={14} className="mr-2" />
+                                    {myReviewsByProductId[item.productId]
+                                      ? "Редактировать отзыв"
+                                      : "Оставить отзыв"}
+                                  </Button>
+                                </div>
+                              ) : null}
                             </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              SKU: {item.sku || "—"}
-                            </div>
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              {item.quantity} шт. × {formatPrice(item.price)}
+                            <div className="text-sm font-bold text-[#05C3D4] whitespace-nowrap">
+                              {formatPrice(item.total || item.price * item.quantity)}
                             </div>
                           </div>
-                          <div className="text-sm font-bold text-[#05C3D4] whitespace-nowrap">
-                            {formatPrice(item.total || item.price * item.quantity)}
-                          </div>
+                          {editingReviewProductId === item.productId && item.productId ? (
+                            <div className="mt-4">
+                              <ReviewComposer
+                                compact
+                                productId={item.productId}
+                                productName={item.productName || `Товар #${item.productId}`}
+                                verifiedPurchase
+                                existingReview={myReviewsByProductId[item.productId] ?? undefined}
+                                onSuccess={async () => {
+                                  setEditingReviewProductId(null);
+                                  await utils.reviews.myReviews.invalidate();
+                                }}
+                              />
+                            </div>
+                          ) : null}
                         </div>
                       ))
                     )}
@@ -604,6 +649,10 @@ export default function AccountPage() {
     enabled: isAuthenticated,
     retry: false,
   });
+  const { data: myReviews = [] } = trpc.reviews.myReviews.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -613,6 +662,15 @@ export default function AccountPage() {
     logout();
     navigate("/login", { replace: true });
   };
+
+  const myReviewsByProductId = useMemo(
+    () =>
+      Object.fromEntries(myReviews.map(review => [review.productId, review])) as Record<
+        number,
+        any
+      >,
+    [myReviews]
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24">
@@ -691,6 +749,7 @@ export default function AccountPage() {
                         current === order.id ? null : order.id
                       )
                     }
+                    myReviewsByProductId={myReviewsByProductId}
                   />
                 ))}
               </div>
@@ -698,6 +757,50 @@ export default function AccountPage() {
           </div>
 
           <div className="space-y-6">
+            <div className="rounded-3xl border border-border bg-card p-8">
+              <div className="flex items-center gap-3">
+                <Star size={18} className="text-[#05C3D4]" />
+                <h3 className="text-lg font-black uppercase tracking-tight">
+                  Мои отзывы
+                </h3>
+              </div>
+              <div className="mt-5 space-y-3">
+                {myReviews.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Отзывов пока нет. Их удобно оставлять прямо из состава заказа.
+                  </div>
+                ) : (
+                  myReviews.slice(0, 4).map(review => (
+                    <Link
+                      key={review.id}
+                      to={`/product/${review.productSlug}#reviews`}
+                      className="block rounded-2xl border border-border p-4 transition hover:border-[#05C3D4]/40 hover:bg-[#F7FEFF]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-semibold leading-snug text-[#15171A]">
+                          {review.productName}
+                        </div>
+                        <div className="text-sm font-black text-[#05C3D4]">
+                          {review.rating}/5
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                        {review.status === "pending_moderation"
+                          ? "На модерации"
+                          : review.status === "published"
+                          ? "Опубликован"
+                          : review.status === "rejected"
+                          ? "Отклонён"
+                          : review.status === "hidden"
+                          ? "Скрыт"
+                          : review.status}
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
             <Can I="read" a="AdminPanel">
               <Link to="/admin" className="block">
                 <div className="p-8 bg-black text-white rounded-3xl relative overflow-hidden group border border-border shadow-xl">
