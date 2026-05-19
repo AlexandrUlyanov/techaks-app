@@ -33,6 +33,7 @@ interface ProductCardProps {
 export default function ProductCard({ product, variant = "grid" }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find(item => item.id === product.id);
+  const isInStock = Boolean(product.inStock);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -146,8 +147,8 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
           <div className="min-w-0 flex flex-col gap-2">
             <div className="flex items-center justify-end gap-3">
-              <span className={product.inStock === false ? "text-[10px] font-bold text-muted-foreground" : "text-[10px] font-bold text-green-600"}>
-                {product.inStock === false ? "Нет в наличии" : "В наличии"}
+              <span className={!isInStock ? "text-[10px] font-bold text-muted-foreground" : "text-[10px] font-bold text-green-600"}>
+                {!isInStock ? "Нет в наличии" : "В наличии"}
               </span>
             </div>
             <h3 className="line-clamp-2 text-sm sm:text-base font-bold leading-snug text-foreground">
@@ -224,8 +225,8 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
         <div className="p-3 sm:p-4 flex-1 flex flex-col">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className={product.inStock === false ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
-              {product.inStock === false ? "Нет" : "В наличии"}
+            <span className={!isInStock ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
+              {!isInStock ? "Нет" : "В наличии"}
             </span>
           </div>
           <h3 className="text-sm sm:text-[15px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.55rem]">
