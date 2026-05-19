@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { RefreshCw, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
@@ -102,6 +102,34 @@ export default function AdminSyncMoySkladOrders() {
     };
   }, [draftSettings, overviewQuery.data?.settings]);
 
+  useEffect(() => {
+    if (draftSettings) return;
+    if (!overviewQuery.data?.settings || !metadataQuery.data) return;
+
+    const nextOrganizationHref =
+      overviewQuery.data.settings.organizationHref ??
+      metadataQuery.data.organization?.href ??
+      "";
+    const nextStoreHref =
+      overviewQuery.data.settings.storeHref ?? metadataQuery.data.store?.href ?? "";
+
+    if (
+      nextOrganizationHref === (overviewQuery.data.settings.organizationHref ?? "") &&
+      nextStoreHref === (overviewQuery.data.settings.storeHref ?? "")
+    ) {
+      return;
+    }
+
+    setDraftSettings({
+      enabled: overviewQuery.data.settings.enabled,
+      organizationHref: nextOrganizationHref,
+      storeHref: nextStoreHref,
+      salesChannelHref: overviewQuery.data.settings.salesChannelHref ?? "",
+      createCounterparties: overviewQuery.data.settings.createCounterparties,
+      statusMapping: overviewQuery.data.settings.statusMapping ?? {},
+    });
+  }, [draftSettings, metadataQuery.data, overviewQuery.data?.settings]);
+
   const queueCounts = overviewQuery.data?.queueCounts;
   const config = overviewQuery.data?.config;
   const connectionTone =
@@ -112,6 +140,7 @@ export default function AdminSyncMoySkladOrders() {
         : "default";
 
   const states = metadataQuery.data?.states ?? overviewQuery.data?.config?.states ?? [];
+  const defaults = metadataQuery.data ?? overviewQuery.data?.config?.defaults;
   const recentErrors = useMemo(
     () =>
       (queueQuery.data ?? []).filter(
@@ -178,13 +207,31 @@ export default function AdminSyncMoySkladOrders() {
           title="Настройки синхронизации заказов"
           description="Тут задаём, включён ли order-sync, какие organization/store используются в payload и как локальные статусы маппятся в состояния customerorder."
           actions={
-            <button
-              onClick={() => saveSettingsMutation.mutate(settingsForm)}
-              disabled={saveSettingsMutation.isPending}
-              className="rounded-xl bg-[#15171A] px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
-            >
-              {saveSettingsMutation.isPending ? "Сохраняем..." : "Сохранить"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setDraftSettings(prev => ({
+                    ...(prev ?? settingsForm),
+                    organizationHref:
+                      defaults?.organization?.href ?? (prev ?? settingsForm).organizationHref,
+                    storeHref:
+                      defaults?.store?.href ?? (prev ?? settingsForm).storeHref,
+                  }))
+                }
+                disabled={!defaults?.organization?.href && !defaults?.store?.href}
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-[#15171A] hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Подставить найденные
+              </button>
+              <button
+                onClick={() => saveSettingsMutation.mutate(settingsForm)}
+                disabled={saveSettingsMutation.isPending}
+                className="rounded-xl bg-[#15171A] px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+              >
+                {saveSettingsMutation.isPending ? "Сохраняем..." : "Сохранить"}
+              </button>
+            </div>
           }
         >
           <div className="space-y-5">
@@ -201,10 +248,15 @@ export default function AdminSyncMoySkladOrders() {
                       organizationHref: e.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
-                  placeholder={metadataQuery.data?.organization?.href ?? "https://api.moysklad.ru/..."}
-                />
-              </label>
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                    placeholder={defaults?.organization?.href ?? "https://api.moysklad.ru/..."}
+                  />
+                  {defaults?.organization?.name ? (
+                    <div className="text-xs text-gray-500">
+                      Найдено по API: {defaults.organization.name}
+                    </div>
+                  ) : null}
+                </label>
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-gray-700">Store href</span>
                 <input
@@ -215,10 +267,15 @@ export default function AdminSyncMoySkladOrders() {
                       storeHref: e.target.value,
                     }))
                   }
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
-                  placeholder={metadataQuery.data?.store?.href ?? "https://api.moysklad.ru/..."}
-                />
-              </label>
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-[#05C3D4]"
+                    placeholder={defaults?.store?.href ?? "https://api.moysklad.ru/..."}
+                  />
+                  {defaults?.store?.name ? (
+                    <div className="text-xs text-gray-500">
+                      Найдено по API: {defaults.store.name}
+                    </div>
+                  ) : null}
+                </label>
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-gray-700">
                   Sales channel href
@@ -328,12 +385,20 @@ export default function AdminSyncMoySkladOrders() {
               {
                 ok: config?.organizationOk,
                 label: "Organization",
-                value: config?.organizationOk ? "Найдена" : "Не найдена",
+                value: config?.organizationSelected
+                  ? "Сохранена"
+                  : config?.organizationDetected
+                    ? "Найдена, не выбрана"
+                    : "Не найдена",
               },
               {
                 ok: config?.storeOk,
                 label: "Store",
-                value: config?.storeOk ? "Найден" : "Не найден",
+                value: config?.storeSelected
+                  ? "Сохранён"
+                  : config?.storeDetected
+                    ? "Найден, не выбран"
+                    : "Не найден",
               },
               {
                 ok: config?.customerOrderOk,

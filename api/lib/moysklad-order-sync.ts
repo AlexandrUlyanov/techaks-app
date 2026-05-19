@@ -124,6 +124,19 @@ type MetadataState = {
   href: string;
 };
 
+type MetadataLoadResult = {
+  states: MetadataState[];
+  organization: { name: string; href: string } | null;
+  store: { name: string; href: string } | null;
+  salesChannels: Array<{ name: string; href: string }>;
+  errors: {
+    states: string | null;
+    organization: string | null;
+    store: string | null;
+    salesChannels: string | null;
+  };
+};
+
 function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value == null) return fallback;
   return value.trim().toLowerCase() === "true";
@@ -277,19 +290,45 @@ export async function getSalesChannel() {
     .filter(row => row.href);
 }
 
-export async function loadMoyskladMetadata() {
-  const [states, organization, store, salesChannels] = await Promise.all([
-    getCustomerOrderStates(),
-    getDefaultOrganization(),
-    getDefaultStore(),
-    getSalesChannel(),
-  ]);
+function getErrorText(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return "Неизвестная ошибка";
+}
+
+export async function loadMoyskladMetadata(): Promise<MetadataLoadResult> {
+  const [statesResult, organizationResult, storeResult, salesChannelsResult] =
+    await Promise.allSettled([
+      getCustomerOrderStates(),
+      getDefaultOrganization(),
+      getDefaultStore(),
+      getSalesChannel(),
+    ]);
 
   return {
-    states,
-    organization,
-    store,
-    salesChannels,
+    states: statesResult.status === "fulfilled" ? statesResult.value : [],
+    organization:
+      organizationResult.status === "fulfilled" ? organizationResult.value : null,
+    store: storeResult.status === "fulfilled" ? storeResult.value : null,
+    salesChannels:
+      salesChannelsResult.status === "fulfilled" ? salesChannelsResult.value : [],
+    errors: {
+      states:
+        statesResult.status === "rejected"
+          ? getErrorText(statesResult.reason)
+          : null,
+      organization:
+        organizationResult.status === "rejected"
+          ? getErrorText(organizationResult.reason)
+          : null,
+      store:
+        storeResult.status === "rejected"
+          ? getErrorText(storeResult.reason)
+          : null,
+      salesChannels:
+        salesChannelsResult.status === "rejected"
+          ? getErrorText(salesChannelsResult.reason)
+          : null,
+    },
   };
 }
 
@@ -313,22 +352,41 @@ export async function validateMoyskladConfig() {
   try {
     const metadata = await loadMoyskladMetadata();
     const customerOrderOk = metadata.states.length > 0;
-    const organizationOk = Boolean(settings.organizationHref);
-    const storeOk = Boolean(settings.storeHref);
+    const organizationDetected = Boolean(metadata.organization?.href);
+    const storeDetected = Boolean(metadata.store?.href);
+    const organizationSelected = Boolean(settings.organizationHref);
+    const storeSelected = Boolean(settings.storeHref);
+    const organizationOk = organizationSelected || organizationDetected;
+    const storeOk = storeSelected || storeDetected;
     const salesChannelOk = !settings.salesChannelHref
       ? true
       : metadata.salesChannels.some(channel => channel.href === settings.salesChannelHref);
+
+    const messages = [
+      customerOrderOk
+        ? null
+        : metadata.errors.states || "Не удалось получить metadata customerorder.",
+      organizationDetected
+        ? null
+        : metadata.errors.organization || "Organization не найдена по API.",
+      storeDetected ? null : metadata.errors.store || "Store не найден по API.",
+    ].filter(Boolean);
 
     return {
       ok: tokenConfigured && customerOrderOk,
       tokenOk: tokenConfigured,
       organizationOk,
       storeOk,
+      organizationDetected,
+      storeDetected,
+      organizationSelected,
+      storeSelected,
       customerOrderOk,
       salesChannelOk,
-      message: customerOrderOk
-        ? "Подключение к МойСклад доступно."
-        : "Не удалось получить metadata customerorder.",
+      message:
+        messages.length > 0
+          ? messages.join(" ")
+          : "Подключение к МойСклад доступно.",
       states: metadata.states,
       defaults: metadata,
     };
@@ -338,6 +396,10 @@ export async function validateMoyskladConfig() {
       tokenOk: tokenConfigured,
       organizationOk: false,
       storeOk: false,
+      organizationDetected: false,
+      storeDetected: false,
+      organizationSelected: false,
+      storeSelected: false,
       customerOrderOk: false,
       salesChannelOk: false,
       message: error instanceof Error ? error.message : "Ошибка проверки МойСклад",
