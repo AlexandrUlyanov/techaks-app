@@ -89,7 +89,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     <button
       type="button"
       disabled
-      className="flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#E8EDF1] px-4 text-[10px] font-black uppercase tracking-widest text-[#8B96A3] cursor-not-allowed"
+      className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D7E0E7] bg-[#F3F6F8] px-4 text-[10px] font-black uppercase tracking-widest text-[#7F8A96] cursor-not-allowed shadow-none"
       aria-label="Нет в наличии"
     >
       <ShoppingCart size={14} className="hidden sm:block opacity-70" />
@@ -240,7 +240,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
         <div className="p-3 sm:p-4 flex-1 flex flex-col">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <span className={!isInStock ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
-              {!isInStock ? "Нет" : "В наличии"}
+              {!isInStock ? "Нет в наличии" : "В наличии"}
             </span>
           </div>
           <h3 className="text-sm sm:text-[15px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.55rem]">
