@@ -276,6 +276,35 @@ export const productRouter = createRouter({
     return attachVisibleMerchandisingBadges(rows);
   }),
 
+  getHomepageFallbackProducts: publicQuery
+    .input(
+      z
+        .object({
+          limit: z.number().min(1).max(20).default(12),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const limit = input?.limit ?? 12;
+      const rows = await db
+        .select(publicProductSelectFields)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(
+          schema.productMerchandising,
+          eq(schema.productMerchandising.productId, products.id)
+        )
+        .where(publicProductVisibilityCondition)
+        .orderBy(
+          desc(sql<boolean>`${publicAvailableStockQtySql} > 0`),
+          desc(products.createdAt),
+          desc(products.id)
+        )
+        .limit(limit);
+      return attachVisibleMerchandisingBadges(rows);
+    }),
+
   getAdminAll: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Product");
     const db = getDb();

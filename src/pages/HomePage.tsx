@@ -18,6 +18,12 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
+const HOME_QUERY_OPTIONS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  refetchOnWindowFocus: false,
+} as const;
+
 const defaultReviews = [
   {
     author: "Анна К.",
@@ -47,28 +53,45 @@ export default function HomePage() {
     canonicalPath: "/",
   });
 
-  const { data: products = [] } = trpc.product.getAll.useQuery();
+  const { data: fallbackProducts = [] } =
+    trpc.product.getHomepageFallbackProducts.useQuery(
+      { limit: 12 },
+      HOME_QUERY_OPTIONS
+    );
   const { data: merchandisingProducts = [] } =
     trpc.merchandising.recommendations.useQuery({
       placement: "home_weekly",
       limit: 10,
-    });
+    }, HOME_QUERY_OPTIONS);
   const { data: popularMerchandisingProducts = [] } =
     trpc.merchandising.recommendations.useQuery({
       placement: "home_popular",
       limit: 8,
-    });
-  const { data: dbCategories = [] } = trpc.product.getCategories.useQuery();
+    }, HOME_QUERY_OPTIONS);
+  const { data: dbCategories = [] } = trpc.product.getCategories.useQuery(
+    undefined,
+    HOME_QUERY_OPTIONS
+  );
   const categories = dbCategories.filter(c => !c.parentId);
-  const { data: stores = [] } = trpc.store.getAll.useQuery();
-  const { data: banners = [] } = trpc.banner.getActive.useQuery();
-  const { data: posts = [] } = trpc.blog.getPublished.useQuery();
+  const { data: stores = [] } = trpc.store.getAll.useQuery(
+    undefined,
+    HOME_QUERY_OPTIONS
+  );
+  const { data: banners = [] } = trpc.banner.getActive.useQuery(
+    undefined,
+    HOME_QUERY_OPTIONS
+  );
+  const { data: posts = [] } = trpc.blog.getPublished.useQuery(
+    undefined,
+    HOME_QUERY_OPTIONS
+  );
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
-    { placeholderData: prev => prev }
+    HOME_QUERY_OPTIONS
   );
 
-  const weekProductsSource = merchandisingProducts.length > 0 ? merchandisingProducts : products;
+  const weekProductsSource =
+    merchandisingProducts.length > 0 ? merchandisingProducts : fallbackProducts;
   const weekProducts = [...weekProductsSource]
     .sort((a, b) => {
       const badgeScore = (item: typeof a) =>
@@ -79,7 +102,7 @@ export default function HomePage() {
   const popularProducts =
     popularMerchandisingProducts.length > 0
       ? popularMerchandisingProducts
-      : products.slice(0, 8);
+      : fallbackProducts.slice(0, 8);
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const activeBanners = banners.slice(0, 2);
