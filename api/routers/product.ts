@@ -165,6 +165,7 @@ const publicProductVisibilityCondition = buildPublicProductVisibilityCondition()
 const publicActiveReservedQtySql = sql<number>`coalesce((
   select sum(${productReservations.quantity})
   from ${productReservations}
+  inner join ${stores} reserved_stores on reserved_stores.id = ${productReservations.storeId}
   where ${productReservations.productId} = ${products.id}
     and ${productReservations.status} = 'active'
     and ${productReservations.reservedUntil} > now()
@@ -174,6 +175,7 @@ const publicAvailableStockQtySql = sql<number>`greatest(
   coalesce((
     select sum(${productStocks.quantity})
     from ${productStocks}
+    inner join ${stores} stock_stores on stock_stores.id = ${productStocks.storeId}
     where ${productStocks.productId} = ${products.id}
   ), 0) - ${publicActiveReservedQtySql},
   0
