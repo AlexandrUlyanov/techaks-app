@@ -13,7 +13,7 @@ import {
   UserRound,
   Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAbility } from "@/providers/AbilityProvider";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -251,14 +251,10 @@ export default function AdminOrderDetails() {
   const storeId = "storeId" in order ? order.storeId : null;
   const reservationId = "reservationId" in order ? order.reservationId : null;
 
-  const itemTotal = useMemo(
-    () =>
-      order.items.reduce(
-        (acc: number, item: OrderItem) =>
-          acc + Number(item.total || item.price * item.quantity || 0),
-        0
-      ),
-    [order.items]
+  const itemTotal = order.items.reduce(
+    (acc: number, item: OrderItem) =>
+      acc + Number(item.total || item.price * item.quantity || 0),
+    0
   );
 
   return (
