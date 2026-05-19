@@ -18,6 +18,7 @@ import AccountPage from "@/pages/AccountPage";
 import LoginPage from "@/pages/LoginPage";
 import SearchPage from "@/pages/SearchPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import LegalDocumentPage from "@/pages/LegalDocumentPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import MaintenancePage from "@/components/MaintenancePage";
@@ -86,6 +87,10 @@ export default function App() {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/offer" element={<LegalDocumentPage />} />
+          <Route path="/privacy-policy" element={<LegalDocumentPage />} />
+          <Route path="/payment-delivery" element={<LegalDocumentPage />} />
+          <Route path="/returns" element={<LegalDocumentPage />} />
 
           {/* Admin Routes */}
           <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>

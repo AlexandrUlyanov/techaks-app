@@ -30,6 +30,7 @@ export default function Header() {
       enabled: isAuthenticated,
       retry: false,
     });
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -227,14 +228,14 @@ export default function Header() {
             {/* Actions */}
             <div className="flex items-center gap-2 md:gap-4 ml-auto shrink-0 h-full">
               <a
-                href="tel:+79273750555"
+                href={`tel:${(siteProfile?.contacts.primaryPhone || "").replace(/\s+/g, "")}`}
                 className="hidden lg:flex flex-col items-end mr-2 justify-center h-full mt-0.5"
               >
                 <span className="text-xs font-black text-foreground leading-none mb-1">
-                  +7 (927) 375-05-55
+                  {siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}
                 </span>
                 <span className="text-[9px] font-bold text-[#05C3D4] uppercase tracking-wider leading-none">
-                  Ежедневно 9-21
+                  {siteProfile?.contacts.workingHours || "Ежедневно 9:00–21:00"}
                 </span>
               </a>
 

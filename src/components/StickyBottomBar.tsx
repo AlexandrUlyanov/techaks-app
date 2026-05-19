@@ -1,10 +1,12 @@
 import { Phone, Search, ShoppingCart, User } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useCart } from "@/hooks/use-cart";
+import { trpc } from "@/providers/trpc";
 
 export default function StickyBottomBar() {
   const location = useLocation();
   const { getItemCount } = useCart();
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const itemCount = getItemCount();
 
   const navItems = [
@@ -16,7 +18,12 @@ export default function StickyBottomBar() {
       count: itemCount,
     },
     { label: "Профиль", icon: User, href: "/account" },
-    { label: "Позвонить", icon: Phone, href: "tel:+79273750555", isExternal: true },
+    {
+      label: "Позвонить",
+      icon: Phone,
+      href: `tel:${(siteProfile?.contacts.primaryPhone || "").replace(/\s+/g, "")}`,
+      isExternal: true,
+    },
   ];
 
   return (

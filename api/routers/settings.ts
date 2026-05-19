@@ -3,8 +3,85 @@ import { createRouter, protectedProcedure, publicQuery, requireAbility } from ".
 import { getAppSettings, setAppSetting } from "../lib/app-settings";
 import { env } from "../lib/env";
 import { getGeminiConfig, testGeminiConnection } from "../lib/gemini-spec-standardization";
+import {
+  defaultSiteProfileSettings,
+  getPublicSiteProfile,
+  getSiteProfileSettings,
+  saveSiteProfileSettings,
+} from "../lib/site-profile-settings";
+
+const siteProfileSettingsSchema = z.object({
+  contacts: z.object({
+    primaryPhone: z.string().trim().min(3).max(60),
+    primaryPhoneDisplay: z.string().trim().min(3).max(80),
+    secondaryPhone: z.string().trim().max(80).default(""),
+    email: z.string().trim().email(),
+    workingHours: z.string().trim().min(2).max(120),
+    whatsappUrl: z.string().trim().max(255).default(""),
+    telegramUrl: z.string().trim().max(255).default(""),
+    telegramHandle: z.string().trim().max(120).default(""),
+    shortAddress: z.string().trim().min(2).max(255),
+    fullAddress: z.string().trim().min(2).max(500),
+  }),
+  seller: z.object({
+    legalForm: z.enum(["ip", "ooo"]),
+    fullName: z.string().trim().min(2).max(255),
+    shortName: z.string().trim().min(2).max(255),
+    signatoryName: z.string().trim().min(2).max(255),
+    signatoryLabel: z.string().trim().min(2).max(255),
+    signatoryBasis: z.string().trim().min(2).max(255),
+    legalAddress: z.string().trim().min(2).max(500),
+    actualAddress: z.string().trim().min(2).max(500),
+    inn: z.string().trim().min(3).max(40),
+    ogrnip: z.string().trim().min(3).max(40),
+    kpp: z.string().trim().max(40).default(""),
+    okpo: z.string().trim().max(40).default(""),
+    email: z.string().trim().email(),
+    phone: z.string().trim().min(3).max(60),
+  }),
+  bank: z.object({
+    bankName: z.string().trim().min(2).max(255),
+    account: z.string().trim().min(3).max(80),
+    corrAccount: z.string().trim().min(3).max(80),
+    bik: z.string().trim().min(3).max(40),
+    inn: z.string().trim().min(3).max(40),
+    kpp: z.string().trim().max(40).default(""),
+  }),
+  legalTexts: z.object({
+    offerTitle: z.string().trim().min(2).max(255),
+    offerContent: z.string().trim().min(2),
+    privacyPolicyTitle: z.string().trim().min(2).max(255),
+    privacyPolicyContent: z.string().trim().min(2),
+    paymentDeliveryTitle: z.string().trim().min(2).max(255),
+    paymentDeliveryContent: z.string().trim().min(2),
+    returnsPolicyTitle: z.string().trim().min(2).max(255),
+    returnsPolicyContent: z.string().trim().min(2),
+  }),
+  documents: z.object({
+    signatureName: z.string().trim().min(2).max(255),
+    signatureLabel: z.string().trim().min(2).max(255),
+    requisitesFooter: z.string().trim().min(2).max(500),
+  }),
+});
 
 export const settingsRouter = createRouter({
+  getPublicSiteProfile: publicQuery.query(async () => {
+    return getPublicSiteProfile();
+  }),
+
+  getSiteProfileSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return getSiteProfileSettings();
+  }),
+
+  saveSiteProfileSettings: protectedProcedure
+    .input(siteProfileSettingsSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      await saveSiteProfileSettings(input);
+      return { success: true };
+    }),
+
   getGemini: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
     const settings = await getAppSettings([
@@ -282,4 +359,9 @@ export const settingsRouter = createRouter({
       requireAbility(ctx, "configure", "Settings");
       return testGeminiConnection(input);
     }),
+
+  getSiteProfileDefaults: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return defaultSiteProfileSettings;
+  }),
 });

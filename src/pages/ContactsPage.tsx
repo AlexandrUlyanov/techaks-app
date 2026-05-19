@@ -1,7 +1,11 @@
 import { Phone, Mail, MapPin, Send } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
+import { trpc } from "@/providers/trpc";
 
 export default function ContactsPage() {
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
+  const { data: stores = [] } = trpc.store.getAll.useQuery();
+
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Hero */}
@@ -37,13 +41,13 @@ export default function ContactsPage() {
                     Телефон
                   </span>
                   <a
-                    href="tel:+79273750555"
+                    href={`tel:${(siteProfile?.contacts.primaryPhone || "").replace(/\s+/g, "")}`}
                     className="text-2xl md:text-3xl font-black text-white hover:text-[#05C3D4] transition-colors font-heading tracking-tight"
                   >
-                    +7 (927) 375-05-55
+                    {siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}
                   </a>
                   <p className="mt-2 text-sm font-bold text-white/40 uppercase tracking-widest">
-                    Ежедневно 9:00–21:00
+                    {siteProfile?.contacts.workingHours || "Ежедневно 9:00–21:00"}
                   </p>
                 </div>
               </div>
@@ -58,7 +62,7 @@ export default function ContactsPage() {
                     E-mail
                   </span>
                   <span className="text-xl md:text-2xl font-bold text-white/80">
-                    info@techaks.ru
+                    {siteProfile?.contacts.email || "tech.aks@yandex.ru"}
                   </span>
                 </div>
               </div>
@@ -73,12 +77,12 @@ export default function ContactsPage() {
                     Telegram
                   </span>
                   <a
-                    href="https://t.me/tech_aks"
+                    href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xl md:text-2xl font-bold text-white/80 hover:text-[#0088cc] transition-colors"
                   >
-                    @tech_aks
+                    {siteProfile?.contacts.telegramHandle || "@tech_aks"}
                   </a>
                 </div>
               </div>
@@ -90,22 +94,52 @@ export default function ContactsPage() {
                     <MapPin size={24} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
-                        Магазин 1
-                      </p>
-                      <p className="text-lg font-bold text-white/80 leading-tight">
-                        пр. Строителей, 50А
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
-                        Магазин 2
-                      </p>
-                      <p className="text-lg font-bold text-white/80 leading-tight">
-                        ул. Генерала Глазунова, 1
-                      </p>
-                    </div>
+                    {stores.length > 0 ? (
+                      stores.map(store => (
+                        <div key={store.id}>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
+                            {store.name}
+                          </p>
+                          <p className="text-lg font-bold text-white/80 leading-tight">
+                            {store.address}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
+                          Юридический адрес
+                        </p>
+                        <p className="text-lg font-bold text-white/80 leading-tight">
+                          {siteProfile?.seller.legalAddress ||
+                            "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-12 border-t border-white/5 space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+                  Реквизиты продавца
+                </h3>
+                <div className="rounded-3xl border border-white/5 bg-white/5 p-6">
+                  <div className="space-y-2 text-sm leading-6 text-white/70">
+                    <p className="font-black text-white">{siteProfile?.seller.fullName}</p>
+                    <p>Юр. адрес: {siteProfile?.seller.legalAddress}</p>
+                    <p>Факт. адрес: {siteProfile?.seller.actualAddress}</p>
+                    <p>ИНН: {siteProfile?.seller.inn}</p>
+                    <p>
+                      {siteProfile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН"}:{" "}
+                      {siteProfile?.seller.ogrnip}
+                    </p>
+                    {siteProfile?.seller.kpp ? <p>КПП: {siteProfile.seller.kpp}</p> : null}
+                    {siteProfile?.seller.okpo ? <p>ОКПО: {siteProfile.seller.okpo}</p> : null}
+                    <p>Банк: {siteProfile?.bank.bankName}</p>
+                    <p>р/с: {siteProfile?.bank.account}</p>
+                    <p>к/с: {siteProfile?.bank.corrAccount}</p>
+                    <p>БИК: {siteProfile?.bank.bik}</p>
                   </div>
                 </div>
               </div>
@@ -117,7 +151,7 @@ export default function ContactsPage() {
                 </h3>
                 <div className="flex flex-wrap gap-4">
                   <a
-                    href="https://t.me/tech_aks"
+                    href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0088cc] hover:border-[#0088cc] transition-all active:scale-95"
@@ -125,7 +159,7 @@ export default function ContactsPage() {
                     Telegram
                   </a>
                   <a
-                    href="https://wa.me/79273750555"
+                    href={siteProfile?.contacts.whatsappUrl || "https://wa.me/79273642888"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#25d366] hover:border-[#25d366] transition-all active:scale-95"

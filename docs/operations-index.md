@@ -138,7 +138,22 @@ Product visibility SQL:
 - [ai-merchandising-badge-system-tz.md](</E:/work/ru/tehax/s/app/docs/ai-merchandising-badge-system-tz.md>)  
   Подробное ТЗ на следующий уровень merchandising-системы: каталог бейджей, AI category suggestions, assignment engine, review flow и quality layer.
 
-## 9. Что сейчас считать source of truth
+## 9. Reviews and trust layer
+
+- [product-reviews-system-tz.md](</E:/work/ru/tehax/s/app/docs/product-reviews-system-tz.md>)  
+  Подробное ТЗ на полноценную систему отзывов: verified purchase, moderation, личный кабинет, ответы магазина и пересчёт рейтинга товара.
+
+## 10. Product page UX
+
+- [product-page-redesign-tz.md](</E:/work/ru/tehax/s/app/docs/product-page-redesign-tz.md>)  
+  Подробное ТЗ на redesign карточки товара: decision panel, trust strip, compact availability, key specs, reviews UX и SVG micro-animations.
+
+## 11. Site profile, contacts and legal settings
+
+- [site-profile-and-legal-settings-tz.md](</E:/work/ru/tehax/s/app/docs/site-profile-and-legal-settings-tz.md>)  
+  Подробное ТЗ на единый контур контактов, профиля продавца, банковских реквизитов, оферты и правовых текстов с управлением через админку.
+
+## 12. Что сейчас считать source of truth
 
 Если нужен минимальный набор актуальных документов, используем:
 
@@ -148,7 +163,7 @@ Product visibility SQL:
 4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 10. Что нельзя делать без отдельного подтверждения
+## 13. Что нельзя делать без отдельного подтверждения
 
 - destructive migrations;
 - drop таблиц/колонок на production;

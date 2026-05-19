@@ -36,6 +36,7 @@ export default function AdminSettings() {
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
   const { data: reservationSettings } = trpc.settings.getReservationSettings.useQuery();
+  const { data: siteProfileSettings } = trpc.settings.getSiteProfileSettings.useQuery();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [apiKey, setApiKey] = useState("");
@@ -50,6 +51,59 @@ export default function AdminSettings() {
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
+  const [siteProfileForm, setSiteProfileForm] = useState({
+    contacts: {
+      primaryPhone: "",
+      primaryPhoneDisplay: "",
+      secondaryPhone: "",
+      email: "",
+      workingHours: "",
+      whatsappUrl: "",
+      telegramUrl: "",
+      telegramHandle: "",
+      shortAddress: "",
+      fullAddress: "",
+    },
+    seller: {
+      legalForm: "ip" as "ip" | "ooo",
+      fullName: "",
+      shortName: "",
+      signatoryName: "",
+      signatoryLabel: "",
+      signatoryBasis: "",
+      legalAddress: "",
+      actualAddress: "",
+      inn: "",
+      ogrnip: "",
+      kpp: "",
+      okpo: "",
+      email: "",
+      phone: "",
+    },
+    bank: {
+      bankName: "",
+      account: "",
+      corrAccount: "",
+      bik: "",
+      inn: "",
+      kpp: "",
+    },
+    legalTexts: {
+      offerTitle: "",
+      offerContent: "",
+      privacyPolicyTitle: "",
+      privacyPolicyContent: "",
+      paymentDeliveryTitle: "",
+      paymentDeliveryContent: "",
+      returnsPolicyTitle: "",
+      returnsPolicyContent: "",
+    },
+    documents: {
+      signatureName: "",
+      signatureLabel: "",
+      requisitesFooter: "",
+    },
+  });
 
   useEffect(() => {
     if (maintenanceData) {
@@ -73,6 +127,11 @@ export default function AdminSettings() {
     setManufacturerLogoProvider(data.manufacturerLogoProvider || "logo_dev");
     setManufacturerLogoToken("");
   }, [data]);
+
+  useEffect(() => {
+    if (!siteProfileSettings) return;
+    setSiteProfileForm(siteProfileSettings);
+  }, [siteProfileSettings]);
 
   const saveMaintenanceMutation = trpc.settings.saveMaintenanceSettings.useMutation({
     onSuccess: () => {
@@ -121,6 +180,14 @@ export default function AdminSettings() {
       onSuccess: () => {
         utils.settings.getReservationSettings.invalidate();
         alert("Настройки резерва сохранены.");
+      },
+    });
+  const saveSiteProfileMutation =
+    trpc.settings.saveSiteProfileSettings.useMutation({
+      onSuccess: () => {
+        utils.settings.getSiteProfileSettings.invalidate();
+        utils.settings.getPublicSiteProfile.invalidate();
+        alert("Профиль сайта и реквизиты сохранены.");
       },
     });
 
@@ -189,6 +256,64 @@ export default function AdminSettings() {
     ] as const,
     [data?.isConfigured, data?.proxyBaseUrl, maintenanceEnabled, maintenanceReopenDate, msData]
   );
+
+  const updateContactField = <
+    K extends keyof typeof siteProfileForm.contacts,
+  >(
+    key: K,
+    value: (typeof siteProfileForm.contacts)[K]
+  ) => {
+    setSiteProfileForm(prev => ({
+      ...prev,
+      contacts: { ...prev.contacts, [key]: value },
+    }));
+  };
+
+  const updateSellerField = <
+    K extends keyof typeof siteProfileForm.seller,
+  >(
+    key: K,
+    value: (typeof siteProfileForm.seller)[K]
+  ) => {
+    setSiteProfileForm(prev => ({
+      ...prev,
+      seller: { ...prev.seller, [key]: value },
+    }));
+  };
+
+  const updateBankField = <K extends keyof typeof siteProfileForm.bank>(
+    key: K,
+    value: (typeof siteProfileForm.bank)[K]
+  ) => {
+    setSiteProfileForm(prev => ({
+      ...prev,
+      bank: { ...prev.bank, [key]: value },
+    }));
+  };
+
+  const updateLegalField = <
+    K extends keyof typeof siteProfileForm.legalTexts,
+  >(
+    key: K,
+    value: (typeof siteProfileForm.legalTexts)[K]
+  ) => {
+    setSiteProfileForm(prev => ({
+      ...prev,
+      legalTexts: { ...prev.legalTexts, [key]: value },
+    }));
+  };
+
+  const updateDocumentField = <
+    K extends keyof typeof siteProfileForm.documents,
+  >(
+    key: K,
+    value: (typeof siteProfileForm.documents)[K]
+  ) => {
+    setSiteProfileForm(prev => ({
+      ...prev,
+      documents: { ...prev.documents, [key]: value },
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -702,6 +827,507 @@ export default function AdminSettings() {
 
       {activeTab === "site" ? (
         <div className="space-y-6">
+          <AdminSection
+            title="Профиль сайта и продавца"
+            description="Единый источник контактов, реквизитов и правовых текстов. Эти данные должны потом использоваться в Header, Footer, Контактах, checkout и документах без захардкоженных строк."
+            tone="accent"
+            actions={
+              <button
+                onClick={() => saveSiteProfileMutation.mutate(siteProfileForm)}
+                disabled={saveSiteProfileMutation.isPending}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+              >
+                {saveSiteProfileMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+                Сохранить профиль сайта
+              </button>
+            }
+          >
+            <div className="space-y-8">
+              <div className="grid gap-8 xl:grid-cols-2">
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div>
+                    <h3 className="text-sm font-black text-[#15171A]">Публичные контакты</h3>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      Эти данные пойдут в Header, Footer, Контакты, mobile bar и trust-блоки сайта.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Телефон для ссылки</label>
+                      <input
+                        value={siteProfileForm.contacts.primaryPhone}
+                        onChange={e => updateContactField("primaryPhone", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="+7 (927) 364-28-88"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Телефон для показа</label>
+                      <input
+                        value={siteProfileForm.contacts.primaryPhoneDisplay}
+                        onChange={e =>
+                          updateContactField("primaryPhoneDisplay", e.target.value)
+                        }
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="+7 (927) 364-28-88"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Доп. телефон</label>
+                      <input
+                        value={siteProfileForm.contacts.secondaryPhone}
+                        onChange={e => updateContactField("secondaryPhone", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="+7 (927) 364-28-88 (доб.3)"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Email</label>
+                      <input
+                        type="email"
+                        value={siteProfileForm.contacts.email}
+                        onChange={e => updateContactField("email", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="tech.aks@yandex.ru"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Часы работы</label>
+                      <input
+                        value={siteProfileForm.contacts.workingHours}
+                        onChange={e => updateContactField("workingHours", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="Ежедневно 9:00–21:00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Telegram handle</label>
+                      <input
+                        value={siteProfileForm.contacts.telegramHandle}
+                        onChange={e => updateContactField("telegramHandle", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="@tech_aks"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Telegram URL</label>
+                      <input
+                        value={siteProfileForm.contacts.telegramUrl}
+                        onChange={e => updateContactField("telegramUrl", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="https://t.me/tech_aks"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">WhatsApp URL</label>
+                      <input
+                        value={siteProfileForm.contacts.whatsappUrl}
+                        onChange={e => updateContactField("whatsappUrl", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="https://wa.me/79273642888"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Короткий адрес</label>
+                      <input
+                        value={siteProfileForm.contacts.shortAddress}
+                        onChange={e => updateContactField("shortAddress", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="Пенза"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Полный адрес</label>
+                      <textarea
+                        value={siteProfileForm.contacts.fullAddress}
+                        onChange={e => updateContactField("fullAddress", e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                        placeholder="Полный почтовый адрес"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div>
+                    <h3 className="text-sm font-black text-[#15171A]">Профиль продавца</h3>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      Эти данные нужны для оферты, реквизитов сторон, checkout и будущих документов.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Форма</label>
+                      <select
+                        value={siteProfileForm.seller.legalForm}
+                        onChange={e =>
+                          updateSellerField("legalForm", e.target.value as "ip" | "ooo")
+                        }
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      >
+                        <option value="ip">ИП</option>
+                        <option value="ooo">ООО</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Короткое имя</label>
+                      <input
+                        value={siteProfileForm.seller.shortName}
+                        onChange={e => updateSellerField("shortName", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Полное наименование</label>
+                    <input
+                      value={siteProfileForm.seller.fullName}
+                      onChange={e => updateSellerField("fullName", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Подписант</label>
+                      <input
+                        value={siteProfileForm.seller.signatoryName}
+                        onChange={e => updateSellerField("signatoryName", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Подпись</label>
+                      <input
+                        value={siteProfileForm.seller.signatoryLabel}
+                        onChange={e => updateSellerField("signatoryLabel", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Основание подписания</label>
+                    <input
+                      value={siteProfileForm.seller.signatoryBasis}
+                      onChange={e => updateSellerField("signatoryBasis", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">ИНН</label>
+                      <input
+                        value={siteProfileForm.seller.inn}
+                        onChange={e => updateSellerField("inn", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">
+                        {siteProfileForm.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН"}
+                      </label>
+                      <input
+                        value={siteProfileForm.seller.ogrnip}
+                        onChange={e => updateSellerField("ogrnip", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">КПП</label>
+                      <input
+                        value={siteProfileForm.seller.kpp}
+                        onChange={e => updateSellerField("kpp", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">ОКПО</label>
+                      <input
+                        value={siteProfileForm.seller.okpo}
+                        onChange={e => updateSellerField("okpo", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Email продавца</label>
+                      <input
+                        type="email"
+                        value={siteProfileForm.seller.email}
+                        onChange={e => updateSellerField("email", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Телефон продавца</label>
+                      <input
+                        value={siteProfileForm.seller.phone}
+                        onChange={e => updateSellerField("phone", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Юридический адрес</label>
+                      <textarea
+                        value={siteProfileForm.seller.legalAddress}
+                        onChange={e => updateSellerField("legalAddress", e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Фактический адрес</label>
+                      <textarea
+                        value={siteProfileForm.seller.actualAddress}
+                        onChange={e => updateSellerField("actualAddress", e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-8 xl:grid-cols-2">
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div>
+                    <h3 className="text-sm font-black text-[#15171A]">Банк и реквизиты</h3>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      Используются в оферте, реквизитах сторон и будущих документных шаблонах.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Банк</label>
+                    <input
+                      value={siteProfileForm.bank.bankName}
+                      onChange={e => updateBankField("bankName", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Р/с</label>
+                      <input
+                        value={siteProfileForm.bank.account}
+                        onChange={e => updateBankField("account", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">К/с</label>
+                      <input
+                        value={siteProfileForm.bank.corrAccount}
+                        onChange={e => updateBankField("corrAccount", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">БИК</label>
+                      <input
+                        value={siteProfileForm.bank.bik}
+                        onChange={e => updateBankField("bik", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">ИНН банка</label>
+                      <input
+                        value={siteProfileForm.bank.inn}
+                        onChange={e => updateBankField("inn", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">КПП банка</label>
+                      <input
+                        value={siteProfileForm.bank.kpp}
+                        onChange={e => updateBankField("kpp", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div>
+                    <h3 className="text-sm font-black text-[#15171A]">Preview</h3>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      Быстрый контроль того, как выглядит профиль продавца и контактная карточка без переходов по сайту.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-[#05C3D4]">
+                      Контакты сайта
+                    </div>
+                    <div className="mt-3 space-y-2 text-sm text-[#15171A]">
+                      <div className="font-black">{siteProfileForm.contacts.primaryPhoneDisplay}</div>
+                      <div>{siteProfileForm.contacts.email}</div>
+                      <div className="text-gray-500">{siteProfileForm.contacts.workingHours}</div>
+                      <div className="text-gray-500">{siteProfileForm.contacts.fullAddress}</div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-[#05C3D4]">
+                      Реквизиты сторон
+                    </div>
+                    <div className="mt-3 space-y-1 text-sm text-[#15171A]">
+                      <div className="font-black">{siteProfileForm.seller.fullName}</div>
+                      <div>ИНН: {siteProfileForm.seller.inn}</div>
+                      <div>
+                        {siteProfileForm.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН"}:{" "}
+                        {siteProfileForm.seller.ogrnip}
+                      </div>
+                      {siteProfileForm.seller.kpp ? <div>КПП: {siteProfileForm.seller.kpp}</div> : null}
+                      {siteProfileForm.seller.okpo ? <div>ОКПО: {siteProfileForm.seller.okpo}</div> : null}
+                      <div>{siteProfileForm.bank.bankName}</div>
+                      <div>р/с: {siteProfileForm.bank.account}</div>
+                      <div>к/с: {siteProfileForm.bank.corrAccount}</div>
+                      <div>БИК: {siteProfileForm.bank.bik}</div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-[#05C3D4]">
+                      Подпись и footer
+                    </div>
+                    <div className="mt-3 space-y-2 text-sm text-[#15171A]">
+                      <div>{siteProfileForm.documents.signatureName}</div>
+                      <div className="font-black">______________ {siteProfileForm.documents.signatureLabel}</div>
+                      <div className="text-gray-500">{siteProfileForm.documents.requisitesFooter}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                <div>
+                  <h3 className="text-sm font-black text-[#15171A]">Правовые тексты</h3>
+                  <p className="mt-1 text-xs leading-5 text-gray-500">
+                    Эти тексты используются для оферты, политики обработки данных, оплаты/доставки и возврата. В этой фазе храним их как безопасный форматированный текст без произвольного HTML.
+                  </p>
+                </div>
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Заголовок оферты</label>
+                    <input
+                      value={siteProfileForm.legalTexts.offerTitle}
+                      onChange={e => updateLegalField("offerTitle", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Заголовок политики</label>
+                    <input
+                      value={siteProfileForm.legalTexts.privacyPolicyTitle}
+                      onChange={e => updateLegalField("privacyPolicyTitle", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Оферта</label>
+                    <textarea
+                      value={siteProfileForm.legalTexts.offerContent}
+                      onChange={e => updateLegalField("offerContent", e.target.value)}
+                      rows={9}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Политика обработки данных</label>
+                    <textarea
+                      value={siteProfileForm.legalTexts.privacyPolicyContent}
+                      onChange={e => updateLegalField("privacyPolicyContent", e.target.value)}
+                      rows={9}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Заголовок оплаты и доставки</label>
+                    <input
+                      value={siteProfileForm.legalTexts.paymentDeliveryTitle}
+                      onChange={e =>
+                        updateLegalField("paymentDeliveryTitle", e.target.value)
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Заголовок возврата</label>
+                    <input
+                      value={siteProfileForm.legalTexts.returnsPolicyTitle}
+                      onChange={e =>
+                        updateLegalField("returnsPolicyTitle", e.target.value)
+                      }
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Оплата и доставка</label>
+                    <textarea
+                      value={siteProfileForm.legalTexts.paymentDeliveryContent}
+                      onChange={e =>
+                        updateLegalField("paymentDeliveryContent", e.target.value)
+                      }
+                      rows={8}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Возврат и обмен</label>
+                    <textarea
+                      value={siteProfileForm.legalTexts.returnsPolicyContent}
+                      onChange={e =>
+                        updateLegalField("returnsPolicyContent", e.target.value)
+                      }
+                      rows={8}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Имя подписанта в документах</label>
+                    <input
+                      value={siteProfileForm.documents.signatureName}
+                      onChange={e => updateDocumentField("signatureName", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">Сокращённая подпись</label>
+                    <input
+                      value={siteProfileForm.documents.signatureLabel}
+                      onChange={e => updateDocumentField("signatureLabel", e.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-bold text-[#15171A]">Footer реквизитов</label>
+                    <textarea
+                      value={siteProfileForm.documents.requisitesFooter}
+                      onChange={e => updateDocumentField("requisitesFooter", e.target.value)}
+                      rows={3}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                  </div>
+                </div>
+
+                {saveSiteProfileMutation.error ? (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {saveSiteProfileMutation.error.message}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </AdminSection>
+
           <AdminSection
             title="Резерв товара"
             description="Срок действия резерва используется на карточке товара и в админке. После истечения срока резерв перестаёт уменьшать доступный остаток."

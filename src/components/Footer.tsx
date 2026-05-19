@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
+import { trpc } from "@/providers/trpc";
 
 const catalogLinks = [
   { label: "Смартфоны", href: "/catalog?cat=smartfony" },
@@ -20,6 +21,8 @@ const infoLinks = [
 ];
 
 export default function Footer() {
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
+
   return (
     <footer className="bg-[#15171A] text-white border-t border-white/5">
       <div className="container-main py-20">
@@ -39,7 +42,7 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-4">
               <a
-                href="https://t.me/tech_aks"
+                href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 hover:text-[#05C3D4] hover:bg-white/10 transition-all"
@@ -112,13 +115,13 @@ export default function Footer() {
                 </div>
                 <div>
                   <a
-                    href="tel:+79273750555"
+                    href={`tel:${(siteProfile?.contacts.primaryPhone || "").replace(/\s+/g, "")}`}
                     className="text-sm font-bold text-white/80 hover:text-[#05C3D4] transition-colors"
                   >
-                    +7 (927) 375-05-55
+                    {siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}
                   </a>
                   <p className="text-[10px] font-bold text-white/40 uppercase mt-1 tracking-wider">
-                    Ежедневно 9:00–21:00
+                    {siteProfile?.contacts.workingHours || "Ежедневно 9:00–21:00"}
                   </p>
                 </div>
               </div>
@@ -128,10 +131,11 @@ export default function Footer() {
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm font-bold text-white/80">
-                    пр. Строителей, 50А
+                    {siteProfile?.contacts.shortAddress || "Пенза"}
                   </p>
                   <p className="text-sm font-bold text-white/80">
-                    ул. Генерала Глазунова, 1
+                    {siteProfile?.contacts.fullAddress ||
+                      "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12"}
                   </p>
                 </div>
               </div>
@@ -140,7 +144,7 @@ export default function Footer() {
                   <Mail size={14} className="text-[#05C3D4]" />
                 </div>
                 <span className="text-sm font-bold text-white/80">
-                  info@techaks.ru
+                  {siteProfile?.contacts.email || "tech.aks@yandex.ru"}
                 </span>
               </div>
             </div>
@@ -155,12 +159,18 @@ export default function Footer() {
             © 2026 ТЕХАКС — ТЕХНИКА И АКСЕССУАРЫ
           </span>
           <div className="flex items-center gap-8">
-            <span className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider cursor-pointer transition-colors">
+            <Link
+              to="/privacy-policy"
+              className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider transition-colors"
+            >
               Политика
-            </span>
-            <span className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider cursor-pointer transition-colors">
+            </Link>
+            <Link
+              to="/offer"
+              className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider transition-colors"
+            >
               Оферта
-            </span>
+            </Link>
           </div>
         </div>
       </div>

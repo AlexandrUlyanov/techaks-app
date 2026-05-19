@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export default function LeadForm({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
 
   const createLead = trpc.lead.create.useMutation({
     onSuccess: () => {
@@ -118,7 +120,14 @@ export default function LeadForm({
       <p
         className={`mt-6 text-[10px] font-bold text-center uppercase tracking-widest ${dark ? "text-white/20" : "text-black/30"}`}
       >
-        Нажимая кнопку, вы соглашаетесь с политикой обработки данных
+        Нажимая кнопку, вы соглашаетесь с{" "}
+        <Link
+          to="/privacy-policy"
+          className={dark ? "text-white/50 hover:text-[#05C3D4]" : "text-black/50 hover:text-[#05C3D4]"}
+        >
+          политикой обработки данных
+        </Link>
+        {siteProfile?.seller.shortName ? ` ${siteProfile.seller.shortName}` : ""}
       </p>
     </div>
   );

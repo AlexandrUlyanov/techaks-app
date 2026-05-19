@@ -46,6 +46,7 @@ export default function CheckoutPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated } = useAuth();
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
 
   useEffect(() => {
     setMounted(true);
@@ -505,7 +506,13 @@ export default function CheckoutPage() {
                 </Button>
 
                 <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-widest mt-4">
-                  Нажимая кнопку, вы подтверждаете согласие с условиями оферты
+                  Нажимая кнопку, вы подтверждаете согласие с условиями{" "}
+                  <Link to="/offer" className="text-[#05C3D4] hover:underline">
+                    оферты
+                  </Link>
+                  {siteProfile?.seller.shortName
+                    ? ` ${siteProfile.seller.shortName}`
+                    : ""}
                 </p>
               </div>
             </div>
