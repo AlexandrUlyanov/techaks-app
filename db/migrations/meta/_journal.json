@@ -99,6 +99,13 @@
       "when": 1779271000000,
       "tag": "0013_store_reservations_and_one_click",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1779352000000,
+      "tag": "0014_moysklad_order_sync",
+      "breakpoints": true
     }
   ]
 }

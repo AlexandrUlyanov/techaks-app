@@ -251,6 +251,14 @@ export const orders = mysqlTable("orders", {
   userId: int("user_id"),
   storeId: int("store_id"),
   reservationId: int("reservation_id"),
+  moyskladOrderId: text("moysklad_order_id"),
+  moyskladOrderHref: text("moysklad_order_href"),
+  moyskladExternalCode: text("moysklad_external_code"),
+  moyskladSyncStatus: varchar("moysklad_sync_status", { length: 20 })
+    .notNull()
+    .default("pending"),
+  moyskladSyncedAt: timestamp("moysklad_synced_at"),
+  moyskladLastError: text("moysklad_last_error"),
   orderNumber: varchar("order_number", { length: 64 }),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, confirmed, shipped, delivered, cancelled
   deliveryStatus: varchar("delivery_status", { length: 30 })
@@ -311,6 +319,10 @@ export const orders = mysqlTable("orders", {
   deliveryTrackIdx: index("orders_delivery_track_idx").on(table.deliveryTrackNumber),
   storeIdx: index("orders_store_idx").on(table.storeId, table.createdAt),
   reservationIdx: index("orders_reservation_idx").on(table.reservationId),
+  moyskladSyncIdx: index("orders_moysklad_sync_idx").on(
+    table.moyskladSyncStatus,
+    table.createdAt
+  ),
 }));
 
 export const orderItems = mysqlTable("order_items", {
@@ -489,6 +501,55 @@ export const appSettings = mysqlTable("app_settings", {
   value: text("value"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const moyskladSyncJobs = mysqlTable("moysklad_sync_jobs", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(),
+  entityId: int("entity_id").notNull(),
+  action: varchar("action", { length: 30 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: int("attempts").notNull().default(0),
+  nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
+  lockedAt: timestamp("locked_at"),
+  lastError: text("last_error"),
+  payloadSnapshot: json("payload_snapshot"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  statusNextRunIdx: index("moysklad_sync_jobs_status_next_run_idx").on(
+    table.status,
+    table.nextRunAt,
+    table.createdAt
+  ),
+  entityIdx: index("moysklad_sync_jobs_entity_idx").on(
+    table.entityType,
+    table.entityId,
+    table.createdAt
+  ),
+  actionIdx: index("moysklad_sync_jobs_action_idx").on(
+    table.action,
+    table.status,
+    table.createdAt
+  ),
+}));
+
+export const moyskladWebhookEvents = mysqlTable("moysklad_webhook_events", {
+  id: serial("id").primaryKey(),
+  requestId: varchar("request_id", { length: 191 }).notNull(),
+  payload: json("payload").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  processedAt: timestamp("processed_at"),
+  lastError: text("last_error"),
+}, table => ({
+  requestIdUnique: unique("moysklad_webhook_events_request_id_unique").on(
+    table.requestId
+  ),
+  statusCreatedIdx: index("moysklad_webhook_events_status_created_idx").on(
+    table.status,
+    table.createdAt
+  ),
+}));
 
 export const productNormalizationLogs = mysqlTable("product_normalization_logs", {
   id: serial("id").primaryKey(),

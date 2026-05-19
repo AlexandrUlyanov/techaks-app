@@ -33,4 +33,9 @@ export const env = {
   smtpUser: optional("SMTP_USER"),
   smtpPass: optional("SMTP_PASS"),
   smtpFrom: optional("SMTP_FROM") || "TechAks <no-reply@techaks.ru>",
+  moyskladToken: optional("MOYSKLAD_TOKEN"),
+  moyskladWebhookToken: optional("MOYSKLAD_WEBHOOK_TOKEN"),
+  moyskladDefaultCounterpartyHref: optional("MOYSKLAD_DEFAULT_COUNTERPARTY_HREF"),
+  moyskladReserveOnOrder:
+    optional("MOYSKLAD_RESERVE_ON_ORDER").toLowerCase() === "true",
 };

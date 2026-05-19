@@ -7,6 +7,7 @@ import {
   FileText,
   PackageOpen,
   Clock3,
+  ShoppingBag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -81,33 +82,60 @@ export default function AdminSyncMenu() {
 
       <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <AdminSection
-          title="Основной маршрут"
-          description="МойСклад остаётся главным операторским экраном: там доступны профили, очереди вебхуков, reconcile, scheduler и watchdog."
+          title="Основные маршруты"
+          description="Разделили товарный контур и order-sync, чтобы оператору было проще быстро попасть в нужный сценарий и не тонуть в одном длинном экране."
         >
-          <Link
-            to="/admin/sync/moysklad"
-            className="group block rounded-2xl border border-gray-200 bg-white px-6 py-6 transition hover:border-[#05C3D4] hover:shadow-sm"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-3">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#15171A] text-white">
-                  <PackageOpen size={24} />
+          <div className="grid gap-4">
+            <Link
+              to="/admin/sync/moysklad"
+              className="group block rounded-2xl border border-gray-200 bg-white px-6 py-6 transition hover:border-[#05C3D4] hover:shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#15171A] text-white">
+                    <PackageOpen size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-[#15171A]">
+                      Каталог, остатки и очереди
+                    </h3>
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500">
+                      Товары, остатки, цены, очереди вебхуков, reconcile,
+                      scheduler и watchdog для full sync.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-black text-[#15171A]">
-                    МойСклад
-                  </h3>
-                  <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500">
-                    Товары, остатки, цены, очереди событий и инструменты
-                    оператора для full sync.
-                  </p>
+                <div className="rounded-full border border-gray-200 p-2 text-gray-400 transition group-hover:border-[#05C3D4] group-hover:text-[#05C3D4]">
+                  <ArrowRight size={18} />
                 </div>
               </div>
-              <div className="rounded-full border border-gray-200 p-2 text-gray-400 transition group-hover:border-[#05C3D4] group-hover:text-[#05C3D4]">
-                <ArrowRight size={18} />
+            </Link>
+
+            <Link
+              to="/admin/sync/moysklad/orders"
+              className="group block rounded-2xl border border-gray-200 bg-white px-6 py-6 transition hover:border-[#05C3D4] hover:shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#15171A] text-white">
+                    <ShoppingBag size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-[#15171A]">
+                      Заказы в МойСклад
+                    </h3>
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500">
+                      Очередь customerorder, маппинг статусов, ошибки, ручной
+                      retry и диагностика проблемных заказов.
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-full border border-gray-200 p-2 text-gray-400 transition group-hover:border-[#05C3D4] group-hover:text-[#05C3D4]">
+                  <ArrowRight size={18} />
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         </AdminSection>
 
         <AdminSection

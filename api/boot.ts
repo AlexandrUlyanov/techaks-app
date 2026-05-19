@@ -16,6 +16,10 @@ import { asc, eq, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladFullSyncWatchdog } from "./lib/moysklad-full-sync-watchdog";
+import {
+  ingestMoyskladOrderWebhook,
+  processMoyskladOrderSyncJobs,
+} from "./lib/moysklad-order-sync";
 import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
 import { runScheduledFullSync } from "./routers/sync";
 import { buildPublicProductVisibilityCondition } from "./lib/product-visibility";
@@ -436,6 +440,42 @@ app.post("/api/sync/moysklad/reconcile", async c => {
   }
 });
 
+app.post("/api/moysklad/webhook/orders", async c => {
+  try {
+    const configuredToken = env.moyskladWebhookToken.trim();
+    if (!configuredToken) {
+      return c.body(null, 204);
+    }
+
+    const token = c.req.query("token")?.trim() || "";
+    if (!token || token !== configuredToken) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+
+    const requestId =
+      c.req.query("requestId")?.trim() ||
+      c.req.query("request_id")?.trim() ||
+      c.req.header("x-request-id")?.trim() ||
+      c.req.header("x-lognex-requestid")?.trim() ||
+      "";
+
+    if (!requestId) {
+      return c.json({ ok: false, error: "requestId is required" }, 400);
+    }
+
+    const payload = await c.req.json().catch(() => null);
+    if (!payload || typeof payload !== "object") {
+      return c.json({ ok: false, error: "Invalid payload" }, 400);
+    }
+
+    await ingestMoyskladOrderWebhook(requestId, payload);
+    return c.body(null, 204);
+  } catch (error) {
+    console.error("[moysklad-order-webhook] ingest failed:", error);
+    return c.body(null, 204);
+  }
+});
+
 app.use("/api/trpc/*", async c => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
@@ -464,6 +504,12 @@ if (env.isProduction) {
       console.error("[webhook-worker] queue cycle failed:", error);
     });
   }, 60_000);
+
+  setInterval(() => {
+    processMoyskladOrderSyncJobs(10).catch(error => {
+      console.error("[moysklad-order-sync] queue cycle failed:", error);
+    });
+  }, 15_000);
 
   setInterval(() => {
     runMoyskladStockReconcile().catch(error => {

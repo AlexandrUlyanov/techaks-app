@@ -45,6 +45,7 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import SyncLayout from "@/pages/admin/sync/SyncLayout";
 import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
 import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
+import AdminSyncMoySkladOrders from "@/pages/admin/sync/AdminSyncMoySkladOrders";
 import { useSeo } from "@/lib/seo";
 
 export default function App() {
@@ -109,6 +110,7 @@ export default function App() {
               <Route path="sync" element={<SyncLayout />}>
                 <Route index element={<AdminSyncMenu />} />
                 <Route path="moysklad" element={<AdminSyncMoySklad />} />
+                <Route path="moysklad/orders" element={<AdminSyncMoySkladOrders />} />
               </Route>
 
               <Route path="settings" element={<AdminSettings />} />

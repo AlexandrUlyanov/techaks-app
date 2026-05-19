@@ -20,6 +20,18 @@ import { runMoyskladStockReconcile } from "../lib/moysklad-reconcile";
 import { runMoyskladFullSyncWatchdog } from "../lib/moysklad-full-sync-watchdog";
 import { applyProductAutoBlockState } from "../lib/product-visibility";
 import {
+  getMoyskladOrderSyncOverview,
+  getMoyskladOrderSyncQueue,
+  getMoyskladOrderSyncSettings,
+  getOrderMoyskladSyncLog,
+  loadMoyskladMetadata,
+  processMoyskladOrderSyncJobs,
+  retryMoyskladSyncJob,
+  saveMoyskladOrderSyncSettings,
+  syncOrderToMoyskladManually,
+  validateMoyskladConfig,
+} from "../lib/moysklad-order-sync";
+import {
   getSyncRuntimeSettings,
   saveSyncRuntimeSettings,
   syncRuntimeSettingsInputSchema,
@@ -39,6 +51,15 @@ const syncConfigSchema = z.object({
   syncProducts: z.boolean().default(true),
   syncStocks: z.boolean().default(true),
   syncPrices: z.boolean().default(true),
+});
+
+const orderSyncSettingsSchema = z.object({
+  enabled: z.boolean(),
+  organizationHref: z.string().trim().default(""),
+  storeHref: z.string().trim().default(""),
+  salesChannelHref: z.string().trim().default(""),
+  createCounterparties: z.boolean(),
+  statusMapping: z.record(z.string(), z.string()),
 });
 
 async function getActiveSyncProfile() {
@@ -895,6 +916,71 @@ export const syncRouter = createRouter({
       lastEventAt: lastEvent?.createdAt ?? null,
     };
   }),
+
+  getMoyskladOrderSyncOverview: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    return getMoyskladOrderSyncOverview();
+  }),
+
+  getMoyskladOrderSyncSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    return getMoyskladOrderSyncSettings();
+  }),
+
+  saveMoyskladOrderSyncSettings: protectedProcedure
+    .input(orderSyncSettingsSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      await saveMoyskladOrderSyncSettings(input);
+      return { success: true };
+    }),
+
+  validateMoyskladOrderSyncConfig: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    return validateMoyskladConfig();
+  }),
+
+  loadMoyskladOrderMetadata: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Sync");
+    return loadMoyskladMetadata();
+  }),
+
+  getMoyskladOrderSyncQueue: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(200).default(100) }).optional())
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Sync");
+      return getMoyskladOrderSyncQueue(input?.limit ?? 100);
+    }),
+
+  runMoyskladOrderSyncWorker: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(10) }).optional())
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      const result = await processMoyskladOrderSyncJobs(input?.limit ?? 10);
+      return result;
+    }),
+
+  retryMoyskladOrderSyncJob: protectedProcedure
+    .input(z.object({ jobId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      await retryMoyskladSyncJob(input.jobId);
+      return { success: true };
+    }),
+
+  syncOrderToMoyskladManually: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      return syncOrderToMoyskladManually(input.orderId);
+    }),
+
+  getOrderMoyskladSyncLog: protectedProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Sync");
+      return getOrderMoyskladSyncLog(input.orderId);
+    }),
 
   retryWebhookEvents: protectedProcedure
     .input(

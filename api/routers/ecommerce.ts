@@ -27,6 +27,7 @@ import {
   RESERVATION_STATUS_EXPIRED,
 } from "../lib/product-reservations";
 import { normalizePhone } from "@contracts/phone";
+import { enqueueMoyskladSyncJob } from "../lib/moysklad-order-sync";
 import {
   buildOrdersCsv,
   buildOrdersExportTable,
@@ -1026,6 +1027,16 @@ export const ecommerceRouter = createRouter({
         comment: "Быстрый заказ создан через кнопку «Купить в 1 клик».",
       });
 
+      await enqueueMoyskladSyncJob({
+        entityType: "order",
+        entityId: order.orderId,
+        action: "create",
+        payloadSnapshot: {
+          source: "one_click",
+          storeId: store.id,
+        },
+      });
+
       return {
         success: true,
         orderId: order.orderId,
@@ -1164,6 +1175,17 @@ export const ecommerceRouter = createRouter({
           productId: reservation.productId,
         } as any,
         comment: "Заказ оформлен из активного резерва.",
+      });
+
+      await enqueueMoyskladSyncJob({
+        entityType: "order",
+        entityId: order.orderId,
+        action: "create",
+        payloadSnapshot: {
+          source: "reservation",
+          reservationId: reservation.id,
+          storeId: reservation.storeId,
+        },
       });
 
       return {
@@ -1447,6 +1469,16 @@ export const ecommerceRouter = createRouter({
           console.error("order_created email failed", err);
         });
       }
+
+      await enqueueMoyskladSyncJob({
+        entityType: "order",
+        entityId: orderId,
+        action: "create",
+        payloadSnapshot: {
+          source: "site",
+          itemCount: purchasableItems.length,
+        },
+      });
 
       return { success: true, orderId };
     }),
@@ -2105,6 +2137,16 @@ export const ecommerceRouter = createRouter({
           console.error("review invitation flow failed", err);
         });
       }
+
+      await enqueueMoyskladSyncJob({
+        entityType: "status",
+        entityId: input.id,
+        action: "status_update",
+        payloadSnapshot: {
+          status: input.status,
+          previousStatus: existing[0]?.status ?? null,
+        },
+      });
       return { success: true };
     }),
 
