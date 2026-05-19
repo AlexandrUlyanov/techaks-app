@@ -125,11 +125,18 @@ export async function getProductStoreAvailability(db: DbLike, productId: number)
       storeAddress: stores.address,
       storePhone: stores.phone,
       storeHours: stores.hours,
-      rawStockQty: productStocks.quantity,
+      rawStockQty: sql<number>`COALESCE(SUM(${productStocks.quantity}), 0)`,
     })
     .from(productStocks)
     .innerJoin(stores, eq(productStocks.storeId, stores.id))
-    .where(eq(productStocks.productId, productId));
+    .where(eq(productStocks.productId, productId))
+    .groupBy(
+      stores.id,
+      stores.name,
+      stores.address,
+      stores.phone,
+      stores.hours
+    );
 
   if (rows.length === 0) return [];
 
