@@ -19,6 +19,10 @@ export function serveStaticFiles(app: App) {
   app.get("/product/*", sendIndex);
   app.get("/stores", sendIndex);
   app.get("/contacts", sendIndex);
+  app.get("/offer", sendIndex);
+  app.get("/privacy-policy", sendIndex);
+  app.get("/payment-delivery", sendIndex);
+  app.get("/returns", sendIndex);
   app.get("/promotions", sendIndex);
   app.get("/promotions/*", sendIndex);
   app.get("/blog", sendIndex);
