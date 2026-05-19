@@ -760,9 +760,10 @@ async function failJob(jobId: number, orderId: number | null, error: unknown, at
   const db = getDb();
   const message = error instanceof Error ? error.message : "Ошибка синхронизации";
   const retryDelayMs = getRetryDelayMs(attempts, error);
-  const nextRunAt = retryDelayMs > 0 && attempts + 1 < MAX_JOB_ATTEMPTS
+  const shouldRetry = retryDelayMs > 0 && attempts + 1 < MAX_JOB_ATTEMPTS;
+  const nextRunAt = shouldRetry
     ? new Date(Date.now() + retryDelayMs)
-    : null;
+    : new Date(Date.now() + 365 * 24 * 60 * 60_000);
 
   await db
     .update(moyskladSyncJobs)
@@ -770,7 +771,7 @@ async function failJob(jobId: number, orderId: number | null, error: unknown, at
       status: JOB_STATUS_ERROR,
       attempts: attempts + 1,
       lastError: message,
-      nextRunAt: nextRunAt ?? new Date(),
+      nextRunAt,
       lockedAt: null,
       updatedAt: new Date(),
     })
@@ -787,7 +788,8 @@ async function failJob(jobId: number, orderId: number | null, error: unknown, at
   await writeOrderSyncLog("error", `Ошибка sync job #${jobId}: ${message}`, {
     jobId,
     orderId,
-    nextRunAt: nextRunAt?.toISOString() ?? null,
+    nextRunAt: nextRunAt.toISOString(),
+    retriable: shouldRetry,
   });
 }
 
