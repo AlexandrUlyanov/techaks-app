@@ -6,6 +6,7 @@ import {
   categories,
   reviews,
   productStocks,
+  productReservations,
   productSpecValues,
   stores,
   manufacturers,
@@ -161,6 +162,23 @@ function buildAdminProductWhere(input?: {
 
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 
+const publicActiveReservedQtySql = sql<number>`coalesce((
+  select sum(${productReservations.quantity})
+  from ${productReservations}
+  where ${productReservations.productId} = ${products.id}
+    and ${productReservations.status} = 'active'
+    and ${productReservations.reservedUntil} > now()
+), 0)`;
+
+const publicAvailableStockQtySql = sql<number>`greatest(
+  coalesce((
+    select sum(${productStocks.quantity})
+    from ${productStocks}
+    where ${productStocks.productId} = ${products.id}
+  ), 0) - ${publicActiveReservedQtySql},
+  0
+)`;
+
 const productSelectFields = {
   id: products.id,
   msId: products.msId,
@@ -182,6 +200,11 @@ const productSelectFields = {
   createdAt: products.createdAt,
   categoryName: categories.name,
   merchandisingBadges: schema.productMerchandising.badges,
+};
+
+const publicProductSelectFields = {
+  ...productSelectFields,
+  inStock: sql<boolean>`${publicAvailableStockQtySql} > 0`,
 };
 
 async function attachVisibleMerchandisingBadges<T extends { merchandisingBadges?: unknown }>(
@@ -227,7 +250,7 @@ export const productRouter = createRouter({
       );
       const specCondition = buildSpecFilterConditions(input.specFilters);
       const rows = await db
-        .select(productSelectFields)
+        .select(publicProductSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -242,7 +265,7 @@ export const productRouter = createRouter({
   getAll: publicQuery.query(async () => {
     const db = getDb();
     const rows = await db
-      .select(productSelectFields)
+      .select(publicProductSelectFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -344,7 +367,7 @@ export const productRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const result = await db
-        .select(productSelectFields)
+        .select(publicProductSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -385,7 +408,7 @@ export const productRouter = createRouter({
       );
 
       const rows = await db
-        .select(productSelectFields)
+        .select(publicProductSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -418,7 +441,7 @@ export const productRouter = createRouter({
       if (categorySlug === "all") {
         const specCondition = buildSpecFilterConditions(specFilters);
         const rows = await db
-          .select(productSelectFields)
+          .select(publicProductSelectFields)
           .from(products)
           .leftJoin(categories, eq(products.categoryId, categories.id))
           .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -444,7 +467,7 @@ export const productRouter = createRouter({
       )})`;
 
       const rows = await db
-        .select(productSelectFields)
+        .select(publicProductSelectFields)
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
@@ -479,23 +502,15 @@ export const productRouter = createRouter({
           name: products.name,
           image: products.image,
           price: products.price,
-          totalStock: sql<number>`coalesce(sum(${productStocks.quantity}), 0)`,
+          totalStock: publicAvailableStockQtySql,
         })
         .from(products)
-        .leftJoin(productStocks, eq(productStocks.productId, products.id))
         .where(
           sql`${products.categoryId} IN (${sql.join(targetIds, sql`, `)}) AND ${publicProductVisibilityCondition}`
         )
-        .groupBy(
-          products.id,
-          products.slug,
-          products.name,
-          products.image,
-          products.price
-        )
         .orderBy(
-          desc(sql`coalesce(sum(${productStocks.quantity}), 0)`),
-          desc(products.inStock),
+          desc(publicAvailableStockQtySql),
+          desc(sql<boolean>`${publicAvailableStockQtySql} > 0`),
           asc(products.name)
         )
         .limit(input.limit);
