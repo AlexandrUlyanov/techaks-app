@@ -59,6 +59,10 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isInStock) {
+      toast.error("Товара сейчас нет в наличии");
+      return;
+    }
     addItem({
       id: product.id,
       slug: product.slug,
@@ -81,7 +85,17 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
     if (cartItem) updateQuantity(product.id, cartItem.quantity + 1);
   };
 
-  const cartControl = cartItem ? (
+  const cartControl = !isInStock ? (
+    <button
+      type="button"
+      disabled
+      className="flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#E8EDF1] px-4 text-[10px] font-black uppercase tracking-widest text-[#8B96A3] cursor-not-allowed"
+      aria-label="Нет в наличии"
+    >
+      <ShoppingCart size={14} className="hidden sm:block opacity-70" />
+      Нет в наличии
+    </button>
+  ) : cartItem ? (
     <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-lg border border-[#05C3D4]/40 bg-[#05C3D4]/10">
       <button
         type="button"
