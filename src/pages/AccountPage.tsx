@@ -142,6 +142,7 @@ function AccountOrderCard({
   const utils = trpc.useUtils();
   const [message, setMessage] = useState("");
   const [editingReviewProductId, setEditingReviewProductId] = useState<number | null>(null);
+  const [lastMarkedManagerCommentIso, setLastMarkedManagerCommentIso] = useState<string | null>(null);
 
   const {
     data: details,
@@ -227,6 +228,26 @@ function AccountOrderCard({
   ]);
 
   useEffect(() => {
+    if (!latestManagerCommentIso) return;
+    const serverSeenAt =
+      feed?.readState?.latestCustomerReadManagerAt ??
+      order.latestCustomerReadManagerAt ??
+      null;
+    if (
+      serverSeenAt &&
+      new Date(serverSeenAt).getTime() >= new Date(latestManagerCommentIso).getTime()
+    ) {
+      setLastMarkedManagerCommentIso(current =>
+        current === latestManagerCommentIso ? current : latestManagerCommentIso
+      );
+    }
+  }, [
+    feed?.readState?.latestCustomerReadManagerAt,
+    latestManagerCommentIso,
+    order.latestCustomerReadManagerAt,
+  ]);
+
+  useEffect(() => {
     if (expanded && latestManagerCommentIso) {
       const serverSeenAt =
         feed?.readState?.latestCustomerReadManagerAt ??
@@ -235,13 +256,26 @@ function AccountOrderCard({
       const shouldMark =
         !serverSeenAt ||
         new Date(latestManagerCommentIso).getTime() > new Date(serverSeenAt).getTime();
-      if (shouldMark && !markConversationRead.isPending) {
-        markConversationRead.mutate({ orderId: order.id });
+      if (
+        shouldMark &&
+        latestManagerCommentIso !== lastMarkedManagerCommentIso &&
+        !markConversationRead.isPending
+      ) {
+        setLastMarkedManagerCommentIso(latestManagerCommentIso);
+        markConversationRead.mutate(
+          { orderId: order.id },
+          {
+            onError: () => {
+              setLastMarkedManagerCommentIso(null);
+            },
+          }
+        );
       }
     }
   }, [
     expanded,
     feed?.readState?.latestCustomerReadManagerAt,
+    lastMarkedManagerCommentIso,
     latestManagerCommentIso,
     markConversationRead,
     order.id,

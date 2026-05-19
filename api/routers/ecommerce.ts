@@ -1725,6 +1725,46 @@ export const ecommerceRouter = createRouter({
         return { success: true, compatibilityMode: "legacy" as const };
       }
 
+      const [readState] = await db
+        .select({
+          latestManagerCommentAt: capabilities.hasOrderCommentsTable
+            ? sql<Date | null>`(
+                SELECT MAX(${orderComments.createdAt})
+                FROM ${orderComments}
+                WHERE ${orderComments.orderId} = ${input.orderId}
+                  AND ${orderComments.commentType} = 'manager'
+              )`
+            : sql<Date | null>`NULL`,
+          latestCustomerReadManagerAt: sql<Date | null>`(
+            SELECT MAX(${orderHistory.createdAt})
+            FROM ${orderHistory}
+            WHERE ${orderHistory.orderId} = ${input.orderId}
+              AND ${orderHistory.actionType} = 'customer_conversation_read'
+              AND ${orderHistory.userId} = ${ctx.user.id}
+          )`,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      const latestManagerCommentAt = readState?.latestManagerCommentAt
+        ? new Date(readState.latestManagerCommentAt).getTime()
+        : 0;
+      const latestCustomerReadManagerAt = readState?.latestCustomerReadManagerAt
+        ? new Date(readState.latestCustomerReadManagerAt).getTime()
+        : 0;
+
+      if (
+        latestManagerCommentAt > 0 &&
+        latestCustomerReadManagerAt >= latestManagerCommentAt
+      ) {
+        return {
+          success: true,
+          compatibilityMode: "modern" as const,
+          alreadyRead: true,
+        };
+      }
+
       await safeInsertOrderHistory(db, {
         orderId: input.orderId,
         userId: ctx.user.id,
@@ -2623,6 +2663,42 @@ export const ecommerceRouter = createRouter({
 
       if (!capabilities.hasOrderHistoryTable) {
         return { success: true, compatibilityMode: "legacy" as const };
+      }
+
+      const [readState] = await db
+        .select({
+          latestClientCommentAt: capabilities.hasOrderCommentsTable
+            ? sql<Date | null>`(
+                SELECT MAX(${orderComments.createdAt})
+                FROM ${orderComments}
+                WHERE ${orderComments.orderId} = ${input.orderId}
+                  AND ${orderComments.commentType} = 'client'
+              )`
+            : sql<Date | null>`NULL`,
+          latestAdminReadClientAt: sql<Date | null>`(
+            SELECT MAX(${orderHistory.createdAt})
+            FROM ${orderHistory}
+            WHERE ${orderHistory.orderId} = ${input.orderId}
+              AND ${orderHistory.actionType} = 'manager_conversation_read'
+          )`,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      const latestClientCommentAt = readState?.latestClientCommentAt
+        ? new Date(readState.latestClientCommentAt).getTime()
+        : 0;
+      const latestAdminReadClientAt = readState?.latestAdminReadClientAt
+        ? new Date(readState.latestAdminReadClientAt).getTime()
+        : 0;
+
+      if (latestClientCommentAt > 0 && latestAdminReadClientAt >= latestClientCommentAt) {
+        return {
+          success: true,
+          compatibilityMode: "modern" as const,
+          alreadyRead: true,
+        };
       }
 
       await safeInsertOrderHistory(db, {
