@@ -699,7 +699,6 @@ export default function ProductPage() {
         open={oneClickDialogOpen}
         onOpenChange={setOneClickDialogOpen}
         product={{ id: product.id, name: product.name }}
-        stores={typedStock}
       />
 
       {/* Lead Form Modal */}

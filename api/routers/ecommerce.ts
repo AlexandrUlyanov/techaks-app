@@ -964,14 +964,18 @@ export const ecommerceRouter = createRouter({
       const resolvedStoreId =
         typeof input.storeId === "number" && input.storeId > 0
           ? input.storeId
-          : availableStores.length === 1
-            ? availableStores[0].storeId
-            : null;
+          : availableStores
+              .slice()
+              .sort(
+                (a, b) =>
+                  b.availableQty - a.availableQty ||
+                  a.storeId - b.storeId
+              )[0]?.storeId ?? null;
 
       if (!resolvedStoreId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Выберите магазин, в котором хотите оформить товар.",
+          message: "Товар сейчас недоступен для быстрого заказа.",
         });
       }
 

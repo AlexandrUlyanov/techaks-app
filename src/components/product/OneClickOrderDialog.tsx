@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ConfirmReserveIcon, OneClickIcon } from "./ProductActionIcons";
-import type { ProductStoreAvailability } from "./StoreAvailabilityItem";
 
 type OrderSuccessPayload = {
   orderId: number;
@@ -23,17 +22,14 @@ export default function OneClickOrderDialog({
   open,
   onOpenChange,
   product,
-  stores,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: { id: number; name: string };
-  stores: ProductStoreAvailability[];
 }) {
   const { user } = useAuth();
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
-  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [successState, setSuccessState] = useState<OrderSuccessPayload | null>(null);
 
@@ -50,26 +46,18 @@ export default function OneClickOrderDialog({
     },
   });
 
-  const availableStores = useMemo(
-    () => stores.filter(store => store.availableQty > 0),
-    [stores]
-  );
-  const selectedStore = availableStores.find(store => store.storeId === selectedStoreId) ?? null;
-
   useEffect(() => {
     if (!open) {
       setFieldError(null);
       setSuccessState(null);
       setPhone("");
       setCustomerName("");
-      setSelectedStoreId(null);
       return;
     }
 
     setPhone(user?.phone || "");
     setCustomerName(user?.fullName || "");
-    setSelectedStoreId(availableStores.length === 1 ? availableStores[0].storeId : null);
-  }, [availableStores, open, user?.fullName, user?.phone]);
+  }, [open, user?.fullName, user?.phone]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,7 +91,6 @@ export default function OneClickOrderDialog({
               setFieldError(null);
               createOneClickOrder.mutate({
                 productId: product.id,
-                storeId: selectedStoreId,
                 quantity: 1,
                 phone: phone || user?.phone || undefined,
                 customerName: customerName || user?.fullName || undefined,
@@ -133,29 +120,9 @@ export default function OneClickOrderDialog({
               </div>
             </div>
 
-            {availableStores.length > 1 ? (
-              <label className="space-y-2 block">
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
-                  Магазин
-                </span>
-                <select
-                  value={selectedStoreId ?? ""}
-                  onChange={event => setSelectedStoreId(Number(event.target.value) || null)}
-                  className="h-12 w-full rounded-2xl border border-border px-4 text-sm outline-none transition focus:border-[#05C3D4]"
-                >
-                  <option value="">Выберите магазин</option>
-                  {availableStores.map(store => (
-                    <option key={store.storeId} value={store.storeId}>
-                      {store.storeName} — {store.availableQty} шт.
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : selectedStore ? (
-              <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-gray-600">
-                Магазин: <span className="font-semibold text-[#15171A]">{selectedStore.storeName}</span>
-              </div>
-            ) : null}
+            <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-gray-600">
+              Менеджер подтвердит наличие и подберёт удобный магазин для выдачи или доставки.
+            </div>
 
             <label className="space-y-2 block">
               <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
