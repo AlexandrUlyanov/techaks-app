@@ -1,0 +1,344 @@
+import { Link } from "react-router";
+import { ArrowRight, Star } from "lucide-react";
+import ProductCard from "@/components/ProductCard";
+import StoreCard from "@/components/StoreCard";
+import ReviewCard from "@/components/ReviewCard";
+
+const defaultReviews = [
+  {
+    author: "Анна К.",
+    rating: 5,
+    text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.",
+    createdAt: new Date("2024-04-15").toISOString(),
+  },
+  {
+    author: "Михаил С.",
+    rating: 5,
+    text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!",
+    createdAt: new Date("2024-04-10").toISOString(),
+  },
+  {
+    author: "Елена В.",
+    rating: 5,
+    text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!",
+    createdAt: new Date("2024-04-05").toISOString(),
+  },
+];
+
+export type HomeSecondarySectionsProps = {
+  featuredManufacturers: any[];
+  banners: any[];
+  stores: any[];
+  latestPosts: any[];
+  popularProducts: any[];
+  isStoreOpen: boolean;
+};
+
+export default function HomeSecondarySections({
+  featuredManufacturers,
+  banners,
+  stores,
+  latestPosts,
+  popularProducts,
+  isStoreOpen,
+}: HomeSecondarySectionsProps) {
+  return (
+    <>
+      {featuredManufacturers.length > 0 && (
+        <section className="py-14 bg-background border-t border-border">
+          <div className="container-main">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Производители
+                </span>
+                <h2 className="text-3xl md:text-4xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  БРЕНДЫ <span className="text-foreground/20">В НАЛИЧИИ</span>
+                </h2>
+              </div>
+              <Link
+                to="/catalog?view=brands"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+              >
+                Все производители
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {featuredManufacturers.map(manufacturer => (
+                <Link
+                  key={manufacturer.id}
+                  to={`/catalog?view=brands&brand=${manufacturer.slug}`}
+                  className="group flex min-h-[122px] flex-col items-center justify-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-2.5">
+                    {manufacturer.logo ? (
+                      <img
+                        src={manufacturer.logo}
+                        alt={manufacturer.title}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-xs font-black text-[#05C3D4]">
+                        {manufacturer.title.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-3 line-clamp-1 text-xs font-black text-foreground transition-colors group-hover:text-[#05C3D4]">
+                    {manufacturer.title}
+                  </span>
+                  <span className="mt-1 text-[10px] font-bold text-muted-foreground">
+                    {manufacturer.productCount} товаров
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {banners.length > 0 && (
+        <section id="promos" className="py-24 bg-background">
+          <div className="container-main">
+            <div className="text-center mb-16">
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                Digital Витрина
+              </span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                АКЦИИ <span className="text-foreground/20">И СПЕЦПРЕДЛОЖЕНИЯ</span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {banners.map(promo => (
+                <div
+                  key={promo.id}
+                  className="group relative flex flex-col sm:flex-row items-center gap-10 bg-card border border-border rounded-3xl p-10 overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl"
+                >
+                  <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#05C3D4]/5 blur-[60px] rounded-full" />
+                  <div className="relative z-10 flex-1">
+                    <span className="inline-block px-3 py-1 bg-[#05C3D4]/10 text-[#05C3D4] text-[10px] font-black uppercase tracking-widest rounded-md mb-4">
+                      Акция
+                    </span>
+                    <h3 className="text-2xl font-black uppercase font-heading tracking-tight leading-tight text-foreground">
+                      {promo.title}
+                    </h3>
+                    <p className="mt-4 text-sm text-muted-foreground font-medium leading-relaxed line-clamp-2">
+                      {promo.subtitle}
+                    </p>
+                    <Link
+                      to={`/promotions/${promo.slug}`}
+                      className="mt-8 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground hover:text-[#05C3D4] transition-colors"
+                    >
+                      Подробнее
+                      <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                  <div className="relative z-10 flex-shrink-0 w-[160px] h-[160px] rounded-2xl overflow-hidden bg-white p-4 border border-border group-hover:border-[#05C3D4]/10 transition-all duration-500 transform group-hover:scale-105">
+                    <img
+                      src={promo.image}
+                      alt={promo.title}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="py-24 bg-card border-t border-border">
+        <div className="container-main">
+          <div className="text-center mb-16">
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+              Локации
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              НАШИ <span className="text-foreground/20">МАГАЗИНЫ</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {stores.map(store => (
+              <StoreCard
+                key={store.id}
+                name={store.name}
+                address={store.address}
+                hours={store.hours}
+                phone={store.phone}
+                rating={store.rating}
+                reviews={`${store.reviewCount} оценок`}
+                image={store.image}
+                isOpen={isStoreOpen}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="reviews" className="py-24 bg-background">
+        <div className="container-main">
+          <div className="text-center mb-16">
+            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+              Обратная связь
+            </span>
+            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+              ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-border">
+            {[
+              { platform: "Яндекс Карты", rating: "4.9", count: "59 отзывов" },
+              { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
+            ].map(item => (
+              <div key={item.platform} className="text-center group">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 group-hover:text-[#05C3D4] transition-colors">
+                  {item.platform}
+                </div>
+                <div className="flex items-center gap-4 justify-center">
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        size={20}
+                        className="fill-[#05C3D4] text-[#05C3D4]"
+                      />
+                    ))}
+                  </div>
+                  <span className="text-4xl font-black font-heading text-foreground">
+                    {item.rating}
+                  </span>
+                </div>
+                <div className="mt-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  {item.count}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {defaultReviews.map((review, i) => (
+              <ReviewCard
+                key={i}
+                name={review.author}
+                rating={review.rating}
+                text={review.text}
+                date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
+                source="Яндекс Карты"
+              />
+            ))}
+          </div>
+
+          <div className="mt-16 text-center">
+            <a
+              href="https://yandex.ru/maps/org/techaks/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-8 py-4 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-card hover:border-[#05C3D4] transition-all"
+            >
+              Оставить отзыв
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {latestPosts.length > 0 && (
+        <section id="blog" className="py-24 bg-background">
+          <div className="container-main">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+              <div>
+                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                  Блог ТЕХАКС
+                </span>
+                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                  СОВЕТЫ <span className="text-foreground/20">И ОБЗОРЫ</span>
+                </h2>
+              </div>
+              <Link
+                to="/blog"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+              >
+                Читать все статьи
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {latestPosts.map(post => (
+                <Link
+                  key={post.id}
+                  to={`/blog/${post.slug}`}
+                  className="group bg-card border border-border rounded-3xl overflow-hidden hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl"
+                >
+                  <div className="h-[220px] overflow-hidden relative">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60 dark:from-[#15171A]" />
+                    <span className="absolute bottom-4 left-4 px-3 py-1 bg-[#05C3D4] text-white dark:text-black text-[10px] font-black uppercase tracking-widest rounded-md">
+                      {post.category}
+                    </span>
+                  </div>
+                  <div className="p-8">
+                    <h3 className="text-xl font-black uppercase font-heading tracking-tight leading-tight line-clamp-2 min-h-[3.5rem] text-foreground">
+                      {post.title}
+                    </h3>
+                    <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        {new Date(post.createdAt).toLocaleDateString("ru-RU")}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] group-hover:translate-x-1 transition-transform">
+                        Читать <ArrowRight size={12} className="inline ml-1" />
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="py-24 bg-card border-t border-border">
+        <div className="container-main">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+            <div>
+              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+                Витрина
+              </span>
+              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+                ПОПУЛЯРНЫЕ <span className="text-foreground/20">ТОВАРЫ</span>
+              </h2>
+            </div>
+            <Link
+              to="/catalog"
+              className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+            >
+              Смотреть весь каталог
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {popularProducts.map(product => (
+              <ProductCard key={product.id} product={product as any} />
+            ))}
+          </div>
+          <div className="mt-16 text-center">
+            <Link
+              to="/catalog"
+              className="inline-flex items-center gap-3 px-10 py-5 bg-[#05C3D4] text-white dark:text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan active:scale-95"
+            >
+              Смотреть все товары
+              <ArrowRight size={18} />
+            </Link>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}

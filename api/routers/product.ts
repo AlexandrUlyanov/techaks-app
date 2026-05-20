@@ -6,7 +6,6 @@ import {
   categories,
   reviews,
   productStocks,
-  productReservations,
   productSpecValues,
   stores,
   manufacturers,
@@ -30,13 +29,17 @@ import {
 } from "../lib/manufacturers";
 import {
   applyProductAutoBlockState,
-  buildPublicProductVisibilityCondition,
   getAdminProductPublicationStatus,
 } from "../lib/product-visibility";
-import { getMerchandisingDisabledBadges } from "../lib/merchandising-score";
-import { filterDisabledMerchandisingBadges } from "@/lib/merchandising-badges";
-import { getStorefrontBadgeLabels } from "../lib/merchandising-ai-badges";
 import { getProductReservationSummary, getProductStoreAvailability } from "../lib/product-reservations";
+import {
+  attachVisibleMerchandisingBadges,
+  listHomepageFallbackProducts,
+  productSelectFields,
+  publicAvailableStockQtySql,
+  publicProductSelectFields,
+  publicProductVisibilityCondition,
+} from "../lib/public-products";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -160,80 +163,6 @@ function buildAdminProductWhere(input?: {
   return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
-const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
-
-const publicActiveReservedQtySql = sql<number>`coalesce((
-  select sum(${productReservations.quantity})
-  from ${productReservations}
-  inner join ${stores} reserved_stores on reserved_stores.id = ${productReservations.storeId}
-  where ${productReservations.productId} = ${products.id}
-    and ${productReservations.status} = 'active'
-    and ${productReservations.reservedUntil} > now()
-), 0)`;
-
-const publicAvailableStockQtySql = sql<number>`greatest(
-  coalesce((
-    select sum(${productStocks.quantity})
-    from ${productStocks}
-    inner join ${stores} stock_stores on stock_stores.id = ${productStocks.storeId}
-    where ${productStocks.productId} = ${products.id}
-  ), 0) - ${publicActiveReservedQtySql},
-  0
-)`;
-
-const productSelectFields = {
-  id: products.id,
-  msId: products.msId,
-  slug: products.slug,
-  name: products.name,
-  categoryId: products.categoryId,
-  price: products.price,
-  isActive: products.isActive,
-  isAutoBlocked: products.isAutoBlocked,
-  autoBlockReason: products.autoBlockReason,
-  oldPrice: products.oldPrice,
-  badge: products.badge,
-  image: products.image,
-  description: products.description,
-  specs: products.specs,
-  inStock: products.inStock,
-  rating: products.rating,
-  reviewCount: products.reviewCount,
-  createdAt: products.createdAt,
-  categoryName: categories.name,
-  merchandisingBadges: schema.productMerchandising.badges,
-};
-
-const publicProductSelectFields = {
-  ...productSelectFields,
-  inStock: sql<boolean>`${publicAvailableStockQtySql} > 0`,
-};
-
-async function attachVisibleMerchandisingBadges<T extends { merchandisingBadges?: unknown }>(
-  rows: T[]
-) {
-  const disabledBadges = await getMerchandisingDisabledBadges();
-  const rowIds = rows
-    .map(row => {
-      const candidate = row as T & { id?: unknown };
-      return typeof candidate.id === "number" ? candidate.id : null;
-    })
-    .filter((id): id is number => typeof id === "number");
-  const aiBadgeMap = await getStorefrontBadgeLabels(rowIds);
-  return rows.map(row => ({
-    ...row,
-    merchandisingBadges: Array.from(
-      new Set([
-        ...filterDisabledMerchandisingBadges(row.merchandisingBadges, disabledBadges),
-        ...(() => {
-          const candidate = row as T & { id?: unknown };
-          return typeof candidate.id === "number" ? aiBadgeMap.get(candidate.id) ?? [] : [];
-        })(),
-      ])
-    ),
-  }));
-}
-
 export const productRouter = createRouter({
   search: publicQuery
     .input(
@@ -284,26 +213,9 @@ export const productRouter = createRouter({
         })
         .optional()
     )
-    .query(async ({ input }) => {
-      const db = getDb();
-      const limit = input?.limit ?? 12;
-      const rows = await db
-        .select(publicProductSelectFields)
-        .from(products)
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .leftJoin(
-          schema.productMerchandising,
-          eq(schema.productMerchandising.productId, products.id)
-        )
-        .where(publicProductVisibilityCondition)
-        .orderBy(
-          desc(sql<boolean>`${publicAvailableStockQtySql} > 0`),
-          desc(products.createdAt),
-          desc(products.id)
-        )
-        .limit(limit);
-      return attachVisibleMerchandisingBadges(rows);
-    }),
+    .query(async ({ input }) =>
+      listHomepageFallbackProducts(input?.limit ?? 12)
+    ),
 
   getAdminAll: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Product");

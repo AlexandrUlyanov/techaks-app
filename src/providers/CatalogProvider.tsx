@@ -39,11 +39,24 @@ const CatalogContext = createContext<CatalogContextType | undefined>(undefined);
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { data: dbCategories = [], isLoading } =
-    trpc.product.getCategories.useQuery();
-  const { data: manufacturerEntries = [] } = trpc.manufacturer.getAll.useQuery({
-    onlyVisible: true,
-    withProductsOnly: true,
-  });
+    trpc.product.getCategories.useQuery(undefined, {
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    });
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: manufacturerEntries = [] } = trpc.manufacturer.getAll.useQuery(
+    {
+      onlyVisible: true,
+      withProductsOnly: true,
+    },
+    {
+      enabled: isOpen,
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
   const topLevelCategorySlugs = useMemo(
     () =>
       dbCategories
@@ -51,16 +64,19 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         .map(category => category.slug),
     [dbCategories]
   );
+  const shouldLoadCatalogBrands = isOpen && topLevelCategorySlugs.length > 0;
   const { data: brandsByCategory = {} } = trpc.manufacturer.getByCategories.useQuery(
     {
       categorySlugs: topLevelCategorySlugs,
       limit: 24,
     },
     {
-      enabled: topLevelCategorySlugs.length > 0,
+      enabled: shouldLoadCatalogBrands,
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
     }
   );
-  const [isOpen, setIsOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [mobilePath, setMobilePath] = useState<string[]>([]);
