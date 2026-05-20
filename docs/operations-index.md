@@ -153,7 +153,12 @@ Product visibility SQL:
 - [site-profile-and-legal-settings-tz.md](</E:/work/ru/tehax/s/app/docs/site-profile-and-legal-settings-tz.md>)  
   Подробное ТЗ на единый контур контактов, профиля продавца, банковских реквизитов, оферты и правовых текстов с управлением через админку.
 
-## 12. Что сейчас считать source of truth
+## 12. Homepage performance
+
+- [homepage-performance-optimization-tz.md](</E:/work/ru/tehax/s/app/docs/homepage-performance-optimization-tz.md>)  
+  Подробное ТЗ на ускорение главной страницы: разгрузка CatalogProvider, единый homepage endpoint, server-side TTL cache, priority rendering и уменьшение initial payload.
+
+## 13. Что сейчас считать source of truth
 
 Если нужен минимальный набор актуальных документов, используем:
 
@@ -163,7 +168,7 @@ Product visibility SQL:
 4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 13. Что нельзя делать без отдельного подтверждения
+## 14. Что нельзя делать без отдельного подтверждения
 
 - destructive migrations;
 - drop таблиц/колонок на production;
