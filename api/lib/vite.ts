@@ -32,6 +32,8 @@ export function serveStaticFiles(app: App) {
   app.get("/login", sendIndex);
   app.get("/search", sendIndex);
 
+  app.use("/images/*", serveStatic({ root: "./public" }));
+  app.use("/logs/*", serveStatic({ root: "./public" }));
   app.use("*", serveStatic({ root: "./dist/public" }));
 
   app.notFound(c => {
