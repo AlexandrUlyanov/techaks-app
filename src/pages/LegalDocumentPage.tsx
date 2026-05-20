@@ -2,6 +2,10 @@ import { useMemo } from "react";
 import { useLocation } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
+import {
+  buildSellerRequisitesLines,
+  getSellerRegistrationLabel,
+} from "@/lib/site-profile-formatters";
 
 type LegalDocumentKey = "offer" | "privacy-policy" | "payment-delivery" | "returns";
 type LegalTextField =
@@ -52,6 +56,7 @@ export default function LegalDocumentPage() {
   const meta = DOCUMENT_META[key] ?? DOCUMENT_META.offer;
   const title = profile?.legalTexts[meta.titleField] || meta.fallbackTitle;
   const content = profile?.legalTexts[meta.contentField] || "";
+  const sellerLines = buildSellerRequisitesLines(profile);
 
   useSeo({
     title: `${title} — ТЕХАКС`,
@@ -113,11 +118,22 @@ export default function LegalDocumentPage() {
                 <div>{profile?.seller.legalAddress}</div>
                 <div>ИНН: {profile?.seller.inn}</div>
                 <div>
-                  {profile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН"}:{" "}
+                  {getSellerRegistrationLabel(profile?.seller.legalForm)}:{" "}
                   {profile?.seller.ogrnip}
                 </div>
                 {profile?.seller.kpp ? <div>КПП: {profile.seller.kpp}</div> : null}
                 {profile?.seller.okpo ? <div>ОКПО: {profile.seller.okpo}</div> : null}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-[#05C3D4]">
+                Реквизиты
+              </div>
+              <div className="mt-4 space-y-2 text-sm text-foreground">
+                {sellerLines.map(line => (
+                  <div key={line}>{line}</div>
+                ))}
               </div>
             </div>
 

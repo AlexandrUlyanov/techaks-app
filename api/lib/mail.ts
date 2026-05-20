@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import dns from "node:dns/promises";
 import { env } from "./env";
 import { getAppSettings } from "./app-settings";
+import { getSiteEmailBranding, type SiteEmailBranding } from "./site-profile-settings";
 
 const BRAND = {
   siteName: "ТЕХАКС",
@@ -17,9 +18,6 @@ const BRAND = {
   mutedSurface: "#F5F8FA",
   logoUrl: "https://techaks.ru/images/logo-light.svg",
 };
-
-const DEFAULT_ACCOUNT_URL = `${BRAND.siteUrl}/account`;
-const DEFAULT_ADMIN_ORDERS_URL = `${BRAND.siteUrl}/admin/leads`;
 
 type OrderEventType =
   | "order_created"
@@ -130,6 +128,7 @@ export type EmailTemplateData = {
 };
 
 type TemplateConfig = {
+  brand: SiteEmailBranding;
   subject: string;
   title: string;
   intro: string;
@@ -218,18 +217,6 @@ function normalizeString(value?: string | number | null) {
 
 function isFilled(value?: string | number | null) {
   return normalizeString(value).length > 0;
-}
-
-function withDefaultSiteName(value?: string) {
-  return value || BRAND.siteName;
-}
-
-function withDefaultSiteUrl(value?: string) {
-  return value || BRAND.siteUrl;
-}
-
-function withDefaultSupportEmail(value?: string) {
-  return value || BRAND.supportEmail;
 }
 
 function mapOrderStatus(status?: string | null) {
@@ -425,7 +412,11 @@ function buildTextVersion(config: TemplateConfig) {
 
   if (config.warning) parts.push("", config.warning);
   if (config.note) parts.push("", config.note);
-  parts.push("", `${BRAND.siteName} — ${BRAND.siteUrl}`, BRAND.supportEmail);
+  parts.push(
+    "",
+    `${config.brand.siteName} — ${config.brand.siteUrl}`,
+    config.brand.supportEmail
+  );
 
   return parts.join("\n");
 }
@@ -453,8 +444,8 @@ function renderEmailLayout(config: TemplateConfig) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:680px;">
                 <tr>
                   <td style="padding:0 0 20px 0;text-align:center;">
-                    <img src="${BRAND.logoUrl}" alt="${BRAND.siteName}" width="210" style="display:block;margin:0 auto 10px auto;width:210px;max-width:100%;height:auto;" />
-                    <div style="font-size:12px;line-height:18px;color:#DDE7EA;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">${BRAND.tagline}</div>
+                    <img src="${config.brand.logoUrl}" alt="${config.brand.siteName}" width="210" style="display:block;margin:0 auto 10px auto;width:210px;max-width:100%;height:auto;" />
+                    <div style="font-size:12px;line-height:18px;color:#DDE7EA;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">${config.brand.tagline}</div>
                   </td>
                 </tr>
                 <tr>
@@ -501,11 +492,11 @@ function renderEmailLayout(config: TemplateConfig) {
                 </tr>
                 <tr>
                   <td style="padding:18px 8px 0 8px;text-align:center;">
-                    <div style="font-size:12px;line-height:20px;color:#DDE7EA;font-weight:800;">${BRAND.siteName}</div>
+                    <div style="font-size:12px;line-height:20px;color:#DDE7EA;font-weight:800;">${config.brand.siteName}</div>
                     <div style="font-size:12px;line-height:20px;color:#DDE7EA;">
-                      <a href="${BRAND.siteUrl}" style="color:#DDE7EA;text-decoration:none;">techaks.ru</a>
+                      <a href="${config.brand.siteUrl}" style="color:#DDE7EA;text-decoration:none;">${config.brand.siteUrl.replace(/^https?:\/\//, "")}</a>
                       &nbsp;&nbsp;•&nbsp;&nbsp;
-                      <a href="mailto:${BRAND.supportEmail}" style="color:#DDE7EA;text-decoration:none;">${BRAND.supportEmail}</a>
+                      <a href="mailto:${config.brand.supportEmail}" style="color:#DDE7EA;text-decoration:none;">${config.brand.supportEmail}</a>
                     </div>
                   </td>
                 </tr>
@@ -537,14 +528,19 @@ function buildOrderSummaryRows(data: EmailTemplateData): EmailSummaryRow[] {
   ];
 }
 
-function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateData): TemplateConfig {
+function createTemplateConfig(
+  type: TransactionalEmailType,
+  data: EmailTemplateData,
+  brand: SiteEmailBranding
+): TemplateConfig {
   const customerName = data.customerName || "клиент";
-  const accountUrl = data.accountUrl || DEFAULT_ACCOUNT_URL;
-  const orderUrl = data.orderUrl || DEFAULT_ACCOUNT_URL;
+  const accountUrl = data.accountUrl || brand.accountUrl;
+  const orderUrl = data.orderUrl || brand.accountUrl;
 
   switch (type) {
     case "AUTH_REGISTERED":
       return {
+        brand,
         subject: "Добро пожаловать в ТЕХАКС",
         title: "Добро пожаловать в ТЕХАКС",
         intro: `Здравствуйте, ${customerName}! Вы успешно зарегистрировались в интернет-магазине ТЕХАКС.`,
@@ -559,6 +555,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "AUTH_EMAIL_CONFIRM":
       return {
+        brand,
         subject: "Подтвердите email для аккаунта ТЕХАКС",
         title: "Подтвердите электронную почту",
         intro: `Здравствуйте, ${customerName}! Для завершения регистрации подтвердите ваш email.`,
@@ -574,6 +571,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "AUTH_PASSWORD_RESET":
       return {
+        brand,
         subject: "Восстановление пароля в ТЕХАКС",
         title: "Восстановление пароля",
         intro: `Здравствуйте, ${customerName}! Мы получили запрос на восстановление пароля для вашего аккаунта в ТЕХАКС.`,
@@ -591,6 +589,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "AUTH_PASSWORD_CHANGED":
       return {
+        brand,
         subject: "Пароль в ТЕХАКС изменён",
         title: "Пароль изменён",
         intro: `Здравствуйте, ${customerName}! Пароль от вашего аккаунта в ТЕХАКС был успешно изменён.`,
@@ -603,6 +602,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "AUTH_LOGIN_CODE":
       return {
+        brand,
         subject: "Код подтверждения входа в ТЕХАКС",
         title: "Код подтверждения входа",
         intro: `Здравствуйте! Используйте этот код, чтобы подтвердить вход в аккаунт ТЕХАКС.`,
@@ -615,6 +615,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_CREATED":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} создан`,
         title: "Заказ создан",
         intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} успешно создан.`,
@@ -628,6 +629,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_REVIEW_REQUEST":
       return {
+        brand,
         subject: data.isReminder
           ? `Напоминаем про отзыв о товаре ${data.productName || ""}`
           : `Оставьте отзыв о товаре ${data.productName || ""}`,
@@ -647,6 +649,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_PENDING_PAYMENT":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} ожидает оплаты`,
         title: "Заказ ожидает оплаты",
         intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} ожидает оплаты.`,
@@ -660,6 +663,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_PAID":
       return {
+        brand,
         subject: `Оплата по заказу ${data.orderNumber} получена`,
         title: "Оплата получена",
         intro: `Здравствуйте, ${customerName}! Мы получили оплату по заказу ${data.orderNumber || ""}.`,
@@ -674,6 +678,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_STATUS_CHANGED":
       return {
+        brand,
         subject: `Статус заказа ${data.orderNumber} изменён`,
         title: "Статус заказа изменён",
         intro: `Здравствуйте, ${customerName}! Статус вашего заказа ${data.orderNumber || ""} обновлён.`,
@@ -690,6 +695,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_READY_FOR_PICKUP":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} готов к выдаче`,
         title: "Заказ готов к выдаче",
         intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} готов к выдаче.`,
@@ -704,6 +710,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_SHIPPED":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} передан в доставку`,
         title: "Заказ передан в доставку",
         intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} передан в доставку.`,
@@ -721,6 +728,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_COMPLETED":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} выполнен`,
         title: "Заказ выполнен",
         intro: `Здравствуйте, ${customerName}! Заказ ${data.orderNumber || ""} успешно выполнен.`,
@@ -734,6 +742,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_CANCELLED":
       return {
+        brand,
         subject: `Заказ ${data.orderNumber} отменён`,
         title: "Заказ отменён",
         intro: `Здравствуйте, ${customerName}! Заказ ${data.orderNumber || ""} был отменён.`,
@@ -750,6 +759,7 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ORDER_REFUNDED":
       return {
+        brand,
         subject: `Возврат по заказу ${data.orderNumber}`,
         title: "Возврат по заказу",
         intro: `Здравствуйте, ${customerName}! По заказу ${data.orderNumber || ""} зафиксировано обновление по возврату.`,
@@ -765,12 +775,13 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ADMIN_NEW_ORDER":
       return {
+        brand,
         subject: `Новый заказ ${data.orderNumber} на сайте ТЕХАКС`,
         title: "Новый заказ на сайте",
         intro: `На сайте ТЕХАКС создан новый заказ ${data.orderNumber || ""}.`,
         action: {
           label: "Открыть заказ в админке",
-          url: data.adminOrderUrl || DEFAULT_ADMIN_ORDERS_URL,
+          url: data.adminOrderUrl || brand.adminOrdersUrl,
         },
         summaryRows: [
           { label: "Номер заказа", value: data.orderNumber },
@@ -789,12 +800,13 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     case "ADMIN_PAYMENT_FAILED":
       return {
+        brand,
         subject: `Проблема с оплатой заказа ${data.orderNumber}`,
         title: "Проблема с оплатой",
         intro: `По заказу ${data.orderNumber || ""} произошла ошибка оплаты.`,
         action: {
           label: "Открыть заказ в админке",
-          url: data.adminOrderUrl || DEFAULT_ADMIN_ORDERS_URL,
+          url: data.adminOrderUrl || brand.adminOrdersUrl,
         },
         summaryRows: [
           { label: "Номер заказа", value: data.orderNumber },
@@ -808,8 +820,9 @@ function createTemplateConfig(type: TransactionalEmailType, data: EmailTemplateD
       };
     default:
       return {
-        subject: BRAND.siteName,
-        title: BRAND.siteName,
+        brand,
+        subject: brand.siteName,
+        title: brand.siteName,
         intro: "У вас новое уведомление от интернет-магазина ТЕХАКС.",
       };
   }
@@ -822,12 +835,14 @@ async function sendTemplateEmail(
 ) {
   const transporter = await getTransporter();
   const from = await getSenderAddress();
-  const config = createTemplateConfig(type, {
-    ...data,
-    siteName: withDefaultSiteName(data.siteName),
-    siteUrl: withDefaultSiteUrl(data.siteUrl),
-    supportEmail: withDefaultSupportEmail(data.supportEmail),
-  });
+  const baseBrand = await getSiteEmailBranding();
+  const brand: SiteEmailBranding = {
+    ...baseBrand,
+    siteName: data.siteName || baseBrand.siteName,
+    siteUrl: data.siteUrl || baseBrand.siteUrl,
+    supportEmail: data.supportEmail || baseBrand.supportEmail,
+  };
+  const config = createTemplateConfig(type, data, brand);
 
   if (!env.isProduction || !transporter) {
     console.log(`[MOCK EMAIL] ${type} for ${to}`);
@@ -857,11 +872,12 @@ export async function sendRegistrationWelcomeEmail(input: {
   registrationDate?: string | Date | null;
   accountUrl?: string | null;
 }) {
+  const brand = await getSiteEmailBranding();
   await sendTemplateEmail(input.email, "AUTH_REGISTERED", {
     customerName: input.customerName,
     customerEmail: input.email,
     registrationDate: input.registrationDate ?? new Date(),
-    accountUrl: input.accountUrl || DEFAULT_ACCOUNT_URL,
+    accountUrl: input.accountUrl || brand.accountUrl,
   });
 }
 
@@ -941,15 +957,16 @@ export async function sendOrderNotificationEmail(input: {
     order_cancelled: "ORDER_CANCELLED",
     order_refund: "ORDER_REFUNDED",
   };
+  const brand = await getSiteEmailBranding();
 
   const data: EmailTemplateData = {
     orderNumber: input.orderNumber,
-    orderUrl: DEFAULT_ACCOUNT_URL,
+    orderUrl: brand.accountUrl,
     ...(input.data || {}),
   };
 
   const type = templateTypeMap[input.eventType];
-  const config = createTemplateConfig(type, data);
+  const config = createTemplateConfig(type, data, brand);
   if (input.title) {
     config.subject = input.title;
     config.title = input.title;
@@ -997,3 +1014,4 @@ export async function sendReviewRequestEmail(input: {
     isReminder: input.isReminder ?? false,
   });
 }
+

@@ -19,6 +19,10 @@ import { useAbility } from "@/providers/AbilityProvider";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
+import {
+  buildSellerRequisitesLines,
+  buildSellerSignatureLine,
+} from "@/lib/site-profile-formatters";
 
 type OrderItem = {
   id: number;
@@ -55,6 +59,7 @@ export default function AdminOrderDetails() {
     { orderId },
     { enabled: Number.isFinite(orderId) }
   );
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
 
   const addComment = trpc.ecommerce.addOrderComment.useMutation({
     onSuccess: async result => {
@@ -174,6 +179,8 @@ export default function AdminOrderDetails() {
           </tr>`
       )
       .join("");
+    const sellerLines = buildSellerRequisitesLines(siteProfile);
+    const signatureFooter = buildSellerSignatureLine(siteProfile);
     const html = `
       <html>
       <head><meta charset="utf-8"/><title>${titleMap[mode]} ${order.orderNumber || order.id}</title></head>
@@ -194,6 +201,20 @@ export default function AdminOrderDetails() {
           <tbody>${rows}</tbody>
         </table>
         <h3 style="margin-top:16px;">Итого: ${formatPrice(order.totalPrice)}</h3>
+        ${
+          sellerLines.length > 0
+            ? `
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid #ddd;">
+          <div style="font-weight:700;margin-bottom:8px;">Реквизиты продавца</div>
+          <div style="white-space:pre-line;line-height:1.6;">${sellerLines.join("\n")}</div>
+          ${
+            signatureFooter
+              ? `<div style="margin-top:28px;">${signatureFooter}</div>`
+              : ""
+          }
+        </div>`
+            : ""
+        }
       </body>
       </html>
     `;

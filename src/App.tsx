@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation } from "react-router";
 import { Toaster } from "sonner";
 import Header from "@/components/Header";
@@ -5,49 +6,69 @@ import Footer from "@/components/Footer";
 import StickyBottomBar from "@/components/StickyBottomBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import HomePage from "@/pages/HomePage";
-import CatalogPage from "@/pages/CatalogPage";
-import ProductPage from "@/pages/ProductPage";
-import StoresPage from "@/pages/StoresPage";
-import ContactsPage from "@/pages/ContactsPage";
-import PromotionsPage from "@/pages/PromotionsPage";
-import PromotionDetailPage from "@/pages/PromotionDetailPage";
-import BlogPage from "@/pages/BlogPage";
-import BlogPostPage from "@/pages/BlogPostPage";
-import CheckoutPage from "@/pages/CheckoutPage";
-import AccountPage from "@/pages/AccountPage";
-import LoginPage from "@/pages/LoginPage";
-import SearchPage from "@/pages/SearchPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import LegalDocumentPage from "@/pages/LegalDocumentPage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import MaintenancePage from "@/components/MaintenancePage";
 import { trpc } from "@/providers/trpc";
-
-// Admin Pages
-import AdminLayout from "@/pages/admin/AdminLayout";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminProducts from "@/pages/admin/AdminProducts";
-import AdminReservations from "@/pages/admin/AdminReservations";
-import AdminStores from "@/pages/admin/AdminStores";
-import AdminLeads from "@/pages/admin/AdminLeads";
-import AdminOrderDetails from "@/pages/admin/AdminOrderDetails";
-import AdminBanners from "@/pages/admin/AdminBanners";
-import AdminBlog from "@/pages/admin/AdminBlog";
-import AdminCategories from "@/pages/admin/AdminCategories";
-import AdminNormalizeSpecs from "@/pages/admin/AdminNormalizeSpecs";
-import AdminMerchandising from "@/pages/admin/AdminMerchandising";
-import AdminReviews from "@/pages/admin/AdminReviews";
-import AdminMerchandisingAi from "@/pages/admin/merchandising/AdminMerchandisingAi";
-import AdminMerchandisingAssignments from "@/pages/admin/merchandising/AdminMerchandisingAssignments";
-import AdminMerchandisingBadges from "@/pages/admin/merchandising/AdminMerchandisingBadges";
-import AdminMerchandisingQuality from "@/pages/admin/merchandising/AdminMerchandisingQuality";
-import AdminSettings from "@/pages/admin/AdminSettings";
-import SyncLayout from "@/pages/admin/sync/SyncLayout";
-import AdminSyncMenu from "@/pages/admin/sync/AdminSyncMenu";
-import AdminSyncMoySklad from "@/pages/admin/sync/AdminSyncMoySklad";
-import AdminSyncMoySkladOrders from "@/pages/admin/sync/AdminSyncMoySkladOrders";
 import { useSeo } from "@/lib/seo";
+
+const CatalogPage = lazy(() => import("@/pages/CatalogPage"));
+const ProductPage = lazy(() => import("@/pages/ProductPage"));
+const StoresPage = lazy(() => import("@/pages/StoresPage"));
+const ContactsPage = lazy(() => import("@/pages/ContactsPage"));
+const PromotionsPage = lazy(() => import("@/pages/PromotionsPage"));
+const PromotionDetailPage = lazy(() => import("@/pages/PromotionDetailPage"));
+const BlogPage = lazy(() => import("@/pages/BlogPage"));
+const BlogPostPage = lazy(() => import("@/pages/BlogPostPage"));
+const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
+const AccountPage = lazy(() => import("@/pages/AccountPage"));
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const SearchPage = lazy(() => import("@/pages/SearchPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const LegalDocumentPage = lazy(() => import("@/pages/LegalDocumentPage"));
+
+const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminProducts = lazy(() => import("@/pages/admin/AdminProducts"));
+const AdminReservations = lazy(() => import("@/pages/admin/AdminReservations"));
+const AdminStores = lazy(() => import("@/pages/admin/AdminStores"));
+const AdminLeads = lazy(() => import("@/pages/admin/AdminLeads"));
+const AdminOrderDetails = lazy(() => import("@/pages/admin/AdminOrderDetails"));
+const AdminBanners = lazy(() => import("@/pages/admin/AdminBanners"));
+const AdminBlog = lazy(() => import("@/pages/admin/AdminBlog"));
+const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
+const AdminNormalizeSpecs = lazy(() => import("@/pages/admin/AdminNormalizeSpecs"));
+const AdminMerchandising = lazy(() => import("@/pages/admin/AdminMerchandising"));
+const AdminReviews = lazy(() => import("@/pages/admin/AdminReviews"));
+const AdminMerchandisingAi = lazy(
+  () => import("@/pages/admin/merchandising/AdminMerchandisingAi")
+);
+const AdminMerchandisingAssignments = lazy(
+  () => import("@/pages/admin/merchandising/AdminMerchandisingAssignments")
+);
+const AdminMerchandisingBadges = lazy(
+  () => import("@/pages/admin/merchandising/AdminMerchandisingBadges")
+);
+const AdminMerchandisingQuality = lazy(
+  () => import("@/pages/admin/merchandising/AdminMerchandisingQuality")
+);
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const SyncLayout = lazy(() => import("@/pages/admin/sync/SyncLayout"));
+const AdminSyncMenu = lazy(() => import("@/pages/admin/sync/AdminSyncMenu"));
+const AdminSyncMoySklad = lazy(
+  () => import("@/pages/admin/sync/AdminSyncMoySklad")
+);
+const AdminSyncMoySkladOrders = lazy(
+  () => import("@/pages/admin/sync/AdminSyncMoySkladOrders")
+);
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center py-20">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#05C3D4]/20 border-t-[#05C3D4]" />
+    </div>
+  );
+}
 
 export default function App() {
   const location = useLocation();
@@ -71,57 +92,68 @@ export default function App() {
       <CatalogMenu />
       {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/catalog" element={<CatalogPage />} />
-          <Route path="/product/:id" element={<ProductPage />} />
-          <Route path="/stores" element={<StoresPage />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/promotions" element={<PromotionsPage />} />
-          <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
-          <Route path="/blog" element={<BlogPage />} />
-          <Route path="/blog/:slug" element={<BlogPostPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/offer" element={<LegalDocumentPage />} />
-          <Route path="/privacy-policy" element={<LegalDocumentPage />} />
-          <Route path="/payment-delivery" element={<LegalDocumentPage />} />
-          <Route path="/returns" element={<LegalDocumentPage />} />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/catalog" element={<CatalogPage />} />
+            <Route path="/product/:id" element={<ProductPage />} />
+            <Route path="/stores" element={<StoresPage />} />
+            <Route path="/contacts" element={<ContactsPage />} />
+            <Route path="/promotions" element={<PromotionsPage />} />
+            <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/offer" element={<LegalDocumentPage />} />
+            <Route path="/privacy-policy" element={<LegalDocumentPage />} />
+            <Route path="/payment-delivery" element={<LegalDocumentPage />} />
+            <Route path="/returns" element={<LegalDocumentPage />} />
 
-          {/* Admin Routes */}
-          <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="leads" element={<AdminLeads />} />
-              <Route path="leads/:id" element={<AdminOrderDetails />} />
-              <Route path="reservations" element={<AdminReservations />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="stores" element={<AdminStores />} />
-              <Route path="banners" element={<AdminBanners />} />
-              <Route path="merchandising" element={<AdminMerchandising />} />
-              <Route path="merchandising/badges" element={<AdminMerchandisingBadges />} />
-              <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
-              <Route path="merchandising/assignments" element={<AdminMerchandisingAssignments />} />
-              <Route path="merchandising/quality" element={<AdminMerchandisingQuality />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="blog" element={<AdminBlog />} />
-              <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="leads" element={<AdminLeads />} />
+                <Route path="leads/:id" element={<AdminOrderDetails />} />
+                <Route path="reservations" element={<AdminReservations />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="stores" element={<AdminStores />} />
+                <Route path="banners" element={<AdminBanners />} />
+                <Route path="merchandising" element={<AdminMerchandising />} />
+                <Route path="merchandising/badges" element={<AdminMerchandisingBadges />} />
+                <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
+                <Route
+                  path="merchandising/assignments"
+                  element={<AdminMerchandisingAssignments />}
+                />
+                <Route
+                  path="merchandising/quality"
+                  element={<AdminMerchandisingQuality />}
+                />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="blog" element={<AdminBlog />} />
+                <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
-              <Route path="sync" element={<SyncLayout />}>
-                <Route index element={<AdminSyncMenu />} />
-                <Route path="moysklad" element={<AdminSyncMoySklad />} />
-                <Route path="moysklad/orders" element={<AdminSyncMoySkladOrders />} />
+                <Route path="sync" element={<SyncLayout />}>
+                  <Route index element={<AdminSyncMenu />} />
+                  <Route path="moysklad" element={<AdminSyncMoySklad />} />
+                  <Route
+                    path="moysklad/orders"
+                    element={<AdminSyncMoySkladOrders />}
+                  />
+                </Route>
+
+                <Route path="settings" element={<AdminSettings />} />
               </Route>
-
-              <Route path="settings" element={<AdminSettings />} />
             </Route>
-          </Route>
-        </Routes>
+          </Routes>
+        </Suspense>
       </main>
       {!isAdmin && !isCheckout && <Footer />}
       {!isAdmin && !isCheckout && <StickyBottomBar />}

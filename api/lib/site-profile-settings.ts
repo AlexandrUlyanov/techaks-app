@@ -64,6 +64,37 @@ export type SiteProfileSettings = {
   documents: SiteDocumentSettings;
 };
 
+export type PublicSiteProfile = {
+  contacts: SiteContactSettings;
+  seller: Pick<
+    SellerProfileSettings,
+    | "legalForm"
+    | "fullName"
+    | "shortName"
+    | "legalAddress"
+    | "actualAddress"
+    | "inn"
+    | "ogrnip"
+    | "kpp"
+    | "okpo"
+    | "email"
+    | "phone"
+  >;
+  bank: SellerBankSettings;
+  documents: SiteDocumentSettings;
+  legalTexts: SiteLegalTextSettings;
+};
+
+export type SiteEmailBranding = {
+  siteName: string;
+  tagline: string;
+  siteUrl: string;
+  supportEmail: string;
+  logoUrl: string;
+  accountUrl: string;
+  adminOrdersUrl: string;
+};
+
 export const defaultSiteProfileSettings: SiteProfileSettings = {
   contacts: {
     primaryPhone: "+7 (927) 364-28-88",
@@ -106,16 +137,16 @@ export const defaultSiteProfileSettings: SiteProfileSettings = {
   legalTexts: {
     offerTitle: "Публичная оферта",
     offerContent:
-      "Текст публичной оферты пока не заполнен. Добавьте его в настройках сайта.",
+      "Интернет-магазин ТЕХАКС размещает настоящую публичную оферту о продаже товаров дистанционным способом.\n\nПродавец: Индивидуальный предприниматель Асташкина Татьяна Алексеевна.\nИНН: 583800160003.\nОГРНИП: 325580000028444.\nЮридический адрес: 442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12.\nФактический адрес: 442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12.\nКонтактный email: tech.aks@yandex.ru.\nТелефон: +7 (927) 364-28-88.\n\nОформление заказа на сайте означает согласие покупателя с условиями продажи, доставки, оплаты и возврата товара. Актуальные характеристики, цена, наличие и условия выдачи товара указываются в карточке товара и в оформленном заказе.\n\nПродавец вправе связаться с покупателем для подтверждения заказа, состава, способа получения и оплаты.",
     privacyPolicyTitle: "Политика обработки персональных данных",
     privacyPolicyContent:
-      "Текст политики обработки персональных данных пока не заполнен. Добавьте его в настройках сайта.",
+      "Настоящая политика определяет порядок обработки персональных данных пользователей сайта ТЕХАКС.\n\nОператор персональных данных: Индивидуальный предприниматель Асташкина Татьяна Алексеевна, ИНН 583800160003, ОГРНИП 325580000028444.\nКонтакты оператора: tech.aks@yandex.ru, +7 (927) 364-28-88.\n\nМы обрабатываем персональные данные только в объёме, необходимом для оформления заказов, связи с клиентом, доставки, возврата, отправки сервисных уведомлений и исполнения требований законодательства.\n\nПользователь соглашается с обработкой предоставленных данных при регистрации, оформлении заказа, отправке формы обратной связи и использовании личного кабинета.\n\nПо вопросам обработки персональных данных пользователь может обратиться по указанным контактам.",
     paymentDeliveryTitle: "Оплата и доставка",
     paymentDeliveryContent:
-      "Раздел с условиями оплаты и доставки пока не заполнен. Добавьте его в настройках сайта.",
+      "Интернет-магазин ТЕХАКС предлагает самовывоз и доставку в соответствии с условиями, указанными при оформлении заказа.\n\nДоступные способы оплаты и доставки зависят от выбранного товара, региона и статуса наличия. Итоговые условия оплаты, сумма заказа и адрес выдачи фиксируются в подтверждённом заказе.\n\nЕсли по товару требуется дополнительное подтверждение наличия или срока поставки, менеджер связывается с покупателем до окончательного подтверждения заказа.",
     returnsPolicyTitle: "Возврат и обмен",
     returnsPolicyContent:
-      "Раздел с условиями возврата и обмена пока не заполнен. Добавьте его в настройках сайта.",
+      "Возврат и обмен товаров, приобретённых в интернет-магазине ТЕХАКС, осуществляются в соответствии с законодательством Российской Федерации и условиями конкретной категории товара.\n\nДля оформления возврата или обмена покупатель должен обратиться по контактам магазина, указав номер заказа, причину обращения и способ обратной связи.\n\nПри необходимости менеджер запрашивает фотографии, описание состояния товара и сведения о комплектности. Решение по возврату, обмену или сервисной проверке принимается после проверки товара и документов по заказу.",
   },
   documents: {
     signatureName: "Асташкина Татьяна Алексеевна",
@@ -457,6 +488,45 @@ export async function getPublicSiteProfile() {
     bank: profile.bank,
     documents: profile.documents,
     legalTexts: profile.legalTexts,
+  } satisfies PublicSiteProfile;
+}
+
+export async function getSiteEmailBranding(): Promise<SiteEmailBranding> {
+  const profile = await getSiteProfileSettings();
+  return {
+    siteName: "ТЕХАКС",
+    tagline: "Техника и аксессуары",
+    siteUrl: "https://techaks.ru",
+    supportEmail: profile.contacts.email || profile.seller.email || "tech.aks@yandex.ru",
+    logoUrl: "https://techaks.ru/images/logo-light.svg",
+    accountUrl: "https://techaks.ru/account",
+    adminOrdersUrl: "https://techaks.ru/admin/leads",
   };
 }
 
+export function buildSellerRequisitesLines(profile: PublicSiteProfile) {
+  const ogrnLabel = profile.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН";
+  const lines = [
+    profile.seller.fullName,
+    `Юр. адрес: ${profile.seller.legalAddress}`,
+    `Факт. адрес: ${profile.seller.actualAddress}`,
+    `ИНН: ${profile.seller.inn}`,
+    `${ogrnLabel}: ${profile.seller.ogrnip}`,
+    profile.seller.kpp ? `КПП: ${profile.seller.kpp}` : null,
+    profile.seller.okpo ? `ОКПО: ${profile.seller.okpo}` : null,
+    `Банк: ${profile.bank.bankName}`,
+    `р/с: ${profile.bank.account}`,
+    `к/с: ${profile.bank.corrAccount}`,
+    `БИК: ${profile.bank.bik}`,
+    profile.bank.inn ? `ИНН банка: ${profile.bank.inn}` : null,
+    profile.bank.kpp ? `КПП банка: ${profile.bank.kpp}` : null,
+    `E-mail: ${profile.contacts.email || profile.seller.email}`,
+    `Телефон: ${profile.contacts.primaryPhoneDisplay || profile.seller.phone}`,
+  ];
+
+  return lines.filter((line): line is string => Boolean(line && line.trim()));
+}
+
+export function buildSellerSignatureLine(profile: PublicSiteProfile) {
+  return `${profile.documents.signatureName}\n______________${profile.documents.signatureLabel}`;
+}
