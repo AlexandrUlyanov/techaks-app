@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useSearchParams, Link, useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import { Loader2, SlidersHorizontal } from "lucide-react";
 import { trpc } from "@/providers/trpc";
-import ProductCard from "@/components/ProductCard";
-import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
-import { Loader2, Search, ArrowLeft, ShoppingCart, Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import { useSeo } from "@/lib/seo";
+import SearchInput from "@/components/search/SearchInput";
+import SearchFilters from "@/components/search/SearchFilters";
+import SearchSortSelect, {
+  type SearchSortValue,
+} from "@/components/search/SearchSortSelect";
+import SearchEmptyState from "@/components/search/SearchEmptyState";
+import SearchResultsGrid from "@/components/search/SearchResultsGrid";
+import SearchHighlight from "@/components/search/SearchHighlight";
 import {
   Sheet,
   SheetContent,
@@ -12,311 +19,328 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useSeo } from "@/lib/seo";
 
-const PRODUCT_PAGE_SIZE = 28;
+const DEFAULT_PAGE_SIZE = 24;
+
+function parseNumber(value: string | null) {
+  const candidate = Number(value);
+  return Number.isFinite(candidate) && candidate > 0 ? candidate : undefined;
+}
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const query = searchParams.get("q") || "";
+  const query = searchParams.get("q")?.trim() || "";
+  const page = parseNumber(searchParams.get("page")) || 1;
+  const limit = parseNumber(searchParams.get("limit")) || DEFAULT_PAGE_SIZE;
+  const categoryId = parseNumber(searchParams.get("categoryId"));
+  const brandId = parseNumber(searchParams.get("brandId"));
+  const priceFrom = parseNumber(searchParams.get("priceFrom"));
+  const priceTo = parseNumber(searchParams.get("priceTo"));
+  const inStockOnly = searchParams.get("inStockOnly") === "true";
+  const sort = (searchParams.get("sort") as SearchSortValue | null) || "relevance";
+
   const [searchInput, setSearchInput] = useState(query);
-  const selectedFilterKey = searchParams.getAll("filter").join("|");
-  const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
-    return searchParams
-      .getAll("filter")
-      .map(value => {
-        const [normalizedKey, normalizedValue] = value.split(":");
-        return normalizedKey && normalizedValue
-          ? { normalizedKey, normalizedValue }
-          : null;
-      })
-      .filter(Boolean) as SelectedSpecFilter[];
-  }, [searchParams, selectedFilterKey]);
-  const [visibleProductCount, setVisibleProductCount] =
-    useState(PRODUCT_PAGE_SIZE);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   useSeo({
     title: query ? `Поиск: ${query} — ТЕХАКС` : "Поиск — ТЕХАКС",
-    description: "Поиск товаров в интернет-магазине ТЕХАКС.",
-    canonicalPath: "/search",
+    description: "Полнотекстовый поиск по товарам, категориям и страницам Techaks.",
+    canonicalPath: `/search${query ? `?q=${encodeURIComponent(query)}` : ""}`,
     noindex: true,
   });
 
-  const { data: specFilters = [] } = trpc.product.getSpecFilters.useQuery({
-    categorySlug: "all",
-  });
-  const { data: results = [], isLoading } = trpc.product.search.useQuery(
-    { query, limit: 500, specFilters: selectedFilters },
-    { enabled: query.length >= 2 }
-  );
-
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextParams = new URLSearchParams(searchParams);
-    const normalizedQuery = searchInput.trim();
-
-    nextParams.delete("filter");
-    if (normalizedQuery) {
-      nextParams.set("q", normalizedQuery);
-    } else {
-      nextParams.delete("q");
+  const searchQuery = trpc.search.query.useQuery(
+    {
+      query,
+      page,
+      limit,
+      categoryId,
+      brandId,
+      priceFrom,
+      priceTo,
+      inStockOnly,
+      sort,
+    },
+    {
+      enabled: query.length >= 1,
+      staleTime: 30_000,
+      retry: false,
     }
-
-    navigate(`/search${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, {
-      replace: false,
-    });
-  };
-
-  const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("filter");
-    nextFilters.forEach(filter => {
-      nextParams.append(
-        "filter",
-        `${filter.normalizedKey}:${filter.normalizedValue}`
-      );
-    });
-    navigate(`/search?${nextParams.toString()}`, { replace: true });
-  };
-
-  const toggleFilter = (filter: SelectedSpecFilter) => {
-    const exists = selectedFilters.some(
-      item =>
-        item.normalizedKey === filter.normalizedKey &&
-        item.normalizedValue === filter.normalizedValue
-    );
-    updateFilters(
-      exists
-        ? selectedFilters.filter(
-            item =>
-              item.normalizedKey !== filter.normalizedKey ||
-              item.normalizedValue !== filter.normalizedValue
-          )
-        : [...selectedFilters, filter]
-    );
-  };
-
-  const clearFilters = () => updateFilters([]);
-
-  useEffect(() => {
-    setVisibleProductCount(PRODUCT_PAGE_SIZE);
-  }, [query, selectedFilterKey]);
+  );
+  const clickLogMutation = trpc.search.logClick.useMutation();
 
   useEffect(() => {
     setSearchInput(query);
   }, [query]);
 
-  const visibleResults = useMemo(
-    () => results.slice(0, visibleProductCount),
-    [results, visibleProductCount]
-  );
+  const data = searchQuery.data;
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / limit));
 
-  const hasMoreResults = visibleProductCount < results.length;
+  const updateSearch = (patch: Record<string, string | number | boolean | undefined>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === undefined || value === "" || value === false) {
+        next.delete(key);
+      } else {
+        next.set(key, String(value));
+      }
+    });
+
+    if (!patch.page) next.delete("page");
+    navigate(`/search?${next.toString()}`);
+  };
+
+  const submitSearch = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const normalized = searchInput.trim();
+    if (!normalized) return;
+    updateSearch({
+      q: normalized,
+      page: 1,
+    });
+  };
+
+  const summaryText = useMemo(() => {
+    if (!query) return "Введите запрос, чтобы начать поиск";
+    if (!data) return `Ищем совпадения по запросу «${query}»`;
+    return `Найдено ${data.total} товаров по запросу «${query}»`;
+  }, [data, query]);
+
+  const handleResultClick = (
+    url: string,
+    entityType: "product" | "category" | "page",
+    entityId: number,
+    position: number
+  ) => {
+    if (data?.searchLogId) {
+      clickLogMutation.mutate({
+        searchLogId: data.searchLogId,
+        entityType,
+        entityId,
+        position,
+        url,
+      });
+    }
+    navigate(url);
+  };
+
+  const filtersPanel = data ? (
+    <SearchFilters
+      facets={data.facets}
+      selectedCategoryId={categoryId}
+      selectedBrandId={brandId}
+      inStockOnly={inStockOnly}
+      priceFrom={priceFrom}
+      priceTo={priceTo}
+      onCategoryChange={value =>
+        updateSearch({ categoryId: value, page: 1 })
+      }
+      onBrandChange={value =>
+        updateSearch({ brandId: value, page: 1 })
+      }
+      onInStockChange={value =>
+        updateSearch({ inStockOnly: value ? "true" : undefined, page: 1 })
+      }
+      onPriceChange={(from, to) =>
+        updateSearch({ priceFrom: from, priceTo: to, page: 1 })
+      }
+      onReset={() =>
+        updateSearch({
+          categoryId: undefined,
+          brandId: undefined,
+          priceFrom: undefined,
+          priceTo: undefined,
+          inStockOnly: undefined,
+          page: 1,
+        })
+      }
+    />
+  ) : null;
 
   return (
-    <div className="min-h-screen pb-24 bg-background">
-      {/* Header */}
-      <section className="bg-muted/30 py-12 md:py-20 border-b border-border">
-        <div className="container-main">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/50">
-              <Link to="/" className="hover:text-[#05C3D4] transition-colors">
-                Главная
-              </Link>
-              <span>/</span>
-              <span>Поиск</span>
+    <div className="min-h-screen bg-background pb-20">
+      <section className="border-b border-border bg-muted/20 py-12 md:py-16">
+        <div className="container-main space-y-6">
+          <div className="space-y-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--tech-color-primary)]">
+              Поиск
             </div>
-            <h1 className="text-3xl md:text-5xl font-black uppercase font-heading tracking-tighter text-foreground">
-              РЕЗУЛЬТАТЫ{" "}
-              <span className="text-muted-foreground/30">ПОИСКА</span>
-            </h1>
-            <p className="text-muted-foreground font-medium">
+            <h1 className="text-3xl font-black uppercase tracking-tight text-foreground md:text-5xl">
               {query ? (
                 <>
-                  Найдено товаров по запросу «
-                  <span className="text-foreground font-black">{query}</span>»:{" "}
-                  {results.length}
+                  Результаты по запросу{" "}
+                  <span className="text-[var(--tech-color-primary)]">«{query}»</span>
                 </>
               ) : (
-                "Введите запрос для поиска товаров"
+                "Поиск по сайту"
               )}
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+              {summaryText}
             </p>
-            <form onSubmit={submitSearch} className="pt-2">
-              <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-2 shadow-sm">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                  <Search size={18} />
-                </div>
-                <input
-                  value={searchInput}
-                  onChange={event => setSearchInput(event.target.value)}
-                  type="search"
-                  autoFocus
-                  inputMode="search"
-                  placeholder="Найти аксессуар или гаджет..."
-                  aria-label="Поиск товаров"
-                  className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70"
-                />
-                <button
-                  type="submit"
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-4 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-[#27E6F2] dark:text-black"
-                >
-                  Найти
-                </button>
-              </div>
-            </form>
           </div>
+          <SearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            onSubmit={submitSearch}
+            autoFocus
+            placeholder="Найти товар, артикул, бренд, категорию или страницу..."
+          />
         </div>
       </section>
 
-      {/* Results Grid */}
-      <section className="py-16 md:py-24">
+      <section className="py-10 md:py-14">
         <div className="container-main">
-          {query.length >= 2 && (
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <button
-                    className="lg:hidden h-11 w-11 rounded-xl border border-border bg-card flex items-center justify-center"
-                    aria-label="Фильтры"
-                  >
-                    <SlidersHorizontal size={16} />
-                  </button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
-                  <SheetHeader className="px-0 pt-0">
-                    <SheetTitle className="text-sm font-black uppercase tracking-widest">
-                      Фильтры
-                    </SheetTitle>
-                  </SheetHeader>
-                  <ProductFilters
-                    filters={specFilters}
-                    selected={selectedFilters}
-                    onToggle={toggleFilter}
-                    onClear={clearFilters}
-                  />
-                </SheetContent>
-              </Sheet>
-              <div className="ml-auto h-11 rounded-xl border border-border bg-card p-1 flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
-                    viewMode === "grid" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-label="Плитка"
-                >
-                  <Grid2X2 size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
-                    viewMode === "list" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-label="Список"
-                >
-                  <List size={17} />
-                </button>
+          {searchQuery.isLoading ? (
+            <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+              <Loader2 className="animate-spin text-[var(--tech-color-primary)]" size={42} />
+              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                Строим результаты поиска
               </div>
             </div>
-          )}
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
-              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-                Ищем лучшие предложения...
+          ) : searchQuery.isError ? (
+            <div className="mx-auto max-w-2xl rounded-[var(--tech-radius-card)] border border-red-200 bg-red-50 px-6 py-8 text-center text-red-700 shadow-[var(--tech-shadow-card)]">
+              <div className="text-sm font-black uppercase tracking-[0.2em]">
+                Поиск временно недоступен
+              </div>
+              <p className="mt-3 text-sm leading-6">
+                Не удалось собрать результаты по запросу. Попробуйте обновить страницу
+                или повторить поиск чуть позже.
               </p>
             </div>
-          ) : query.length >= 2 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
-              <div className="hidden lg:block">
-                <ProductFilters
-                  filters={specFilters}
-                  selected={selectedFilters}
-                  onToggle={toggleFilter}
-                  onClear={clearFilters}
-                />
-              </div>
-              <div>
-                {results.length > 0 ? (
-                  <>
-                    <div className={
-                      viewMode === "grid"
-                        ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"
-                        : "grid grid-cols-1 gap-4"
-                    }>
-                      {visibleResults.map(product => (
-                        <ProductCard key={product.id} product={product as any} variant={viewMode} />
-                      ))}
-                    </div>
-                    {hasMoreResults && (
-                      <div className="mt-12 flex flex-col items-center gap-4">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          Показано {visibleResults.length} из {results.length}
-                        </div>
+          ) : !query ? (
+            <SearchEmptyState query="..." />
+          ) : data ? (
+            data.total > 0 || data.categories.length > 0 || data.pages.length > 0 ? (
+              <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <div className="hidden lg:block">{filtersPanel}</div>
+
+                <div className="space-y-8">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Sheet>
+                      <SheetTrigger asChild>
                         <button
                           type="button"
-                          onClick={() =>
-                            setVisibleProductCount(count =>
-                              Math.min(count + PRODUCT_PAGE_SIZE, results.length)
-                            )
-                          }
-                          className="px-10 py-4 rounded-xl bg-[#05C3D4] text-white dark:text-black text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/20"
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground lg:hidden"
                         >
-                          Загрузить еще
+                          <SlidersHorizontal size={16} />
+                          Фильтры
                         </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="max-w-md mx-auto text-center py-24 space-y-8">
-                    <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto opacity-20">
-                      <Search size={48} />
-                    </div>
-                    <div className="space-y-4">
-                      <h2 className="text-2xl font-black uppercase font-heading tracking-tight">
-                        Ничего не нашли
-                      </h2>
-                      <p className="text-muted-foreground font-medium">
-                        Попробуйте изменить запрос или сбросить выбранные фильтры.
-                      </p>
+                      </SheetTrigger>
+                      <SheetContent side="left" className="w-[88vw] max-w-sm overflow-y-auto p-5">
+                        <SheetHeader className="px-0 pt-0">
+                          <SheetTitle>Фильтры поиска</SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4">{filtersPanel}</div>
+                      </SheetContent>
+                    </Sheet>
+                    <div className="ml-auto">
+                      <SearchSortSelect
+                        value={sort}
+                        onChange={value => updateSearch({ sort: value, page: 1 })}
+                      />
                     </div>
                   </div>
-                )}
+
+                  {(data.categories.length > 0 || data.pages.length > 0) && (
+                    <div className="grid gap-5 xl:grid-cols-2">
+                      {data.categories.length > 0 ? (
+                        <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                          <div className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                            Найденные категории
+                          </div>
+                          <div className="space-y-2">
+                            {data.categories.map((item, index) => (
+                              <button
+                                key={`category-${item.id}`}
+                                type="button"
+                                onClick={() => handleResultClick(item.url, "category", item.id, index)}
+                                className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-muted/40"
+                              >
+                                <div>
+                                  <div className="text-sm font-bold text-foreground">
+                                    <SearchHighlight text={item.title} query={query} />
+                                  </div>
+                                  {item.subtitle ? (
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {item.subtitle}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <span className="text-xs font-black text-[var(--tech-color-primary)]">
+                                  {item.count}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {data.pages.length > 0 ? (
+                        <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                          <div className="mb-4 text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                            Найденные страницы
+                          </div>
+                          <div className="space-y-2">
+                            {data.pages.map((item, index) => (
+                              <button
+                                key={`page-${item.id}`}
+                                type="button"
+                                onClick={() => handleResultClick(item.url, "page", item.id, index)}
+                                className="block w-full rounded-xl px-3 py-3 text-left transition hover:bg-muted/40"
+                              >
+                                <div className="text-sm font-bold text-foreground">
+                                  <SearchHighlight text={item.title} query={query} />
+                                </div>
+                                {item.subtitle ? (
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {item.subtitle}
+                                  </div>
+                                ) : null}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {data.products.length > 0 ? (
+                    <>
+                      <SearchResultsGrid products={data.products} />
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--tech-radius-card)] border border-border bg-card px-5 py-4 shadow-[var(--tech-shadow-card)]">
+                        <div className="text-sm text-muted-foreground">
+                          Страница {page} из {totalPages}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={page <= 1}
+                            onClick={() => updateSearch({ page: page - 1 })}
+                            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            disabled={page >= totalPages}
+                            onClick={() => updateSearch({ page: page + 1 })}
+                            className="rounded-xl bg-[var(--tech-color-primary)] px-4 py-2 text-sm font-black text-[var(--tech-color-primary-foreground)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Дальше
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <SearchEmptyState query={query} correctedQuery={data.correctedQuery} />
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="max-w-md mx-auto text-center py-24 space-y-8">
-              <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto opacity-20">
-                <Search size={48} />
-              </div>
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black uppercase font-heading tracking-tight">
-                  Ничего не нашли
-                </h2>
-                <p className="text-muted-foreground font-medium">
-                  К сожалению, по вашему запросу товаров не найдено. Попробуйте
-                  изменить запрос или поискать в каталоге.
-                </p>
-              </div>
-              <div className="pt-8 flex flex-col gap-4">
-                <Link to="/catalog">
-                  <button className="w-full h-14 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan flex items-center justify-center gap-3">
-                    <ShoppingCart size={18} />
-                    ПЕРЕЙТИ В КАТАЛОГ
-                  </button>
-                </Link>
-                <Link to="/">
-                  <button className="w-full h-14 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-muted transition-all flex items-center justify-center gap-3">
-                    <ArrowLeft size={18} />
-                    НА ГЛАВНУЮ
-                  </button>
-                </Link>
-              </div>
-            </div>
-          )}
+            ) : (
+              <SearchEmptyState query={query} correctedQuery={data.correctedQuery} />
+            )
+          ) : null}
         </div>
       </section>
     </div>

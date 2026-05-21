@@ -39,6 +39,11 @@ import {
   syncRuntimeSettingsInputSchema,
 } from "../lib/sync-runtime-settings";
 import { defineAbilityFor } from "../../contracts/ability";
+import {
+  enqueueSearchReindexJob,
+  rebuildSearchDocumentsForCategories,
+  rebuildSearchDocumentsForProducts,
+} from "../lib/search";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -1259,6 +1264,8 @@ export const syncRouter = createRouter({
         };
 
         await abortIfStopRequested();
+        const changedCategoryIds = new Set<number>();
+        const changedProductIds = new Set<number>();
 
         // 1. Категории
         const categoryMap = new Map<string, number>();
@@ -1290,6 +1297,7 @@ export const syncRouter = createRouter({
             if (existing.length > 0) {
               await db.update(schema.categories).set({ name: msFolder.name }).where(eq(schema.categories.id, existing[0].id));
               categoryMap.set(msFolder.id, existing[0].id);
+              changedCategoryIds.add(existing[0].id);
             } else {
               const baseSlug = slugify(msFolder.name).substring(0, 200);
               let slug = baseSlug;
@@ -1303,6 +1311,7 @@ export const syncRouter = createRouter({
                 name: msFolder.name,
               } as typeof schema.categories.$inferInsert);
               categoryMap.set(msFolder.id, res.insertId);
+              changedCategoryIds.add(res.insertId);
             }
             logDetails.stats.categories++;
             if (shouldHeartbeat()) {
@@ -1326,6 +1335,7 @@ export const syncRouter = createRouter({
               const dbChildId = categoryMap.get(msFolder.id);
               if (dbParentId && dbChildId) {
                 await db.update(schema.categories).set({ parentId: dbParentId }).where(eq(schema.categories.id, dbChildId));
+                changedCategoryIds.add(dbChildId);
               }
             }
           }
@@ -1591,6 +1601,7 @@ export const syncRouter = createRouter({
               );
               dbProductId = res.insertId;
             }
+            changedProductIds.add(dbProductId);
             msProductIdToLocalId.set(msId, dbProductId);
             logDetails.stats.products++;
             if (shouldHeartbeat()) {
@@ -1792,6 +1803,30 @@ export const syncRouter = createRouter({
           const indexResult = await rebuildProductSpecIndex(10000);
           logDetails.stats.indexedSpecValues = indexResult.indexedValues;
           writeLog(`Spec index rebuilt. Products: ${indexResult.indexedProducts}, values: ${indexResult.indexedValues}`);
+        }
+
+        if (changedCategoryIds.size > 0) {
+          const categoryIds = Array.from(changedCategoryIds);
+          for (const categoryId of categoryIds) {
+            await enqueueSearchReindexJob({
+              entityType: "category",
+              entityId: categoryId,
+              reason: "product_synced_from_moysklad",
+            });
+          }
+          await rebuildSearchDocumentsForCategories(categoryIds);
+        }
+
+        if (changedProductIds.size > 0) {
+          const productIds = Array.from(changedProductIds);
+          for (const productId of productIds) {
+            await enqueueSearchReindexJob({
+              entityType: "product",
+              entityId: productId,
+              reason: "product_synced_from_moysklad",
+            });
+          }
+          await rebuildSearchDocumentsForProducts(productIds);
         }
 
         writeLog(`Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}`);

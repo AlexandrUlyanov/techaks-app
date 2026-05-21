@@ -17,6 +17,7 @@ import {
   generateBlogAiSuggestions,
   markBlogAiSuggestionsApplied,
 } from "../lib/blog-ai-assistant";
+import { enqueueSearchReindexJob, rebuildSearchDocumentsForPages } from "../lib/search";
 
 const blogStatusSchema = z.enum(BLOG_STATUSES);
 
@@ -199,17 +200,24 @@ export const blogRouter = createRouter({
       requireAbility(ctx, "manage", "BlogPost");
       const db = getDb();
       const normalized = normalizePostInput(input.data);
+      let postId = input.id ?? 0;
 
       if (input.id) {
         await db.update(posts).set(normalized).where(eq(posts.id, input.id));
-        return { success: true, id: input.id };
+      } else {
+        const result = await db.insert(posts).values({
+          ...normalized,
+          createdAt: new Date(),
+        });
+        postId = result[0].insertId;
       }
-
-      const result = await db.insert(posts).values({
-        ...normalized,
-        createdAt: new Date(),
+      await enqueueSearchReindexJob({
+        entityType: "page",
+        entityId: 100000 + postId,
+        reason: input.id ? "page_updated" : "page_created",
       });
-      return { success: true, id: result[0].insertId };
+      await rebuildSearchDocumentsForPages();
+      return { success: true, id: postId };
     }),
 
   delete: protectedProcedure
@@ -218,6 +226,12 @@ export const blogRouter = createRouter({
       requireAbility(ctx, "delete", "BlogPost");
       const db = getDb();
       await db.delete(posts).where(eq(posts.id, input.id));
+      await enqueueSearchReindexJob({
+        entityType: "page",
+        entityId: 100000 + input.id,
+        reason: "page_deleted",
+      });
+      await rebuildSearchDocumentsForPages();
       return { success: true };
     }),
 

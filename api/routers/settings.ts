@@ -9,6 +9,7 @@ import {
   getSiteProfileSettings,
   saveSiteProfileSettings,
 } from "../lib/site-profile-settings";
+import { enqueueSearchReindexJob, rebuildSearchDocumentsForPages } from "../lib/search";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -79,6 +80,12 @@ export const settingsRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
       await saveSiteProfileSettings(input);
+      await enqueueSearchReindexJob({
+        entityType: "page",
+        entityId: null,
+        reason: "site_profile_updated",
+      });
+      await rebuildSearchDocumentsForPages();
       return { success: true };
     }),
 

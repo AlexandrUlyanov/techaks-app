@@ -15,11 +15,13 @@ import { userRouter } from "./routers/user";
 import { reviewsRouter } from "./routers/reviews";
 import { homeRouter } from "./routers/home";
 import { designSystemRouter } from "./routers/design-system";
+import { searchRouter } from "./routers/search";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
   home: homeRouter,
   designSystem: designSystemRouter,
+  search: searchRouter,
   lead: leadRouter,
   product: productRouter,
   store: storeRouter,

@@ -55,6 +55,16 @@ const AdminMerchandisingQuality = lazy(
 );
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminDesignSystem = lazy(() => import("@/pages/admin/AdminDesignSystem"));
+const AdminSearchPage = lazy(() => import("@/pages/admin/search/AdminSearchPage"));
+const AdminSearchSettingsPage = lazy(
+  () => import("@/pages/admin/search/AdminSearchSettingsPage")
+);
+const AdminSearchSynonymsPage = lazy(
+  () => import("@/pages/admin/search/AdminSearchSynonymsPage")
+);
+const AdminSearchAnalyticsPage = lazy(
+  () => import("@/pages/admin/search/AdminSearchAnalyticsPage")
+);
 const SyncLayout = lazy(() => import("@/pages/admin/sync/SyncLayout"));
 const AdminSyncMenu = lazy(() => import("@/pages/admin/sync/AdminSyncMenu"));
 const AdminSyncMoySklad = lazy(
@@ -141,6 +151,12 @@ export default function App() {
                 />
                 <Route path="reviews" element={<AdminReviews />} />
                 <Route path="blog" element={<AdminBlog />} />
+                <Route path="search" element={<AdminSearchPage />}>
+                  <Route index element={<AdminSearchSettingsPage />} />
+                  <Route path="settings" element={<AdminSearchSettingsPage />} />
+                  <Route path="synonyms" element={<AdminSearchSynonymsPage />} />
+                  <Route path="analytics" element={<AdminSearchAnalyticsPage />} />
+                </Route>
                 <Route path="design-system" element={<AdminDesignSystem />} />
                 <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 

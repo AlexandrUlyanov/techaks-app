@@ -12,6 +12,7 @@ import {
   Star,
   Gift,
   FileText,
+  Search,
   RefreshCw,
   FolderTree,
   SlidersHorizontal,
@@ -91,6 +92,16 @@ export default function AdminLayout() {
       items: [
         { name: "Акции", href: "/admin/banners", icon: Gift },
         { name: "Блог", href: "/admin/blog", icon: FileText },
+        ...(ability.can("read", "Search")
+          ? [
+              {
+                name: "Поиск",
+                href: "/admin/search/settings",
+                icon: Search,
+                match: (pathname: string) => pathname.startsWith("/admin/search"),
+              },
+            ]
+          : []),
         ...(ability.can("read", "DesignSystem")
           ? [{ name: "Дизайн-система", href: "/admin/design-system", icon: Palette }]
           : []),

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Sun, Moon, ShoppingCart, User, Search, Loader2, X } from "lucide-react";
+import { Sun, Moon, ShoppingCart, User, Search, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCart } from "@/hooks/use-cart";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/providers/trpc";
 import { CatalogTrigger } from "./Catalog/CatalogMenu";
+import SearchSuggestions from "@/components/search/SearchSuggestions";
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -18,9 +19,10 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const clickLogMutation = trpc.search.logClick.useMutation();
 
-  const { data: searchResults = [], isLoading: searchLoading } =
-    trpc.product.search.useQuery(
+  const { data: searchResults = { products: [], categories: [], pages: [] }, isLoading: searchLoading } =
+    trpc.search.suggestions.useQuery(
       { query: searchQuery },
       { enabled: searchQuery.length >= 2 }
     );
@@ -61,10 +63,21 @@ export default function Header() {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  const handleSearchSelect = (slug: string) => {
+  const handleSearchSelect = (
+    url: string,
+    entityType: "product" | "category" | "page",
+    entityId: number,
+    position: number
+  ) => {
     setSearchQuery("");
     setShowResults(false);
-    navigate(`/product/${slug}`);
+    clickLogMutation.mutate({
+      entityType,
+      entityId,
+      position,
+      url,
+    });
+    navigate(url);
   };
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
@@ -161,67 +174,13 @@ export default function Header() {
 
               {/* Search Results Dropdown */}
               {showResults && searchQuery.length >= 2 && (
-                <div className="absolute top-[calc(100%+0.5rem)] left-0 right-0 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                  {searchLoading ? (
-                    <div className="p-8 flex items-center justify-center">
-                      <Loader2
-                        className="animate-spin text-[#05C3D4]"
-                        size={24}
-                      />
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
-                      <div className="p-3 border-b border-border bg-muted/30 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          Результаты: {searchResults.length}
-                        </span>
-                        <button
-                          onClick={() => handleSearchSubmit()}
-                          className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
-                        >
-                          Показать все
-                        </button>
-                      </div>
-                      {searchResults.map(item => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleSearchSelect(item.slug)}
-                          className="w-full p-4 flex items-center gap-4 hover:bg-muted/50 transition-colors text-left group"
-                        >
-                          <div className="w-12 h-12 bg-white rounded-lg border border-border p-2 shrink-0">
-                            <img
-                              src={item.image}
-                              alt=""
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-[#05C3D4] transition-colors">
-                              {item.name}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs font-black text-[#05C3D4]">
-                                {new Intl.NumberFormat("ru-RU").format(
-                                  item.price
-                                )}{" "}
-                                ₽
-                              </span>
-                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                                {item.categoryName}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                      <p className="text-sm font-bold text-muted-foreground">
-                        Ничего не найдено по запросу «{searchQuery}»
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <SearchSuggestions
+                  query={searchQuery}
+                  results={searchResults}
+                  isLoading={searchLoading}
+                  onSelect={handleSearchSelect}
+                  onShowAll={() => handleSearchSubmit()}
+                />
               )}
             </div>
 

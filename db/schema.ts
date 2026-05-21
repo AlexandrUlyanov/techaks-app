@@ -573,6 +573,152 @@ export const homepageSnapshots = mysqlTable("homepage_snapshots", {
   ),
 }));
 
+export const searchDocuments = mysqlTable("search_documents", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(),
+  entityId: int("entity_id").notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  subtitle: varchar("subtitle", { length: 512 }),
+  contentText: text("content_text"),
+  attributesText: text("attributes_text"),
+  exactText: text("exact_text"),
+  url: varchar("url", { length: 512 }).notNull(),
+  imageUrl: varchar("image_url", { length: 512 }),
+  price: int("price"),
+  oldPrice: int("old_price"),
+  brandId: int("brand_id"),
+  brandName: varchar("brand_name", { length: 255 }),
+  categoryId: int("category_id"),
+  categoryName: varchar("category_name", { length: 255 }),
+  sku: varchar("sku", { length: 120 }),
+  article: varchar("article", { length: 120 }),
+  barcode: varchar("barcode", { length: 120 }),
+  externalCode: varchar("external_code", { length: 120 }),
+  moyskladId: varchar("moysklad_id", { length: 120 }),
+  isActive: boolean("is_active").notNull().default(true),
+  isVisible: boolean("is_visible").notNull().default(true),
+  inStock: boolean("in_stock").notNull().default(true),
+  stockCount: int("stock_count").notNull().default(0),
+  sortWeight: int("sort_weight").notNull().default(0),
+  popularityScore: int("popularity_score").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  indexedAt: timestamp("indexed_at").notNull().defaultNow(),
+}, table => ({
+  entityUnique: unique("search_documents_entity_unique").on(
+    table.entityType,
+    table.entityId
+  ),
+  entityIdx: index("search_documents_entity_idx").on(
+    table.entityType,
+    table.entityId
+  ),
+  activeVisibleIdx: index("search_documents_active_visible_idx").on(
+    table.isActive,
+    table.isVisible
+  ),
+  categoryIdx: index("search_documents_category_idx").on(table.categoryId),
+  brandIdx: index("search_documents_brand_idx").on(table.brandId),
+  priceIdx: index("search_documents_price_idx").on(table.price),
+  stockIdx: index("search_documents_stock_idx").on(table.inStock),
+  skuIdx: index("search_documents_sku_idx").on(table.sku),
+  articleIdx: index("search_documents_article_idx").on(table.article),
+  barcodeIdx: index("search_documents_barcode_idx").on(table.barcode),
+}));
+
+export const searchSynonyms = mysqlTable("search_synonyms", {
+  id: serial("id").primaryKey(),
+  term: varchar("term", { length: 120 }).notNull(),
+  synonymsJson: json("synonyms_json").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  termIdx: unique("search_synonyms_term_unique").on(table.term),
+  activeIdx: index("search_synonyms_active_idx").on(table.isActive, table.term),
+}));
+
+export const searchTerms = mysqlTable("search_terms", {
+  id: serial("id").primaryKey(),
+  term: varchar("term", { length: 120 }).notNull(),
+  normalizedTerm: varchar("normalized_term", { length: 120 }).notNull(),
+  source: varchar("source", { length: 30 }).notNull().default("document"),
+  weight: int("weight").notNull().default(1),
+  usageCount: int("usage_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  normalizedSourceUnique: unique("search_terms_normalized_source_unique").on(
+    table.normalizedTerm,
+    table.source
+  ),
+  normalizedIdx: index("search_terms_normalized_idx").on(table.normalizedTerm),
+  usageIdx: index("search_terms_usage_idx").on(table.usageCount, table.weight),
+}));
+
+export const searchLogs = mysqlTable("search_logs", {
+  id: serial("id").primaryKey(),
+  query: varchar("query", { length: 255 }).notNull(),
+  normalizedQuery: varchar("normalized_query", { length: 255 }).notNull(),
+  correctedQuery: varchar("corrected_query", { length: 255 }),
+  resultsCount: int("results_count").notNull().default(0),
+  userId: int("user_id"),
+  sessionId: varchar("session_id", { length: 120 }),
+  ipHash: varchar("ip_hash", { length: 128 }),
+  userAgentHash: varchar("user_agent_hash", { length: 128 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  normalizedCreatedIdx: index("search_logs_normalized_created_idx").on(
+    table.normalizedQuery,
+    table.createdAt
+  ),
+  userIdx: index("search_logs_user_idx").on(table.userId, table.createdAt),
+  sessionIdx: index("search_logs_session_idx").on(table.sessionId, table.createdAt),
+}));
+
+export const searchClickLogs = mysqlTable("search_click_logs", {
+  id: serial("id").primaryKey(),
+  searchLogId: int("search_log_id").notNull(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(),
+  entityId: int("entity_id").notNull(),
+  position: int("position").notNull().default(0),
+  url: varchar("url", { length: 512 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  searchLogIdx: index("search_click_logs_search_log_idx").on(
+    table.searchLogId,
+    table.createdAt
+  ),
+  entityIdx: index("search_click_logs_entity_idx").on(
+    table.entityType,
+    table.entityId,
+    table.createdAt
+  ),
+}));
+
+export const searchReindexJobs = mysqlTable("search_reindex_jobs", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(),
+  entityId: int("entity_id"),
+  reason: varchar("reason", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: int("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+}, table => ({
+  statusCreatedIdx: index("search_reindex_jobs_status_created_idx").on(
+    table.status,
+    table.createdAt
+  ),
+  entityIdx: index("search_reindex_jobs_entity_idx").on(
+    table.entityType,
+    table.entityId,
+    table.createdAt
+  ),
+}));
+
 export const designThemeVersions = mysqlTable("design_theme_versions", {
   id: serial("id").primaryKey(),
   versionNumber: int("version_number").notNull(),

@@ -40,6 +40,12 @@ import {
   publicProductSelectFields,
   publicProductVisibilityCondition,
 } from "../lib/public-products";
+import {
+  enqueueSearchReindexJob,
+  processSearchReindexJobs,
+  rebuildSearchDocumentsForCategories,
+  rebuildSearchDocumentsForProducts,
+} from "../lib/search";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -791,16 +797,23 @@ export const productRouter = createRouter({
       requireAbility(ctx, "manage", "Product");
       const db = getDb();
       const payload = applyProductAutoBlockState(input.data);
+      let productId = input.id ?? 0;
       if (input.id) {
         await db
           .update(products)
           .set(payload)
           .where(eq(products.id, input.id));
-        return { success: true, id: input.id };
       } else {
         const result = await db.insert(products).values(payload);
-        return { success: true, id: result[0].insertId };
+        productId = result[0].insertId;
       }
+      await enqueueSearchReindexJob({
+        entityType: "product",
+        entityId: productId,
+        reason: input.id ? "product_updated" : "product_created",
+      });
+      await rebuildSearchDocumentsForProducts([productId]);
+      return { success: true, id: productId };
     }),
 
   updateProductActivity: protectedProcedure
@@ -812,6 +825,12 @@ export const productRouter = createRouter({
         .update(products)
         .set({ isActive: input.isActive })
         .where(eq(products.id, input.id));
+      await enqueueSearchReindexJob({
+        entityType: "product",
+        entityId: input.id,
+        reason: "product_activity_changed",
+      });
+      await rebuildSearchDocumentsForProducts([input.id]);
       return { success: true };
     }),
 
@@ -821,6 +840,12 @@ export const productRouter = createRouter({
       requireAbility(ctx, "delete", "Product");
       const db = getDb();
       await db.delete(products).where(eq(products.id, input.id));
+      await enqueueSearchReindexJob({
+        entityType: "product",
+        entityId: input.id,
+        reason: "product_deleted",
+      });
+      await processSearchReindexJobs(10);
       return { success: true };
     }),
 
@@ -863,15 +888,22 @@ export const productRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Category");
       const db = getDb();
+      let categoryId = input.id ?? 0;
       if (input.id) {
         await db
           .update(categories)
           .set(input.data)
           .where(eq(categories.id, input.id));
-        return { success: true, id: input.id };
       } else {
         const result = await db.insert(categories).values(input.data);
-        return { success: true, id: result[0].insertId };
+        categoryId = result[0].insertId;
       }
+      await enqueueSearchReindexJob({
+        entityType: "category",
+        entityId: categoryId,
+        reason: input.id ? "category_updated" : "category_created",
+      });
+      await rebuildSearchDocumentsForCategories([categoryId]);
+      return { success: true, id: categoryId };
     }),
 });
