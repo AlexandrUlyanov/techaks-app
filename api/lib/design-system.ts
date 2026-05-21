@@ -1,9 +1,14 @@
 import { desc, eq } from "drizzle-orm";
 import {
-  defaultDesignTheme,
+  defaultAdminDesignTheme,
+  defaultDesignThemeBundle,
+  defaultSiteDarkDesignTheme,
+  defaultSiteLightDesignTheme,
+  designThemeBundleSchema,
   designThemeHistoryEntrySchema,
   designThemeSchema,
   type DesignTheme,
+  type DesignThemeBundle,
 } from "@contracts/design-system";
 import { designThemeVersions } from "@db/schema";
 import { getDb } from "../queries/connection";
@@ -19,21 +24,59 @@ type ThemeActor = {
   role?: string | null;
 };
 
-function safeParseTheme(value: string | null | undefined): DesignTheme | null {
-  if (!value) return null;
-  try {
-    return designThemeSchema.parse(JSON.parse(value));
-  } catch {
-    return null;
-  }
-}
-
-function cloneTheme(theme: DesignTheme): DesignTheme {
-  return JSON.parse(JSON.stringify(theme)) as DesignTheme;
+function cloneThemeBundle(theme: DesignThemeBundle): DesignThemeBundle {
+  return JSON.parse(JSON.stringify(theme)) as DesignThemeBundle;
 }
 
 function getActorLabel(actor: ThemeActor) {
   return actor.fullName?.trim() || actor.email?.trim() || `User #${actor.id}`;
+}
+
+function normalizeLegacyTheme(theme: DesignTheme): DesignThemeBundle {
+  return {
+    meta: {
+      name: theme.meta.name || defaultDesignThemeBundle.meta.name,
+      description: theme.meta.description || defaultDesignThemeBundle.meta.description,
+    },
+    siteLight: theme,
+    siteDark: cloneThemeBundle(defaultDesignThemeBundle).siteDark,
+    admin: cloneThemeBundle(defaultDesignThemeBundle).admin,
+  };
+}
+
+function safeParseThemeBundle(value: string | null | undefined): DesignThemeBundle | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    const bundleResult = designThemeBundleSchema.safeParse(parsed);
+    if (bundleResult.success) {
+      return bundleResult.data;
+    }
+
+    const legacyResult = designThemeSchema.safeParse(parsed);
+    if (legacyResult.success) {
+      return normalizeLegacyTheme(legacyResult.data);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function safeParseThemeBundleFromUnknown(value: unknown): DesignThemeBundle | null {
+  const bundleResult = designThemeBundleSchema.safeParse(value);
+  if (bundleResult.success) {
+    return bundleResult.data;
+  }
+
+  const legacyResult = designThemeSchema.safeParse(value);
+  if (legacyResult.success) {
+    return normalizeLegacyTheme(legacyResult.data);
+  }
+
+  return null;
 }
 
 function walkThemeDiff(
@@ -94,13 +137,13 @@ async function getLatestVersionNumber() {
 }
 
 export async function getPublishedDesignTheme() {
-  const stored = safeParseTheme(await getAppSetting(DESIGN_THEME_PUBLISHED_KEY));
-  return stored ? cloneTheme(stored) : cloneTheme(defaultDesignTheme);
+  const stored = safeParseThemeBundle(await getAppSetting(DESIGN_THEME_PUBLISHED_KEY));
+  return stored ? cloneThemeBundle(stored) : cloneThemeBundle(defaultDesignThemeBundle);
 }
 
 export async function getDraftDesignTheme() {
-  const stored = safeParseTheme(await getAppSetting(DESIGN_THEME_DRAFT_KEY));
-  if (stored) return cloneTheme(stored);
+  const stored = safeParseThemeBundle(await getAppSetting(DESIGN_THEME_DRAFT_KEY));
+  if (stored) return cloneThemeBundle(stored);
   return getPublishedDesignTheme();
 }
 
@@ -115,23 +158,32 @@ export async function getDesignThemeHistory(limit = 20) {
   const published = await getPublishedDesignTheme();
   const publishedJson = JSON.stringify(published);
 
-  return rows.map(row =>
-    designThemeHistoryEntrySchema.parse({
-      id: row.id,
-      versionNumber: row.versionNumber,
-      themeName: row.themeName,
-      actionType: row.actionType,
-      changeSummary: row.changeSummary,
-      changeDetails: Array.isArray(row.changeDetailsJson) ? row.changeDetailsJson : [],
-      changedByUserId: row.changedByUserId ?? null,
-      changedByDisplayName: row.changedByDisplayName ?? null,
-      changedByRole: row.changedByRole ?? null,
-      createdAt: row.createdAt,
-      publishedAt: row.publishedAt ?? null,
-      sourceVersionId: row.sourceVersionId ?? null,
-      isCurrent: JSON.stringify(row.themeJson) === publishedJson,
+  return rows
+    .map(row => {
+      const parsedTheme = safeParseThemeBundleFromUnknown(row.themeJson);
+      if (!parsedTheme) return null;
+
+      return designThemeHistoryEntrySchema.parse({
+        id: row.id,
+        versionNumber: row.versionNumber,
+        themeName: row.themeName,
+        actionType: row.actionType,
+        changeSummary: row.changeSummary,
+        changeDetails: Array.isArray(row.changeDetailsJson) ? row.changeDetailsJson : [],
+        changedByUserId: row.changedByUserId ?? null,
+        changedByDisplayName: row.changedByDisplayName ?? null,
+        changedByRole: row.changedByRole ?? null,
+        createdAt: row.createdAt,
+        publishedAt: row.publishedAt ?? null,
+        sourceVersionId: row.sourceVersionId ?? null,
+        isCurrent: JSON.stringify(parsedTheme) === publishedJson,
+      });
     })
-  );
+    .filter(
+      (
+        entry
+      ): entry is ReturnType<typeof designThemeHistoryEntrySchema.parse> => Boolean(entry)
+    );
 }
 
 export async function getDesignSystemAdminState() {
@@ -142,7 +194,7 @@ export async function getDesignSystemAdminState() {
   ]);
 
   return {
-    defaultTheme: cloneTheme(defaultDesignTheme),
+    defaultTheme: cloneThemeBundle(defaultDesignThemeBundle),
     publishedTheme,
     draftTheme,
     history,
@@ -150,21 +202,21 @@ export async function getDesignSystemAdminState() {
 }
 
 export async function saveDesignThemeDraft(input: {
-  theme: DesignTheme;
+  theme: DesignThemeBundle;
 }) {
-  const parsed = designThemeSchema.parse(input.theme);
+  const parsed = designThemeBundleSchema.parse(input.theme);
   await setAppSetting(DESIGN_THEME_DRAFT_KEY, JSON.stringify(parsed));
   return { success: true, draftTheme: parsed };
 }
 
 export async function resetDesignThemeDraft() {
-  await setAppSetting(DESIGN_THEME_DRAFT_KEY, JSON.stringify(defaultDesignTheme));
-  return { success: true, draftTheme: cloneTheme(defaultDesignTheme) };
+  await setAppSetting(DESIGN_THEME_DRAFT_KEY, JSON.stringify(defaultDesignThemeBundle));
+  return { success: true, draftTheme: cloneThemeBundle(defaultDesignThemeBundle) };
 }
 
 async function persistPublishedVersion(args: {
   actionType: "publish" | "rollback";
-  theme: DesignTheme;
+  theme: DesignThemeBundle;
   changeSummary: string;
   changeDetails: string[];
   actor: ThemeActor;
@@ -231,7 +283,11 @@ export async function rollbackDesignThemeVersion(args: {
     throw new Error("Версия темы не найдена.");
   }
 
-  const theme = designThemeSchema.parse(row.themeJson);
+  const theme = safeParseThemeBundleFromUnknown(row.themeJson);
+  if (!theme) {
+    throw new Error("Сохранённая версия темы повреждена.");
+  }
+
   const currentPublishedTheme = await getPublishedDesignTheme();
   const changeDetails = walkThemeDiff(currentPublishedTheme, theme);
 
@@ -243,4 +299,10 @@ export async function rollbackDesignThemeVersion(args: {
     actor: args.actor,
     sourceVersionId: row.id,
   });
+}
+
+export function getDefaultThemeForScope(scope: "siteLight" | "siteDark" | "admin") {
+  if (scope === "siteDark") return defaultSiteDarkDesignTheme;
+  if (scope === "admin") return defaultAdminDesignTheme;
+  return defaultSiteLightDesignTheme;
 }

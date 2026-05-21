@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
-  designThemeSchema,
-  type DesignTheme,
+  designThemeBundleSchema,
+  type DesignThemeBundle,
 } from "@contracts/design-system";
 import { createRouter, protectedProcedure, publicQuery, requireAbility } from "../middleware";
 import {
@@ -27,13 +27,13 @@ export const designSystemRouter = createRouter({
   saveDraft: protectedProcedure
     .input(
       z.object({
-        theme: designThemeSchema,
+        theme: designThemeBundleSchema,
       })
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "update", "DesignSystem");
       return saveDesignThemeDraft({
-        theme: input.theme as DesignTheme,
+        theme: input.theme as DesignThemeBundle,
       });
     }),
 

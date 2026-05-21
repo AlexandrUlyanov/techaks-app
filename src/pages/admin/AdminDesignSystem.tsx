@@ -1,4 +1,10 @@
-import { defaultDesignTheme, type DesignTheme } from "@contracts/design-system";
+import {
+  defaultDesignThemeBundle,
+  designThemeScopeSchema,
+  type DesignTheme,
+  type DesignThemeBundle,
+  type DesignThemeScope,
+} from "@contracts/design-system";
 import {
   Bell,
   Check,
@@ -68,6 +74,25 @@ import { useAbility } from "@/providers/AbilityProvider";
 import { toast } from "sonner";
 
 type ThemeSection = keyof DesignTheme;
+const DESIGN_THEME_SCOPES = designThemeScopeSchema.options;
+
+const THEME_SCOPE_META: Record<
+  DesignThemeScope,
+  { label: string; description: string }
+> = {
+  siteLight: {
+    label: "Сайт · светлая",
+    description: "Основная светлая тема витрины, каталога и checkout.",
+  },
+  siteDark: {
+    label: "Сайт · тёмная",
+    description: "Тёмная тема витрины, которая включается переключателем в шапке.",
+  },
+  admin: {
+    label: "Админка",
+    description: "Отдельная тема админ-панелей, таблиц и внутренних экранов.",
+  },
+};
 
 const TAB_LABELS = [
   { key: "overview", label: "Обзор", icon: MonitorCog },
@@ -80,7 +105,7 @@ const TAB_LABELS = [
   { key: "tables", label: "Таблицы", icon: TableProperties },
   { key: "notifications", label: "Уведомления", icon: Bell },
   { key: "icons", label: "Иконки", icon: Sparkles },
-  { key: "theme", label: "Тема сайта", icon: Palette },
+  { key: "theme", label: "Темы", icon: Palette },
   { key: "history", label: "История изменений", icon: History },
 ] as const;
 
@@ -165,6 +190,14 @@ function formatDate(value: string | Date | null | undefined) {
 
 function cloneTheme(theme: DesignTheme) {
   return JSON.parse(JSON.stringify(theme)) as DesignTheme;
+}
+
+function cloneThemeBundle(theme: DesignThemeBundle) {
+  return JSON.parse(JSON.stringify(theme)) as DesignThemeBundle;
+}
+
+function getThemeForScope(themeBundle: DesignThemeBundle, scope: DesignThemeScope) {
+  return themeBundle[scope];
 }
 
 function ColorField({
@@ -291,9 +324,9 @@ export default function AdminDesignSystem() {
   });
   const resetDraftMutation = trpc.designSystem.resetDraft.useMutation({
     onSuccess: payload => {
-      setTheme(cloneTheme(payload.draftTheme));
+      setThemeBundle(cloneThemeBundle(payload.draftTheme));
       utils.designSystem.getAdminState.invalidate();
-      toast.success("Черновик сброшен к стандартной теме");
+      toast.success("Черновой комплект тем сброшен к базовому состоянию");
     },
   });
   const rollbackMutation = trpc.designSystem.rollbackVersion.useMutation({
@@ -304,56 +337,71 @@ export default function AdminDesignSystem() {
     },
   });
 
-  const [theme, setTheme] = useState<DesignTheme>(cloneTheme(defaultDesignTheme));
+  const [themeBundle, setThemeBundle] = useState<DesignThemeBundle>(
+    cloneThemeBundle(defaultDesignThemeBundle)
+  );
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]["key"]>("overview");
+  const [activeScope, setActiveScope] = useState<DesignThemeScope>("siteLight");
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const [changeNote, setChangeNote] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!data?.draftTheme) return;
-    setTheme(cloneTheme(data.draftTheme));
+    setThemeBundle(cloneThemeBundle(data.draftTheme));
   }, [data?.draftTheme]);
 
   useEffect(() => {
     if (typeof document === "undefined" || !data?.publishedTheme) return;
     applyThemeToElement(
       document.documentElement,
-      previewEnabled ? theme : data.publishedTheme
+      previewEnabled
+        ? getThemeForScope(themeBundle, activeScope)
+        : data.publishedTheme.admin
     );
 
     return () => {
-      applyThemeToElement(document.documentElement, data.publishedTheme);
+      applyThemeToElement(document.documentElement, data.publishedTheme.admin);
     };
-  }, [data?.publishedTheme, previewEnabled, theme]);
+  }, [activeScope, data?.publishedTheme, previewEnabled, themeBundle]);
 
   const hasUnsavedChanges = useMemo(() => {
     if (!data?.draftTheme) return false;
-    return JSON.stringify(theme) !== JSON.stringify(data.draftTheme);
-  }, [data?.draftTheme, theme]);
+    return JSON.stringify(themeBundle) !== JSON.stringify(data.draftTheme);
+  }, [data?.draftTheme, themeBundle]);
+
+  const theme = useMemo(
+    () => cloneTheme(getThemeForScope(themeBundle, activeScope)),
+    [activeScope, themeBundle]
+  );
+
+  const publishedScopeTheme = useMemo(
+    () => getThemeForScope(data?.publishedTheme ?? defaultDesignThemeBundle, activeScope),
+    [activeScope, data?.publishedTheme]
+  );
 
   const updateThemeSection = <K extends ThemeSection, F extends keyof DesignTheme[K]>(
-    section: K,
+    _section: K,
     field: F,
     value: DesignTheme[K][F]
   ) => {
-    setTheme(prev => ({
+    setThemeBundle(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
+      [activeScope]: {
+        ...prev[activeScope],
         [field]: value,
       },
     }));
   };
 
   const handleSaveDraft = () => {
-    saveDraftMutation.mutate({ theme });
+    saveDraftMutation.mutate({ theme: themeBundle });
   };
 
   const handlePublish = async () => {
     try {
       if (hasUnsavedChanges) {
-        await saveDraftMutation.mutateAsync({ theme });
+        await saveDraftMutation.mutateAsync({ theme: themeBundle });
       }
       await publishMutation.mutateAsync({ changeNote });
     } catch {
@@ -363,7 +411,13 @@ export default function AdminDesignSystem() {
 
   const handlePreviewToggle = () => {
     setPreviewEnabled(prev => !prev);
-    toast.info(previewEnabled ? "Предпросмотр выключен" : "Предпросмотр включён");
+    toast.info(
+      previewEnabled
+        ? "Предпросмотр выключен"
+        : activeScope === "admin"
+          ? "Предпросмотр темы админки включён"
+          : `Предпросмотр секции «${THEME_SCOPE_META[activeScope].label}» включён на живом полотне`
+    );
   };
 
   if (isLoading || !data) {
@@ -409,6 +463,7 @@ export default function AdminDesignSystem() {
         meta={
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{data.publishedTheme.meta.name}</Badge>
+            <Badge variant="outline">{THEME_SCOPE_META[activeScope].label}</Badge>
             <Badge variant="outline">
               История: {data.history.length} {data.history.length === 1 ? "версия" : "версий"}
             </Badge>
@@ -431,7 +486,7 @@ export default function AdminDesignSystem() {
               disabled={!canEdit || resetDraftMutation.isPending}
             >
               <RotateCcw size={16} />
-              Сбросить к стандартной теме
+              Сбросить к базовым темам
             </Button>
             <Button
               variant="secondary"
@@ -464,7 +519,7 @@ export default function AdminDesignSystem() {
             tone="accent"
           >
             <ThemeCanvas
-              theme={previewEnabled ? theme : data.publishedTheme}
+              theme={previewEnabled ? theme : publishedScopeTheme}
               className="space-y-6 p-6"
             >
               <Tabs value={activeTab} onValueChange={value => setActiveTab(value as typeof activeTab)}>
@@ -527,11 +582,11 @@ export default function AdminDesignSystem() {
                         ))}
                       </div>
                     </AdminCard>
-                    <AdminCard title="Тема сайта" description="Короткий срез текущей опубликованной и черновой темы.">
+                    <AdminCard title="Комплект тем" description="Светлая витрина, тёмная витрина и админка живут отдельно, но публикуются одним комплектом.">
                       <div className="space-y-4 text-sm">
                         <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-4">
                           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
-                            Опубликовано
+                            Опубликованный комплект
                           </div>
                           <div className="mt-2 font-black text-[var(--tech-color-text-main)]">
                             {data.publishedTheme.meta.name}
@@ -545,11 +600,47 @@ export default function AdminDesignSystem() {
                             Черновик
                           </div>
                           <div className="mt-2 font-black text-[var(--tech-color-text-main)]">
-                            {theme.meta.name}
+                            {themeBundle.meta.name}
                           </div>
                           <div className="mt-1 text-[var(--tech-color-text-muted)]">
-                            {theme.meta.description || "Без описания"}
+                            {themeBundle.meta.description || "Без описания"}
                           </div>
+                        </div>
+                        <div className="grid gap-2">
+                          {DESIGN_THEME_SCOPES.map(scope => {
+                            const scopedTheme = getThemeForScope(themeBundle, scope);
+                            return (
+                              <button
+                                key={scope}
+                                type="button"
+                                onClick={() => setActiveScope(scope)}
+                                className={cn(
+                                  "flex items-start justify-between gap-3 rounded-[var(--tech-radius-card)] border p-3 text-left transition-colors",
+                                  activeScope === scope
+                                    ? "border-[var(--tech-color-primary)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
+                                    : "border-border bg-card hover:border-[var(--tech-color-primary)]/40"
+                                )}
+                              >
+                                <div>
+                                  <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">
+                                    {THEME_SCOPE_META[scope].label}
+                                  </div>
+                                  <div className="mt-1 font-semibold text-[var(--tech-color-text-main)]">
+                                    {scopedTheme.meta.name}
+                                  </div>
+                                  <div className="mt-1 text-xs text-[var(--tech-color-text-muted)]">
+                                    {THEME_SCOPE_META[scope].description}
+                                  </div>
+                                </div>
+                                <div
+                                  className="h-10 w-10 shrink-0 rounded-full border border-border"
+                                  style={{
+                                    background: `linear-gradient(135deg, ${scopedTheme.colors.primary}, ${scopedTheme.colors.background})`,
+                                  }}
+                                />
+                              </button>
+                            );
+                          })}
                         </div>
                         <Textarea
                           value={changeNote}
@@ -920,23 +1011,77 @@ export default function AdminDesignSystem() {
                 </TabsContent>
 
                 <TabsContent value="theme" className="space-y-6 pt-4">
-                  <AdminCard title="Тема сайта" description="Редактируем черновик. Сохраняем отдельно, публикуем осознанно.">
+                  <AdminCard title="Комплект тем" description="У сайта есть отдельные светлая и тёмная темы, а у админки — собственная базовая тема.">
                     <div className="space-y-6">
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="space-y-2">
-                          <span className="text-[var(--tech-font-size-admin-label)] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Название темы</span>
+                          <span className="text-[var(--tech-font-size-admin-label)] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Название комплекта</span>
                           <Input
-                            value={theme.meta.name}
-                            onChange={e => updateThemeSection("meta", "name", e.target.value)}
+                            value={themeBundle.meta.name}
+                            onChange={e =>
+                              setThemeBundle(prev => ({
+                                ...prev,
+                                meta: {
+                                  ...prev.meta,
+                                  name: e.target.value,
+                                },
+                              }))
+                            }
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-[var(--tech-font-size-admin-label)] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Описание</span>
+                          <span className="text-[var(--tech-font-size-admin-label)] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Описание комплекта</span>
                           <Input
-                            value={theme.meta.description}
-                            onChange={e => updateThemeSection("meta", "description", e.target.value)}
+                            value={themeBundle.meta.description}
+                            onChange={e =>
+                              setThemeBundle(prev => ({
+                                ...prev,
+                                meta: {
+                                  ...prev.meta,
+                                  description: e.target.value,
+                                },
+                              }))
+                            }
                           />
                         </label>
+                      </div>
+
+                      <div className="grid gap-3 lg:grid-cols-3">
+                        {DESIGN_THEME_SCOPES.map(scope => (
+                          <button
+                            key={scope}
+                            type="button"
+                            onClick={() => setActiveScope(scope)}
+                            className={cn(
+                              "rounded-[var(--tech-radius-card)] border p-4 text-left transition-colors",
+                              activeScope === scope
+                                ? "border-[var(--tech-color-primary)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
+                                : "border-border bg-card hover:border-[var(--tech-color-primary)]/40"
+                            )}
+                          >
+                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
+                              {THEME_SCOPE_META[scope].label}
+                            </div>
+                            <div className="mt-2 font-black text-[var(--tech-color-text-main)]">
+                              {getThemeForScope(themeBundle, scope).meta.name}
+                            </div>
+                            <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">
+                              {THEME_SCOPE_META[scope].description}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-4">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
+                          Сейчас редактируем
+                        </div>
+                        <div className="mt-2 font-black text-[var(--tech-color-text-main)]">
+                          {THEME_SCOPE_META[activeScope].label}
+                        </div>
+                        <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">
+                          {THEME_SCOPE_META[activeScope].description}
+                        </div>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-2">
