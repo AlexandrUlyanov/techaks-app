@@ -14,13 +14,14 @@ import ProductActionButtons from "@/components/product/ProductActionButtons";
 import StoreAvailabilityList from "@/components/product/StoreAvailabilityList";
 import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
+import ProductImageGallery from "@/components/product/ProductImageGallery";
 import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
   getMerchandisingBadgeStyle,
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
-import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
+import { resolveProductImageSrc } from "@/lib/product-images";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -153,6 +154,16 @@ export default function ProductPage() {
   const relatedProducts = merchandisingRelated.slice(0, 4);
   const canonicalPath = `/product/${product.slug}`;
   const productImageSrc = resolveProductImageSrc(product.image);
+  const productImages = useMemo(() => {
+    const rawImages = (product as { images?: unknown }).images;
+    const additionalImages = Array.isArray(rawImages)
+      ? rawImages.filter((image): image is string => typeof image === "string")
+      : [];
+
+    return Array.from(
+      new Set([productImageSrc, ...additionalImages.map(resolveProductImageSrc)])
+    );
+  }, [product, productImageSrc]);
   const descriptionForSeo = (product.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
@@ -284,49 +295,49 @@ export default function ProductPage() {
           <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
             {/* Gallery */}
             <div className="lg:w-[50%]">
-              <div className="relative group bg-white border border-border rounded-[2rem] p-8 md:p-16 flex items-center justify-center overflow-hidden shadow-sm">
-                {merchandisingBadges.length > 0 && (
-                  <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
-                    {merchandisingBadges.map(itemBadge => (
-                      <span
-                        key={itemBadge}
-                        className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow-sm`}
-                      >
-                        {getMerchandisingBadgeLabel(itemBadge)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {hasManufacturer && (
-                  <Link
-                    to={manufacturer?.href || "#"}
-                    className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-[#05C3D4]/50 bg-white/95 px-3 py-2 !text-[#15171A] shadow-sm transition-all hover:border-[#05C3D4] hover:bg-white hover:!text-[#15171A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/40"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
-                      {manufacturer?.logo ? (
-                        <img
-                          src={manufacturer?.logo}
-                          alt={manufacturer?.title || "Бренд"}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-[9px] font-black text-[#05C3D4]">
-                          {String(manufacturer?.title || "").slice(0, 2).toUpperCase()}
+              <ProductImageGallery
+                images={productImages}
+                productName={product.name}
+                badges={
+                  merchandisingBadges.length > 0 ? (
+                    <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
+                      {merchandisingBadges.map(itemBadge => (
+                        <span
+                          key={itemBadge}
+                          className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow-sm`}
+                        >
+                          {getMerchandisingBadgeLabel(itemBadge)}
                         </span>
-                      )}
-                    </span>
-                    <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide !text-[#15171A]">
-                      {String(manufacturer?.title || "")}
-                    </span>
-                  </Link>
-                )}
-                <img
-                  src={productImageSrc}
-                  alt={product.name}
-                  className="relative z-10 max-h-[450px] object-contain transform group-hover:scale-110 transition-transform duration-700"
-                  onError={applyProductImageFallback}
-                />
-              </div>
+                      ))}
+                    </div>
+                  ) : null
+                }
+                manufacturerBadge={
+                  hasManufacturer ? (
+                    <Link
+                      to={manufacturer?.href || "#"}
+                      className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 rounded-xl border border-[#05C3D4]/50 bg-white/95 px-3 py-2 !text-[#15171A] shadow-sm transition-all hover:border-[#05C3D4] hover:bg-white hover:!text-[#15171A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/40"
+                    >
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white p-1">
+                        {manufacturer?.logo ? (
+                          <img
+                            src={manufacturer?.logo}
+                            alt={manufacturer?.title || "Бренд"}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-[9px] font-black text-[#05C3D4]">
+                            {String(manufacturer?.title || "").slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                      <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide !text-[#15171A]">
+                        {String(manufacturer?.title || "")}
+                      </span>
+                    </Link>
+                  ) : null
+                }
+              />
             </div>
 
             {/* Info */}

@@ -457,6 +457,40 @@ async function downloadImage(
   }
 }
 
+type MsImageRow = {
+  id?: string;
+  meta?: {
+    downloadHref?: string;
+  };
+};
+
+async function downloadProductImages(
+  imageRows: MsImageRow[],
+  authHeader: string,
+  productMsId: string,
+  folderName: string
+) {
+  const resolvedImages: string[] = [];
+
+  for (const [index, imageRow] of imageRows.entries()) {
+    const downloadHref = imageRow.meta?.downloadHref;
+    if (!downloadHref) continue;
+
+    const imagePath = await downloadImage(
+      downloadHref,
+      authHeader,
+      imageRow.id || `${productMsId}-${index + 1}`,
+      folderName
+    );
+
+    if (imagePath !== "/images/nofoto.jpg" && !resolvedImages.includes(imagePath)) {
+      resolvedImages.push(imagePath);
+    }
+  }
+
+  return resolvedImages;
+}
+
 export const syncRouter = createRouter({
   listProfiles: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Sync");
@@ -1464,13 +1498,21 @@ export const syncRouter = createRouter({
             }
 
             let imagePath = "/images/nofoto.jpg";
+            let imagePaths: string[] = [];
             if (item.images?.meta?.href) {
               try {
                 // Must use moyskladApi to get the 429 retry protection
                 const imagesRes = await moyskladApi.get(item.images.meta.href, { headers: { Authorization: authHeader } });
                 if (imagesRes.data.rows?.length > 0) {
-                  const mainImage = imagesRes.data.rows[0];
-                  if (mainImage.meta.downloadHref) imagePath = await downloadImage(mainImage.meta.downloadHref, authHeader, mainImage.id || msId, folderSlug);
+                  imagePaths = await downloadProductImages(
+                    imagesRes.data.rows as MsImageRow[],
+                    authHeader,
+                    msId,
+                    folderSlug
+                  );
+                  if (imagePaths.length > 0) {
+                    imagePath = imagePaths[0];
+                  }
                 }
               } catch (err: unknown) {
                 writeLog(
@@ -1521,6 +1563,7 @@ export const syncRouter = createRouter({
               if (syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
               if (imagePath !== "/images/nofoto.jpg") updateData.image = imagePath;
+              if (imagePaths.length > 0) updateData.images = imagePaths;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
               const baseSlug = slugify(item.name).substring(0, 200);
@@ -1539,6 +1582,7 @@ export const syncRouter = createRouter({
                   price,
                   description: item.description || "",
                   image: imagePath,
+                  images: imagePaths,
                   specs,
                   inStock,
                   isActive: true,
