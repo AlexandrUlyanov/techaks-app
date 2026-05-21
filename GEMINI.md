@@ -7,7 +7,7 @@ This file outlines strict architectural and developmental conventions for AI age
 - **Backend:** Hono (Node.js Adapter), tRPC.
 - **Database:** MySQL, Drizzle ORM.
 - **Deployment:** Ubuntu VPS (REG.RU) managed by PM2 and Nginx.
-- **Production server size:** 1 vCPU, 1 GB RAM, 10 GB disk. Keep maintenance
+- **Production server size:** 2 vCPU, 2 GB RAM, 38 GB disk. Keep maintenance
   jobs sequential and bounded; avoid unbounded catalog-wide work in memory.
 
 ## 🛡️ Core Directives

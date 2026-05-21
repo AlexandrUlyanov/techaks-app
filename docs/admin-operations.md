@@ -1,153 +1,196 @@
 # Admin Operations (Current)
 
-Инфраструктурные ограничения прод-сервера:
-- `1 vCPU`
-- `1 GB RAM`
-- `10 GB disk`
+Дата обновления: 2026-05-21  
+Проект: TechAks
+
+## Инфраструктурные ограничения production
+
+- `2 vCPU`
+- `2 GB RAM`
+- `38 GB disk`
+
+Это влияет на все operational действия:
+
+- не смешивать тяжёлые шаги;
+- не запускать параллельно лишние maintenance-задачи;
+- отдельно планировать DB rollout и build;
+- следить за диском перед backup / reinstall / rebuild.
+
+Актуальный production snapshot на 2026-05-21:
+
+- Ubuntu 26.04 LTS
+- KVM / OpenStack Nova
+- `nginx` как reverse proxy
+- `pm2` process: `techaks`
+- root filesystem `/dev/sda4`: `38G`, свободно около `30G`
 
 ## Stores
 
-Page: `/admin/stores`
+Page:
 
-- Full CRUD for store cards.
-- Manual warehouse binding:
-  - click `Привязать склад` on a store card;
-  - select a MoySklad warehouse from live list;
-  - save binding to `stores.ms_id`.
-- Card badge shows current binding status.
+- `/admin/stores`
+
+Что есть:
+
+- CRUD карточек магазинов;
+- ручная привязка магазина к складу МойСклад;
+- сохранение связи в `stores.ms_id`;
+- визуальный статус привязки.
 
 ## Sync (MoySklad)
 
-Page: `/admin/sync`
+Page:
 
-- Token/login-based authorization support.
-- Step-by-step full sync flow:
-  1. склады,
-  2. категории,
-  3. запуск с параметрами (товары/цены/остатки).
-- Профили полной синхронизации:
-  - несколько профилей (`sync_profiles`);
-  - выбор активного профиля;
-  - запуск full sync по активному профилю;
-  - сохранение snapshot в `sync_runs`.
-- Fuzzy store matching by name/address; mapping persisted via `stores.ms_id`.
-- Full sync lock:
-  - ключ `moysklad_full_sync_lock` в `app_settings`;
-  - TTL: 2 часа;
-  - параллельный full sync не запускается.
-- Sync logs:
-  - таблица `sync_logs` + файловый лог в `public/logs`.
+- `/admin/sync`
 
-### Webhook queue
+Что есть:
 
-- Таблица очереди: `webhook_events`.
-- Прием: `POST /api/webhooks/moysklad`.
-- Включена дедупликация по `provider + event_key`.
-- Поддержка секрета:
-  - `app_settings.moysklad_webhook_secret`;
-  - вход: `x-webhook-secret` / `x-moysklad-secret` / `?secret=...`.
-- Фоновая обработка очереди:
-  - цикл каждые 60 секунд;
-  - статусы: `new -> processing -> done/failed/dead`;
-  - backoff: 1m / 5m / 15m / 60m;
-  - ручной прогон: `POST /api/webhooks/moysklad/process`.
+- token/login-based authorization;
+- пошаговый full sync flow;
+- несколько sync profiles;
+- active profile;
+- snapshot в `sync_runs`;
+- lock full sync через `app_settings`;
+- reconcile stocks;
+- webhook queue;
+- admin monitoring на sync-странице.
 
-### Reconcile stocks
+### Sync runbook summary
 
-- Reconcile остатков (страховка при потере webhook):
-  - цикл каждые 30 минут;
-  - ручной запуск: `POST /api/sync/moysklad/reconcile`;
-  - результат пишется в `sync_runs` с `runType = reconcile`;
-  - при активном full sync lock reconcile пропускается.
+Типовые кейсы:
 
-### Nightly full sync
+1. вебхуки не приходят;
+2. очередь растёт;
+3. full sync не стартует;
+4. ночной sync упал.
 
-- Ночной запуск full sync:
-  - ежедневно в `03:00` (локальное время процесса);
-  - выполняется через системный caller от `super_admin`;
-  - использует активный профиль.
+Подробный operational контекст по sync остаётся в этом документе и в:
 
-### Admin monitoring (sync page)
+- [sync-epic-plan.md](</E:/work/ru/tehax/s/app/docs/sync-epic-plan.md>)
 
-На `/admin/sync` доступны:
-- lock status full sync;
-- метрики overview:
-  - webhook lag (минуты),
-  - `failed` / `dead`,
-  - последний успешный full sync,
-  - последний успешный reconcile;
-- таблица очереди вебхуков;
-- manual actions:
-  - process queue,
-  - retry failed/dead,
-  - reconcile now.
+## Orders
 
-## Sync Runbook
+### Админская работа с заказами
 
-### 1) Вебхуки не приходят
+Page:
 
-Проверка:
-1. Есть ли новые записи в `webhook_events`.
-2. Совпадает ли секрет (`moysklad_webhook_secret`) и заголовок/параметр.
-3. Доходит ли HTTP до `POST /api/webhooks/moysklad`.
+- `/admin/leads`
 
-Что делать:
-1. Исправить секрет/маршрут в настройках МойСклад.
-2. Запустить `Reconcile остатков` вручную.
-3. Проверить, что очередь снова пополняется.
+Что сейчас поддерживается:
 
-### 2) Очередь растет (lag увеличивается)
+- список заказов;
+- фильтры и поиск;
+- карточка заказа;
+- история заказа;
+- комментарии;
+- переписка с клиентом;
+- customer comments в `order_comments`;
+- admin reply в том же conversation flow.
 
-Проверка:
-1. Счетчики `new/failed/dead` на `/admin/sync`.
-2. Ошибки в `last_error` у `failed/dead`.
-3. Жив ли фоновой процесс приложения.
+### Визуальные сигналы
 
-Что делать:
-1. Нажать `Обработать очередь`.
-2. Для `failed/dead` нажать `Retry selected`.
-3. Если проблема по данным МойСклад — сделать `Reconcile остатков`.
+В админке заказов есть:
 
-### 3) Full sync не стартует
+- отдельный блок переписки в карточке заказа;
+- заметный индикатор в списке заказов, если клиент написал;
+- статусы conversation flow.
 
-Проверка:
-1. Статус lock в админке (`Синхронизация уже выполняется`).
-2. Нет ли зависшего процесса после аварии.
+### Удаление заказов
 
-Что делать:
-1. Подождать истечения TTL lock (2 часа), либо дождаться завершения текущего запуска.
-2. Проверить `sync_logs` и `sync_runs` на последний error.
+Только `super_admin` может:
 
-### 4) Ночной sync упал
+- удалять заказ из списка;
+- удалять заказ из карточки.
 
-Проверка:
-1. `sync_runs` (`runType=full`, `status=error`) около 03:00.
-2. Логи приложения.
+Это именно administrative destructive action и его нельзя открывать обычным ролям.
 
-Что делать:
-1. Запустить full sync вручную из `/admin/sync`.
-2. После успешного запуска проверить lag вебхуков и выполнить reconcile при необходимости.
+## Users
+
+### Удаление пользователей
+
+Только `super_admin` может удалять пользователей.
+
+Защитные ограничения:
+
+- нельзя удалить самого себя;
+- нельзя удалить последнего `super_admin`.
+
+### Production cleanup note
+
+Тестовые `customer` пользователи и тестовые заказы уже были очищены из production.
+
+Это значит:
+
+- старые counts в historical order-docs могут быть выше текущих;
+- historical rollout docs надо читать как snapshot на момент фиксации, а не как live inventory данных.
+
+## Account / storefront communication
+
+В личном кабинете клиента:
+
+- есть история заказов;
+- заказ можно раскрыть;
+- клиент может написать сообщение по заказу;
+- менеджерский ответ виден в клиентской переписке;
+- есть индикаторы новых ответов.
+
+## Products
+
+### Product visibility
+
+В админке товары не скрываются даже если:
+
+- цена `0`;
+- цена некорректна;
+- товар автоматически заблокирован системой.
+
+Админ видит publication status:
+
+- отображается на сайте;
+- отключён вручную;
+- не отображается, потому что цена не указана или равна `0`.
+
+### Важно
+
+Ручная активность товара (`isActive`) и системная автоблокировка (`isAutoBlocked`) — это разные вещи.
+
+Синхронизация и system auto-block не должны автоматически включать вручную отключённый товар обратно.
 
 ## Merchandising
 
-Page: `/admin/merchandising`
+Page:
 
-- Product scoring (`Merchandising Score`) for recommendation placements.
-- Badge assignment and manual priority.
-- Recommended pools used by homepage blocks including popular products.
+- `/admin/merchandising`
+
+Что есть:
+
+- product scoring;
+- badge assignment;
+- manual priority;
+- recommendation pools для storefront blocks.
 
 ## Product spec standardization
 
-Page: `/admin/products`
+Page:
 
-- Key standardization and value standardization.
-- Visibility/filterability control for category filters.
-- Normalization can move key-value lines from description to specs and rebuild
-  filter index.
+- `/admin/products`
+
+Что есть:
+
+- standardization ключей;
+- standardization значений;
+- visibility/filterability control для category filters;
+- rebuild filter index / spec structure.
 
 ## AI settings
 
-Page: admin settings area
+AI-related settings находятся в admin settings area и используются для AI-assisted standardization и внешнего model routing.
 
-- API/proxy fields for AI-assisted standardization are configurable.
-- Intended for external model routing (for example, Gemini via proxy).
+## Safety reminders
+
+Без отдельного решения нельзя:
+
+- делать destructive production cleanup наобум;
+- смешивать DB maintenance с обычным deploy;
+- использовать `db:push` как shortcut против production;
+- удалять `super_admin`, не убедившись, что остаётся рабочий доступ в админку.

@@ -124,9 +124,9 @@ without re-reading JSON specs from every product.
 
 ## Production constraints
 
-The production VPS has 1 vCPU, 1 GB RAM, and 10 GB disk. Normalization and
-index rebuild jobs must stay sequential, use explicit limits, and avoid
-parallel workers or full-catalog in-memory transforms.
+The production VPS currently has 2 vCPU, 2 GB RAM, and 38 GB disk.
+Normalization and index rebuild jobs should still stay sequential, use
+explicit limits, and avoid unbounded full-catalog in-memory transforms.
 
 ## Related admin capabilities
 
