@@ -1345,7 +1345,7 @@ async function insertSearchLog(args: {
   userAgent?: string | null;
 }) {
   const db = getDb();
-  const result = await db.insert(searchLogs).values({
+  await db.insert(searchLogs).values({
     query: args.query.slice(0, 255),
     normalizedQuery: args.normalizedQuery.slice(0, 255),
     correctedQuery: args.correctedQuery?.slice(0, 255) ?? null,
@@ -1355,7 +1355,9 @@ async function insertSearchLog(args: {
     ipHash: hashValue(args.ip),
     userAgentHash: hashValue(args.userAgent),
   });
-  return Number((result as { insertId?: number }).insertId ?? 0);
+  const [lastInsertRows] = await db.execute(sql`SELECT LAST_INSERT_ID() AS id`);
+  const row = Array.isArray(lastInsertRows) ? (lastInsertRows[0] as { id?: number } | undefined) : undefined;
+  return Number(row?.id ?? 0);
 }
 
 export async function searchSite(args: {
