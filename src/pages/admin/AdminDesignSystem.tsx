@@ -7,18 +7,22 @@ import {
 } from "@contracts/design-system";
 import {
   Bell,
+  BookOpen,
   Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   History,
+  House,
   ImageIcon,
   LayoutGrid,
   Loader2,
+  MapPin,
   MonitorCog,
   Package,
   Palette,
   RefreshCw,
+  ReceiptText,
   RotateCcw,
   Save,
   Search,
@@ -96,6 +100,8 @@ const THEME_SCOPE_META: Record<
 
 const TAB_LABELS = [
   { key: "overview", label: "Обзор", icon: MonitorCog },
+  { key: "site-pages", label: "Страницы сайта", icon: House },
+  { key: "admin-pages", label: "Страницы админки", icon: MonitorCog },
   { key: "colors", label: "Цвета", icon: Palette },
   { key: "typography", label: "Типографика", icon: Type },
   { key: "buttons", label: "Кнопки", icon: ShoppingCart },
@@ -108,6 +114,200 @@ const TAB_LABELS = [
   { key: "theme", label: "Темы", icon: Palette },
   { key: "history", label: "История изменений", icon: History },
 ] as const;
+
+type TokenControlDefinition =
+  | {
+      type: "color";
+      section: "colors";
+      field: keyof DesignTheme["colors"];
+      label: string;
+    }
+  | {
+      type: "number";
+      section: "radii" | "typography" | "controls";
+      field:
+        | keyof DesignTheme["radii"]
+        | keyof DesignTheme["typography"]
+        | keyof DesignTheme["controls"];
+      label: string;
+      min: number;
+      max: number;
+      step?: number;
+      suffix?: string;
+    }
+  | {
+      type: "text";
+      section: "typography" | "effects" | "meta";
+      field:
+        | keyof DesignTheme["typography"]
+        | keyof DesignTheme["effects"]
+        | keyof DesignTheme["meta"];
+      label: string;
+    };
+
+const sitePageSections = [
+  {
+    key: "home",
+    label: "Главная",
+    icon: House,
+    description:
+      "Hero, категории, товары недели и вторичные блоки. Здесь особенно важны фон, контраст, радиус карточек и выразительность CTA.",
+    subsections: ["Hero", "Категории", "Товары недели", "Нижние блоки"],
+    controls: [
+      { type: "color", section: "colors", field: "background", label: "Фон страницы" },
+      { type: "color", section: "colors", field: "surface", label: "Фон карточек" },
+      { type: "color", section: "colors", field: "primary", label: "Главный акцент" },
+      { type: "number", section: "radii", field: "card", label: "Радиус карточек", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "controls", field: "buttonHeight", label: "Высота CTA", min: 40, max: 72, suffix: "px" },
+      { type: "number", section: "typography", field: "h1Size", label: "Hero H1", min: 28, max: 72, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "catalog",
+    label: "Каталог",
+    icon: Search,
+    description:
+      "Фильтры, заголовок раздела, сетка товаров и сортировка. Здесь важны плотность, читаемость и стабильная карточка.",
+    subsections: ["Header", "Фильтры", "Сетка товаров", "Сортировка"],
+    controls: [
+      { type: "color", section: "colors", field: "surfaceMuted", label: "Фон боковых панелей" },
+      { type: "color", section: "colors", field: "border", label: "Границы фильтров" },
+      { type: "number", section: "radii", field: "card", label: "Радиус карточек", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "controls", field: "inputHeight", label: "Высота select/input", min: 36, max: 64, suffix: "px" },
+      { type: "number", section: "typography", field: "h2Size", label: "Заголовок раздела", min: 20, max: 56, suffix: "px" },
+      { type: "number", section: "typography", field: "bodySize", label: "Текст карточек", min: 14, max: 22, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "product",
+    label: "Карточка товара",
+    icon: ImageIcon,
+    description:
+      "Галерея, цена, action-блок, наличие по магазинам и отзывы. Здесь нужен акцент на доверии и чистой иерархии.",
+    subsections: ["Галерея", "Цена и CTA", "Наличие", "Отзывы"],
+    controls: [
+      { type: "color", section: "colors", field: "primary", label: "Кнопка покупки" },
+      { type: "color", section: "colors", field: "success", label: "Статус наличия" },
+      { type: "number", section: "typography", field: "priceSize", label: "Размер цены", min: 24, max: 56, suffix: "px" },
+      { type: "number", section: "radii", field: "card", label: "Радиус панелей", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "radii", field: "modal", label: "Радиус lightbox/modal", min: 8, max: 40, suffix: "px" },
+      { type: "number", section: "controls", field: "buttonHeight", label: "Высота action-кнопок", min: 40, max: 72, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "checkout",
+    label: "Checkout",
+    icon: ReceiptText,
+    description:
+      "Корзина, форма, блок оплаты и summary заказа. Здесь особенно важны доверие, контраст и спокойные поверхности.",
+    subsections: ["Состав заказа", "Контакты", "Оплата", "Summary"],
+    controls: [
+      { type: "color", section: "colors", field: "surface", label: "Фон панелей" },
+      { type: "color", section: "colors", field: "info", label: "Инфо-статусы" },
+      { type: "number", section: "controls", field: "inputHeight", label: "Высота полей", min: 40, max: 64, suffix: "px" },
+      { type: "number", section: "controls", field: "buttonHeight", label: "Высота кнопок", min: 40, max: 72, suffix: "px" },
+      { type: "number", section: "radii", field: "card", label: "Радиус summary", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "typography", field: "bodySize", label: "Текст формы", min: 14, max: 22, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "blog",
+    label: "Блог",
+    icon: BookOpen,
+    description:
+      "Hero блога, featured-материал, сетка статей и article cards. Здесь важны типографика и ритм контентной поверхности.",
+    subsections: ["Hero", "Featured", "Сетка статей", "Карточка статьи"],
+    controls: [
+      { type: "color", section: "colors", field: "brandDark", label: "Фон hero" },
+      { type: "color", section: "colors", field: "primary", label: "Контентный акцент" },
+      { type: "number", section: "typography", field: "h1Size", label: "Hero H1", min: 28, max: 72, suffix: "px" },
+      { type: "number", section: "typography", field: "h3Size", label: "Заголовок статьи", min: 18, max: 40, suffix: "px" },
+      { type: "number", section: "radii", field: "card", label: "Радиус article cards", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "typography", field: "bodyLineHeight", label: "Line-height текста", min: 1.3, max: 2, step: 0.05 },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "contacts",
+    label: "Контакты",
+    icon: MapPin,
+    description:
+      "Контактные карточки, адреса, мессенджеры и trust-блоки. Эта страница должна быть простой и очень читаемой.",
+    subsections: ["Контакты", "Адреса", "Мессенджеры", "Trust-блок"],
+    controls: [
+      { type: "color", section: "colors", field: "surface", label: "Фон карточек" },
+      { type: "color", section: "colors", field: "textMuted", label: "Вторичный текст" },
+      { type: "number", section: "radii", field: "card", label: "Радиус карточек", min: 8, max: 32, suffix: "px" },
+      { type: "number", section: "controls", field: "iconButtonSize", label: "Размер icon buttons", min: 32, max: 64, suffix: "px" },
+      { type: "number", section: "typography", field: "h3Size", label: "Заголовки блоков", min: 18, max: 40, suffix: "px" },
+      { type: "number", section: "typography", field: "bodySize", label: "Текст страницы", min: 14, max: 22, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+] as const;
+
+const adminPageSections = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    icon: MonitorCog,
+    description:
+      "Статкарточки, верхние summary-блоки и быстрые действия. Должно читаться плотно, но спокойно.",
+    subsections: ["Stat cards", "Action row", "Summary panels"],
+    controls: [
+      { type: "color", section: "colors", field: "surfaceMuted", label: "Фон dashboard-панелей" },
+      { type: "number", section: "radii", field: "card", label: "Радиус stat cards", min: 8, max: 28, suffix: "px" },
+      { type: "number", section: "typography", field: "h3Size", label: "Heading статкарточек", min: 18, max: 34, suffix: "px" },
+      { type: "text", section: "effects", field: "cardShadow", label: "Тень панелей" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "orders",
+    label: "Заказы",
+    icon: ReceiptText,
+    description:
+      "Список заказов, статусы, карточка заказа и action buttons менеджера.",
+    subsections: ["Таблица заказов", "Статусы", "Карточка заказа", "Действия"],
+    controls: [
+      { type: "color", section: "colors", field: "success", label: "Успешные статусы" },
+      { type: "color", section: "colors", field: "warning", label: "Ожидающие статусы" },
+      { type: "color", section: "colors", field: "danger", label: "Проблемные статусы" },
+      { type: "number", section: "controls", field: "buttonHeight", label: "Высота action buttons", min: 36, max: 64, suffix: "px" },
+      { type: "number", section: "typography", field: "adminLabelSize", label: "Лейблы и заголовки", min: 10, max: 18, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "products",
+    label: "Товары",
+    icon: Package,
+    description:
+      "Таблица товаров, карточка товара в админке, остатки и merchandising-бейджи.",
+    subsections: ["Таблица", "Карточка", "Бейджи", "Остатки"],
+    controls: [
+      { type: "color", section: "colors", field: "badgeNew", label: "Новинка" },
+      { type: "color", section: "colors", field: "badgeExcellent", label: "Отличная цена" },
+      { type: "number", section: "radii", field: "badge", label: "Радиус бейджей", min: 6, max: 999, suffix: "px" },
+      { type: "number", section: "typography", field: "smallSize", label: "Вторичный текст", min: 12, max: 20, suffix: "px" },
+      { type: "text", section: "effects", field: "cardShadow", label: "Тень карточек" },
+    ] satisfies TokenControlDefinition[],
+  },
+  {
+    key: "sync",
+    label: "Синхронизация",
+    icon: RefreshCw,
+    description:
+      "Очереди sync, технические статусы и error-state панели. Здесь особенно важен быстрый визуальный разбор.",
+    subsections: ["Статусы", "Логи", "Ошибки", "Очередь"],
+    controls: [
+      { type: "color", section: "colors", field: "info", label: "Инфо-статусы" },
+      { type: "color", section: "colors", field: "warning", label: "Warning-сигналы" },
+      { type: "color", section: "colors", field: "danger", label: "Error-сигналы" },
+      { type: "number", section: "radii", field: "card", label: "Радиус тех. панелей", min: 8, max: 28, suffix: "px" },
+      { type: "number", section: "typography", field: "captionSize", label: "Лог-текст", min: 10, max: 18, suffix: "px" },
+    ] satisfies TokenControlDefinition[],
+  },
+] as const;
+
+type SitePageSectionKey = (typeof sitePageSections)[number]["key"];
+type AdminPageSectionKey = (typeof adminPageSections)[number]["key"];
 
 const iconShowcase = [
   ShoppingCart,
@@ -269,6 +469,67 @@ function NumberField({
   );
 }
 
+function TokenControlGrid({
+  controls,
+  theme,
+  onUpdate,
+}: {
+  controls: readonly TokenControlDefinition[];
+  theme: DesignTheme;
+  onUpdate: (control: TokenControlDefinition, value: string | number) => void;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {controls.map(control => {
+        const value = (theme[control.section] as Record<string, unknown>)[
+          control.field as string
+        ];
+
+        if (control.type === "color") {
+          return (
+            <ColorField
+              key={`${control.section}.${String(control.field)}`}
+              label={control.label}
+              value={String(value)}
+              onChange={next => onUpdate(control, next)}
+            />
+          );
+        }
+
+        if (control.type === "number") {
+          return (
+            <NumberField
+              key={`${control.section}.${String(control.field)}`}
+              label={control.label}
+              value={Number(value)}
+              min={control.min}
+              max={control.max}
+              step={control.step}
+              suffix={control.suffix}
+              onChange={next => onUpdate(control, next)}
+            />
+          );
+        }
+
+        return (
+          <label
+            key={`${control.section}.${String(control.field)}`}
+            className="space-y-2"
+          >
+            <span className="text-[var(--tech-font-size-admin-label)] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">
+              {control.label}
+            </span>
+            <Input
+              value={String(value)}
+              onChange={e => onUpdate(control, e.target.value)}
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 function ThemeCanvas({
   theme,
   children,
@@ -342,6 +603,8 @@ export default function AdminDesignSystem() {
   );
   const [activeTab, setActiveTab] = useState<(typeof TAB_LABELS)[number]["key"]>("overview");
   const [activeScope, setActiveScope] = useState<DesignThemeScope>("siteLight");
+  const [activeSitePage, setActiveSitePage] = useState<SitePageSectionKey>("home");
+  const [activeAdminPage, setActiveAdminPage] = useState<AdminPageSectionKey>("dashboard");
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const [changeNote, setChangeNote] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -392,6 +655,17 @@ export default function AdminDesignSystem() {
         [field]: value,
       },
     }));
+  };
+
+  const updateFromPageControl = (
+    control: TokenControlDefinition,
+    value: string | number
+  ) => {
+    updateThemeSection(
+      control.section as ThemeSection,
+      control.field as never,
+      value as never
+    );
   };
 
   const handleSaveDraft = () => {
@@ -453,6 +727,13 @@ export default function AdminDesignSystem() {
       </AdminCard>
     </div>
   );
+
+  const activeSitePageSection =
+    sitePageSections.find(section => section.key === activeSitePage) ??
+    sitePageSections[0];
+  const activeAdminPageSection =
+    adminPageSections.find(section => section.key === activeAdminPage) ??
+    adminPageSections[0];
 
   return (
     <div className="space-y-6">
@@ -678,6 +959,393 @@ export default function AdminDesignSystem() {
                         <StatusBadge status="reserved" />
                       </div>
                     </AdminCard>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="site-pages" className="space-y-6 pt-4">
+                  <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+                    <AdminCard
+                      title="Основные страницы сайта"
+                      description="Редактируем не абстрактную тему, а реальные поверхности: главная, каталог, карточка товара, checkout, блог и контакты."
+                    >
+                      <div className="space-y-3">
+                        {sitePageSections.map(section => {
+                          const Icon = section.icon;
+                          return (
+                            <button
+                              key={section.key}
+                              type="button"
+                              onClick={() => setActiveSitePage(section.key)}
+                              className={cn(
+                                "w-full rounded-[var(--tech-radius-card)] border p-4 text-left transition-colors",
+                                activeSitePage === section.key
+                                  ? "border-[var(--tech-color-primary)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
+                                  : "border-border bg-card hover:border-[var(--tech-color-primary)]/40"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-[var(--tech-radius-button)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]">
+                                  <Icon size={18} />
+                                </div>
+                                <div>
+                                  <div className="font-black text-[var(--tech-color-text-main)]">
+                                    {section.label}
+                                  </div>
+                                  <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">
+                                    {section.description}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </AdminCard>
+
+                    <div className="space-y-6">
+                      <AdminCard
+                        title={activeSitePageSection.label}
+                        description={activeSitePageSection.description}
+                      >
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          {activeSitePageSection.subsections.map(item => (
+                            <Badge key={item} variant="outline">
+                              {item}
+                            </Badge>
+                          ))}
+                        </div>
+                        <TokenControlGrid
+                          controls={activeSitePageSection.controls}
+                          theme={theme}
+                          onUpdate={updateFromPageControl}
+                        />
+                      </AdminCard>
+
+                      {activeSitePage === "home" ? (
+                        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                          <AdminCard title="Hero-блок">
+                            <div className="rounded-[var(--tech-radius-card)] border border-border bg-[var(--tech-color-surface)] p-6 shadow-[var(--tech-shadow-card)]">
+                              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
+                                Технологичный retail
+                              </div>
+                              <h1 className="mt-4">Техника и аксессуары</h1>
+                              <p className="mt-4 text-[var(--tech-color-text-muted)]">
+                                Быстрый preview главного экрана витрины с акцентом на hero, CTA и ритм секций.
+                              </p>
+                              <div className="mt-6 flex flex-wrap gap-3">
+                                <Button>Смотреть каталог</Button>
+                                <Button variant="outline">Наши магазины</Button>
+                              </div>
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Категории и витрина">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-4 shadow-[var(--tech-shadow-card)]">
+                                <div className="mb-3 h-10 w-10 rounded-[var(--tech-radius-button)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)]" />
+                                <div className="font-black">Категория</div>
+                                <div className="mt-2 text-sm text-[var(--tech-color-text-muted)]">Короткое описание раздела</div>
+                              </div>
+                              <ProductCard product={sampleProducts[0] as any} imagePriority />
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeSitePage === "catalog" ? (
+                        <div className="grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
+                          <AdminCard title="Фильтры и сортировка">
+                            <div className="space-y-4 rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                              <Input placeholder="Поиск по фильтрам" />
+                              <div className="space-y-3 text-sm">
+                                <label className="flex items-center gap-3">
+                                  <Checkbox checked />
+                                  В наличии
+                                </label>
+                                <label className="flex items-center gap-3">
+                                  <Checkbox />
+                                  Новинки
+                                </label>
+                                <label className="flex items-center gap-3">
+                                  <Checkbox />
+                                  Акции
+                                </label>
+                              </div>
+                              <Select>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="По популярности" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="popular">По популярности</SelectItem>
+                                  <SelectItem value="asc">Цена ↑</SelectItem>
+                                  <SelectItem value="desc">Цена ↓</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Сетка товаров">
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                              {sampleProducts.map(product => (
+                                <ProductCard key={product.id} product={product as any} />
+                              ))}
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeSitePage === "product" ? (
+                        <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
+                          <AdminCard title="Галерея и media">
+                            <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-6 shadow-[var(--tech-shadow-card)]">
+                              <div className="aspect-square rounded-[calc(var(--tech-radius-card)-4px)] bg-[var(--tech-color-surface-muted)]" />
+                              <div className="mt-4 grid grid-cols-4 gap-3">
+                                {Array.from({ length: 4 }).map((_, index) => (
+                                  <div key={index} className="aspect-square rounded-[calc(var(--tech-radius-card)-8px)] border border-border bg-[var(--tech-color-surface-muted)]" />
+                                ))}
+                              </div>
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Цена, CTA и наличие">
+                            <div className="space-y-4">
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <Price value={1990} oldValue={2490} />
+                                <div className="mt-4 grid gap-3">
+                                  <Button className="w-full">В корзину</Button>
+                                  <Button variant="secondary" className="w-full">Купить в 1 клик</Button>
+                                </div>
+                              </div>
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <div className="font-black">Наличие в магазинах</div>
+                                <div className="mt-3 space-y-3">
+                                  <div className="rounded-[calc(var(--tech-radius-card)-6px)] border border-border p-4">
+                                    <div className="font-semibold">пр. Строителей, 50А</div>
+                                    <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">Доступно: 3 шт.</div>
+                                  </div>
+                                  <div className="rounded-[calc(var(--tech-radius-card)-6px)] border border-border p-4">
+                                    <div className="font-semibold">ТЦ Застава</div>
+                                    <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">Доступно: 1 шт.</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeSitePage === "checkout" ? (
+                        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                          <AdminCard title="Форма и корзина">
+                            <div className="space-y-4 rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                              <Input placeholder="ФИО" />
+                              <Input placeholder="Телефон" />
+                              <Input placeholder="Email" />
+                              <Textarea rows={4} placeholder="Комментарий к заказу" />
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Summary заказа">
+                            <div className="space-y-4 rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                              <div className="flex items-center justify-between">
+                                <span>Товары</span>
+                                <span className="font-black">3 980 ₽</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>Доставка</span>
+                                <span className="font-black">0 ₽</span>
+                              </div>
+                              <div className="border-t border-border pt-4 text-lg font-black">Итого: 3 980 ₽</div>
+                              <Button className="w-full">Оформить заказ</Button>
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeSitePage === "blog" ? (
+                        <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+                          <AdminCard title="Hero и featured">
+                            <div className="overflow-hidden rounded-[var(--tech-radius-card)] border border-border bg-[var(--tech-color-brand-dark)] p-6 text-white shadow-[var(--tech-shadow-card)]">
+                              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
+                                Блог ТЕХАКС
+                              </div>
+                              <h1 className="mt-4 text-white">Полезные материалы</h1>
+                              <p className="mt-4 text-white/70">
+                                Контентная поверхность с большим hero и спокойным ритмом статьи.
+                              </p>
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Сетка статей">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {Array.from({ length: 2 }).map((_, index) => (
+                                <div key={index} className="overflow-hidden rounded-[var(--tech-radius-card)] border border-border bg-card shadow-[var(--tech-shadow-card)]">
+                                  <div className="h-40 bg-[var(--tech-color-surface-muted)]" />
+                                  <div className="p-5">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--tech-color-primary)]">Гайд</div>
+                                    <div className="mt-3 text-xl font-black">Как выбрать аксессуар</div>
+                                    <div className="mt-3 text-sm text-[var(--tech-color-text-muted)]">Короткий excerpt статьи для preview состояния.</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeSitePage === "contacts" ? (
+                        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+                          <AdminCard title="Контактные карточки">
+                            <div className="space-y-4">
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <div className="font-black">Телефон</div>
+                                <div className="mt-2 text-[var(--tech-color-text-muted)]">+7 (927) 364-28-88</div>
+                              </div>
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <div className="font-black">Email</div>
+                                <div className="mt-2 text-[var(--tech-color-text-muted)]">tech.aks@yandex.ru</div>
+                              </div>
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Адрес и trust-block">
+                            <div className="space-y-4">
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <div className="font-black">Адрес магазина</div>
+                                <div className="mt-2 text-[var(--tech-color-text-muted)]">
+                                  Пенза, ул. Генерала Глазунова, 1
+                                </div>
+                              </div>
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
+                                <div className="font-black">Почему это работает</div>
+                                <div className="mt-2 text-sm text-[var(--tech-color-text-muted)]">
+                                  На странице контактов важны прозрачность, плотность без шума и уверенные акценты для мессенджеров.
+                                </div>
+                              </div>
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="admin-pages" className="space-y-6 pt-4">
+                  <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+                    <AdminCard
+                      title="Основные экраны админки"
+                      description="Настраиваем панели, таблицы и рабочие пространства по реальным сценариям: dashboard, заказы, товары, sync."
+                    >
+                      <div className="space-y-3">
+                        {adminPageSections.map(section => {
+                          const Icon = section.icon;
+                          return (
+                            <button
+                              key={section.key}
+                              type="button"
+                              onClick={() => setActiveAdminPage(section.key)}
+                              className={cn(
+                                "w-full rounded-[var(--tech-radius-card)] border p-4 text-left transition-colors",
+                                activeAdminPage === section.key
+                                  ? "border-[var(--tech-color-primary)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
+                                  : "border-border bg-card hover:border-[var(--tech-color-primary)]/40"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-[var(--tech-radius-button)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]">
+                                  <Icon size={18} />
+                                </div>
+                                <div>
+                                  <div className="font-black text-[var(--tech-color-text-main)]">
+                                    {section.label}
+                                  </div>
+                                  <div className="mt-1 text-sm text-[var(--tech-color-text-muted)]">
+                                    {section.description}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </AdminCard>
+
+                    <div className="space-y-6">
+                      <AdminCard
+                        title={activeAdminPageSection.label}
+                        description={activeAdminPageSection.description}
+                      >
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          {activeAdminPageSection.subsections.map(item => (
+                            <Badge key={item} variant="outline">
+                              {item}
+                            </Badge>
+                          ))}
+                        </div>
+                        <TokenControlGrid
+                          controls={activeAdminPageSection.controls}
+                          theme={theme}
+                          onUpdate={updateFromPageControl}
+                        />
+                      </AdminCard>
+
+                      {activeAdminPage === "dashboard" ? (
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <AdminCard title="Выручка">12 заказов сегодня</AdminCard>
+                          <AdminCard title="Конверсия">4.8%</AdminCard>
+                          <AdminCard title="Средний чек">3 290 ₽</AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeAdminPage === "orders" ? orderStatusCards : null}
+
+                      {activeAdminPage === "products" ? (
+                        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                          <AdminCard title="Таблица товаров">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Товар</TableHead>
+                                  <TableHead>Цена</TableHead>
+                                  <TableHead>Статус</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell>Кабель USB-C HOCO X83</TableCell>
+                                  <TableCell>390 ₽</TableCell>
+                                  <TableCell><StatusBadge status="synced" /></TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell>Автодержатель H72</TableCell>
+                                  <TableCell>1 990 ₽</TableCell>
+                                  <TableCell><StatusBadge status="sync_error" /></TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </AdminCard>
+                          <AdminCard title="Бейджи и карточка">
+                            <ProductCard product={sampleProducts[1] as any} />
+                          </AdminCard>
+                        </div>
+                      ) : null}
+
+                      {activeAdminPage === "sync" ? (
+                        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+                          <AdminCard title="Статусы синхронизации">
+                            <div className="space-y-3">
+                              <StatusBadge status="synced" />
+                              <StatusBadge status="sync_error" />
+                              <StatusBadge status="processing" />
+                            </div>
+                          </AdminCard>
+                          <AdminCard title="Логи и очередь">
+                            <div className="space-y-3">
+                              <div className="rounded-[var(--tech-radius-card)] border border-border bg-card p-4 text-sm text-[var(--tech-color-text-muted)]">
+                                14:32 · customerorder sync completed
+                              </div>
+                              <div className="rounded-[var(--tech-radius-card)] border border-[color:color-mix(in_srgb,var(--tech-color-danger)_25%,white)] bg-[color:color-mix(in_srgb,var(--tech-color-danger)_8%,white)] p-4 text-sm text-[var(--tech-color-danger)]">
+                                14:36 · timeout while fetching metadata
+                              </div>
+                            </div>
+                          </AdminCard>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </TabsContent>
 
