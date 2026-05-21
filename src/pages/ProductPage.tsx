@@ -119,6 +119,20 @@ export default function ProductPage() {
     }
   }, [hasReviewItems, location.hash]);
 
+  const productImageSrc = resolveProductImageSrc(product?.image);
+  const productImages = useMemo(() => {
+    if (!product) return [productImageSrc];
+
+    const rawImages = (product as { images?: unknown }).images;
+    const additionalImages = Array.isArray(rawImages)
+      ? rawImages.filter((image): image is string => typeof image === "string")
+      : [];
+
+    return Array.from(
+      new Set([productImageSrc, ...additionalImages.map(resolveProductImageSrc)])
+    );
+  }, [product, productImageSrc]);
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -153,17 +167,6 @@ export default function ProductPage() {
 
   const relatedProducts = merchandisingRelated.slice(0, 4);
   const canonicalPath = `/product/${product.slug}`;
-  const productImageSrc = resolveProductImageSrc(product.image);
-  const productImages = useMemo(() => {
-    const rawImages = (product as { images?: unknown }).images;
-    const additionalImages = Array.isArray(rawImages)
-      ? rawImages.filter((image): image is string => typeof image === "string")
-      : [];
-
-    return Array.from(
-      new Set([productImageSrc, ...additionalImages.map(resolveProductImageSrc)])
-    );
-  }, [product, productImageSrc]);
   const descriptionForSeo = (product.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
