@@ -290,7 +290,7 @@ export default function HomeSecondarySections({
                     </h3>
                     <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {new Date(post.createdAt).toLocaleDateString("ru-RU")}
+                        {new Date(post.publishedAt || post.createdAt).toLocaleDateString("ru-RU")}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] group-hover:translate-x-1 transition-transform">
                         Читать <ArrowRight size={12} className="inline ml-1" />

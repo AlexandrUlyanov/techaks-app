@@ -11,6 +11,9 @@ type SeoInput = {
   description?: string;
   canonicalPath?: string;
   noindex?: boolean;
+  image?: string;
+  type?: "website" | "article";
+  structuredData?: Record<string, unknown> | null;
 };
 
 function ensureMeta(name: string) {
@@ -23,11 +26,36 @@ function ensureMeta(name: string) {
   return element;
 }
 
+function ensurePropertyMeta(property: string) {
+  let element = document.querySelector<HTMLMetaElement>(
+    `meta[property="${property}"]`
+  );
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute("property", property);
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
 function ensureCanonical() {
   let element = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
   if (!element) {
     element = document.createElement("link");
     element.setAttribute("rel", "canonical");
+    document.head.appendChild(element);
+  }
+  return element;
+}
+
+function ensureStructuredData() {
+  let element = document.querySelector<HTMLScriptElement>(
+    'script[data-seo="structured-data"]'
+  );
+  if (!element) {
+    element = document.createElement("script");
+    element.setAttribute("type", "application/ld+json");
+    element.setAttribute("data-seo", "structured-data");
     document.head.appendChild(element);
   }
   return element;
@@ -53,11 +81,60 @@ export function useSeo(input: SeoInput) {
 
     const canonical = ensureCanonical();
     const path = input.canonicalPath ?? location.pathname;
-    canonical.setAttribute("href", `${SITE_URL}${path}`);
-  }, [input.canonicalPath, input.description, input.noindex, input.title, location.pathname]);
+    const canonicalUrl = `${SITE_URL}${path}`;
+    canonical.setAttribute("href", canonicalUrl);
+
+    const ogTitle = ensurePropertyMeta("og:title");
+    ogTitle.setAttribute("content", title);
+
+    const ogDescription = ensurePropertyMeta("og:description");
+    ogDescription.setAttribute("content", description);
+
+    const ogType = ensurePropertyMeta("og:type");
+    ogType.setAttribute("content", input.type || "website");
+
+    const ogUrl = ensurePropertyMeta("og:url");
+    ogUrl.setAttribute("content", canonicalUrl);
+
+    const twitterCard = ensureMeta("twitter:card");
+    twitterCard.setAttribute("content", input.image ? "summary_large_image" : "summary");
+
+    const twitterTitle = ensureMeta("twitter:title");
+    twitterTitle.setAttribute("content", title);
+
+    const twitterDescription = ensureMeta("twitter:description");
+    twitterDescription.setAttribute("content", description);
+
+    const image = input.image?.trim();
+    const ogImage = ensurePropertyMeta("og:image");
+    const twitterImage = ensureMeta("twitter:image");
+    if (image) {
+      const fullImage = image.startsWith("http") ? image : `${SITE_URL}${image}`;
+      ogImage.setAttribute("content", fullImage);
+      twitterImage.setAttribute("content", fullImage);
+    } else {
+      ogImage.remove();
+      twitterImage.remove();
+    }
+
+    const structuredDataNode = ensureStructuredData();
+    if (input.structuredData) {
+      structuredDataNode.textContent = JSON.stringify(input.structuredData);
+    } else {
+      structuredDataNode.textContent = "";
+    }
+  }, [
+    input.canonicalPath,
+    input.description,
+    input.image,
+    input.noindex,
+    input.structuredData,
+    input.title,
+    input.type,
+    location.pathname,
+  ]);
 }
 
 export function buildCanonical(pathname: string) {
   return `${SITE_URL}${pathname}`;
 }
-

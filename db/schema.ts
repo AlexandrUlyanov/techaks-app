@@ -188,11 +188,64 @@ export const posts = mysqlTable("posts", {
   title: varchar("title", { length: 255 }).notNull(),
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
+  contentFormat: varchar("content_format", { length: 20 })
+    .notNull()
+    .default("html"),
   category: varchar("category", { length: 50 }).notNull().default("Новости"),
   image: varchar("image", { length: 255 }).notNull(),
+  ogImage: varchar("og_image", { length: 255 }),
+  metaTitle: varchar("meta_title", { length: 255 }),
+  metaDescription: text("meta_description"),
+  authorName: varchar("author_name", { length: 120 }).notNull().default("Редакция ТЕХАКС"),
+  status: varchar("status", { length: 30 }).notNull().default("published"),
+  featured: boolean("featured").notNull().default(false),
+  readingTimeMinutes: int("reading_time_minutes").notNull().default(1),
   published: boolean("published").notNull().default(true),
+  publishedAt: timestamp("published_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, table => ({
+  statusIdx: index("posts_status_idx").on(table.status, table.publishedAt, table.createdAt),
+  categoryIdx: index("posts_category_idx").on(table.category, table.publishedAt),
+  featuredIdx: index("posts_featured_idx").on(table.featured, table.publishedAt),
+}));
+
+export const blogAiRuns = mysqlTable("blog_ai_runs", {
+  id: serial("id").primaryKey(),
+  postId: int("post_id"),
+  mode: varchar("mode", { length: 40 }).notNull(),
+  promptVersion: varchar("prompt_version", { length: 40 }).notNull().default("v1"),
+  model: varchar("model", { length: 120 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("running"),
+  inputSnapshot: json("input_snapshot"),
+  resultJson: json("result_json"),
+  errorText: text("error_text"),
+  createdByUserId: int("created_by_user_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
+}, table => ({
+  postModeIdx: index("blog_ai_runs_post_mode_idx").on(table.postId, table.mode, table.createdAt),
+  statusIdx: index("blog_ai_runs_status_idx").on(table.status, table.createdAt),
+}));
+
+export const blogAiSuggestions = mysqlTable("blog_ai_suggestions", {
+  id: serial("id").primaryKey(),
+  runId: int("run_id").notNull(),
+  postId: int("post_id"),
+  suggestionType: varchar("suggestion_type", { length: 40 }).notNull(),
+  content: text("content").notNull(),
+  metadataJson: json("metadata_json"),
+  status: varchar("status", { length: 20 }).notNull().default("suggested"),
+  appliedAt: timestamp("applied_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  runIdx: index("blog_ai_suggestions_run_idx").on(table.runId, table.createdAt),
+  postTypeIdx: index("blog_ai_suggestions_post_type_idx").on(
+    table.postId,
+    table.suggestionType,
+    table.createdAt
+  ),
+}));
 
 export const users = mysqlTable("users", {
   id: serial("id").primaryKey(),
