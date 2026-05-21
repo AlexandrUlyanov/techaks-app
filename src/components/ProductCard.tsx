@@ -31,12 +31,14 @@ interface ProductCardProps {
   };
   variant?: "grid" | "list";
   imagePriority?: boolean;
+  onNavigate?: (url: string) => void | Promise<void>;
 }
 
 export default function ProductCard({
   product,
   variant = "grid",
   imagePriority = false,
+  onNavigate,
 }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find(item => item.id === product.id);
@@ -101,6 +103,12 @@ export default function ProductCard({
     if (cartItem) updateQuantity(product.id, cartItem.quantity + 1);
   };
 
+  const handleNavigate = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onNavigate) return;
+    event.preventDefault();
+    await onNavigate(`/product/${product.slug}`);
+  };
+
   const cartControl = !isInStock ? (
       <button
         type="button"
@@ -146,7 +154,11 @@ export default function ProductCard({
   if (variant === "list") {
     return (
       <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] relative after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
-        <Link to={`/product/${product.slug}`} className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4">
+        <Link
+          to={`/product/${product.slug}`}
+          onClick={handleNavigate}
+          className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4"
+        >
           <div className="relative h-[112px] sm:h-[132px] bg-white rounded-lg flex items-center justify-center p-3 overflow-hidden">
             {merchandisingBadges.length > 0 && (
               <div className="absolute left-2 top-2 z-10 flex max-w-[130px] flex-wrap gap-1">
@@ -229,7 +241,7 @@ export default function ProductCard({
 
   return (
     <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] hover:shadow-[var(--tech-shadow-card)] relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
-      <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
+      <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex-1 flex flex-col">
         <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
           {merchandisingBadges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-wrap gap-1">

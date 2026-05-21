@@ -106,20 +106,24 @@ export default function SearchPage() {
     return `Найдено ${data.total} товаров по запросу «${query}»`;
   }, [data, query]);
 
-  const handleResultClick = (
+  const handleResultClick = async (
     url: string,
     entityType: "product" | "category" | "page",
     entityId: number,
     position: number
   ) => {
     if (data?.searchLogId) {
-      clickLogMutation.mutate({
-        searchLogId: data.searchLogId,
-        entityType,
-        entityId,
-        position,
-        url,
-      });
+      try {
+        await clickLogMutation.mutateAsync({
+          searchLogId: data.searchLogId,
+          entityType,
+          entityId,
+          position,
+          url,
+        });
+      } catch {
+        // Logging should never block navigation.
+      }
     }
     navigate(url);
   };
@@ -307,7 +311,12 @@ export default function SearchPage() {
 
                   {data.products.length > 0 ? (
                     <>
-                      <SearchResultsGrid products={data.products} />
+                      <SearchResultsGrid
+                        products={data.products}
+                        onProductClick={(productId, url, position) =>
+                          handleResultClick(url, "product", productId, position)
+                        }
+                      />
                       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--tech-radius-card)] border border-border bg-card px-5 py-4 shadow-[var(--tech-shadow-card)]">
                         <div className="text-sm text-muted-foreground">
                           Страница {page} из {totalPages}
