@@ -10,7 +10,7 @@ export default function StickyBottomBar() {
   const itemCount = getItemCount();
 
   const navItems = [
-    { label: "Поиск", icon: Search, href: "#search", isAction: true },
+    { label: "Поиск", icon: Search, href: "/search" },
     {
       label: "Корзина",
       icon: ShoppingCart,

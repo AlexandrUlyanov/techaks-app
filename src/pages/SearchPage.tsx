@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import ProductCard from "@/components/ProductCard";
@@ -19,6 +20,7 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const [searchInput, setSearchInput] = useState(query);
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
     return searchParams
@@ -49,6 +51,23 @@ export default function SearchPage() {
     { query, limit: 500, specFilters: selectedFilters },
     { enabled: query.length >= 2 }
   );
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextParams = new URLSearchParams(searchParams);
+    const normalizedQuery = searchInput.trim();
+
+    nextParams.delete("filter");
+    if (normalizedQuery) {
+      nextParams.set("q", normalizedQuery);
+    } else {
+      nextParams.delete("q");
+    }
+
+    navigate(`/search${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, {
+      replace: false,
+    });
+  };
 
   const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -85,6 +104,10 @@ export default function SearchPage() {
     setVisibleProductCount(PRODUCT_PAGE_SIZE);
   }, [query, selectedFilterKey]);
 
+  useEffect(() => {
+    setSearchInput(query);
+  }, [query]);
+
   const visibleResults = useMemo(
     () => results.slice(0, visibleProductCount),
     [results, visibleProductCount]
@@ -120,6 +143,29 @@ export default function SearchPage() {
                 "Введите запрос для поиска товаров"
               )}
             </p>
+            <form onSubmit={submitSearch} className="pt-2">
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-2 shadow-sm">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <Search size={18} />
+                </div>
+                <input
+                  value={searchInput}
+                  onChange={event => setSearchInput(event.target.value)}
+                  type="search"
+                  autoFocus
+                  inputMode="search"
+                  placeholder="Найти аксессуар или гаджет..."
+                  aria-label="Поиск товаров"
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-4 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-[#27E6F2] dark:text-black"
+                >
+                  Найти
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
