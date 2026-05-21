@@ -196,7 +196,7 @@ export const posts = mysqlTable("posts", {
   ogImage: varchar("og_image", { length: 255 }),
   metaTitle: varchar("meta_title", { length: 255 }),
   metaDescription: text("meta_description"),
-  authorName: varchar("author_name", { length: 120 }).notNull().default("Редакция ТЕХАКС"),
+  authorName: varchar("author_name", { length: 120 }).notNull().default("Techaks Editorial"),
   status: varchar("status", { length: 30 }).notNull().default("published"),
   featured: boolean("featured").notNull().default(false),
   readingTimeMinutes: int("reading_time_minutes").notNull().default(1),

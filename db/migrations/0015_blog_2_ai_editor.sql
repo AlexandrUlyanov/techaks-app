@@ -3,7 +3,7 @@ ALTER TABLE `posts`
   ADD COLUMN `og_image` varchar(255),
   ADD COLUMN `meta_title` varchar(255),
   ADD COLUMN `meta_description` text,
-  ADD COLUMN `author_name` varchar(120) NOT NULL DEFAULT 'Редакция ТЕХАКС',
+  ADD COLUMN `author_name` varchar(120) NOT NULL DEFAULT 'Techaks Editorial',
   ADD COLUMN `status` varchar(30) NOT NULL DEFAULT 'published',
   ADD COLUMN `featured` boolean NOT NULL DEFAULT false,
   ADD COLUMN `reading_time_minutes` int NOT NULL DEFAULT 1,
@@ -18,6 +18,7 @@ SET
   `meta_title` = `title`,
   `meta_description` = `excerpt`,
   `og_image` = `image`,
+  `author_name` = COALESCE(NULLIF(`author_name`, ''), 'Techaks Editorial'),
   `reading_time_minutes` = GREATEST(1, CEIL(CHAR_LENGTH(`content`) / 900));
 --> statement-breakpoint
 CREATE INDEX `posts_status_idx`
