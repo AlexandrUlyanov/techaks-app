@@ -1,6 +1,7 @@
 import {
   KeyRound,
   Loader2,
+  RefreshCcw,
   Route,
   Save,
   ShieldCheck,
@@ -32,13 +33,17 @@ const TABS: Array<{ key: SettingsTab; label: string; icon: typeof UserCog }> = [
 
 export default function AdminSettings() {
   const utils = trpc.useUtils();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
   const { data: reservationSettings } = trpc.settings.getReservationSettings.useQuery();
   const { data: siteProfileSettings } = trpc.settings.getSiteProfileSettings.useQuery();
+  const { data: homepageSnapshotStatus } = trpc.home.getSnapshotStatus.useQuery(
+    undefined,
+    { enabled: activeTab === "site" }
+  );
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
@@ -187,9 +192,19 @@ export default function AdminSettings() {
       onSuccess: () => {
         utils.settings.getSiteProfileSettings.invalidate();
         utils.settings.getPublicSiteProfile.invalidate();
+        utils.home.getSnapshotStatus.invalidate();
         alert("Профиль сайта и реквизиты сохранены.");
       },
     });
+  const refreshHomepageSnapshotMutation = trpc.home.refreshSnapshot.useMutation({
+    onSuccess: result => {
+      utils.home.getPageData.invalidate();
+      utils.home.getSnapshotStatus.invalidate();
+      alert(
+        `Главная пересобрана. Категорий: ${result.counts.categories}, товаров недели: ${result.counts.weekProducts}.`
+      );
+    },
+  });
 
   const testMutation = trpc.settings.testGemini.useMutation({
     onSuccess: () => {
@@ -827,6 +842,95 @@ export default function AdminSettings() {
 
       {activeTab === "site" ? (
         <div className="space-y-6">
+          <AdminSection
+            title="Snapshot главной страницы"
+            description="Главная теперь может отдаваться из заранее собранного JSON-снимка. Это ускоряет первый ответ, переживает рестарты и даёт понятный ручной контроль."
+            tone="accent"
+            actions={
+              <button
+                onClick={() => refreshHomepageSnapshotMutation.mutate()}
+                disabled={refreshHomepageSnapshotMutation.isPending}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+              >
+                {refreshHomepageSnapshotMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RefreshCcw size={16} />
+                )}
+                Пересобрать главную
+              </button>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
+                  Snapshot
+                </div>
+                <div className="mt-2 text-lg font-black text-[#15171A]">
+                  {homepageSnapshotStatus?.hasSnapshot ? "Есть" : "Ещё не собран"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {homepageSnapshotStatus?.generatedAt
+                    ? new Date(homepageSnapshotStatus.generatedAt).toLocaleString("ru-RU")
+                    : "После первой сборки здесь появится время генерации"}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
+                  Состояние
+                </div>
+                <div className="mt-2 text-lg font-black text-[#15171A]">
+                  {homepageSnapshotStatus?.refreshInProgress
+                    ? "Пересобирается"
+                    : homepageSnapshotStatus?.isStale
+                      ? "Устарел"
+                      : "Свежий"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  TTL: {homepageSnapshotStatus?.ttlMinutes ?? 5} минут
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
+                  Возраст
+                </div>
+                <div className="mt-2 text-lg font-black text-[#15171A]">
+                  {homepageSnapshotStatus?.ageSeconds !== null &&
+                  homepageSnapshotStatus?.ageSeconds !== undefined
+                    ? `${Math.round(homepageSnapshotStatus.ageSeconds / 60)} мин`
+                    : "—"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  Пока snapshot свежий, главная не ждёт live-сборку
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">
+                  Время сборки
+                </div>
+                <div className="mt-2 text-lg font-black text-[#15171A]">
+                  {homepageSnapshotStatus?.buildMs !== null &&
+                  homepageSnapshotStatus?.buildMs !== undefined
+                    ? `${homepageSnapshotStatus.buildMs} мс`
+                    : "—"}
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  Версия: {homepageSnapshotStatus?.sourceVersion || "homepage_snapshot_v1"}
+                </div>
+              </div>
+            </div>
+
+            {homepageSnapshotStatus?.lastError ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Последняя ошибка пересборки: {homepageSnapshotStatus.lastError}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                Публичная главная читает заранее собранный snapshot из базы. Если снимок устарел, витрина всё равно отдаёт его сразу и тихо запускает обновление в фоне.
+              </div>
+            )}
+          </AdminSection>
+
           <AdminSection
             title="Профиль сайта и продавца"
             description="Единый источник контактов, реквизитов и правовых текстов. Эти данные должны потом использоваться в Header, Footer, Контактах, checkout и документах без захардкоженных строк."

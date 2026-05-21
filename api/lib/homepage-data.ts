@@ -5,11 +5,7 @@ import { getPublicSiteProfile } from "./site-profile-settings";
 import { getAppSettings } from "./app-settings";
 import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 import { getRecommendedProducts } from "./merchandising-score";
-import { getOrSetHomepageCache } from "./homepage-cache";
 import { listHomepageFallbackProducts } from "./public-products";
-
-const HOMEPAGE_CACHE_KEY = "homepage:v1";
-const HOMEPAGE_CACHE_TTL_MS = 2 * 60 * 1000;
 
 function rankBadge(badge?: string | null) {
   if (badge === "Акция") return 0;
@@ -18,7 +14,7 @@ function rankBadge(badge?: string | null) {
   return 3;
 }
 
-async function buildHomepageData() {
+export async function buildHomepageData() {
   const db = getDb();
 
   const [
@@ -87,18 +83,5 @@ async function buildHomepageData() {
       latestPosts: postRows,
       popularProducts,
     },
-  };
-}
-
-export async function getHomepagePageData() {
-  const result = await getOrSetHomepageCache(
-    HOMEPAGE_CACHE_KEY,
-    HOMEPAGE_CACHE_TTL_MS,
-    buildHomepageData
-  );
-
-  return {
-    ...result.value,
-    cache: result.meta,
   };
 }

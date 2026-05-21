@@ -557,6 +557,22 @@ export const appSettings = mysqlTable("app_settings", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const homepageSnapshots = mysqlTable("homepage_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshotKey: varchar("snapshot_key", { length: 120 }).notNull().default("default"),
+  payload: json("payload").notNull(),
+  buildMs: int("build_ms").notNull().default(0),
+  sourceVersion: varchar("source_version", { length: 40 }),
+  lastError: text("last_error"),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  snapshotKeyUnique: unique("homepage_snapshots_snapshot_key_unique").on(
+    table.snapshotKey
+  ),
+}));
+
 export const designThemeVersions = mysqlTable("design_theme_versions", {
   id: serial("id").primaryKey(),
   versionNumber: int("version_number").notNull(),
