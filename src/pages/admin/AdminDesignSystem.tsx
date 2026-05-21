@@ -308,6 +308,265 @@ const adminPageSections = [
 
 type SitePageSectionKey = (typeof sitePageSections)[number]["key"];
 type AdminPageSectionKey = (typeof adminPageSections)[number]["key"];
+type ThemePatch = {
+  meta?: Partial<DesignTheme["meta"]>;
+  colors?: Partial<DesignTheme["colors"]>;
+  radii?: Partial<DesignTheme["radii"]>;
+  typography?: Partial<DesignTheme["typography"]>;
+  controls?: Partial<DesignTheme["controls"]>;
+  effects?: Partial<DesignTheme["effects"]>;
+};
+
+type PagePreset = {
+  key: string;
+  label: string;
+  description: string;
+  changes: string[];
+  patch: ThemePatch;
+};
+
+const sitePagePresets: Record<SitePageSectionKey, PagePreset[]> = {
+  home: [
+    {
+      key: "hero-premium",
+      label: "Premium Hero",
+      description: "Больше драматургии для первого экрана и более мягкие карточки.",
+      changes: ["Увеличивает hero H1", "Смягчает карточки", "Добавляет глубину тени"],
+      patch: {
+        typography: { h1Size: 48, h2Size: 30 },
+        radii: { card: 22, button: 14 },
+        effects: {
+          cardShadow: "0 18px 46px rgba(15, 23, 42, 0.12)",
+          buttonShadow: "0 14px 30px rgba(5, 195, 212, 0.22)",
+        },
+      },
+    },
+    {
+      key: "compact-retail",
+      label: "Compact Retail",
+      description: "Плотнее собирает категории и товары, чтобы главный экран сканировался быстрее.",
+      changes: ["Уменьшает hero", "Делает CTA компактнее", "Собирает витрину плотнее"],
+      patch: {
+        typography: { h1Size: 34, bodySize: 15 },
+        controls: { buttonHeight: 42 },
+        radii: { card: 14 },
+      },
+    },
+  ],
+  catalog: [
+    {
+      key: "dense-grid",
+      label: "Dense Grid",
+      description: "Для каталога с плотной сеткой и более утилитарной подачей.",
+      changes: ["Снижает визуальный шум", "Делает карточки компактнее", "Усиливает рабочий характер каталога"],
+      patch: {
+        radii: { card: 12, button: 10 },
+        typography: { h2Size: 24, bodySize: 15, smallSize: 13 },
+        controls: { inputHeight: 42, buttonHeight: 42 },
+      },
+    },
+    {
+      key: "airy-showcase",
+      label: "Airy Showcase",
+      description: "Больше воздуха и акцента на товарах для категорий с красивыми карточками.",
+      changes: ["Добавляет воздуха", "Увеличивает заголовок", "Делает карточки мягче"],
+      patch: {
+        radii: { card: 20 },
+        typography: { h2Size: 30, bodySize: 16 },
+        effects: { cardShadow: "0 16px 38px rgba(15, 23, 42, 0.1)" },
+      },
+    },
+  ],
+  product: [
+    {
+      key: "sales-heavy",
+      label: "Sales Heavy",
+      description: "Более агрессивный акцент на цене и CTA для конверсионной карточки товара.",
+      changes: ["Увеличивает цену", "Усиливает CTA", "Чуть плотнее action-блок"],
+      patch: {
+        typography: { priceSize: 40, h1Size: 44 },
+        controls: { buttonHeight: 48 },
+        effects: { buttonShadow: "0 16px 34px rgba(5, 195, 212, 0.26)" },
+      },
+    },
+    {
+      key: "trust-first",
+      label: "Trust First",
+      description: "Спокойнее показывает карточку товара, усиливая блоки наличия и доверия.",
+      changes: ["Смягчает карточки", "Чуть снижает агрессивность CTA", "Делает отзывы и наличие спокойнее"],
+      patch: {
+        radii: { card: 18, modal: 28 },
+        typography: { bodySize: 16, priceSize: 34 },
+        controls: { buttonHeight: 44 },
+      },
+    },
+  ],
+  checkout: [
+    {
+      key: "focused-conversion",
+      label: "Focused Conversion",
+      description: "Чистый и более деловой checkout с компактной формой.",
+      changes: ["Уплотняет поля", "Делает summary спокойнее", "Сохраняет сильный CTA"],
+      patch: {
+        controls: { inputHeight: 42, buttonHeight: 44 },
+        radii: { card: 14 },
+        typography: { bodySize: 15, h2Size: 26 },
+      },
+    },
+    {
+      key: "soft-trust",
+      label: "Soft Trust",
+      description: "Чуть мягче подаёт checkout и добавляет ощущение доверия.",
+      changes: ["Увеличивает поверхности", "Смягчает карточки", "Усиливает readability формы"],
+      patch: {
+        radii: { card: 20, input: 14 },
+        typography: { bodyLineHeight: 1.7 },
+        effects: { cardShadow: "0 14px 34px rgba(15, 23, 42, 0.08)" },
+      },
+    },
+  ],
+  blog: [
+    {
+      key: "editorial",
+      label: "Editorial",
+      description: "Сильнее сдвигает блог в сторону медиа и большого контента.",
+      changes: ["Увеличивает hero и H3", "Поднимает line-height", "Делает статьи воздушнее"],
+      patch: {
+        typography: { h1Size: 52, h3Size: 26, bodyLineHeight: 1.75 },
+        radii: { card: 20 },
+      },
+    },
+    {
+      key: "commerce-content",
+      label: "Commerce Content",
+      description: "Баланс между медиа-подачей и коммерческой задачей магазина.",
+      changes: ["Чуть компактнее карточки", "Сохраняет сильный акцент бренда", "Делает excerpt короче визуально"],
+      patch: {
+        typography: { h1Size: 40, h3Size: 22, bodyLineHeight: 1.6 },
+        radii: { card: 16 },
+      },
+    },
+  ],
+  contacts: [
+    {
+      key: "service-clarity",
+      label: "Service Clarity",
+      description: "Для контактов с акцентом на читаемость и сервисную ясность.",
+      changes: ["Подчищает вторичный текст", "Собирает карточки", "Чуть крупнее заголовки"],
+      patch: {
+        typography: { h3Size: 24, bodySize: 15 },
+        radii: { card: 14 },
+        colors: { textMuted: "#5F6975" },
+      },
+    },
+    {
+      key: "friendly-trust",
+      label: "Friendly Trust",
+      description: "Более мягкая и дружелюбная подача контактов и trust-блоков.",
+      changes: ["Смягчает поверхности", "Чуть увеличивает radius", "Делает блоки теплее визуально"],
+      patch: {
+        radii: { card: 20 },
+        colors: { surfaceMuted: "#F1F7F9" },
+        effects: { cardShadow: "0 12px 28px rgba(15, 23, 42, 0.07)" },
+      },
+    },
+  ],
+};
+
+const adminPagePresets: Record<AdminPageSectionKey, PagePreset[]> = {
+  dashboard: [
+    {
+      key: "executive",
+      label: "Executive",
+      description: "Более премиальная подача summary-карточек и метрик.",
+      changes: ["Увеличивает заголовки", "Смягчает панели", "Усиливает depth"],
+      patch: {
+        radii: { card: 20 },
+        typography: { h3Size: 24 },
+        effects: { cardShadow: "0 16px 38px rgba(15, 23, 42, 0.09)" },
+      },
+    },
+    {
+      key: "ops-compact",
+      label: "Ops Compact",
+      description: "Более рабочий и плотный дашборд для ежедневной операционки.",
+      changes: ["Уплотняет панели", "Снижает воздух", "Оставляет только нужный акцент"],
+      patch: {
+        radii: { card: 12 },
+        typography: { h3Size: 20, smallSize: 13 },
+      },
+    },
+  ],
+  orders: [
+    {
+      key: "manager-focus",
+      label: "Manager Focus",
+      description: "Выделяет статусы и действия, чтобы менеджеру было проще работать со списком.",
+      changes: ["Делает action-кнопки крупнее", "Усиливает цветовые статусы", "Поднимает лейблы"],
+      patch: {
+        controls: { buttonHeight: 42 },
+        typography: { adminLabelSize: 13 },
+        colors: { warning: "#F59E0B", danger: "#EF4444", success: "#22C55E" },
+      },
+    },
+    {
+      key: "quiet-ops",
+      label: "Quiet Ops",
+      description: "Более спокойная таблица заказов, когда важна длинная ежедневная работа без визуального шума.",
+      changes: ["Снижает контраст лишних акцентов", "Делает список мягче", "Успокаивает панели"],
+      patch: {
+        radii: { card: 14 },
+        colors: { surfaceMuted: "#F3F6F8", border: "#DDE5EB" },
+      },
+    },
+  ],
+  products: [
+    {
+      key: "merch-premium",
+      label: "Merch Premium",
+      description: "Подсвечивает бейджи и карточки товара в админке чуть выразительнее.",
+      changes: ["Усиливает merchandising-бейджи", "Добавляет depth карточкам", "Сохраняет витринный характер"],
+      patch: {
+        colors: { badgeNew: "#05C3D4", badgeExcellent: "#22C55E" },
+        radii: { badge: 999, card: 18 },
+        effects: { cardShadow: "0 16px 36px rgba(15, 23, 42, 0.1)" },
+      },
+    },
+    {
+      key: "inventory-dense",
+      label: "Inventory Dense",
+      description: "Более плотная и утилитарная подача товарных таблиц и остатков.",
+      changes: ["Уплотняет вторичный текст", "Уменьшает radius", "Ставит акцент на данные"],
+      patch: {
+        typography: { smallSize: 13, bodySize: 15 },
+        radii: { card: 12, badge: 12 },
+      },
+    },
+  ],
+  sync: [
+    {
+      key: "diagnostic",
+      label: "Diagnostic",
+      description: "Максимально читаемый контур ошибок и технических статусов.",
+      changes: ["Усиливает warning/error", "Чуть увеличивает лог-текст", "Делает панели контрастнее"],
+      patch: {
+        colors: { info: "#0EA5E9", warning: "#F59E0B", danger: "#EF4444" },
+        typography: { captionSize: 13 },
+        radii: { card: 14 },
+      },
+    },
+    {
+      key: "calm-monitoring",
+      label: "Calm Monitoring",
+      description: "Более спокойный экран мониторинга для длительного наблюдения.",
+      changes: ["Смягчает панели", "Убирает резкость", "Оставляет сигналы только там, где нужно"],
+      patch: {
+        colors: { surfaceMuted: "#F2F6F8", border: "#DCE4EA" },
+        effects: { cardShadow: "0 10px 22px rgba(15, 23, 42, 0.06)" },
+      },
+    },
+  ],
+};
 
 const iconShowcase = [
   ShoppingCart,
@@ -394,6 +653,22 @@ function cloneTheme(theme: DesignTheme) {
 
 function cloneThemeBundle(theme: DesignThemeBundle) {
   return JSON.parse(JSON.stringify(theme)) as DesignThemeBundle;
+}
+
+function applyThemePatch(theme: DesignTheme, patch: ThemePatch) {
+  return {
+    ...theme,
+    meta: patch.meta ? { ...theme.meta, ...patch.meta } : theme.meta,
+    colors: patch.colors ? { ...theme.colors, ...patch.colors } : theme.colors,
+    radii: patch.radii ? { ...theme.radii, ...patch.radii } : theme.radii,
+    typography: patch.typography
+      ? { ...theme.typography, ...patch.typography }
+      : theme.typography,
+    controls: patch.controls
+      ? { ...theme.controls, ...patch.controls }
+      : theme.controls,
+    effects: patch.effects ? { ...theme.effects, ...patch.effects } : theme.effects,
+  } satisfies DesignTheme;
 }
 
 function getThemeForScope(themeBundle: DesignThemeBundle, scope: DesignThemeScope) {
@@ -666,6 +941,13 @@ export default function AdminDesignSystem() {
       control.field as never,
       value as never
     );
+  };
+
+  const applyPresetToActiveScope = (patch: ThemePatch) => {
+    setThemeBundle(prev => ({
+      ...prev,
+      [activeScope]: applyThemePatch(prev[activeScope], patch),
+    }));
   };
 
   const handleSaveDraft = () => {
@@ -1021,6 +1303,51 @@ export default function AdminDesignSystem() {
                         />
                       </AdminCard>
 
+                      <AdminCard
+                        title="Page presets"
+                        description="Быстрые сценарии для этой страницы. Preset накладывает готовый набор токенов поверх текущей темы, чтобы можно было быстро примерить направление UI."
+                      >
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          {sitePagePresets[activeSitePage].map(preset => (
+                            <div
+                              key={preset.key}
+                              className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
+                                    Preset
+                                  </div>
+                                  <div className="mt-2 text-lg font-black text-[var(--tech-color-text-main)]">
+                                    {preset.label}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    applyPresetToActiveScope(preset.patch);
+                                    toast.success(`Preset «${preset.label}» применён`);
+                                  }}
+                                >
+                                  Применить
+                                </Button>
+                              </div>
+                              <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                                {preset.description}
+                              </p>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {preset.changes.map(change => (
+                                  <Badge key={change} variant="outline">
+                                    {change}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </AdminCard>
+
                       {activeSitePage === "home" ? (
                         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
                           <AdminCard title="Hero-блок">
@@ -1281,6 +1608,51 @@ export default function AdminDesignSystem() {
                           theme={theme}
                           onUpdate={updateFromPageControl}
                         />
+                      </AdminCard>
+
+                      <AdminCard
+                        title="Page presets"
+                        description="Сценарные варианты для рабочей поверхности админки. Удобно быстро переключаться между более плотной, спокойной или более выразительной подачей."
+                      >
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          {adminPagePresets[activeAdminPage].map(preset => (
+                            <div
+                              key={preset.key}
+                              className="rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
+                                    Preset
+                                  </div>
+                                  <div className="mt-2 text-lg font-black text-[var(--tech-color-text-main)]">
+                                    {preset.label}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    applyPresetToActiveScope(preset.patch);
+                                    toast.success(`Preset «${preset.label}» применён`);
+                                  }}
+                                >
+                                  Применить
+                                </Button>
+                              </div>
+                              <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                                {preset.description}
+                              </p>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {preset.changes.map(change => (
+                                  <Badge key={change} variant="outline">
+                                    {change}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </AdminCard>
 
                       {activeAdminPage === "dashboard" ? (
