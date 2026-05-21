@@ -12,6 +12,7 @@ import { Link } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useCartAvailability } from "@/hooks/use-cart-availability";
+import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 
 interface CartDrawerProps {
   open: boolean;
@@ -101,9 +102,10 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   <div key={item.id} className="flex gap-4 group">
                     <div className="w-20 h-20 rounded-xl bg-white border border-border p-2 flex items-center justify-center shrink-0">
                       <img
-                        src={item.image}
+                        src={resolveProductImageSrc(item.image)}
                         alt={item.name}
                         className="max-w-full max-h-full object-contain"
+                        onError={applyProductImageFallback}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

@@ -95,7 +95,12 @@ function calculateContentScore(product: ProductInput) {
   const specs = getSpecs(product);
   const image = product.image || "";
   let score = 0;
-  if (image && !image.includes("placeholder") && !image.includes("undefined")) score += 20;
+  if (
+    image &&
+    !image.includes("placeholder") &&
+    !image.includes("nofoto") &&
+    !image.includes("undefined")
+  ) score += 20;
   if ((product.description || "").trim().length >= 20) score += 15;
   if (Object.keys(specs).length > 0) score += 20;
   if (getBrand(product)) score += 10;
@@ -425,7 +430,7 @@ export async function getMerchandisingSummary() {
     .select({
       totalProducts: sql<number>`count(distinct ${schema.products.id})`,
       inStockProducts: sql<number>`sum(case when coalesce(stock.total_stock, 0) > 0 then 1 else 0 end)`,
-      missingImages: sql<number>`sum(case when ${schema.products.image} like '%placeholder%' or ${schema.products.image} like '%undefined%' then 1 else 0 end)`,
+      missingImages: sql<number>`sum(case when ${schema.products.image} like '%placeholder%' or ${schema.products.image} like '%nofoto%' or ${schema.products.image} like '%undefined%' then 1 else 0 end)`,
       missingDescriptions: sql<number>`sum(case when ${schema.products.description} = '' then 1 else 0 end)`,
       highScoreProducts: sql<number>`sum(case when ${schema.productMerchandising.totalScore} >= 70 then 1 else 0 end)`,
       readyForPromo: sql<number>`sum(case when ${schema.productMerchandising.status} = 'ready_for_promo' then 1 else 0 end)`,

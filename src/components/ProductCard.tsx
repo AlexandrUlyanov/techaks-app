@@ -8,6 +8,7 @@ import {
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
 import { formatRussianCount } from "@/lib/russian-plurals";
+import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 
 interface ProductCardProps {
   product: {
@@ -47,6 +48,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   const merchandisingBadges = normalizeMerchandisingBadges(
     product.merchandisingBadges ?? product.badges
   ).slice(0, 3);
+  const productImageSrc = resolveProductImageSrc(product.image);
 
   const rating = Number(product.rating ?? 0);
   const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
@@ -152,10 +154,11 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
               </span>
             )}
             <img
-              src={product.image}
+              src={productImageSrc}
               alt={product.name}
               className="h-full w-full object-contain transition-all duration-300"
               loading="lazy"
+              onError={applyProductImageFallback}
             />
           </div>
 
@@ -230,10 +233,11 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             </span>
           )}
           <img
-            src={product.image}
+            src={productImageSrc}
             alt={product.name}
             className="h-full w-full object-contain transition-all duration-300"
             loading="lazy"
+            onError={applyProductImageFallback}
           />
         </div>
 

@@ -453,7 +453,7 @@ async function downloadImage(
     return relativePath;
   } catch (error: unknown) {
     console.error(`Ошибка скачивания картинки ${imageId}:`, getErrorMessage(error, "Unknown image download error"));
-    return "/images/placeholder.jpg";
+    return "/images/nofoto.jpg";
   }
 }
 
@@ -1463,7 +1463,7 @@ export const syncRouter = createRouter({
               }
             }
 
-            let imagePath = "/images/placeholder.jpg";
+            let imagePath = "/images/nofoto.jpg";
             if (item.images?.meta?.href) {
               try {
                 // Must use moyskladApi to get the 429 retry protection
@@ -1520,7 +1520,7 @@ export const syncRouter = createRouter({
               }
               if (syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
-              if (imagePath !== "/images/placeholder.jpg") updateData.image = imagePath;
+              if (imagePath !== "/images/nofoto.jpg") updateData.image = imagePath;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
               const baseSlug = slugify(item.name).substring(0, 200);

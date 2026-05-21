@@ -20,6 +20,7 @@ import {
   getMerchandisingBadgeStyle,
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
+import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -151,6 +152,7 @@ export default function ProductPage() {
 
   const relatedProducts = merchandisingRelated.slice(0, 4);
   const canonicalPath = `/product/${product.slug}`;
+  const productImageSrc = resolveProductImageSrc(product.image);
   const descriptionForSeo = (product.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
@@ -183,7 +185,7 @@ export default function ProductPage() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    image: [buildCanonical(product.image)],
+    image: [buildCanonical(productImageSrc)],
     description:
       descriptionForSeo ||
       `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
@@ -319,9 +321,10 @@ export default function ProductPage() {
                   </Link>
                 )}
                 <img
-                  src={product.image}
+                  src={productImageSrc}
                   alt={product.name}
                   className="relative z-10 max-h-[450px] object-contain transform group-hover:scale-110 transition-transform duration-700"
+                  onError={applyProductImageFallback}
                 />
               </div>
             </div>

@@ -23,6 +23,7 @@ import { useTheme } from "next-themes";
 import { useSeo } from "@/lib/seo";
 import { useAuth } from "@/hooks/use-auth";
 import { useCartAvailability } from "@/hooks/use-cart-availability";
+import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 
 export default function CheckoutPage() {
   useSeo({
@@ -242,9 +243,10 @@ export default function CheckoutPage() {
                   >
                     <div className="w-24 h-24 rounded-2xl bg-white border border-border p-3 flex items-center justify-center shrink-0">
                       <img
-                        src={item.image}
+                        src={resolveProductImageSrc(item.image)}
                         alt={item.name}
                         className="max-w-full max-h-full object-contain"
+                        onError={applyProductImageFallback}
                       />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
