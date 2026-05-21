@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { blogAiRuns, blogAiSuggestions, categories, manufacturers } from "@db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { blogAiRuns, blogAiSuggestions, categories, manufacturers, products } from "@db/schema";
+import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "../queries/connection";
 import { getGeminiConfig } from "./gemini-spec-standardization";
 import type { BlogStatus } from "./blog-content";
@@ -34,6 +34,12 @@ export const blogAiInputSchema = z.object({
     .default("draft"),
 });
 
+type CatalogLinkTarget = {
+  label: string;
+  url: string;
+  entityType: "category" | "manufacturer" | "product";
+};
+
 const aiSuggestionResultSchema = z.object({
   titleOptions: z.array(z.string()).default([]),
   suggestedSlug: z.string().default(""),
@@ -49,6 +55,8 @@ const aiSuggestionResultSchema = z.object({
       z.object({
         label: z.string(),
         reason: z.string(),
+        url: z.string().default(""),
+        entityType: z.enum(["category", "manufacturer", "product"]).default("category"),
       })
     )
     .default([]),
@@ -61,10 +69,66 @@ export async function generateBlogAiSuggestions(input: z.infer<typeof blogAiInpu
   assertGeminiAccess(config);
 
   const db = getDb();
-  const [categoryRows, manufacturerRows] = await Promise.all([
-    db.select({ name: categories.name }).from(categories).limit(12),
-    db.select({ name: manufacturers.name }).from(manufacturers).where(eq(manufacturers.isVisible, true)).limit(12),
+  const selectedCategory = parsed.category
+    ? await db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          slug: categories.slug,
+        })
+        .from(categories)
+        .where(eq(categories.name, parsed.category))
+        .limit(1)
+        .then(rows => rows[0] ?? null)
+    : null;
+
+  const [categoryRows, manufacturerRows, productRows] = await Promise.all([
+    db
+      .select({ name: categories.name, slug: categories.slug })
+      .from(categories)
+      .limit(12),
+    db
+      .select({ name: manufacturers.name, slug: manufacturers.slug })
+      .from(manufacturers)
+      .where(eq(manufacturers.isVisible, true))
+      .limit(12),
+    db
+      .select({
+        name: products.name,
+        slug: products.slug,
+        categoryId: products.categoryId,
+        price: products.price,
+      })
+      .from(products)
+      .where(
+        and(
+          eq(products.isActive, true),
+          eq(products.isAutoBlocked, false),
+          gt(products.price, 0),
+          selectedCategory ? eq(products.categoryId, selectedCategory.id) : undefined
+        )
+      )
+      .orderBy(desc(products.createdAt))
+      .limit(12),
   ]);
+
+  const catalogTargets: CatalogLinkTarget[] = [
+    ...categoryRows.map(item => ({
+      label: item.name,
+      url: `/catalog?cat=${item.slug}`,
+      entityType: "category" as const,
+    })),
+    ...manufacturerRows.map(item => ({
+      label: item.name,
+      url: `/catalog?view=brands&brand=${item.slug}`,
+      entityType: "manufacturer" as const,
+    })),
+    ...productRows.map(item => ({
+      label: item.name,
+      url: `/product/${item.slug}`,
+      entityType: "product" as const,
+    })),
+  ];
 
   const runInsert = await db.insert(blogAiRuns).values({
     postId: parsed.postId ?? null,
@@ -81,6 +145,7 @@ export async function generateBlogAiSuggestions(input: z.infer<typeof blogAiInpu
     const prompt = buildPrompt(parsed, {
       categoryNames: categoryRows.map(item => item.name),
       manufacturerNames: manufacturerRows.map(item => item.name),
+      catalogTargets,
     });
 
     const response = await executeGemini(config, {
@@ -107,8 +172,10 @@ export async function generateBlogAiSuggestions(input: z.infer<typeof blogAiInpu
                 properties: {
                   label: { type: "string" },
                   reason: { type: "string" },
+                  url: { type: "string" },
+                  entityType: { type: "string", enum: ["category", "manufacturer", "product"] },
                 },
-                required: ["label", "reason"],
+                required: ["label", "reason", "url", "entityType"],
               },
             },
             rationale: { type: "string" },
@@ -192,8 +259,13 @@ export async function markBlogAiSuggestionsApplied(ids: number[]) {
 
 function buildPrompt(
   input: z.infer<typeof blogAiInputSchema>,
-  context: { categoryNames: string[]; manufacturerNames: string[] }
+  context: { categoryNames: string[]; manufacturerNames: string[]; catalogTargets: CatalogLinkTarget[] }
 ) {
+  const targetLines =
+    context.catalogTargets.length > 0
+      ? context.catalogTargets.map(item => `- [${item.entityType}] ${item.label} -> ${item.url}`).join("\n")
+      : "-";
+
   return [
     "Ты редактор и SEO-помощник интернет-магазина ТЕХАКС.",
     "Пиши по-русски, прагматично, без SEO-спама и без пустых маркетинговых клише.",
@@ -212,6 +284,8 @@ function buildPrompt(
     "Контекст ассортимента магазина:",
     `Категории каталога: ${context.categoryNames.join(", ") || "-"}.`,
     `Бренды: ${context.manufacturerNames.join(", ") || "-"}.`,
+    "Реальные кандидаты для внутренних ссылок и коммерческих акцентов:",
+    targetLines,
     "",
     "Черновик статьи/контента:",
     input.content || "-",
@@ -220,8 +294,9 @@ function buildPrompt(
     "1. Верни JSON.",
     "2. Заполняй только полезные поля для текущего режима, остальные оставляй пустыми или массивами [].",
     "3. Заголовки и SEO делай конкретными, без переоптимизации и без кликбейта.",
-    "4. Если предлагаешь внутренние ссылки, то предлагай смысловые направления, а не выдуманные URL.",
-    "5. Тон: экспертный, понятный, человечный, без воды.",
+    "4. Если предлагаешь внутренние ссылки, используй только реальные URL из списка кандидатов выше. Не выдумывай новые пути.",
+    "5. Для режимов ideas и internal_links старайся опираться на коммерчески полезные темы: выбор, совместимость, сценарии покупки, подборки, сравнения, сезонные советы.",
+    "6. Тон: экспертный, понятный, человечный, без воды.",
   ].join("\n");
 }
 
@@ -300,7 +375,12 @@ function buildSuggestionRows(
       postId: postId ?? null,
       suggestionType: "internal_link",
       content: link.label,
-      metadataJson: { reason: link.reason, rationale: result.rationale },
+      metadataJson: {
+        reason: link.reason,
+        rationale: result.rationale,
+        url: link.url,
+        entityType: link.entityType,
+      },
       status: "suggested",
     });
   }

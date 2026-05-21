@@ -370,7 +370,13 @@ export default function AdminBlog() {
     } else if (item.suggestionType === "cta") {
       next.content = `${next.content}\n\n<p><strong>${item.content}</strong></p>`;
     } else if (item.suggestionType === "internal_link") {
-      next.content = `${next.content}\n\n<p><strong>Сюда можно добавить внутреннюю ссылку:</strong> ${item.content}</p>`;
+      const url =
+        item.metadataJson && typeof item.metadataJson.url === "string"
+          ? item.metadataJson.url
+          : "";
+      next.content = url
+        ? `${next.content}\n\n<p><strong>Сюда можно добавить внутреннюю ссылку:</strong> <a href="${url}">${item.content}</a></p>`
+        : `${next.content}\n\n<p><strong>Сюда можно добавить внутреннюю ссылку:</strong> ${item.content}</p>`;
     } else if (item.suggestionType === "idea") {
       next.title = item.content;
       next.slug = slugifyBlogTitle(item.content);
@@ -987,6 +993,22 @@ export default function AdminBlog() {
                           key={`${item.suggestionType}-${item.content}-${index}`}
                           className="rounded-xl border border-gray-200 bg-gray-50 p-4"
                         >
+                          {(() => {
+                            const reason =
+                              item.metadataJson && typeof item.metadataJson.reason === "string"
+                                ? item.metadataJson.reason
+                                : "";
+                            const url =
+                              item.metadataJson && typeof item.metadataJson.url === "string"
+                                ? item.metadataJson.url
+                                : "";
+                            const entityType =
+                              item.metadataJson && typeof item.metadataJson.entityType === "string"
+                                ? item.metadataJson.entityType
+                                : "";
+
+                            return (
+                              <>
                           <div className="mb-2 flex items-center justify-between gap-3">
                             <div className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4]">
                               {item.suggestionType}
@@ -1002,11 +1024,21 @@ export default function AdminBlog() {
                           <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
                             {item.content}
                           </div>
-                          {item.metadataJson?.reason ? (
-                            <div className="mt-3 text-xs text-gray-500">
-                              Причина: {String(item.metadataJson.reason)}
+                          {reason ? (
+                            <div className="mt-3 text-xs text-gray-500">Причина: {reason}</div>
+                          ) : null}
+                          {url ? (
+                            <div className="mt-2 text-xs text-gray-500">
+                              URL:{" "}
+                              <span className="font-mono text-[#0099A8]">
+                                {url}
+                              </span>
+                              {entityType ? ` (${entityType})` : ""}
                             </div>
                           ) : null}
+                              </>
+                            );
+                          })()}
                         </div>
                       ))
                     )}
