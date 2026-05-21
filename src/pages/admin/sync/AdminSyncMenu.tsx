@@ -9,8 +9,6 @@ import {
   Clock3,
   ShoppingBag,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
 import { trpc } from "@/providers/trpc";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
@@ -49,7 +47,7 @@ export default function AdminSyncMenu() {
         meta={
           <>
             <span>Активных процессов: {runningCount}</span>
-            <span>Последний запуск: {latestLog ? format(new Date(latestLog.createdAt), "d MMM, HH:mm", { locale: ru }) : "—"}</span>
+            <span>Последний запуск: {latestLog ? formatSyncDate(latestLog.createdAt) : "—"}</span>
           </>
         }
       />
@@ -192,9 +190,7 @@ export default function AdminSyncMenu() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2 text-sm font-medium text-[#15171A]">
                             <Clock3 size={14} className="text-gray-300" />
-                            {format(new Date(log.createdAt), "d MMM, HH:mm", {
-                              locale: ru,
-                            })}
+                            {formatSyncDate(log.createdAt)}
                           </div>
                         </td>
                         <td className="px-5 py-4 font-semibold uppercase text-[#15171A]">
@@ -258,4 +254,13 @@ function logDetails(log: SyncLog) {
     categories: log.details?.stats?.categories || 0,
     stocks: log.details?.stats?.stocks || 0,
   };
+}
+
+function formatSyncDate(value: string | Date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
