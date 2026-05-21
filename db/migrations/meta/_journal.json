@@ -127,6 +127,13 @@
       "when": 1779612000000,
       "tag": "0017_design_system_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1779702000000,
+      "tag": "0018_product_image_variants",
+      "breakpoints": true
     }
   ]
 }

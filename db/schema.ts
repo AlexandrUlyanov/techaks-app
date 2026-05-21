@@ -47,6 +47,7 @@ export const products = mysqlTable("products", {
   oldPrice: int("old_price"),
   badge: varchar("badge", { length: 50 }),
   image: varchar("image", { length: 255 }).notNull(),
+  imageVariants: json("image_variants"),
   images: json("images"),
   description: text("description").notNull(),
   specs: json("specs").notNull(),

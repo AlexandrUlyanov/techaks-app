@@ -48,6 +48,7 @@ export const productSelectFields = {
   oldPrice: products.oldPrice,
   badge: products.badge,
   image: products.image,
+  imageVariants: products.imageVariants,
   images: products.images,
   description: products.description,
   specs: products.specs,

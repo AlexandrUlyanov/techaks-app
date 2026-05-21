@@ -324,8 +324,12 @@ export default function HomeSecondarySections({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {popularProducts.map(product => (
-              <ProductCard key={product.id} product={product as any} />
+            {popularProducts.map((product, index) => (
+              <ProductCard
+                key={product.id}
+                product={product as any}
+                imagePriority={index < 4}
+              />
             ))}
           </div>
           <div className="mt-16 text-center">

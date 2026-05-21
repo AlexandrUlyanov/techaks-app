@@ -1,10 +1,15 @@
 import { useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { applyProductImageFallback } from "@/lib/product-images";
+import {
+  applyProductImageFallback,
+  getProductGalleryImageProps,
+  getProductLightboxImageSrc,
+} from "@/lib/product-images";
+import type { ProductImageVariantSet } from "@contracts/product-images";
 
 type ProductImageLightboxProps = {
-  images: string[];
+  images: ProductImageVariantSet[];
   productName: string;
   selectedIndex: number | null;
   onClose: () => void;
@@ -21,7 +26,14 @@ export default function ProductImageLightbox({
   const touchStartXRef = useRef<number | null>(null);
   const open = selectedIndex !== null && images.length > 0;
   const safeIndex = selectedIndex ?? 0;
-  const currentImage = useMemo(() => images[safeIndex] ?? images[0] ?? "", [images, safeIndex]);
+  const currentImage = useMemo(
+    () => images[safeIndex] ?? images[0] ?? null,
+    [images, safeIndex]
+  );
+  const currentImageProps = getProductGalleryImageProps({
+    image: currentImage?.original ?? "",
+    imageVariants: currentImage,
+  });
   const hasMultipleImages = images.length > 1;
 
   const goToPrevious = () => {
@@ -84,9 +96,12 @@ export default function ProductImageLightbox({
             }}
           >
             <img
-              src={currentImage}
+              src={getProductLightboxImageSrc(currentImageProps.variantSet)}
+              srcSet={currentImageProps.srcSet}
+              sizes="90vw"
               alt={`${productName} — увеличенное изображение ${safeIndex + 1}`}
               onError={applyProductImageFallback}
+              decoding="async"
               className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-[0_20px_80px_rgba(0,0,0,0.45)]"
             />
           </div>
@@ -105,7 +120,7 @@ export default function ProductImageLightbox({
               <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/35 px-3 py-2 backdrop-blur-sm">
                 {images.map((image, index) => (
                   <button
-                    key={`${image}-${index}`}
+                    key={`${image.original}-${index}`}
                     type="button"
                     aria-label={`Показать изображение ${index + 1}`}
                     onClick={() => onSelect(index)}

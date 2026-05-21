@@ -164,12 +164,12 @@ export default function HomePage() {
               className="relative"
             >
               <CarouselContent className="-ml-3 sm:-ml-5">
-                {weekProducts.map(product => (
+                {weekProducts.map((product, index) => (
                   <CarouselItem
                     key={product.id}
                     className="pl-3 sm:pl-5 basis-[72%] min-[520px]:basis-1/2 md:basis-1/3 xl:basis-1/4"
                   >
-                    <ProductCard product={product as any} />
+                    <ProductCard product={product as any} imagePriority={index < 4} />
                   </CarouselItem>
                 ))}
               </CarouselContent>

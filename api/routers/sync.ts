@@ -31,6 +31,8 @@ import {
   syncOrderToMoyskladManually,
   validateMoyskladConfig,
 } from "../lib/moysklad-order-sync";
+import { createProductImageVariants } from "../lib/product-image-variants";
+import type { ProductImageVariantSet } from "@contracts/product-images";
 import {
   getSyncRuntimeSettings,
   saveSyncRuntimeSettings,
@@ -391,18 +393,11 @@ async function downloadImage(
   authHeader: string,
   imageId: string,
   folderName: string = "general"
-): Promise<string> {
+): Promise<ProductImageVariantSet | null> {
   const baseDir = path.join(process.cwd(), "public", "images", folderName);
 
   if (!fs.existsSync(baseDir)) {
     fs.mkdirSync(baseDir, { recursive: true });
-  }
-
-  const filePath = path.join(baseDir, `${imageId}.jpg`);
-  const relativePath = `/images/${folderName}/${imageId}.jpg`;
-
-  if (fs.existsSync(filePath)) {
-    return relativePath;
   }
 
   try {
@@ -439,21 +434,20 @@ async function downloadImage(
 
     const res = await getWithRetry(finalUrl, {
       ...useConfig,
-      responseType: "stream",
+      responseType: "arraybuffer",
     });
 
-    const writer = fs.createWriteStream(filePath);
-    res.data.pipe(writer);
-
-    await new Promise((resolve, reject) => {
-      writer.on("finish", () => resolve(true));
-      writer.on("error", reject);
+    const inputBuffer = Buffer.from(res.data);
+    return createProductImageVariants({
+      inputBuffer,
+      downloadUrl: finalUrl,
+      contentType: res.headers["content-type"] as string | undefined,
+      imageId,
+      folderName,
     });
-
-    return relativePath;
   } catch (error: unknown) {
     console.error(`Ошибка скачивания картинки ${imageId}:`, getErrorMessage(error, "Unknown image download error"));
-    return "/images/nofoto.jpg";
+    return null;
   }
 }
 
@@ -470,21 +464,24 @@ async function downloadProductImages(
   productMsId: string,
   folderName: string
 ) {
-  const resolvedImages: string[] = [];
+  const resolvedImages: ProductImageVariantSet[] = [];
 
   for (const [index, imageRow] of imageRows.entries()) {
     const downloadHref = imageRow.meta?.downloadHref;
     if (!downloadHref) continue;
 
-    const imagePath = await downloadImage(
+    const imageVariantSet = await downloadImage(
       downloadHref,
       authHeader,
       imageRow.id || `${productMsId}-${index + 1}`,
       folderName
     );
 
-    if (imagePath !== "/images/nofoto.jpg" && !resolvedImages.includes(imagePath)) {
-      resolvedImages.push(imagePath);
+    if (
+      imageVariantSet?.original &&
+      !resolvedImages.some(existing => existing.original === imageVariantSet.original)
+    ) {
+      resolvedImages.push(imageVariantSet);
     }
   }
 
@@ -1498,7 +1495,8 @@ export const syncRouter = createRouter({
             }
 
             let imagePath = "/images/nofoto.jpg";
-            let imagePaths: string[] = [];
+            let imageVariants: ProductImageVariantSet | null = null;
+            let imagePaths: ProductImageVariantSet[] = [];
             if (item.images?.meta?.href) {
               try {
                 // Must use moyskladApi to get the 429 retry protection
@@ -1511,7 +1509,8 @@ export const syncRouter = createRouter({
                     folderSlug
                   );
                   if (imagePaths.length > 0) {
-                    imagePath = imagePaths[0];
+                    imageVariants = imagePaths[0];
+                    imagePath = imageVariants.original || imageVariants.medium || imageVariants.card || imageVariants.thumb || "/images/nofoto.jpg";
                   }
                 }
               } catch (err: unknown) {
@@ -1563,6 +1562,7 @@ export const syncRouter = createRouter({
               if (syncStocks) updateData.inStock = inStock;
               if (categoryId) updateData.categoryId = categoryId;
               if (imagePath !== "/images/nofoto.jpg") updateData.image = imagePath;
+              if (imageVariants) updateData.imageVariants = imageVariants;
               if (imagePaths.length > 0) updateData.images = imagePaths;
               await db.update(schema.products).set(updateData).where(eq(schema.products.id, dbProductId));
             } else {
@@ -1582,6 +1582,7 @@ export const syncRouter = createRouter({
                   price,
                   description: item.description || "",
                   image: imagePath,
+                  imageVariants,
                   images: imagePaths,
                   specs,
                   inStock,

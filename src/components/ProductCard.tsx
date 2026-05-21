@@ -8,7 +8,7 @@ import {
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
 import { formatRussianCount } from "@/lib/russian-plurals";
-import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
+import { applyProductImageFallback, getProductCardImageProps } from "@/lib/product-images";
 
 interface ProductCardProps {
   product: {
@@ -21,6 +21,7 @@ interface ProductCardProps {
     badges?: unknown;
     merchandisingBadges?: unknown;
     image: string;
+    imageVariants?: unknown;
     categoryId: number;
     categoryName?: string;
     rating?: string | number | null;
@@ -29,9 +30,14 @@ interface ProductCardProps {
     specs?: Record<string, unknown> | null;
   };
   variant?: "grid" | "list";
+  imagePriority?: boolean;
 }
 
-export default function ProductCard({ product, variant = "grid" }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  variant = "grid",
+  imagePriority = false,
+}: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find(item => item.id === product.id);
   const isInStock = Boolean(product.inStock);
@@ -48,7 +54,15 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   const merchandisingBadges = normalizeMerchandisingBadges(
     product.merchandisingBadges ?? product.badges
   ).slice(0, 3);
-  const productImageSrc = resolveProductImageSrc(product.image);
+  const productImage = getProductCardImageProps({
+    image: product.image,
+    imageVariants: product.imageVariants,
+    priority: imagePriority,
+    sizes:
+      variant === "list"
+        ? "(max-width: 640px) 112px, 148px"
+        : "(max-width: 768px) 45vw, (max-width: 1280px) 30vw, 300px",
+  });
 
   const rating = Number(product.rating ?? 0);
   const hasRating = Boolean(product.reviewCount && product.reviewCount > 0 && rating > 0);
@@ -154,10 +168,14 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
               </span>
             )}
             <img
-              src={productImageSrc}
+              src={productImage.src}
+              srcSet={productImage.srcSet}
+              sizes={productImage.sizes}
               alt={product.name}
               className="h-full w-full object-contain transition-all duration-300"
-              loading="lazy"
+              loading={productImage.loading}
+              fetchPriority={productImage.fetchPriority}
+              decoding={productImage.decoding}
               onError={applyProductImageFallback}
             />
           </div>
@@ -233,10 +251,14 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             </span>
           )}
           <img
-            src={productImageSrc}
+            src={productImage.src}
+            srcSet={productImage.srcSet}
+            sizes={productImage.sizes}
             alt={product.name}
             className="h-full w-full object-contain transition-all duration-300"
-            loading="lazy"
+            loading={productImage.loading}
+            fetchPriority={productImage.fetchPriority}
+            decoding={productImage.decoding}
             onError={applyProductImageFallback}
           />
         </div>

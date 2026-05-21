@@ -21,7 +21,10 @@ import {
   getMerchandisingBadgeStyle,
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
-import { resolveProductImageSrc } from "@/lib/product-images";
+import {
+  getProductLightboxImageSrc,
+  resolveProductImageCollection,
+} from "@/lib/product-images";
 
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
@@ -119,19 +122,15 @@ export default function ProductPage() {
     }
   }, [hasReviewItems, location.hash]);
 
-  const productImageSrc = resolveProductImageSrc(product?.image);
   const productImages = useMemo(() => {
-    if (!product) return [productImageSrc];
+    if (!product) return [];
 
-    const rawImages = (product as { images?: unknown }).images;
-    const additionalImages = Array.isArray(rawImages)
-      ? rawImages.filter((image): image is string => typeof image === "string")
-      : [];
-
-    return Array.from(
-      new Set([productImageSrc, ...additionalImages.map(resolveProductImageSrc)])
+    return resolveProductImageCollection(
+      product.image,
+      (product as { imageVariants?: unknown }).imageVariants,
+      (product as { images?: unknown }).images
     );
-  }, [product, productImageSrc]);
+  }, [product]);
 
   if (isLoading) {
     return (
@@ -199,7 +198,7 @@ export default function ProductPage() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    image: [buildCanonical(productImageSrc)],
+    image: productImages.map(image => buildCanonical(getProductLightboxImageSrc(image))),
     description:
       descriptionForSeo ||
       `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
