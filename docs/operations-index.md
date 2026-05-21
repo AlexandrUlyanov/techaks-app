@@ -163,7 +163,12 @@ Product visibility SQL:
 - [blog-and-ai-editor-assistant-tz.md](</E:/work/ru/tehax/s/app/docs/blog-and-ai-editor-assistant-tz.md>)  
   Подробное ТЗ на развитие блога до Blog 2.0: безопасный контентный слой, richer editor, SEO, improved storefront article UX и AI-помощник редактора в админке.
 
-## 14. Что сейчас считать source of truth
+## 14. Tech stack
+
+- [tech-stack.md](</E:/work/ru/tehax/s/app/docs/tech-stack.md>)  
+  Живой reference по стеку проекта: frontend, backend, database, styling, build pipeline, testing, integrations и production runtime.
+
+## 15. Что сейчас считать source of truth
 
 Если нужен минимальный набор актуальных документов, используем:
 
@@ -173,7 +178,7 @@ Product visibility SQL:
 4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 15. Что нельзя делать без отдельного подтверждения
+## 16. Что нельзя делать без отдельного подтверждения
 
 - destructive migrations;
 - drop таблиц/колонок на production;
