@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StickyBottomBar from "@/components/StickyBottomBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import DesignThemeBridge from "@/design-system/DesignThemeBridge";
 import HomePage from "@/pages/HomePage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -53,6 +54,7 @@ const AdminMerchandisingQuality = lazy(
   () => import("@/pages/admin/merchandising/AdminMerchandisingQuality")
 );
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminDesignSystem = lazy(() => import("@/pages/admin/AdminDesignSystem"));
 const SyncLayout = lazy(() => import("@/pages/admin/sync/SyncLayout"));
 const AdminSyncMenu = lazy(() => import("@/pages/admin/sync/AdminSyncMenu"));
 const AdminSyncMoySklad = lazy(
@@ -65,7 +67,7 @@ const AdminSyncMoySkladOrders = lazy(
 function RouteFallback() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center py-20">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#05C3D4]/20 border-t-[#05C3D4]" />
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,white)] border-t-[var(--tech-color-primary)]" />
     </div>
   );
 }
@@ -89,6 +91,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
+      <DesignThemeBridge />
       <CatalogMenu />
       {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
@@ -138,6 +141,7 @@ export default function App() {
                 />
                 <Route path="reviews" element={<AdminReviews />} />
                 <Route path="blog" element={<AdminBlog />} />
+                <Route path="design-system" element={<AdminDesignSystem />} />
                 <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
                 <Route path="sync" element={<SyncLayout />}>

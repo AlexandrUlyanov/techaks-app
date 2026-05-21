@@ -41,9 +41,9 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   };
 
   const badgeColors: Record<string, string> = {
-    Акция: "bg-[#05C3D4] text-black",
-    Хит: "bg-white text-black",
-    Новинка: "bg-[#05C3D4] text-black",
+    Акция: "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]",
+    Хит: "bg-white text-[var(--tech-color-text-main)]",
+    Новинка: "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]",
   };
   const merchandisingBadges = normalizeMerchandisingBadges(
     product.merchandisingBadges ?? product.badges
@@ -88,21 +88,21 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   };
 
   const cartControl = !isInStock ? (
-    <button
-      type="button"
-      disabled
-      className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#D7E0E7] bg-[#F3F6F8] px-4 text-[10px] font-black uppercase tracking-widest text-[#7F8A96] cursor-not-allowed shadow-none"
-      aria-label="Нет в наличии"
-    >
+      <button
+        type="button"
+        disabled
+        className="flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] border border-[var(--tech-color-border)] bg-[var(--tech-color-surface-muted)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-text-muted)] cursor-not-allowed shadow-none"
+        aria-label="Нет в наличии"
+      >
       <ShoppingCart size={14} className="hidden sm:block opacity-70" />
       Нет в наличии
     </button>
   ) : cartItem ? (
-    <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-lg border border-[#05C3D4]/40 bg-[#05C3D4]/10">
+    <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-[calc(var(--tech-radius-button)-4px)] border border-[color:color-mix(in_srgb,var(--tech-color-primary)_40%,white)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)]">
       <button
         type="button"
         onClick={decreaseQuantity}
-        className="flex items-center justify-center text-[#047987] hover:bg-[#05C3D4]/15"
+        className="flex items-center justify-center text-[var(--tech-color-primary)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_15%,white)]"
         aria-label="Уменьшить количество"
       >
         <Minus size={14} />
@@ -113,7 +113,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
       <button
         type="button"
         onClick={increaseQuantity}
-        className="flex items-center justify-center text-[#047987] hover:bg-[#05C3D4]/15"
+        className="flex items-center justify-center text-[var(--tech-color-primary)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_15%,white)]"
         aria-label="Увеличить количество"
       >
         <Plus size={14} />
@@ -122,7 +122,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   ) : (
     <button
       onClick={handleAddToCart}
-      className="magnetic flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#05C3D4] px-4 text-[10px] font-black uppercase tracking-widest text-white dark:text-black transition-all duration-300 hover:bg-[#27E6F2] active:scale-95 relative overflow-hidden group shadow-[0_4px_20px_rgba(5,195,212,0.3)] dark:shadow-[0_0_30px_rgba(5,195,212,0.3)]"
+      className="magnetic flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] bg-[var(--tech-color-primary)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-primary-foreground)] transition-all duration-300 hover:brightness-95 active:scale-95 relative overflow-hidden group shadow-[var(--tech-shadow-button)]"
     >
       <ShoppingCart size={14} className="hidden sm:block" />
       В корзину
@@ -131,7 +131,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
 
   if (variant === "list") {
     return (
-      <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm relative after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
+      <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] relative after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
         <Link to={`/product/${product.slug}`} className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4">
           <div className="relative h-[112px] sm:h-[132px] bg-white rounded-lg flex items-center justify-center p-3 overflow-hidden">
             {merchandisingBadges.length > 0 && (
@@ -173,13 +173,13 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
             </h3>
             {hasRating && (
               <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-                <Star size={12} className="fill-[#05C3D4] text-[#05C3D4]" />
+                <Star size={12} className="fill-[var(--tech-color-primary)] text-[var(--tech-color-primary)]" />
                 {rating.toFixed(1)} · {reviewCountLabel}
               </div>
             )}
             <div className="mt-auto flex items-end justify-between gap-3">
               <div>
-                <div className="text-lg sm:text-xl font-black text-[#05C3D4]">
+                <div className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)]">
                   {formatPrice(product.price)}
                 </div>
                 {product.oldPrice && (
@@ -192,7 +192,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
                 {cartControl}
                 <button
                   type="button"
-                  className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                  className="hidden sm:flex h-10 w-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] border border-border text-muted-foreground hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
                   aria-label="В избранное"
                   onClick={e => {
                     e.preventDefault();
@@ -210,7 +210,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
   }
 
   return (
-    <div className="group bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 hover:border-[#05C3D4]/30 shadow-sm hover:shadow-lg relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-xl after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,#05C3D4,transparent),linear-gradient(180deg,transparent,#05C3D4,transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
+    <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] hover:shadow-[var(--tech-shadow-card)] relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
       <Link to={`/product/${product.slug}`} className="flex-1 flex flex-col">
         <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
           {merchandisingBadges.length > 0 && (
@@ -252,14 +252,14 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
           </h3>
           {hasRating && (
             <div className="mt-2 flex items-center gap-1">
-                <Star size={10} className="fill-[#05C3D4] text-[#05C3D4]" />
+                <Star size={10} className="fill-[var(--tech-color-primary)] text-[var(--tech-color-primary)]" />
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {rating.toFixed(1)} · {reviewCountLabel}
                 </span>
             </div>
           )}
           <div className="mt-auto pt-3 flex items-end gap-2">
-            <span className="text-lg sm:text-xl font-black text-[#05C3D4] leading-none">
+            <span className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)] leading-none">
               {formatPrice(product.price)}
             </span>
             {product.oldPrice && (
@@ -275,7 +275,7 @@ export default function ProductCard({ product, variant = "grid" }: ProductCardPr
         {cartControl}
         <button
           type="button"
-          className="flex h-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-[#05C3D4] hover:text-[#05C3D4] transition-colors"
+          className="flex h-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] border border-border text-muted-foreground hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] transition-colors"
           aria-label="В избранное"
           onClick={e => {
             e.preventDefault();

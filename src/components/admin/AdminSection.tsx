@@ -10,9 +10,10 @@ type AdminSectionProps = {
 };
 
 const toneClasses: Record<NonNullable<AdminSectionProps["tone"]>, string> = {
-  default: "border-gray-200 bg-white",
-  accent: "border-[#05C3D4]/20 bg-[#F7FEFF]",
-  subtle: "border-gray-100 bg-gray-50/70",
+  default: "border-border bg-card",
+  accent:
+    "border-[color:color-mix(in_srgb,var(--tech-color-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_6%,white)]",
+  subtle: "border-border/70 bg-[var(--tech-color-surface-muted)]",
 };
 
 export default function AdminSection({
@@ -25,13 +26,13 @@ export default function AdminSection({
 }: AdminSectionProps) {
   return (
     <section
-      className={`overflow-hidden rounded-2xl border shadow-sm ${toneClasses[tone]}`}
+      className={`overflow-hidden rounded-[var(--tech-radius-card)] border shadow-[var(--tech-shadow-card)] ${toneClasses[tone]}`}
     >
       <div className="flex flex-col gap-3 border-b border-black/5 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h2 className="text-base font-black text-[#15171A]">{title}</h2>
+          <h2 className="text-base font-black text-[var(--tech-color-text-main)]">{title}</h2>
           {description ? (
-            <p className="max-w-3xl text-sm leading-6 text-gray-500">
+            <p className="max-w-3xl text-sm leading-6 text-[var(--tech-color-text-muted)]">
               {description}
             </p>
           ) : null}

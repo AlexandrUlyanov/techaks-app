@@ -17,7 +17,9 @@ export type Actions =
   | "update"
   | "delete"
   | "sync"
-  | "configure";
+  | "configure"
+  | "publish"
+  | "rollback";
 
 export type Subjects =
   | "all"
@@ -32,6 +34,7 @@ export type Subjects =
   | "BlogPost"
   | "Merchandising"
   | "Settings"
+  | "DesignSystem"
   | "Sync"
   | "User"
   | "AdminPanel";
@@ -60,6 +63,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
       "Sync",
     ]);
     can("configure", "Settings");
+    can(["read", "update", "publish", "rollback"], "DesignSystem");
     can("read", "User");
     can("read", "AdminPanel");
   } else if (role === "merchandiser") {
@@ -69,14 +73,17 @@ export function defineAbilityFor(user: { id: number; role: string }) {
   } else if (role === "content_manager") {
     can("manage", ["Banner", "BlogPost"]);
     can("read", "Product");
+    can("read", "DesignSystem");
     can("read", "AdminPanel");
   } else if (role === "manager") {
     can("read", ["Lead", "Order", "Product", "Store", "Review"]);
     can("update", ["Lead", "Order", "Review", "Reservation"]);
+    can("read", "DesignSystem");
     can("read", "AdminPanel");
   } else if (role === "warehouse") {
     can("read", ["Order", "Product", "Store", "Reservation"]);
     can("update", ["Order", "Reservation"]);
+    can("read", "DesignSystem");
     can("read", "AdminPanel");
   } else {
     // customer

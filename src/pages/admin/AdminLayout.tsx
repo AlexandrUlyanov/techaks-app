@@ -18,7 +18,9 @@ import {
   TrendingUp,
   ShieldCheck,
   Blocks,
+  Palette,
 } from "lucide-react";
+import { useAbility } from "@/providers/AbilityProvider";
 
 type NavItem = {
   name: string;
@@ -27,7 +29,7 @@ type NavItem = {
   match?: (pathname: string) => boolean;
 };
 
-const navGroups: Array<{ title: string; items: NavItem[] }> = [
+const navGroupsBase: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Операции",
     items: [
@@ -62,18 +64,13 @@ const navGroups: Array<{ title: string; items: NavItem[] }> = [
       },
     ],
   },
-  {
-    title: "Контент и система",
-    items: [
-      { name: "Акции", href: "/admin/banners", icon: Gift },
-      { name: "Блог", href: "/admin/blog", icon: FileText },
-      { name: "Настройки", href: "/admin/settings", icon: Settings },
-    ],
-  },
 ];
 
-function getCurrentItem(pathname: string) {
-  for (const group of navGroups) {
+function getCurrentItem(
+  pathname: string,
+  groups: Array<{ title: string; items: NavItem[] }>
+) {
+  for (const group of groups) {
     for (const item of group.items) {
       if (item.match ? item.match(pathname) : pathname === item.href) {
         return { group: group.title, item };
@@ -86,16 +83,31 @@ function getCurrentItem(pathname: string) {
 
 export default function AdminLayout() {
   const location = useLocation();
-  const current = getCurrentItem(location.pathname);
+  const ability = useAbility();
+  const navGroups = [
+    ...navGroupsBase,
+    {
+      title: "Контент и система",
+      items: [
+        { name: "Акции", href: "/admin/banners", icon: Gift },
+        { name: "Блог", href: "/admin/blog", icon: FileText },
+        ...(ability.can("read", "DesignSystem")
+          ? [{ name: "Дизайн-система", href: "/admin/design-system", icon: Palette }]
+          : []),
+        { name: "Настройки", href: "/admin/settings", icon: Settings },
+      ],
+    },
+  ];
+  const current = getCurrentItem(location.pathname, navGroups);
 
   return (
-    <div className="min-h-screen bg-[#F4F6F8]">
+    <div className="min-h-screen bg-[var(--tech-color-background)]">
       <div className="grid min-h-screen lg:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="flex flex-col border-r border-black/5 bg-[#15171A] text-white">
+        <aside className="flex flex-col border-r border-black/5 bg-[var(--tech-color-brand-dark)] text-white">
           <div className="border-b border-white/10 px-7 py-7">
             <Link to="/admin" className="flex flex-col gap-1">
               <span className="text-2xl font-black uppercase tracking-tight">
-                ТЕХ<span className="text-[#05C3D4]">АКС</span>
+                ТЕХ<span className="text-[var(--tech-color-primary)]">АКС</span>
               </span>
               <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">
                 Панель управления
@@ -122,13 +134,13 @@ export default function AdminLayout() {
                         to={item.href}
                         className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
                           isActive
-                            ? "bg-white text-[#15171A] shadow-sm"
+                            ? "bg-white text-[var(--tech-color-text-main)] shadow-sm"
                             : "text-white/55 hover:bg-white/6 hover:text-white"
                         }`}
                       >
                         <Icon
                           size={17}
-                          className={isActive ? "text-[#05C3D4]" : "text-white/35"}
+                          className={isActive ? "text-[var(--tech-color-primary)]" : "text-white/35"}
                         />
                         <span>{item.name}</span>
                       </Link>
@@ -166,10 +178,10 @@ export default function AdminLayout() {
                   <span>{current?.group ?? "Обзор"}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-xl font-black text-[#15171A]">
+                  <h1 className="text-xl font-black text-[var(--tech-color-text-main)]">
                     {current?.item.name ?? "Панель"}
                   </h1>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[#05C3D4]/20 bg-[#F7FEFF] px-3 py-1 text-xs font-bold text-[#0099A8]">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,white)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)] px-3 py-1 text-xs font-bold text-[var(--tech-color-primary)]">
                     <ShieldCheck size={14} />
                     Рабочий режим
                   </span>
@@ -178,14 +190,14 @@ export default function AdminLayout() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="hidden items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 md:flex">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#05C3D4] shadow-sm">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[var(--tech-color-primary)] shadow-sm">
                     <Blocks size={18} />
                   </div>
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.16em] text-gray-400">
                       Контур
                     </div>
-                    <div className="text-sm font-semibold text-[#15171A]">
+                    <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
                       Операционный backoffice
                     </div>
                   </div>
@@ -193,12 +205,12 @@ export default function AdminLayout() {
 
                 <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-[#15171A]">
+                    <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
                       Администратор
                     </div>
                     <div className="text-xs text-gray-500">admin@techaks.ru</div>
                   </div>
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#15171A] text-sm font-black text-white">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--tech-color-brand-dark)] text-sm font-black text-white">
                     A
                   </div>
                 </div>

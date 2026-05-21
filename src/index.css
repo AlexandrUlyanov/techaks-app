@@ -4,27 +4,67 @@
 
 @layer base {
   :root {
-    /* Light Theme (Default) - Clean, High Contrast Retail */
+    --tech-color-primary: #05c3d4;
+    --tech-color-primary-foreground: #ffffff;
+    --tech-color-brand-dark: #464a50;
+    --tech-color-background: #f8fafb;
+    --tech-color-surface: #ffffff;
+    --tech-color-surface-muted: #f5f7f8;
+    --tech-color-text-main: #1f2933;
+    --tech-color-text-muted: #6b7280;
+    --tech-color-border: #d7e0e7;
+    --tech-color-success: #22c55e;
+    --tech-color-warning: #f59e0b;
+    --tech-color-danger: #ef4444;
+    --tech-color-info: #0ea5e9;
+    --tech-color-badge-top: #f59e0b;
+    --tech-color-badge-new: #05c3d4;
+    --tech-color-badge-discount: #ef4444;
+    --tech-color-badge-excellent: #22c55e;
+    --tech-radius-button: 12px;
+    --tech-radius-card: 16px;
+    --tech-radius-input: 12px;
+    --tech-radius-modal: 24px;
+    --tech-radius-badge: 999px;
+    --tech-font-family: "Manrope", Inter, system-ui, sans-serif;
+    --tech-font-size-h1: 40px;
+    --tech-font-size-h2: 28px;
+    --tech-font-size-h3: 22px;
+    --tech-font-size-body: 16px;
+    --tech-font-size-small: 14px;
+    --tech-font-size-caption: 12px;
+    --tech-font-size-price: 34px;
+    --tech-font-size-old-price: 16px;
+    --tech-font-size-admin-label: 12px;
+    --tech-line-height-heading: 1.15;
+    --tech-line-height-body: 1.6;
+    --tech-control-height-button: 44px;
+    --tech-control-height-input: 44px;
+    --tech-control-size-icon-button: 44px;
+    --tech-shadow-button: 0 10px 24px rgba(5, 195, 212, 0.18);
+    --tech-shadow-card: 0 12px 32px rgba(15, 23, 42, 0.08);
+    --tech-shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.2);
+
     --background: 210 20% 98%;
-    --foreground: 216 25% 10%; /* Deep dark for text */
+    --foreground: 216 25% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 216 25% 10%;
+    --card-foreground: 216 25% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 216 25% 10%;
-    --primary: 185 95% 43%; /* Tech Cyan */
+    --popover-foreground: 216 25% 16%;
+    --primary: 185 95% 43%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 10% 94%;
-    --secondary-foreground: 216 25% 10%;
+    --secondary: 210 10% 96%;
+    --secondary-foreground: 216 25% 16%;
     --muted: 210 10% 96%;
-    --muted-foreground: 216 15% 30%; /* Darker for better contrast on light backgrounds */
+    --muted-foreground: 220 9% 46%;
     --accent: 185 95% 43%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 216 10% 88%;
-    --input: 216 10% 88%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
     --ring: 185 95% 43%;
-    --radius: 1.125rem;
+    --radius: 1rem;
   }
 
   .dark {
@@ -57,7 +97,9 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
-    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--tech-font-family);
+    font-size: var(--tech-font-size-body);
+    line-height: var(--tech-line-height-body);
     transition:
       background-color 0.4s ease,
       color 0.4s ease;
@@ -69,6 +111,17 @@
   h5,
   h6 {
     @apply font-heading tracking-tight;
+    line-height: var(--tech-line-height-heading);
+    color: var(--tech-color-text-main);
+  }
+  h1 {
+    font-size: var(--tech-font-size-h1);
+  }
+  h2 {
+    font-size: var(--tech-font-size-h2);
+  }
+  h3 {
+    font-size: var(--tech-font-size-h3);
   }
 }
 
@@ -78,11 +131,11 @@
   }
 
   .glow-cyan {
-    box-shadow: 0 0 20px rgba(5, 195, 212, 0.15);
+    box-shadow: var(--tech-shadow-button);
   }
 
   .glow-cyan-hover:hover {
-    box-shadow: 0 0 25px rgba(5, 195, 212, 0.25);
+    box-shadow: var(--tech-shadow-button);
   }
 
   @keyframes electric-border {
@@ -105,7 +158,7 @@
 
   /* Specific styling for the brand identity in any theme */
   .brand-graphite {
-    @apply bg-[#15171A] dark:bg-[#0A0B0D];
+    background-color: var(--tech-color-brand-dark);
   }
 
   .product-action-button .product-action-icon svg {

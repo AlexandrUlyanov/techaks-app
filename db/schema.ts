@@ -556,6 +556,32 @@ export const appSettings = mysqlTable("app_settings", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const designThemeVersions = mysqlTable("design_theme_versions", {
+  id: serial("id").primaryKey(),
+  versionNumber: int("version_number").notNull(),
+  themeName: varchar("theme_name", { length: 120 }).notNull(),
+  actionType: varchar("action_type", { length: 30 }).notNull().default("publish"),
+  themeJson: json("theme_json").notNull(),
+  changeSummary: text("change_summary"),
+  changeDetailsJson: json("change_details_json"),
+  changedByUserId: int("changed_by_user_id"),
+  changedByDisplayName: varchar("changed_by_display_name", { length: 255 }),
+  changedByRole: varchar("changed_by_role", { length: 40 }),
+  sourceVersionId: int("source_version_id"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  versionUnique: unique("design_theme_versions_version_unique").on(table.versionNumber),
+  actionCreatedIdx: index("design_theme_versions_action_created_idx").on(
+    table.actionType,
+    table.createdAt
+  ),
+  publishedAtIdx: index("design_theme_versions_published_at_idx").on(
+    table.publishedAt,
+    table.createdAt
+  ),
+}));
+
 export const moyskladSyncJobs = mysqlTable("moysklad_sync_jobs", {
   id: serial("id").primaryKey(),
   entityType: varchar("entity_type", { length: 30 }).notNull(),
