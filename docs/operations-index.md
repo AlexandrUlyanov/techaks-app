@@ -158,7 +158,12 @@ Product visibility SQL:
 - [homepage-performance-optimization-tz.md](</E:/work/ru/tehax/s/app/docs/homepage-performance-optimization-tz.md>)  
   Подробное ТЗ на ускорение главной страницы: разгрузка CatalogProvider, единый homepage endpoint, server-side TTL cache, priority rendering и уменьшение initial payload.
 
-## 13. Что сейчас считать source of truth
+## 13. Blog and AI editorial assistant
+
+- [blog-and-ai-editor-assistant-tz.md](</E:/work/ru/tehax/s/app/docs/blog-and-ai-editor-assistant-tz.md>)  
+  Подробное ТЗ на развитие блога до Blog 2.0: безопасный контентный слой, richer editor, SEO, improved storefront article UX и AI-помощник редактора в админке.
+
+## 14. Что сейчас считать source of truth
 
 Если нужен минимальный набор актуальных документов, используем:
 
@@ -168,7 +173,7 @@ Product visibility SQL:
 4. [product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
 5. [orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
 
-## 14. Что нельзя делать без отдельного подтверждения
+## 15. Что нельзя делать без отдельного подтверждения
 
 - destructive migrations;
 - drop таблиц/колонок на production;
