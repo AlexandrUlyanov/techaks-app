@@ -93,13 +93,41 @@ export default function ProductPage() {
         : null,
     [requestedVariantId, variants]
   );
+  const hasVariants = variants.length > 0;
   const selectedVariant =
     variants.find(variant => variant.id === selectedVariantId) ?? defaultVariant ?? null;
 
   useEffect(() => {
     setSelectedVariantId(requestedVariant?.id ?? defaultVariant?.id ?? null);
     setVariantChosenManually(Boolean(requestedVariant));
-  }, [defaultVariant?.id, product?.id, requestedVariant?.id]);
+  }, [defaultVariant?.id, product?.id, requestedVariant]);
+
+  useEffect(() => {
+    if (!product) return;
+
+    const currentParams = new URLSearchParams(location.search);
+    const currentVariant = currentParams.get("variant");
+
+    if (hasVariants && selectedVariant?.id) {
+      const nextVariant = String(selectedVariant.id);
+      if (currentVariant === nextVariant) return;
+      currentParams.set("variant", nextVariant);
+    } else if (!currentVariant) {
+      return;
+    } else {
+      currentParams.delete("variant");
+    }
+
+    const nextSearch = currentParams.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : "",
+        hash: location.hash,
+      },
+      { replace: true }
+    );
+  }, [hasVariants, location.hash, location.pathname, location.search, navigate, product, selectedVariant?.id]);
 
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
@@ -265,7 +293,6 @@ export default function ProductPage() {
   ]);
   const hasOldPrice =
     typeof product.oldPrice === "number" && product.oldPrice > product.price;
-  const hasVariants = variants.length > 0;
   const hasVariantPriceRange =
     hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
   const displayedPrice = selectedVariant?.price ?? product.price;
@@ -312,32 +339,6 @@ export default function ProductPage() {
         )
       : availableStores.length > 0;
 
-  useEffect(() => {
-    if (!product) return;
-
-    const currentParams = new URLSearchParams(location.search);
-    const currentVariant = currentParams.get("variant");
-
-    if (hasVariants && selectedVariant?.id) {
-      const nextVariant = String(selectedVariant.id);
-      if (currentVariant === nextVariant) return;
-      currentParams.set("variant", nextVariant);
-    } else if (!currentVariant) {
-      return;
-    } else {
-      currentParams.delete("variant");
-    }
-
-    const nextSearch = currentParams.toString();
-    navigate(
-      {
-        pathname: location.pathname,
-        search: nextSearch ? `?${nextSearch}` : "",
-        hash: location.hash,
-      },
-      { replace: true }
-    );
-  }, [hasVariants, location.hash, location.pathname, location.search, navigate, product, selectedVariant?.id]);
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
