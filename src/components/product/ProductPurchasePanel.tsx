@@ -56,24 +56,23 @@ export default function ProductPurchasePanel({
         disableOneClick={disableOneClick}
       />
 
-      <button
-        type="button"
-        onClick={onReserveClick}
-        disabled={disableReserve}
-        className={`text-left text-sm font-medium transition ${
-          disableReserve
-            ? "cursor-not-allowed text-[#A0A7AE]"
-            : "text-[#464A50] hover:text-[#1F2328]"
-        }`}
-      >
-        {reserveLabel}
-      </button>
-
       <div className="rounded-[1.4rem] bg-[#F6F7F8] px-5 py-4">
         <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7A7F87]">
           {summaryTitle}
         </div>
         <div className="mt-2 text-sm leading-6 text-[#1F2328]">{summaryText}</div>
+        <button
+          type="button"
+          onClick={onReserveClick}
+          disabled={disableReserve}
+          className={`mt-3 inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold transition ${
+            disableReserve
+              ? "cursor-not-allowed bg-[#E3E7EB] text-[#A0A7AE]"
+              : "bg-white text-[#1F2328] hover:bg-[#ECEFF1]"
+          }`}
+        >
+          {reserveLabel}
+        </button>
       </div>
     </div>
   );

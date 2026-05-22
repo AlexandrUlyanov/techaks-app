@@ -61,6 +61,13 @@ export default function ProductVariantSelector({
   });
 
   const groupedMode = attributeKeys.length > 0;
+  const colorAttributeKey =
+    attributeKeys.find(attributeKey => isColorAttribute(attributeKey)) ?? null;
+  const visualMode = variants.some(variant =>
+    Boolean(
+      variant.image || variant.imageVariants || fallbackImage || fallbackImageVariants
+    )
+  );
 
   const pickVariantForAttribute = (attributeKey: string, nextValue: string) => {
     const activeSelections = new Map<string, string>();
@@ -88,20 +95,96 @@ export default function ProductVariantSelector({
     );
   };
 
+  if (groupedMode && visualMode) {
+    return (
+      <div className="space-y-4">
+        {colorAttributeKey && selectedVariant?.attributes?.[colorAttributeKey] ? (
+          <div className="text-sm font-bold text-[#15171A]">
+            {colorAttributeKey}
+            <span className="text-muted-foreground">
+              : {selectedVariant.attributes[colorAttributeKey]}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {variants.map(variant => {
+            const isAvailable = variant.isActive && variant.stock > 0;
+            const isSelected = selectedVariantId === variant.id;
+            const imageProps = getProductCardImageProps({
+              image: variant.image || fallbackImage,
+              imageVariants: variant.imageVariants || fallbackImageVariants,
+              sizes: "(max-width: 640px) 42vw, (max-width: 1280px) 180px, 150px",
+            });
+            const colorLabel = colorAttributeKey
+              ? variant.attributes?.[colorAttributeKey]?.trim() || variant.name
+              : variant.name;
+            const metaLabel = Object.entries(variant.attributes ?? {})
+              .filter(([key, value]) => Boolean(value) && key !== colorAttributeKey)
+              .map(([, value]) => String(value))
+              .join(" · ");
+
+            return (
+              <button
+                key={variant.id}
+                type="button"
+                onClick={() => onSelect(variant.id)}
+                disabled={!isAvailable}
+                className={`overflow-hidden rounded-[1.2rem] bg-[#F8F9FA] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  isSelected
+                    ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
+                    : "hover:bg-[#F1F4F5]"
+                } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
+              >
+                <div className="aspect-square bg-[#F8F9FA] p-3">
+                  <img
+                    src={imageProps.src}
+                    srcSet={imageProps.srcSet}
+                    sizes={imageProps.sizes}
+                    alt={`${variant.name} — вариант товара`}
+                    className="h-full w-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    onError={applyProductImageFallback}
+                  />
+                </div>
+
+                <div className="space-y-2 p-3">
+                  <div className="min-h-[1.5rem] text-sm font-bold leading-5 text-[#15171A]">
+                    {colorLabel}
+                  </div>
+
+                  {metaLabel ? (
+                    <div className="text-[11px] leading-4 text-muted-foreground">
+                      {metaLabel}
+                    </div>
+                  ) : null}
+
+                  <div className="text-lg font-black text-[#05C3D4]">
+                    {formatPrice(variant.price)}
+                  </div>
+
+                  <div
+                    className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+                      isAvailable
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {isAvailable ? "В наличии" : "Нет в наличии"}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   if (groupedMode) {
     return (
       <div className="space-y-6">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-[15px] font-medium text-[#1F2328]">
-              Выберите вариант
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Цена, код и наличие обновятся сразу после выбора.
-            </p>
-          </div>
-        </div>
-
         <div className="space-y-5">
           {attributeKeys.map(attributeKey => {
             const values = Array.from(
@@ -200,16 +283,7 @@ export default function ProductVariantSelector({
   }
 
   return (
-      <div className="space-y-4">
-      <div className="mb-4">
-        <h3 className="text-[15px] font-medium text-[#1F2328]">
-          Выберите вариант
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Если у товара несколько исполнений, здесь можно быстро выбрать нужное.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         {variants.map(variant => {
           const isAvailable = variant.isActive && variant.stock > 0;

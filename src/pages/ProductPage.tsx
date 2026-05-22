@@ -329,9 +329,7 @@ export default function ProductPage() {
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";
   const reserveActionLabel =
-    availableStores.length <= 1
-      ? "Зарезервировать в этом магазине"
-      : "Выбрать магазин для резерва";
+    "Заберу в магазине";
   const compactDetailSpecs = quickSpecs.slice(0, 3);
   const selectedVariantSummary = selectedVariant
     ? Object.values(selectedVariant.attributes ?? {}).filter(Boolean).join(" · ") ||
