@@ -6,6 +6,7 @@ type ProductPurchasePanelProps = {
   discountLabel?: string | null;
   summaryTitle: string;
   summaryText: string;
+  reserveLabel?: string;
   onAddToCart: () => void;
   onOpenOneClick: () => void;
   onReserveClick: () => void;
@@ -20,6 +21,7 @@ export default function ProductPurchasePanel({
   discountLabel,
   summaryTitle,
   summaryText,
+  reserveLabel = "Зарезервировать в магазине",
   onAddToCart,
   onOpenOneClick,
   onReserveClick,
@@ -64,7 +66,7 @@ export default function ProductPurchasePanel({
             : "text-[#464A50] hover:text-[#1F2328]"
         }`}
       >
-        Зарезервировать в магазине
+        {reserveLabel}
       </button>
 
       <div className="rounded-[1.4rem] bg-[#F6F7F8] px-5 py-4">

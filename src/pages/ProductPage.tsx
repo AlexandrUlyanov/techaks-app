@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation, useNavigate } from "react-router";
-import { Star, MessageCircle, ArrowLeft } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft, MapPin } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +20,7 @@ import ProductDescription from "@/components/product/ProductDescription";
 import ProductSpecifications from "@/components/product/ProductSpecifications";
 import ProductMobileStickyBuy from "@/components/product/ProductMobileStickyBuy";
 import ProductPurchasePanel from "@/components/product/ProductPurchasePanel";
+import ProductBreadcrumbsCompact from "@/components/product/ProductBreadcrumbsCompact";
 import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
@@ -312,13 +313,27 @@ export default function ProductPage() {
         .slice(0, 4)
     : [];
   const topStore = availableStores[0] ?? null;
+  const topStoreLabel = topStore
+    ? [topStore.storeName, topStore.storeAddress].filter(Boolean).join(", ")
+    : null;
   const deliverySummary = topStore
-    ? `Самовывоз сегодня из ${topStore.storeName}`
+    ? `Самовывоз сегодня: ${topStoreLabel}`
     : "Наличие уточняйте у менеджера";
+  const mobilePickupSummary = topStore
+    ? `Самовывоз: ${topStore.storeAddress || topStore.storeName}`
+    : "Самовывоз уточняйте у менеджера";
   const availabilitySummary = availableStores.length
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";
+  const reserveActionLabel =
+    availableStores.length <= 1
+      ? "Зарезервировать в этом магазине"
+      : "Выбрать магазин для резерва";
   const compactDetailSpecs = quickSpecs.slice(0, 3);
+  const selectedVariantSummary = selectedVariant
+    ? Object.values(selectedVariant.attributes ?? {}).filter(Boolean).join(" · ") ||
+      selectedVariant.name
+    : null;
   const oldPriceLabel =
     hasOldPrice && !selectedVariant ? formatPrice(product.oldPrice as number) : null;
   const displayedPriceLabel =
@@ -422,41 +437,14 @@ export default function ProductPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
-      {/* Breadcrumbs */}
-      <section className="bg-white py-4">
-        <div className="container-main">
-          <div className="flex items-center flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
-            <Link
-              to="/catalog"
-              className="hover:text-[#05C3D4] transition-colors"
-            >
-              Каталог
-            </Link>
-            {breadcrumbs.map(bc => (
-              <div key={bc.id} className="flex items-center gap-2">
-                <span className="text-muted-foreground/20">/</span>
-                <Link 
-                  to={`/catalog?cat=${bc.slug}`}
-                  className="hover:text-[#05C3D4] transition-colors"
-                >
-                  {String(bc.name)}
-                </Link>
-              </div>
-            ))}
-            <span className="text-muted-foreground/20">/</span>
-            <span className="text-muted-foreground truncate max-w-[150px] sm:max-w-[300px]">
-              {product.name}
-            </span>
-          </div>
-        </div>
-      </section>
+      <ProductBreadcrumbsCompact breadcrumbs={breadcrumbs} productName={product.name} />
 
       {/* Product Detail */}
-      <section className="py-8 md:py-12">
+      <section className="py-6 md:py-12">
         <div className="container-main">
-          <div className="space-y-5 lg:hidden">
+          <div className="space-y-3 lg:hidden">
             {hasManufacturer ? (
-              <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
+              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#1F2328]">
                 {manufacturer?.title}
               </div>
             ) : null}
@@ -479,6 +467,13 @@ export default function ProductPage() {
               ) : null}
             </div>
 
+            {topStore ? (
+              <div className="flex items-center gap-2 text-[13px] font-medium text-[#464A50]">
+                <MapPin size={14} className="shrink-0 text-[#05C3D4]" />
+                <span className="truncate">В наличии: {topStoreLabel}</span>
+              </div>
+            ) : null}
+
             {(merchandisingBadges.length > 0 || product.badge) ? (
               <div className="flex flex-wrap gap-2">
                 {merchandisingBadges.map(itemBadge => (
@@ -497,7 +492,7 @@ export default function ProductPage() {
               </div>
             ) : null}
 
-            <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328]">
+            <h1 className="line-clamp-2 text-[29px] font-black leading-[1.04] tracking-tight text-[#1F2328]">
               {product.name}
             </h1>
 
@@ -568,7 +563,7 @@ export default function ProductPage() {
               />
             </div>
 
-            <div className="order-2 space-y-8 lg:order-2">
+            <div className="order-2 space-y-5 lg:space-y-8 lg:order-2">
               <div className="hidden space-y-5 lg:block">
                 {hasManufacturer ? (
                   <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
@@ -642,6 +637,7 @@ export default function ProductPage() {
                 discountLabel={discountLabel}
                 summaryTitle="Самовывоз и доставка"
                 summaryText={`${deliverySummary}. Доставка по Пензе и России после подтверждения заказа.`}
+                reserveLabel={reserveActionLabel}
                 onAddToCart={handleAddToCart}
                 onOpenOneClick={() => setOneClickDialogOpen(true)}
                 onReserveClick={handleReserveShortcut}
@@ -649,6 +645,17 @@ export default function ProductPage() {
                 disableOneClick={!canPurchase}
                 disableReserve={availableStores.length === 0}
               />
+
+              <div className="space-y-2 lg:hidden">
+                <div className="text-sm leading-6 text-[#1F2328]">
+                  {mobilePickupSummary}
+                </div>
+                {selectedVariantSummary ? (
+                  <div className="text-sm leading-6 text-[#6B7280]">
+                    Выбрано: <span className="font-medium text-[#1F2328]">{selectedVariantSummary}</span>
+                  </div>
+                ) : null}
+              </div>
 
               {hasVariants ? (
                 <ProductVariantSelector
@@ -681,6 +688,7 @@ export default function ProductPage() {
               pickupText={deliverySummary}
               deliveryText="По Пензе и регионам России после подтверждения менеджером."
               storeText={availabilitySummary}
+              compactMobile
             />
           </div>
           </div>

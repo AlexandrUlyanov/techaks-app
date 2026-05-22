@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import ProductImageLightbox from "./ProductImageLightbox";
 import {
   applyProductImageFallback,
@@ -38,9 +39,22 @@ export default function ProductImageGallery({
     imageVariants: activeImage,
   });
 
-  const openLightbox = (index: number) => {
+  const selectImage = (index: number) => {
     setActiveIndex(index);
+  };
+
+  const openLightbox = (index: number) => {
     setLightboxIndex(index);
+  };
+
+  const goToPrevious = () => {
+    if (!hasMultipleImages) return;
+    setActiveIndex((activeIndex - 1 + normalizedImages.length) % normalizedImages.length);
+  };
+
+  const goToNext = () => {
+    if (!hasMultipleImages) return;
+    setActiveIndex((activeIndex + 1) % normalizedImages.length);
   };
 
   return (
@@ -59,8 +73,8 @@ export default function ProductImageGallery({
                   <button
                     key={`${image.original}-${index}`}
                     type="button"
-                    onClick={() => openLightbox(index)}
-                    aria-label={`Открыть изображение ${index + 1} товара ${productName}`}
+                    onClick={() => selectImage(index)}
+                    aria-label={`Показать изображение ${index + 1} товара ${productName}`}
                     className={`overflow-hidden rounded-xl bg-[#F6F7F8] p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       index === activeIndex
                         ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
@@ -90,6 +104,27 @@ export default function ProductImageGallery({
           {badges}
           {manufacturerBadge}
 
+          {hasMultipleImages ? (
+            <>
+              <button
+                type="button"
+                onClick={goToPrevious}
+                className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#1F2328] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:left-5"
+                aria-label="Предыдущее изображение"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={goToNext}
+                className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#1F2328] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:right-5"
+                aria-label="Следующее изображение"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </>
+          ) : null}
+
           <button
             type="button"
             onClick={() => openLightbox(activeIndex)}
@@ -108,7 +143,7 @@ export default function ProductImageGallery({
           </button>
 
           {hasMultipleImages ? (
-            <div className="pointer-events-none absolute bottom-5 right-5 z-20 rounded-full border border-white/80 bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+            <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
               {activeIndex + 1} / {normalizedImages.length}
             </div>
           ) : null}

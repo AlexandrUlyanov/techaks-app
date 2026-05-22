@@ -4,6 +4,7 @@ type ProductServicesProps = {
   pickupText: string;
   deliveryText: string;
   storeText: string;
+  compactMobile?: boolean;
 };
 
 const rows = [
@@ -33,7 +34,10 @@ export default function ProductServices({
   pickupText,
   deliveryText,
   storeText,
+  compactMobile = false,
 }: ProductServicesProps) {
+  const mobileRows = rows.filter(row => row.key !== "store");
+  const rowsToRender = compactMobile ? mobileRows : rows;
   const descriptions: Record<string, string> = {
     pickup: pickupText,
     delivery: deliveryText,
@@ -43,11 +47,15 @@ export default function ProductServices({
 
   return (
     <section className="mt-12">
-      <h2 className="text-2xl font-black tracking-tight text-[#1F2328] md:text-3xl">
+      <h2
+        className={`text-2xl font-black tracking-tight text-[#1F2328] md:text-3xl ${
+          compactMobile ? "hidden md:block" : ""
+        }`}
+      >
         Услуги и получение
       </h2>
-      <div className="mt-4">
-        {rows.map((row, index) => {
+      <div className={compactMobile ? "mt-0 md:mt-4" : "mt-4"}>
+        {rowsToRender.map((row, index) => {
           const Icon = row.icon;
           return (
             <div
@@ -57,14 +65,28 @@ export default function ProductServices({
               }`}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F6F7F8] text-[#464A50]">
+                <div
+                  className={`mt-0.5 flex shrink-0 items-center justify-center rounded-2xl bg-[#F6F7F8] text-[#464A50] ${
+                    compactMobile ? "h-9 w-9 md:h-10 md:w-10" : "h-10 w-10"
+                  }`}
+                >
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-base font-semibold text-[#1F2328]">
+                  <div
+                    className={`font-semibold text-[#1F2328] ${
+                      compactMobile ? "text-[15px] md:text-base" : "text-base"
+                    }`}
+                  >
                     {row.title}
                   </div>
-                  <div className="mt-1 text-sm leading-6 text-[#6B7280]">
+                  <div
+                    className={`mt-1 text-[#6B7280] ${
+                      compactMobile
+                        ? "text-[13px] leading-5 md:text-sm md:leading-6"
+                        : "text-sm leading-6"
+                    }`}
+                  >
                     {descriptions[row.key]}
                   </div>
                 </div>
