@@ -54,6 +54,8 @@ export default function ProductPage() {
         id: number;
         name: string;
         article?: string | null;
+        image?: string | null;
+        imageVariants?: unknown;
         price: number;
         stock: number;
         isActive: boolean;
@@ -170,6 +172,23 @@ export default function ProductPage() {
       (product as { images?: unknown }).images
     );
   }, [product]);
+  const selectedVariantImage = useMemo(() => {
+    if (!selectedVariant?.image && !selectedVariant?.imageVariants) return null;
+
+    return resolveProductImageCollection(
+      selectedVariant?.image || product?.image,
+      selectedVariant?.imageVariants,
+      []
+    )[0] ?? null;
+  }, [product?.image, selectedVariant?.image, selectedVariant?.imageVariants]);
+  const displayedImages = useMemo(() => {
+    if (!selectedVariantImage) return productImages;
+
+    return [
+      selectedVariantImage,
+      ...productImages.filter(image => image.original !== selectedVariantImage.original),
+    ];
+  }, [productImages, selectedVariantImage]);
 
   if (isLoading) {
     return (
@@ -234,6 +253,11 @@ export default function ProductPage() {
     hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
   const displayedPrice = selectedVariant?.price ?? product.price;
   const displayedStockCount = selectedVariant?.stock ?? availableStores.length;
+  const displayedArticle =
+    selectedVariant?.article ||
+    (product as { article?: string | null; externalCode?: string | null }).article ||
+    (product as { article?: string | null; externalCode?: string | null }).externalCode ||
+    null;
   const productSpecs =
     product.specs && typeof product.specs === "object"
       ? (product.specs as Record<string, unknown>)
@@ -246,7 +270,7 @@ export default function ProductPage() {
     description:
       descriptionForSeo ||
       `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
-    sku: product.slug.toUpperCase(),
+    sku: displayedArticle || product.slug.toUpperCase(),
     brand: {
       "@type": "Brand",
       name: productManufacturer?.title || "ТЕХАКС",
@@ -277,7 +301,7 @@ export default function ProductPage() {
       id: product.id,
       variantId: selectedVariant?.id ?? null,
       variantName: selectedVariant?.name ?? null,
-      article: selectedVariant?.article ?? null,
+      article: displayedArticle,
       slug: product.slug,
       name: selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name,
       price: selectedVariant?.price ?? product.price,
@@ -355,7 +379,7 @@ export default function ProductPage() {
             {/* Gallery */}
             <div className="lg:w-[50%]">
               <ProductImageGallery
-                images={productImages}
+                images={displayedImages}
                 productName={product.name}
                 badges={
                   merchandisingBadges.length > 0 ? (
@@ -455,6 +479,11 @@ export default function ProductPage() {
                         </div>
                       )}
                     </div>
+                    {displayedArticle ? (
+                      <div className="mt-4 inline-flex rounded-full border border-border bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                        Код товара: <span className="ml-2 text-[#15171A]">{displayedArticle}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -463,6 +492,8 @@ export default function ProductPage() {
                     <ProductVariantSelector
                       variants={variants}
                       selectedVariantId={selectedVariant?.id ?? null}
+                      fallbackImage={product.image}
+                      fallbackImageVariants={(product as { imageVariants?: unknown }).imageVariants}
                       onSelect={variantId => {
                         setSelectedVariantId(variantId);
                         setVariantChosenManually(true);
@@ -795,7 +826,7 @@ export default function ProductPage() {
           name: product.name,
           variantId: selectedVariant?.id ?? null,
           variantName: selectedVariant?.name ?? null,
-          article: selectedVariant?.article ?? null,
+          article: displayedArticle,
         }}
         store={selectedReservationStore}
         onReserved={payload => {
@@ -811,7 +842,7 @@ export default function ProductPage() {
           name: product.name,
           variantId: selectedVariant?.id ?? null,
           variantName: selectedVariant?.name ?? null,
-          article: selectedVariant?.article ?? null,
+          article: displayedArticle,
         }}
       />
 

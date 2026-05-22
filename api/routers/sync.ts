@@ -1453,6 +1453,7 @@ export const syncRouter = createRouter({
         let hasMore = true;
         const msProductIdToLocalId = new Map<string, number>();
         const localProductNameById = new Map<number, string>();
+        const localProductFolderById = new Map<number, string>();
         const msVariantIdToLocalId = new Map<string, number>();
 
         const fetchAssortmentWithRetry = async (
@@ -1516,6 +1517,14 @@ export const syncRouter = createRouter({
 
             const price = syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
             const inStock = syncStocks ? (item.stock || 0) > 0 : true;
+            const productArticle =
+              String(item.article || item.code || item.externalCode || "").trim() || null;
+            const productExternalCode =
+              String(item.externalCode || item.code || "").trim() || null;
+            const productBarcode =
+              Array.isArray(item.barcodes) && item.barcodes.length > 0
+                ? String(item.barcodes[0]?.ean13 || item.barcodes[0]?.code || "").trim() || null
+                : null;
 
             const specs = extractMsAttributeRecord(item.attributes);
 
@@ -1558,7 +1567,12 @@ export const syncRouter = createRouter({
               const wasNormalized = normalizedLog.length > 0;
               const incomingDescription = item.description || "";
               const localSpecs = asSpecRecord(existingProd[0].specs);
-              const updateData: Partial<typeof schema.products.$inferInsert> = { name: item.name };
+              const updateData: Partial<typeof schema.products.$inferInsert> = {
+                name: item.name,
+                article: productArticle,
+                externalCode: productExternalCode,
+                barcode: productBarcode,
+              };
 
               if (wasNormalized) {
                 const preview = previewProductNormalization(incomingDescription, {
@@ -1601,6 +1615,9 @@ export const syncRouter = createRouter({
               const [res] = await db.insert(schema.products).values(
                 applyProductAutoBlockState({
                   msId,
+                  externalCode: productExternalCode,
+                  article: productArticle,
+                  barcode: productBarcode,
                   slug,
                   name: item.name,
                   categoryId: categoryId || 1,
@@ -1619,6 +1636,7 @@ export const syncRouter = createRouter({
             changedProductIds.add(dbProductId);
             msProductIdToLocalId.set(msId, dbProductId);
             localProductNameById.set(dbProductId, item.name);
+            localProductFolderById.set(dbProductId, folderSlug);
             logDetails.stats.products++;
             if (shouldHeartbeat()) {
               await abortIfStopRequested();
@@ -1712,6 +1730,36 @@ export const syncRouter = createRouter({
                   : variantNameRaw || fallbackVariantName;
               const article =
                 String(item.article || item.code || item.externalCode || "").trim() || null;
+              let variantImagePath: string | null = null;
+              let variantImageVariants: ProductImageVariantSet | null = null;
+              if (item.images?.meta?.href) {
+                try {
+                  const variantImagesRes = await moyskladApi.get(item.images.meta.href, {
+                    headers: { Authorization: authHeader },
+                  });
+                  if (variantImagesRes.data.rows?.length > 0) {
+                    const variantImageRows = await downloadProductImages(
+                      variantImagesRes.data.rows as MsImageRow[],
+                      authHeader,
+                      msVariantId,
+                      `${localProductFolderById.get(localProductId) || "general"}/variants`
+                    );
+                    if (variantImageRows.length > 0) {
+                      variantImageVariants = variantImageRows[0];
+                      variantImagePath =
+                        variantImageVariants.original ||
+                        variantImageVariants.medium ||
+                        variantImageVariants.card ||
+                        variantImageVariants.thumb ||
+                        null;
+                    }
+                  }
+                } catch (err: unknown) {
+                  writeLog(
+                    `Error fetching image meta for variant ${msVariantId}: ${getErrorMessage(err, "unknown error")}`
+                  );
+                }
+              }
 
               const existingVariant = await db
                 .select({ id: schema.productVariants.id })
@@ -1726,6 +1774,8 @@ export const syncRouter = createRouter({
                 externalCode: String(item.externalCode || "").trim() || null,
                 name: normalizedVariantName,
                 article,
+                image: variantImagePath,
+                imageVariants: variantImageVariants,
                 price: variantPrice,
                 stock: variantStock,
                 attributesJson: variantAttributes,

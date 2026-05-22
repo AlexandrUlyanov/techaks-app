@@ -37,6 +37,9 @@ export const categories = mysqlTable("categories", {
 export const products = mysqlTable("products", {
   id: serial("id").primaryKey(),
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
+  externalCode: varchar("external_code", { length: 120 }),
+  article: varchar("article", { length: 120 }),
+  barcode: varchar("barcode", { length: 120 }),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 512 }).notNull(),
   categoryId: int("category_id").notNull(),
@@ -66,6 +69,8 @@ export const productVariants = mysqlTable("product_variants", {
   externalCode: varchar("external_code", { length: 120 }),
   name: varchar("name", { length: 512 }).notNull(),
   article: varchar("article", { length: 120 }),
+  image: varchar("image", { length: 255 }),
+  imageVariants: json("image_variants"),
   price: int("price").notNull().default(0),
   stock: int("stock").notNull().default(0),
   attributesJson: json("attributes_json"),

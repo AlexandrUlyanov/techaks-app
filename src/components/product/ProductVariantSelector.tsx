@@ -1,7 +1,14 @@
+import {
+  applyProductImageFallback,
+  getProductCardImageProps,
+} from "@/lib/product-images";
+
 type ProductVariant = {
   id: number;
   name: string;
   article?: string | null;
+  image?: string | null;
+  imageVariants?: unknown;
   price: number;
   stock: number;
   isActive: boolean;
@@ -16,10 +23,14 @@ export default function ProductVariantSelector({
   variants,
   selectedVariantId,
   onSelect,
+  fallbackImage,
+  fallbackImageVariants,
 }: {
   variants: ProductVariant[];
   selectedVariantId: number | null;
   onSelect: (variantId: number) => void;
+  fallbackImage?: string | null;
+  fallbackImageVariants?: unknown;
 }) {
   if (variants.length === 0) return null;
 
@@ -31,57 +42,69 @@ export default function ProductVariantSelector({
         </h3>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         {variants.map(variant => {
           const isAvailable = variant.isActive && variant.stock > 0;
           const isSelected = selectedVariantId === variant.id;
+          const imageProps = getProductCardImageProps({
+            image: variant.image || fallbackImage,
+            imageVariants: variant.imageVariants || fallbackImageVariants,
+            sizes: "(max-width: 640px) 42vw, (max-width: 1280px) 180px, 150px",
+          });
+          const attributeSummary = variant.attributes
+            ? Object.values(variant.attributes)
+                .filter(Boolean)
+                .join(" / ")
+            : "";
+
           return (
             <button
               key={variant.id}
               type="button"
               onClick={() => onSelect(variant.id)}
               disabled={!isAvailable}
-              className={`w-full rounded-2xl border p-4 text-left transition ${
+              className={`overflow-hidden rounded-2xl border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 isSelected
-                  ? "border-[#05C3D4] bg-[#F4FEFF] shadow-sm"
-                  : "border-border bg-white hover:border-[#05C3D4]/40"
+                  ? "border-[#05C3D4] shadow-[0_10px_24px_rgba(5,195,212,0.18)]"
+                  : "border-border hover:border-[#05C3D4]/40"
               } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="font-semibold text-[#15171A]">{variant.name}</div>
-                  {variant.article ? (
-                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Артикул: {variant.article}
-                    </div>
-                  ) : null}
-                  {variant.attributes && Object.keys(variant.attributes).length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {Object.entries(variant.attributes).map(([key, value]) => (
-                        <span
-                          key={`${variant.id}-${key}`}
-                          className="inline-flex rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-                        >
-                          {key}: {value}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+              <div className="aspect-square border-b border-border bg-muted/40 p-3">
+                <img
+                  src={imageProps.src}
+                  srcSet={imageProps.srcSet}
+                  sizes={imageProps.sizes}
+                  alt={`${variant.name} — вариант товара`}
+                  className="h-full w-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  onError={applyProductImageFallback}
+                />
+              </div>
+
+              <div className="space-y-2 p-3">
+                <div className="min-h-[2.75rem] text-sm font-bold leading-5 text-[#15171A]">
+                  {attributeSummary || variant.name}
                 </div>
 
-                <div className="space-y-2 text-left sm:text-right">
-                  <div className="text-lg font-black text-[#05C3D4]">
-                    {formatPrice(variant.price)}
+                {variant.article ? (
+                  <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    Код: {variant.article}
                   </div>
-                  <div
-                    className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
-                      isAvailable
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {isAvailable ? "В наличии" : "Нет в наличии"}
-                  </div>
+                ) : null}
+
+                <div className="text-lg font-black text-[#05C3D4]">
+                  {formatPrice(variant.price)}
+                </div>
+
+                <div
+                  className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+                    isAvailable
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {isAvailable ? "В наличии" : "Нет в наличии"}
                 </div>
               </div>
             </button>

@@ -74,6 +74,9 @@ end`;
 export const productSelectFields = {
   id: products.id,
   msId: products.msId,
+  externalCode: products.externalCode,
+  article: products.article,
+  barcode: products.barcode,
   slug: products.slug,
   name: products.name,
   categoryId: products.categoryId,
