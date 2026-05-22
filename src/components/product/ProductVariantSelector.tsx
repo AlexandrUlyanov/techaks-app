@@ -19,6 +19,15 @@ function formatPrice(price: number) {
   return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 }
 
+function normalizeAttributeKey(key: string) {
+  return key.trim().toLowerCase();
+}
+
+function isColorAttribute(key: string) {
+  const normalized = normalizeAttributeKey(key);
+  return normalized.includes("цвет") || normalized.includes("color");
+}
+
 export default function ProductVariantSelector({
   variants,
   selectedVariantId,
@@ -34,12 +43,171 @@ export default function ProductVariantSelector({
 }) {
   if (variants.length === 0) return null;
 
+  const selectedVariant =
+    variants.find(variant => variant.id === selectedVariantId) ?? variants[0];
+  const attributeKeys = Array.from(
+    new Set(
+      variants.flatMap(variant =>
+        Object.keys(variant.attributes ?? {}).filter(Boolean)
+      )
+    )
+  ).filter(key => {
+    const values = new Set(
+      variants
+        .map(variant => variant.attributes?.[key]?.trim())
+        .filter((value): value is string => Boolean(value))
+    );
+    return values.size > 1;
+  });
+
+  const groupedMode = attributeKeys.length > 0;
+
+  const pickVariantForAttribute = (attributeKey: string, nextValue: string) => {
+    const activeSelections = new Map<string, string>();
+    for (const key of attributeKeys) {
+      const selectedValue = selectedVariant?.attributes?.[key]?.trim();
+      if (selectedValue) activeSelections.set(key, selectedValue);
+    }
+    activeSelections.set(attributeKey, nextValue);
+
+    const exactCandidate =
+      variants.find(variant =>
+        attributeKeys.every(key => {
+          const expectedValue = activeSelections.get(key);
+          if (!expectedValue) return true;
+          return (variant.attributes?.[key] ?? "").trim() === expectedValue;
+        })
+      ) ?? null;
+
+    if (exactCandidate) return exactCandidate;
+
+    return (
+      variants.find(
+        variant => (variant.attributes?.[attributeKey] ?? "").trim() === nextValue
+      ) ?? null
+    );
+  };
+
+  if (groupedMode) {
+    return (
+      <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+              Выберите вариант
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Цена, код и наличие обновятся сразу после выбора.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {attributeKeys.map(attributeKey => {
+            const values = Array.from(
+              new Set(
+                variants
+                  .map(variant => variant.attributes?.[attributeKey]?.trim())
+                  .filter((value): value is string => Boolean(value))
+              )
+            );
+            const colorMode = isColorAttribute(attributeKey);
+
+            return (
+              <div key={attributeKey} className="space-y-3">
+                <div className="text-sm font-bold text-[#15171A]">
+                  {attributeKey}
+                  {selectedVariant?.attributes?.[attributeKey] ? (
+                    <span className="text-muted-foreground">
+                      : {selectedVariant.attributes[attributeKey]}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className={`flex flex-wrap gap-3 ${colorMode ? "items-start" : "items-center"}`}>
+                  {values.map(value => {
+                    const candidateVariant = pickVariantForAttribute(attributeKey, value);
+                    const isAvailable = Boolean(
+                      candidateVariant &&
+                        candidateVariant.isActive &&
+                        candidateVariant.stock > 0
+                    );
+                    const isSelected =
+                      (selectedVariant?.attributes?.[attributeKey] ?? "").trim() === value;
+
+                    if (colorMode && candidateVariant) {
+                      const imageProps = getProductCardImageProps({
+                        image: candidateVariant.image || fallbackImage,
+                        imageVariants:
+                          candidateVariant.imageVariants || fallbackImageVariants,
+                        sizes: "76px",
+                      });
+
+                      return (
+                        <button
+                          key={`${attributeKey}-${value}`}
+                          type="button"
+                          onClick={() => candidateVariant && onSelect(candidateVariant.id)}
+                          disabled={!isAvailable}
+                          className={`overflow-hidden rounded-[1.2rem] border bg-white p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                            isSelected
+                              ? "border-[#05C3D4] shadow-[0_10px_20px_rgba(5,195,212,0.16)]"
+                              : "border-border hover:border-[#05C3D4]/40"
+                          } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                          <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl bg-muted/35 p-2">
+                            <img
+                              src={imageProps.src}
+                              srcSet={imageProps.srcSet}
+                              sizes={imageProps.sizes}
+                              alt={`${value} — вариант товара`}
+                              className="h-full w-full object-contain"
+                              loading="lazy"
+                              decoding="async"
+                              onError={applyProductImageFallback}
+                            />
+                          </div>
+                          <div className="px-1 pb-1 pt-2 text-center text-[11px] font-bold leading-4 text-[#15171A]">
+                            {value}
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={`${attributeKey}-${value}`}
+                        type="button"
+                        onClick={() => candidateVariant && onSelect(candidateVariant.id)}
+                        disabled={!isAvailable}
+                        className={`inline-flex min-h-11 items-center justify-center rounded-2xl border px-4 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          isSelected
+                            ? "border-[#05C3D4] bg-[#F4FEFF] text-[#15171A] shadow-sm"
+                            : "border-border bg-white text-[#15171A] hover:border-[#05C3D4]/40"
+                        } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
+                      >
+                        {value}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
       <div className="mb-4">
         <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
           Выберите вариант
         </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Если у товара несколько исполнений, здесь можно быстро выбрать нужное.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -63,13 +231,13 @@ export default function ProductVariantSelector({
               type="button"
               onClick={() => onSelect(variant.id)}
               disabled={!isAvailable}
-              className={`overflow-hidden rounded-2xl border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              className={`overflow-hidden rounded-[1.35rem] border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 isSelected
                   ? "border-[#05C3D4] shadow-[0_10px_24px_rgba(5,195,212,0.18)]"
                   : "border-border hover:border-[#05C3D4]/40"
               } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
             >
-              <div className="aspect-square border-b border-border bg-muted/40 p-3">
+              <div className="aspect-square border-b border-border bg-muted/35 p-3">
                 <img
                   src={imageProps.src}
                   srcSet={imageProps.srcSet}

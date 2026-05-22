@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation } from "react-router";
-import { Star, MessageCircle, ArrowLeft } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft, Truck, Package, Store } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
@@ -262,6 +262,25 @@ export default function ProductPage() {
     product.specs && typeof product.specs === "object"
       ? (product.specs as Record<string, unknown>)
       : null;
+  const quickSpecs = productSpecs
+    ? Object.entries(productSpecs)
+        .filter(([key]) => !isManufacturerSpec(key))
+        .slice(0, 4)
+    : [];
+  const topStore = availableStores[0] ?? null;
+  const deliverySummary = topStore
+    ? `Самовывоз сегодня из ${topStore.storeName}`
+    : "Наличие уточняйте у менеджера";
+  const availabilitySummary = availableStores.length
+    ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
+    : "Сейчас нет доступного остатка";
+  const stockStateLabel =
+    availableStores.length === 0
+      ? "Под заказ или уточнение"
+      : lowAvailabilityStores.length > 0
+        ? "Остаток ограничен"
+        : "Можно купить сегодня";
+  const compactDetailSpecs = quickSpecs.slice(0, 3);
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -363,21 +382,12 @@ export default function ProductPage() {
         </div>
       </section>
 
-      {/* Header Title */}
-      <section className="pt-12 pb-4">
-        <div className="container-main">
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-            {product.name}
-          </h1>
-        </div>
-      </section>
-
       {/* Product Detail */}
-      <section className="py-12 md:py-20">
+      <section className="py-10 md:py-16">
         <div className="container-main">
-          <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
+          <div className="grid gap-10 xl:grid-cols-[minmax(0,1.05fr)_430px] xl:items-start">
             {/* Gallery */}
-            <div className="lg:w-[50%]">
+            <div>
               <ProductImageGallery
                 images={displayedImages}
                 productName={product.name}
@@ -424,120 +434,237 @@ export default function ProductPage() {
             </div>
 
             {/* Info */}
-            <div className="flex-1 space-y-8">
-              {/* Rating */}
-              {hasPublishedReviews ? (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1 rounded-lg border border-border bg-muted px-3 py-1.5">
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          size={14}
-                          className={
-                            i < Math.round(Number(product.rating))
-                              ? "fill-[#05C3D4] text-[#05C3D4]"
-                              : "text-muted-foreground/20"
-                          }
-                        />
-                      ))}
-                    </div>
-                    <span className="ml-2 text-sm font-black text-foreground">
-                      {product.rating}
-                    </span>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    ({reviewCountLabel})
-                  </span>
-                </div>
-              ) : null}
-
-              {/* Price */}
-              <div className={hasPublishedReviews ? "" : "-mt-1"}>
-                <div
-                  className="p-6 bg-card border border-border rounded-3xl relative overflow-hidden shadow-sm"
-                >
-                  <div className="absolute top-0 right-0 w-28 h-28 bg-[#05C3D4]/5 blur-3xl rounded-full" />
-                  <div className="relative z-10">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">
-                      Актуальная цена
-                    </span>
-                    <div className="flex items-center gap-5">
-                      <span className="text-4xl md:text-[42px] font-black text-[#05C3D4] font-heading leading-none">
-                        {hasVariants && hasVariantPriceRange && !variantChosenManually
-                          ? `от ${formatPrice(displayedPrice)}`
-                          : formatPrice(displayedPrice)}
-                      </span>
-                      {hasOldPrice && !selectedVariant && (
-                        <div className="flex flex-col">
-                          <span className="text-lg text-muted-foreground/40 line-through font-bold">
-                            {formatPrice(product.oldPrice as number)}
-                          </span>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-[#22c55e] mt-1">
-                            Выгода {formatPrice((product.oldPrice as number) - product.price)}
-                          </span>
+            <div className="space-y-6 xl:sticky xl:top-24">
+              <div className="overflow-hidden rounded-[2.2rem] border border-border bg-white shadow-sm">
+                <div className="border-b border-border/80 px-6 py-5 md:px-7">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-3">
+                      {hasManufacturer ? (
+                        <div className="text-sm font-black uppercase tracking-[0.28em] text-[#15171A]">
+                          {manufacturer?.title}
                         </div>
-                      )}
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        <span
+                          className={`inline-flex items-center gap-2 font-semibold ${
+                            isInStock ? "text-emerald-600" : "text-muted-foreground"
+                          }`}
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              isInStock ? "bg-emerald-500" : "bg-muted-foreground/40"
+                            }`}
+                          />
+                          {isInStock ? "В наличии" : "Нет в наличии"}
+                        </span>
+                        {displayedArticle ? (
+                          <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            Код: {displayedArticle}
+                          </span>
+                        ) : null}
+                        <span className="rounded-full border border-[#05C3D4]/20 bg-[#F4FEFF] px-3 py-1 text-xs font-semibold text-[#0099A8]">
+                          {stockStateLabel}
+                        </span>
+                      </div>
                     </div>
-                    {displayedArticle ? (
-                      <div className="mt-4 inline-flex rounded-full border border-border bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-                        Код товара: <span className="ml-2 text-[#15171A]">{displayedArticle}</span>
+                  </div>
+
+                  {(merchandisingBadges.length > 0 || product.badge) ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {merchandisingBadges.map(itemBadge => (
+                        <span
+                          key={itemBadge}
+                          className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
+                        >
+                          {getMerchandisingBadgeLabel(itemBadge)}
+                        </span>
+                      ))}
+                      {product.badge ? (
+                        <span className="rounded-full border border-[#05C3D4]/30 bg-[#F4FEFF] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#05C3D4]">
+                          {product.badge}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <h1 className="mt-5 text-3xl font-black leading-tight tracking-tight text-foreground md:text-[3.25rem]">
+                    {product.name}
+                  </h1>
+
+                  <div className="mt-4 flex min-h-6 flex-wrap items-center gap-3 text-sm">
+                    {hasPublishedReviews ? (
+                      <>
+                        <div className="flex items-center gap-1 text-[#05C3D4]">
+                          <Star size={15} className="fill-current" />
+                          <span className="font-black text-[#15171A]">{product.rating}</span>
+                        </div>
+                        <span className="text-muted-foreground">{reviewCountLabel}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-semibold text-[#15171A]">Пока без отзывов</span>
+                        <span className="text-muted-foreground">
+                          Новый товар, можно заказать с проверкой перед выдачей.
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-5 px-6 py-6 md:px-7">
+                  <div className="rounded-[1.8rem] border border-border bg-[linear-gradient(180deg,#ffffff_0%,#f7fbfc_100%)] p-5 shadow-sm">
+                    <div className="flex flex-wrap items-end justify-between gap-4">
+                      <div className="space-y-2">
+                        <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground/45">
+                          Цена
+                        </span>
+                        <div className="flex flex-wrap items-end gap-4">
+                          <span className="text-4xl font-black leading-none text-[#15171A] md:text-[3rem]">
+                            {hasVariants && hasVariantPriceRange && !variantChosenManually
+                              ? `от ${formatPrice(displayedPrice)}`
+                              : formatPrice(displayedPrice)}
+                          </span>
+                          {hasOldPrice && !selectedVariant ? (
+                            <span className="pb-1 text-xl font-bold text-muted-foreground/50 line-through">
+                              {formatPrice(product.oldPrice as number)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-right">
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                          Наличие
+                        </div>
+                        <div className="mt-1 text-sm font-black text-[#15171A]">
+                          {availabilitySummary}
+                        </div>
+                      </div>
+                    </div>
+
+                    {hasVariants ? (
+                      <div className="mt-5">
+                        <ProductVariantSelector
+                          variants={variants}
+                          selectedVariantId={selectedVariant?.id ?? null}
+                          fallbackImage={product.image}
+                          fallbackImageVariants={(product as { imageVariants?: unknown }).imageVariants}
+                          onSelect={variantId => {
+                            setSelectedVariantId(variantId);
+                            setVariantChosenManually(true);
+                          }}
+                        />
                       </div>
                     ) : null}
-                  </div>
-                </div>
 
-                {hasVariants ? (
-                  <div className="mt-5">
-                    <ProductVariantSelector
-                      variants={variants}
-                      selectedVariantId={selectedVariant?.id ?? null}
-                      fallbackImage={product.image}
-                      fallbackImageVariants={(product as { imageVariants?: unknown }).imageVariants}
-                      onSelect={variantId => {
-                        setSelectedVariantId(variantId);
-                        setVariantChosenManually(true);
-                      }}
-                    />
+                    <div className="mt-5">
+                      <ProductActionButtons
+                        onAddToCart={handleAddToCart}
+                        onOpenOneClick={() => setOneClickDialogOpen(true)}
+                        disableCart={
+                          hasVariants
+                            ? !selectedVariant ||
+                              !selectedVariant.isActive ||
+                              displayedStockCount <= 0 ||
+                              availableStores.length === 0
+                            : availableStores.length === 0
+                        }
+                        disableOneClick={
+                          hasVariants
+                            ? !selectedVariant ||
+                              !selectedVariant.isActive ||
+                              displayedStockCount <= 0 ||
+                              availableStores.length === 0
+                            : availableStores.length === 0
+                        }
+                      />
+                    </div>
                   </div>
-                ) : null}
 
-                {/* CTA moved here */}
-                <div className="mt-5 flex flex-col gap-4">
-                  <ProductActionButtons
-                    onAddToCart={handleAddToCart}
-                    onOpenOneClick={() => setOneClickDialogOpen(true)}
-                    disableCart={
-                      hasVariants
-                        ? !selectedVariant ||
-                          !selectedVariant.isActive ||
-                          displayedStockCount <= 0 ||
-                          availableStores.length === 0
-                        : availableStores.length === 0
-                    }
-                    disableOneClick={
-                      hasVariants
-                        ? !selectedVariant ||
-                          !selectedVariant.isActive ||
-                          displayedStockCount <= 0 ||
-                          availableStores.length === 0
-                        : availableStores.length === 0
-                    }
-                  />
+                  {compactDetailSpecs.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {compactDetailSpecs.map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="rounded-[1.35rem] border border-border bg-card/60 px-4 py-3"
+                        >
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground/45">
+                            {key}
+                          </div>
+                          <div className="mt-2 text-sm font-black leading-5 text-[#15171A]">
+                            {String(value)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-[1.35rem] border border-border bg-card/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#05C3D4] shadow-sm">
+                          <Package size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-black text-[#15171A]">Самовывоз</div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {deliverySummary}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.35rem] border border-border bg-card/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#05C3D4] shadow-sm">
+                          <Truck size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-black text-[#15171A]">Доставка</div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Подберём удобный способ после подтверждения заказа.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.35rem] border border-border bg-card/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#05C3D4] shadow-sm">
+                          <Store size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-black text-[#15171A]">Магазины</div>
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            {availabilitySummary}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Stock & FOMO */}
               <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
-                    Наличие в магазинах
-                  </h3>
-                  {typedStock.length > 0 ? (
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+                      Наличие в магазинах
+                    </h3>
+                    <div className="mt-2 text-sm font-bold text-[#15171A]">
+                      {availabilitySummary}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <span className="rounded-full border border-border bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                      {availableStores.length} точк{availableStores.length === 1 ? "а" : "и"}
+                      {stockStateLabel}
                     </span>
-                  ) : null}
+                    {typedStock.length > 0 ? (
+                      <span className="rounded-full border border-border bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        {availableStores.length} точк{availableStores.length === 1 ? "а" : "и"}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {typedStock.length > 0 ? (
@@ -547,21 +674,20 @@ export default function ProductPage() {
                     onReserve={openReservationDialog}
                   />
                 ) : (
-                  <div className="col-span-full py-4 px-6 bg-muted/20 border border-dashed border-border rounded-xl text-center">
-                    <span className="text-xs font-bold text-muted-foreground uppercase">
+                  <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-4 text-center">
+                    <span className="text-xs font-bold uppercase text-muted-foreground">
                       Информацию о наличии уточняйте у менеджера
                     </span>
                   </div>
                 )}
-                {isInStock &&
-                  lowAvailabilityStores.length > 0 && (
-                    <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 animate-in fade-in slide-in-from-left duration-700">
-                      <div className="h-2 w-2 rounded-full bg-orange-500 animate-ping" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                        Товар заканчивается в некоторых магазинах
-                      </span>
-                    </div>
-                  )}
+                {isInStock && lowAvailabilityStores.length > 0 ? (
+                  <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 animate-in fade-in slide-in-from-left duration-700">
+                    <div className="h-2 w-2 rounded-full bg-orange-500 animate-ping" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
+                      Товар заканчивается в некоторых магазинах
+                    </span>
+                  </div>
+                ) : null}
               </div>
 
               {/* Description */}
