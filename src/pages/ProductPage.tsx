@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation, useNavigate } from "react-router";
-import { Star, MessageCircle, ArrowLeft, MapPin } from "lucide-react";
+import { Star, MessageCircle, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
@@ -322,9 +322,10 @@ export default function ProductPage() {
   const deliverySummary = topStore
     ? `Самовывоз сегодня: ${topStoreLabel}`
     : "Наличие уточняйте у менеджера";
-  const mobilePickupSummary = topStore
-    ? `Самовывоз: ${topStore.storeAddress || topStore.storeName}`
-    : "Самовывоз уточняйте у менеджера";
+  const compactPickupText = topStore
+    ? `Сегодня, ${topStore.storeAddress || topStore.storeName}`
+    : "Уточняйте у менеджера";
+  const compactDeliveryText = "По Пензе и России";
   const availabilitySummary = availableStores.length
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";
@@ -481,13 +482,6 @@ export default function ProductPage() {
               ) : null}
             </div>
 
-            {topStore ? (
-              <div className="flex items-center gap-2 text-[13px] font-medium text-[#464A50]">
-                <MapPin size={14} className="shrink-0 text-[#05C3D4]" />
-                <span className="truncate">В наличии: {topStoreLabel}</span>
-              </div>
-            ) : null}
-
             {(merchandisingBadges.length > 0 || product.badge) ? (
               <div className="flex flex-wrap gap-2">
                 {merchandisingBadges.map(itemBadge => (
@@ -510,24 +504,15 @@ export default function ProductPage() {
               {product.name}
             </h1>
 
-            <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
-              {hasPublishedReviews ? (
-                <>
-                  <div className="flex items-center gap-1 text-[#05C3D4]">
-                    <Star size={15} className="fill-current" />
-                    <span className="font-black text-[#1F2328]">{product.rating}</span>
-                  </div>
-                  <span className="text-[#6B7280]">{reviewCountLabel}</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-medium text-[#1F2328]">Пока без отзывов</span>
-                  <span className="text-[#6B7280]">
-                    Новый товар, можно заказать с проверкой перед выдачей.
-                  </span>
-                </>
-              )}
-            </div>
+            {hasPublishedReviews ? (
+              <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
+                <div className="flex items-center gap-1 text-[#05C3D4]">
+                  <Star size={15} className="fill-current" />
+                  <span className="font-black text-[#1F2328]">{product.rating}</span>
+                </div>
+                <span className="text-[#6B7280]">{reviewCountLabel}</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-10 lg:grid-cols-[minmax(480px,1.08fr)_minmax(420px,0.92fr)] lg:items-start xl:grid-cols-[minmax(560px,1.12fr)_minmax(460px,0.88fr)] xl:gap-14">
@@ -661,9 +646,6 @@ export default function ProductPage() {
               />
 
               <div className="space-y-2 lg:hidden">
-                <div className="text-sm leading-6 text-[#1F2328]">
-                  {mobilePickupSummary}
-                </div>
                 {selectedVariantSummary ? (
                   <div className="text-sm leading-6 text-[#6B7280]">
                     Выбрано: <span className="font-medium text-[#1F2328]">{selectedVariantSummary}</span>
@@ -699,8 +681,8 @@ export default function ProductPage() {
               ) : null}
 
             <ProductServices
-              pickupText={deliverySummary}
-              deliveryText="По Пензе и регионам России после подтверждения менеджером."
+              pickupText={compactPickupText}
+              deliveryText={compactDeliveryText}
               storeText={availabilitySummary}
               compactMobile
             />
