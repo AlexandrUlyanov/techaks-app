@@ -414,8 +414,75 @@ export default function ProductPage() {
       {/* Product Detail */}
       <section className="py-8 md:py-12">
         <div className="container-main">
-          <div className="grid gap-10 lg:grid-cols-[minmax(340px,1fr)_minmax(280px,360px)_minmax(260px,320px)] lg:items-start xl:grid-cols-[minmax(420px,1fr)_minmax(320px,420px)_minmax(300px,360px)] xl:gap-12">
-            <div className="order-2 lg:order-1">
+          <div className="space-y-5 lg:hidden">
+            {hasManufacturer ? (
+              <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
+                {manufacturer?.title}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span
+                className={`inline-flex items-center gap-2 font-medium ${
+                  isInStock ? "text-emerald-600" : "text-[#6B7280]"
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    isInStock ? "bg-emerald-500" : "bg-[#BDC4CC]"
+                  }`}
+                />
+                {isInStock ? "В наличии" : "Нет в наличии"}
+              </span>
+              {displayedArticle ? (
+                <span className="text-[#6B7280]">Код: {displayedArticle}</span>
+              ) : null}
+            </div>
+
+            {(merchandisingBadges.length > 0 || product.badge) ? (
+              <div className="flex flex-wrap gap-2">
+                {merchandisingBadges.map(itemBadge => (
+                  <span
+                    key={`mobile-${itemBadge}`}
+                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
+                  >
+                    {getMerchandisingBadgeLabel(itemBadge)}
+                  </span>
+                ))}
+                {product.badge ? (
+                  <span className="rounded-full bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50]">
+                    {product.badge}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328]">
+              {product.name}
+            </h1>
+
+            <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
+              {hasPublishedReviews ? (
+                <>
+                  <div className="flex items-center gap-1 text-[#05C3D4]">
+                    <Star size={15} className="fill-current" />
+                    <span className="font-black text-[#1F2328]">{product.rating}</span>
+                  </div>
+                  <span className="text-[#6B7280]">{reviewCountLabel}</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-[#1F2328]">Пока без отзывов</span>
+                  <span className="text-[#6B7280]">
+                    Новый товар, можно заказать с проверкой перед выдачей.
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-[minmax(480px,1.08fr)_minmax(420px,0.92fr)] lg:items-start xl:grid-cols-[minmax(560px,1.12fr)_minmax(460px,0.88fr)] xl:gap-14">
+            <div className="order-1 lg:order-1 lg:sticky lg:top-24">
               <ProductImageGallery
                 images={displayedImages}
                 productName={product.name}
@@ -461,71 +528,87 @@ export default function ProductPage() {
               />
             </div>
 
-            <div className="order-1 space-y-8 lg:order-2">
-              {hasManufacturer ? (
-                <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
-                  {manufacturer?.title}
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span
-                  className={`inline-flex items-center gap-2 font-medium ${
-                    isInStock ? "text-emerald-600" : "text-[#6B7280]"
-                  }`}
-                >
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      isInStock ? "bg-emerald-500" : "bg-[#BDC4CC]"
-                    }`}
-                  />
-                  {isInStock ? "В наличии" : "Нет в наличии"}
-                </span>
-                {displayedArticle ? (
-                  <span className="text-[#6B7280]">Код: {displayedArticle}</span>
+            <div className="order-2 space-y-8 lg:order-2">
+              <div className="hidden space-y-5 lg:block">
+                {hasManufacturer ? (
+                  <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
+                    {manufacturer?.title}
+                  </div>
                 ) : null}
-              </div>
 
-              {(merchandisingBadges.length > 0 || product.badge) ? (
-                <div className="flex flex-wrap gap-2">
-                  {merchandisingBadges.map(itemBadge => (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span
+                    className={`inline-flex items-center gap-2 font-medium ${
+                      isInStock ? "text-emerald-600" : "text-[#6B7280]"
+                    }`}
+                  >
                     <span
-                      key={itemBadge}
-                      className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
-                    >
-                      {getMerchandisingBadgeLabel(itemBadge)}
-                    </span>
-                  ))}
-                  {product.badge ? (
-                    <span className="rounded-full bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50]">
-                      {product.badge}
-                    </span>
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        isInStock ? "bg-emerald-500" : "bg-[#BDC4CC]"
+                      }`}
+                    />
+                    {isInStock ? "В наличии" : "Нет в наличии"}
+                  </span>
+                  {displayedArticle ? (
+                    <span className="text-[#6B7280]">Код: {displayedArticle}</span>
                   ) : null}
                 </div>
-              ) : null}
 
-              <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328] md:text-5xl xl:text-[3.6rem]">
-                {product.name}
-              </h1>
+                {(merchandisingBadges.length > 0 || product.badge) ? (
+                  <div className="flex flex-wrap gap-2">
+                    {merchandisingBadges.map(itemBadge => (
+                      <span
+                        key={itemBadge}
+                        className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
+                      >
+                        {getMerchandisingBadgeLabel(itemBadge)}
+                      </span>
+                    ))}
+                    {product.badge ? (
+                      <span className="rounded-full bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50]">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
 
-              <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
-                {hasPublishedReviews ? (
-                  <>
-                    <div className="flex items-center gap-1 text-[#05C3D4]">
-                      <Star size={15} className="fill-current" />
-                      <span className="font-black text-[#1F2328]">{product.rating}</span>
-                    </div>
-                    <span className="text-[#6B7280]">{reviewCountLabel}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium text-[#1F2328]">Пока без отзывов</span>
-                    <span className="text-[#6B7280]">
-                      Новый товар, можно заказать с проверкой перед выдачей.
-                    </span>
-                  </>
-                )}
+                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328] md:text-5xl xl:text-[3.6rem]">
+                  {product.name}
+                </h1>
+
+                <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
+                  {hasPublishedReviews ? (
+                    <>
+                      <div className="flex items-center gap-1 text-[#05C3D4]">
+                        <Star size={15} className="fill-current" />
+                        <span className="font-black text-[#1F2328]">{product.rating}</span>
+                      </div>
+                      <span className="text-[#6B7280]">{reviewCountLabel}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium text-[#1F2328]">Пока без отзывов</span>
+                      <span className="text-[#6B7280]">
+                        Новый товар, можно заказать с проверкой перед выдачей.
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
+
+              <ProductPurchasePanel
+                priceLabel={displayedPriceLabel}
+                oldPriceLabel={oldPriceLabel}
+                discountLabel={discountLabel}
+                summaryTitle="Самовывоз и доставка"
+                summaryText={`${deliverySummary}. Доставка по Пензе и России после подтверждения заказа.`}
+                onAddToCart={handleAddToCart}
+                onOpenOneClick={() => setOneClickDialogOpen(true)}
+                onReserveClick={handleReserveShortcut}
+                disableCart={!canPurchase}
+                disableOneClick={!canPurchase}
+                disableReserve={availableStores.length === 0}
+              />
 
               {hasVariants ? (
                 <ProductVariantSelector
@@ -553,32 +636,17 @@ export default function ProductPage() {
                   </div>
                 </div>
               ) : null}
-            </div>
 
-            <div className="order-3">
-              <ProductPurchasePanel
-                priceLabel={displayedPriceLabel}
-                oldPriceLabel={oldPriceLabel}
-                discountLabel={discountLabel}
-                summaryTitle="Самовывоз и доставка"
-                summaryText={`${deliverySummary}. Доставка по Пензе и России после подтверждения заказа.`}
-                onAddToCart={handleAddToCart}
-                onOpenOneClick={() => setOneClickDialogOpen(true)}
-                onReserveClick={handleReserveShortcut}
-                disableCart={!canPurchase}
-                disableOneClick={!canPurchase}
-                disableReserve={availableStores.length === 0}
-              />
-            </div>
-          </div>
-
-          <div className="mt-10">
-            <ProductQuickSpecs specs={quickAboutSpecs} />
             <ProductServices
               pickupText={deliverySummary}
               deliveryText="По Пензе и регионам России после подтверждения менеджером."
               storeText={availabilitySummary}
             />
+          </div>
+          </div>
+
+          <div className="mt-20">
+            <ProductQuickSpecs specs={quickAboutSpecs} />
             <ProductSpecifications
               specs={productSpecs}
               isManufacturerSpec={isManufacturerSpec}

@@ -85,7 +85,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 md:order-2 overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[520px] md:p-8 xl:min-h-[620px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 md:order-2 overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
           {manufacturerBadge}
@@ -101,7 +101,7 @@ export default function ProductImageGallery({
               srcSet={activeImageProps.srcSet}
               sizes={activeImageProps.sizes}
               alt={productName}
-              className="max-h-[420px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[520px] xl:max-h-[620px]"
+              className="max-h-[420px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
               decoding="async"
               onError={applyProductImageFallback}
             />
