@@ -24,10 +24,16 @@ export default function ReserveStoreButton({
   return (
     <Button
       type="button"
-      variant={isReserved ? "secondary" : "outline"}
-      className={`product-action-button w-full sm:w-auto sm:min-w-[220px] ${
+      variant="ghost"
+      className={`product-action-button w-full border-0 sm:w-auto sm:min-w-[220px] ${
         isReserved
-          ? "border-[#05C3D4]/20 bg-[#05C3D4]/10 text-[#047987] hover:bg-[#05C3D4]/10"
+          ? "bg-[#E8FAFC] text-[#047987] hover:bg-[#E8FAFC]"
+          : isAvailable
+            ? "bg-[#F4F5F6] text-[#1F2328] hover:bg-[#E9ECEF]"
+            : "bg-[#F4F5F6] text-[#A0A7AE] hover:bg-[#F4F5F6]"
+      } ${
+        disabled
+          ? "cursor-not-allowed opacity-100"
           : ""
       }`}
       onClick={onClick}

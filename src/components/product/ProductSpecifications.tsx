@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 type ProductSpecificationsProps = {
   specs: Record<string, unknown> | null;
   isManufacturerSpec?: (key: string) => boolean;
@@ -30,6 +32,7 @@ export default function ProductSpecifications({
   specs,
   isManufacturerSpec,
 }: ProductSpecificationsProps) {
+  const [showAll, setShowAll] = useState(false);
   if (!specs) return null;
 
   const sourceEntries = Object.entries(specs).filter(([key]) =>
@@ -49,6 +52,9 @@ export default function ProductSpecifications({
     title,
     items,
   }));
+  const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const visibleItemLimit = 24;
+  let remainingSlots = visibleItemLimit;
 
   return (
     <section className="mt-16">
@@ -62,7 +68,14 @@ export default function ProductSpecifications({
               {group.title}
             </h3>
             <div className="mt-5">
-              {group.items.map(([key, value], index) => (
+              {(showAll
+                ? group.items
+                : (() => {
+                    const slice = group.items.slice(0, Math.max(remainingSlots, 0));
+                    remainingSlots -= slice.length;
+                    return slice;
+                  })()
+              ).map(([key, value], index) => (
                 <div
                   key={key}
                   className={`grid gap-3 py-3 md:grid-cols-[minmax(220px,360px)_1fr] md:gap-8 ${
@@ -81,6 +94,15 @@ export default function ProductSpecifications({
           </div>
         ))}
       </div>
+      {!showAll && totalItems > visibleItemLimit ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-8 inline-flex items-center rounded-full bg-[#F4F5F6] px-5 py-3 text-sm font-semibold text-[#1F2328] transition hover:bg-[#E9ECEF]"
+        >
+          Показать все характеристики
+        </button>
+      ) : null}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useParams, Link, useLocation } from "react-router";
+import { useParams, Link, useLocation, useNavigate } from "react-router";
 import { Star, MessageCircle, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
@@ -15,7 +15,6 @@ import ReservationConfirmDialog from "@/components/product/ReservationConfirmDia
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
 import ProductVariantSelector from "@/components/product/ProductVariantSelector";
-import ProductQuickSpecs from "@/components/product/ProductQuickSpecs";
 import ProductServices from "@/components/product/ProductServices";
 import ProductDescription from "@/components/product/ProductDescription";
 import ProductSpecifications from "@/components/product/ProductSpecifications";
@@ -35,6 +34,7 @@ import {
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [reviewSort, setReviewSort] = useState<"newest" | "highest" | "lowest" | "verified">("newest");
   const [showReviewSection, setShowReviewSection] = useState(false);
@@ -80,13 +80,26 @@ export default function ProductPage() {
       null,
     [variants]
   );
+  const requestedVariantId = useMemo(() => {
+    const rawValue = new URLSearchParams(location.search).get("variant");
+    if (!rawValue) return null;
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [location.search]);
+  const requestedVariant = useMemo(
+    () =>
+      requestedVariantId
+        ? variants.find(variant => variant.id === requestedVariantId) ?? null
+        : null,
+    [requestedVariantId, variants]
+  );
   const selectedVariant =
     variants.find(variant => variant.id === selectedVariantId) ?? defaultVariant ?? null;
 
   useEffect(() => {
-    setSelectedVariantId(defaultVariant?.id ?? null);
-    setVariantChosenManually(false);
-  }, [defaultVariant?.id, product?.id]);
+    setSelectedVariantId(requestedVariant?.id ?? defaultVariant?.id ?? null);
+    setVariantChosenManually(Boolean(requestedVariant));
+  }, [defaultVariant?.id, product?.id, requestedVariant?.id]);
 
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
@@ -279,7 +292,6 @@ export default function ProductPage() {
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";
   const compactDetailSpecs = quickSpecs.slice(0, 3);
-  const quickAboutSpecs = quickSpecs.slice(0, 6);
   const oldPriceLabel =
     hasOldPrice && !selectedVariant ? formatPrice(product.oldPrice as number) : null;
   const displayedPriceLabel =
@@ -299,6 +311,33 @@ export default function ProductPage() {
             availableStores.length > 0
         )
       : availableStores.length > 0;
+
+  useEffect(() => {
+    if (!product) return;
+
+    const currentParams = new URLSearchParams(location.search);
+    const currentVariant = currentParams.get("variant");
+
+    if (hasVariants && selectedVariant?.id) {
+      const nextVariant = String(selectedVariant.id);
+      if (currentVariant === nextVariant) return;
+      currentParams.set("variant", nextVariant);
+    } else if (!currentVariant) {
+      return;
+    } else {
+      currentParams.delete("variant");
+    }
+
+    const nextSearch = currentParams.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : "",
+        hash: location.hash,
+      },
+      { replace: true }
+    );
+  }, [hasVariants, location.hash, location.pathname, location.search, navigate, product, selectedVariant?.id]);
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -383,7 +422,7 @@ export default function ProductPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
       {/* Breadcrumbs */}
-      <section className="bg-muted/30 py-4 border-b border-border">
+      <section className="bg-white py-4">
         <div className="container-main">
           <div className="flex items-center flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
             <Link
@@ -646,7 +685,6 @@ export default function ProductPage() {
           </div>
 
           <div className="mt-20">
-            <ProductQuickSpecs specs={quickAboutSpecs} />
             <ProductSpecifications
               specs={productSpecs}
               isManufacturerSpec={isManufacturerSpec}
@@ -702,11 +740,11 @@ export default function ProductPage() {
       />
       <section
         id="reviews"
-        className={`border-t border-border bg-card ${shouldShowReviewSection ? "py-20" : "py-10 md:py-12"}`}
+        className={`bg-white ${shouldShowReviewSection ? "py-20" : "py-10 md:py-12"}`}
       >
         <div className="container-main">
           {!shouldShowReviewSection ? (
-            <div className="rounded-[1.75rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] px-5 py-4 shadow-sm md:px-6 md:py-5">
+            <div className="rounded-[1.75rem] bg-[#F7FEFF] px-5 py-4 md:px-6 md:py-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
                   <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
@@ -749,7 +787,7 @@ export default function ProductPage() {
                   </h2>
                 </div>
 
-                <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
+                <div className="rounded-[2rem] bg-[#F6F7F8] p-8">
                   <div className="flex items-end gap-5">
                     <div className="text-6xl font-black text-[#05C3D4]">
                       {reviewFeed?.summary.avgRating?.toFixed(1) || "0.0"}
@@ -794,7 +832,7 @@ export default function ProductPage() {
                       verifiedPurchase={reviewEligibility?.verifiedPurchase}
                     />
                   ) : (
-                    <div className="rounded-[2rem] border border-border bg-white p-8 shadow-sm">
+                    <div className="rounded-[2rem] bg-[#F6F7F8] p-8">
                       <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">
                         Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
@@ -830,15 +868,16 @@ export default function ProductPage() {
                 </div>
 
                 {!hasReviewItems ? (
-                  <div className="rounded-[2rem] border border-dashed border-[#05C3D4]/30 bg-[#F7FEFF] p-8 shadow-sm">
+                  <div className="rounded-[2rem] bg-[#F7FEFF] p-8">
                     <div className="text-lg font-black text-[#15171A]">Пока отзывов нет</div>
                     <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
                       У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
                     </p>
                   </div>
                 ) : (
-                  (reviewFeed?.items ?? []).map(review => (
-                    <article key={review.id} className="rounded-[2rem] border border-border bg-white p-6 shadow-sm">
+                  <div className="border-t border-[#F1F2F3]">
+                    {(reviewFeed?.items ?? []).map(review => (
+                    <article key={review.id} className="border-b border-[#F1F2F3] py-6">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -877,7 +916,7 @@ export default function ProductPage() {
                         </div>
                       ) : null}
                       {review.storeReply ? (
-                        <div className="mt-5 rounded-2xl border border-[#05C3D4]/20 bg-[#F7FEFF] p-4">
+                        <div className="mt-5 rounded-2xl bg-[#F7FEFF] p-4">
                           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
                             Ответ магазина
                           </div>
@@ -885,7 +924,8 @@ export default function ProductPage() {
                         </div>
                       ) : null}
                     </article>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
