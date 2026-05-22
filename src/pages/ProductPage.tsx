@@ -459,9 +459,22 @@ export default function ProductPage() {
         <div className="container-main">
           <div className="space-y-3 lg:hidden">
             {hasManufacturer ? (
-              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#1F2328]">
-                {manufacturer?.title}
-              </div>
+              <Link
+                to={manufacturer?.href || "#"}
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-[#F6F7F8] px-3 py-2 text-[#1F2328] transition hover:bg-[#ECEFF1]"
+              >
+                {manufacturer?.logo ? (
+                  <img
+                    src={manufacturer.logo}
+                    alt={manufacturer.title || "Бренд"}
+                    className="h-4 max-w-[88px] object-contain"
+                  />
+                ) : (
+                  <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[#1F2328]">
+                    {manufacturer?.title}
+                  </span>
+                )}
+              </Link>
             ) : null}
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -534,40 +547,28 @@ export default function ProductPage() {
                     </div>
                   ) : null
                 }
-                manufacturerBadge={
-                  hasManufacturer ? (
-                    <Link
-                      to={manufacturer?.href || "#"}
-                      className="absolute right-5 top-5 z-20 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 !text-[#15171A] transition-all hover:bg-[#F6F7F8] hover:!text-[#15171A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/40"
-                    >
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white p-0.5">
-                        {manufacturer?.logo ? (
-                          <img
-                            src={manufacturer?.logo}
-                            alt={manufacturer?.title || "Бренд"}
-                            className="h-full w-full object-contain"
-                          />
-                        ) : (
-                          <span className="text-[9px] font-black text-[#05C3D4]">
-                            {String(manufacturer?.title || "").slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                      </span>
-                      <span className="max-w-[160px] truncate text-[11px] font-black uppercase tracking-wide !text-[#15171A]">
-                        {String(manufacturer?.title || "")}
-                      </span>
-                    </Link>
-                  ) : null
-                }
               />
             </div>
 
             <div className="order-2 space-y-5 lg:space-y-8 lg:order-2">
               <div className="hidden space-y-5 lg:block">
                 {hasManufacturer ? (
-                  <div className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
-                    {manufacturer?.title}
-                  </div>
+                  <Link
+                    to={manufacturer?.href || "#"}
+                    className="inline-flex w-fit items-center gap-3 rounded-full bg-[#F6F7F8] px-4 py-2.5 text-[#1F2328] transition hover:bg-[#ECEFF1]"
+                  >
+                    {manufacturer?.logo ? (
+                      <img
+                        src={manufacturer.logo}
+                        alt={manufacturer.title || "Бренд"}
+                        className="h-5 max-w-[120px] object-contain"
+                      />
+                    ) : (
+                      <span className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
+                        {manufacturer?.title}
+                      </span>
+                    )}
+                  </Link>
                 ) : null}
 
                 <div className="flex flex-wrap items-center gap-3 text-sm">

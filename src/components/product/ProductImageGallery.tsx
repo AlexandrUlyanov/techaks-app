@@ -12,14 +12,12 @@ type ProductImageGalleryProps = {
   images: ProductImageVariantSet[];
   productName: string;
   badges?: ReactNode;
-  manufacturerBadge?: ReactNode;
 };
 
 export default function ProductImageGallery({
   images,
   productName,
   badges,
-  manufacturerBadge,
 }: ProductImageGalleryProps) {
   const normalizedImages = useMemo(
     () =>
@@ -59,10 +57,16 @@ export default function ProductImageGallery({
 
   return (
     <>
-      <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-[92px_minmax(0,1fr)] md:gap-6 xl:grid-cols-[96px_minmax(0,1fr)]">
+      <div
+        className={`grid gap-3 sm:gap-4 md:gap-6 ${
+          hasMultipleImages
+            ? "grid-cols-[76px_minmax(0,1fr)] sm:grid-cols-[84px_minmax(0,1fr)] md:grid-cols-[92px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)]"
+            : "grid-cols-1"
+        }`}
+      >
         {hasMultipleImages ? (
-          <div className="order-2 md:order-1">
-            <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:sticky md:top-24 md:grid-cols-1">
+          <div>
+            <div className="grid grid-cols-1 gap-3 md:sticky md:top-24">
               {normalizedImages.map((image, index) => {
                 const thumbnailProps = getProductGalleryImageProps({
                   image: image.original,
@@ -99,10 +103,9 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 md:order-2 overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
-          {manufacturerBadge}
 
           {hasMultipleImages ? (
             <>
