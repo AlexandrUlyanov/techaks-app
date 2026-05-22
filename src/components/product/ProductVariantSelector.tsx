@@ -90,10 +90,10 @@ export default function ProductVariantSelector({
 
   if (groupedMode) {
     return (
-      <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
+      <div className="space-y-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+            <h3 className="text-[15px] font-medium text-[#1F2328]">
               Выберите вариант
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -149,10 +149,10 @@ export default function ProductVariantSelector({
                           type="button"
                           onClick={() => candidateVariant && onSelect(candidateVariant.id)}
                           disabled={!isAvailable}
-                          className={`overflow-hidden rounded-[1.2rem] border bg-white p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          className={`overflow-hidden rounded-[1rem] bg-[#F4F5F6] p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                             isSelected
-                              ? "border-[#05C3D4] shadow-[0_10px_20px_rgba(5,195,212,0.16)]"
-                              : "border-border hover:border-[#05C3D4]/40"
+                              ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
+                              : "hover:bg-[#ECEFF1]"
                           } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
                         >
                           <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl bg-muted/35 p-2">
@@ -180,10 +180,10 @@ export default function ProductVariantSelector({
                         type="button"
                         onClick={() => candidateVariant && onSelect(candidateVariant.id)}
                         disabled={!isAvailable}
-                        className={`inline-flex min-h-11 items-center justify-center rounded-2xl border px-4 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        className={`inline-flex min-h-11 items-center justify-center rounded-xl border-none bg-[#F4F5F6] px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           isSelected
-                            ? "border-[#05C3D4] bg-[#F4FEFF] text-[#15171A] shadow-sm"
-                            : "border-border bg-white text-[#15171A] hover:border-[#05C3D4]/40"
+                            ? "bg-[#464A50] text-white"
+                            : "text-[#15171A] hover:bg-[#ECEFF1]"
                         } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
                       >
                         {value}
@@ -200,9 +200,9 @@ export default function ProductVariantSelector({
   }
 
   return (
-    <div className="rounded-[1.75rem] border border-border bg-card/70 p-5 shadow-sm">
+      <div className="space-y-4">
       <div className="mb-4">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+        <h3 className="text-[15px] font-medium text-[#1F2328]">
           Выберите вариант
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -231,13 +231,13 @@ export default function ProductVariantSelector({
               type="button"
               onClick={() => onSelect(variant.id)}
               disabled={!isAvailable}
-              className={`overflow-hidden rounded-[1.35rem] border bg-white text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              className={`overflow-hidden rounded-[1.2rem] bg-[#F8F9FA] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 isSelected
-                  ? "border-[#05C3D4] shadow-[0_10px_24px_rgba(5,195,212,0.18)]"
-                  : "border-border hover:border-[#05C3D4]/40"
+                  ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
+                  : "hover:bg-[#F1F4F5]"
               } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
             >
-              <div className="aspect-square border-b border-border bg-muted/35 p-3">
+              <div className="aspect-square bg-[#F8F9FA] p-3">
                 <img
                   src={imageProps.src}
                   srcSet={imageProps.srcSet}

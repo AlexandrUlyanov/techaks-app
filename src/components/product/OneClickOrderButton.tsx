@@ -12,7 +12,7 @@ export default function OneClickOrderButton({
     <Button
       type="button"
       variant="outline"
-      className="product-action-button h-14 rounded-2xl border-[#05C3D4]/25 bg-white text-[#464A50] hover:border-[#05C3D4] hover:text-[#05C3D4]"
+      className="product-action-button h-12 rounded-[14px] border-none bg-[#F4F5F6] text-[#464A50] hover:bg-[#ECEFF1] hover:text-[#1F2328]"
       onClick={onClick}
       disabled={disabled}
     >

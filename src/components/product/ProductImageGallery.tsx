@@ -61,10 +61,10 @@ export default function ProductImageGallery({
                     type="button"
                     onClick={() => openLightbox(index)}
                     aria-label={`Открыть изображение ${index + 1} товара ${productName}`}
-                    className={`overflow-hidden rounded-[1.4rem] border bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    className={`overflow-hidden rounded-xl bg-[#F6F7F8] p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       index === activeIndex
-                        ? "border-[#05C3D4] shadow-[0_12px_26px_rgba(5,195,212,0.18)]"
-                        : "border-border hover:border-[#05C3D4]/50"
+                        ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
+                        : "hover:bg-[#ECEFF1]"
                     }`}
                   >
                     <img
@@ -85,7 +85,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 md:order-2 overflow-hidden rounded-[2.2rem] border border-border bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f9fbfc_100%)] p-8 shadow-sm md:min-h-[720px] md:p-14 xl:p-16 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 md:order-2 overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[520px] md:p-8 xl:min-h-[620px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
           {manufacturerBadge}
@@ -101,7 +101,7 @@ export default function ProductImageGallery({
               srcSet={activeImageProps.srcSet}
               sizes={activeImageProps.sizes}
               alt={productName}
-              className="max-h-[430px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[640px] xl:max-h-[720px]"
+              className="max-h-[420px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[520px] xl:max-h-[620px]"
               decoding="async"
               onError={applyProductImageFallback}
             />

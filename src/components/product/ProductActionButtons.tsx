@@ -15,13 +15,13 @@ export default function ProductActionButtons({
   disableOneClick?: boolean;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-3">
       <button
         type="button"
-        className={`product-action-button relative overflow-hidden flex h-14 items-center justify-center gap-2 rounded-2xl px-4 text-[11px] font-black uppercase tracking-widest transition-all duration-300 shadow-[0_4px_20px_rgba(5,195,212,0.3)] ${
+        className={`product-action-button relative flex h-14 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-semibold transition-all duration-300 ${
           isAddingToCart || disableCart
-            ? "cursor-not-allowed border border-[#D7E0E7] bg-[#F3F6F8] text-[#7F8A96] shadow-none"
-            : "bg-[#05C3D4] text-white hover:bg-[#27E6F2] active:scale-[0.99]"
+            ? "cursor-not-allowed bg-[#D7E0E7] text-[#7F8A96]"
+            : "bg-[#05C3D4] text-white hover:bg-[#03b0bf] active:scale-[0.99]"
         }`}
         onClick={onAddToCart}
         disabled={isAddingToCart || disableCart}

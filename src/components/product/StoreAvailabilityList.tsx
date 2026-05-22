@@ -13,23 +13,24 @@ export default function StoreAvailabilityList({
 }) {
   if (stores.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-white p-4 text-sm text-muted-foreground">
+      <div className="py-4 text-sm text-muted-foreground">
         Сейчас в магазинах нет доступного остатка для резерва.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {stores.map(store => (
-        <StoreAvailabilityItem
-          key={store.storeId}
-          store={store}
-          singleStore={stores.length === 1}
-          isReserved={reservedStoreId === store.storeId}
-          isLoading={loadingStoreId === store.storeId}
-          onReserve={onReserve}
-        />
+    <div>
+      {stores.map((store, index) => (
+        <div key={store.storeId} className={index > 0 ? "border-t border-[#F1F2F3]" : ""}>
+          <StoreAvailabilityItem
+            store={store}
+            singleStore={stores.length === 1}
+            isReserved={reservedStoreId === store.storeId}
+            isLoading={loadingStoreId === store.storeId}
+            onReserve={onReserve}
+          />
+        </div>
       ))}
     </div>
   );

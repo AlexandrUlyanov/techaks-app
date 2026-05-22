@@ -27,16 +27,17 @@ export function StoreAvailabilityItem({
   singleStore?: boolean;
   isReserved?: boolean;
   isLoading?: boolean;
+  isFirst?: boolean;
   onReserve: (store: ProductStoreAvailability) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="py-5 first:pt-0">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div className="space-y-1">
-          <div className="text-sm font-black text-[#15171A]">{store.storeName}</div>
-          <div className="text-sm text-muted-foreground">{store.storeAddress}</div>
+          <div className="text-base font-semibold text-[#1F2328]">{store.storeName}</div>
+          <div className="text-sm text-[#6B7280]">{store.storeAddress}</div>
           <div
-            className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+            className={`inline-flex rounded-full px-3 py-1 text-[11px] font-medium ${
               store.availableQty > 0
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-gray-100 text-gray-500"
