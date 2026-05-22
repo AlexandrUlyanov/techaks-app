@@ -20,7 +20,10 @@ import ProductDescription from "@/components/product/ProductDescription";
 import ProductSpecifications from "@/components/product/ProductSpecifications";
 import ProductMobileStickyBuy from "@/components/product/ProductMobileStickyBuy";
 import ProductPurchasePanel from "@/components/product/ProductPurchasePanel";
-import ProductBreadcrumbsCompact from "@/components/product/ProductBreadcrumbsCompact";
+import ProductBreadcrumbsCompact, {
+  shortenProductName,
+  type CompactBreadcrumbItem,
+} from "@/components/product/ProductBreadcrumbsCompact";
 import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
@@ -437,7 +440,20 @@ export default function ProductPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
-      <ProductBreadcrumbsCompact breadcrumbs={breadcrumbs} productName={product.name} />
+      <ProductBreadcrumbsCompact
+        rootTo="/catalog"
+        compactRootLabel="Кат."
+        items={breadcrumbs.map(
+          breadcrumb =>
+            ({
+              id: breadcrumb.id,
+              label: String(breadcrumb.name),
+              to: `/catalog?cat=${breadcrumb.slug}`,
+            }) satisfies CompactBreadcrumbItem
+        )}
+        currentLabel={product.name}
+        shortenCurrentLabel={shortenProductName}
+      />
 
       {/* Product Detail */}
       <section className="py-6 md:py-12">

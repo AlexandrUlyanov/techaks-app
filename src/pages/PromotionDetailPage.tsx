@@ -8,6 +8,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
+import ProductBreadcrumbsCompact from "@/components/product/ProductBreadcrumbsCompact";
 
 export default function PromotionDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -44,21 +45,12 @@ export default function PromotionDetailPage() {
 
   return (
     <div className="min-h-screen pb-20 bg-background text-foreground">
-      {/* Breadcrumbs */}
-      <div className="bg-muted/30 border-b border-border py-4">
-        <div className="container-main flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-          <Link
-            to="/promotions"
-            className="hover:text-[#05C3D4] transition-colors"
-          >
-            Акции
-          </Link>
-          <span className="text-muted-foreground/20">/</span>
-          <span className="text-muted-foreground truncate max-w-[200px]">
-            {promo.title}
-          </span>
-        </div>
-      </div>
+      <ProductBreadcrumbsCompact
+        rootTo="/promotions"
+        compactRootLabel="Акции"
+        items={[]}
+        currentLabel={promo.title}
+      />
 
       {/* Content */}
       <section className="py-16 md:py-24">

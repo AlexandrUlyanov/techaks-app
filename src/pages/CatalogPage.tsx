@@ -2,6 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
+import ProductBreadcrumbsCompact, {
+  type CompactBreadcrumbItem,
+} from "@/components/product/ProductBreadcrumbsCompact";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
 import { ChevronDown, Grid2X2, List, SlidersHorizontal } from "lucide-react";
@@ -218,42 +221,35 @@ export default function CatalogPage() {
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
-      {/* Breadcrumbs */}
-      <section className="bg-muted/30 py-4 border-b border-border">
-        <div className="container-main">
-          <div className="flex items-center flex-wrap gap-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
-            <Link to="/catalog?cat=all" className="hover:text-[#05C3D4] transition-colors">
-              Каталог
-            </Link>
-            {catalogView === "brands" ? (
-              <>
-                <span className="text-muted-foreground/20">/</span>
-                <span className={!activeBrand ? "text-[#05C3D4]" : ""}>
-                  Производители
-                </span>
-                {activeBrand && currentManufacturer && (
-                  <>
-                    <span className="text-muted-foreground/20">/</span>
-                    <span className="text-[#05C3D4]">{currentManufacturer.name}</span>
-                  </>
-                )}
-              </>
-            ) : (
-              breadcrumbs.map(bc => (
-                <div key={bc.id} className="flex items-center gap-2">
-                  <span className="text-muted-foreground/20">/</span>
-                  <Link 
-                    to={`/catalog?cat=${bc.slug}`}
-                    className={bc.id === currentCategory?.id ? "text-[#05C3D4]" : "hover:text-[#05C3D4] transition-colors"}
-                  >
-                    {bc.name}
-                  </Link>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
+      <ProductBreadcrumbsCompact
+        rootTo="/catalog?cat=all"
+        compactRootLabel="Кат."
+        items={
+          catalogView === "brands"
+            ? [
+                {
+                  id: "brands",
+                  label: "Производители",
+                  to: "/catalog?view=brands",
+                },
+              ]
+            : breadcrumbs.map(
+                breadcrumb =>
+                  ({
+                    id: breadcrumb.id,
+                    label: String(breadcrumb.name),
+                    to: `/catalog?cat=${breadcrumb.slug}`,
+                  }) satisfies CompactBreadcrumbItem
+              )
+        }
+        currentLabel={
+          catalogView === "brands"
+            ? currentManufacturer?.name || "Производители"
+            : activeCategory === "all"
+              ? "Каталог"
+              : undefined
+        }
+      />
 
       {/* Header Info */}
       <section className="pt-12 pb-8 border-b border-border">

@@ -2,13 +2,13 @@ import { Fragment } from "react";
 import { Link } from "react-router";
 import { ChevronRight, Home } from "lucide-react";
 
-type BreadcrumbItem = {
-  id: number;
-  slug: string;
-  name: string;
+export type CompactBreadcrumbItem = {
+  id?: number | string;
+  label: string;
+  to?: string;
 };
 
-function shortenBreadcrumbLabel(label: string) {
+export function shortenBreadcrumbLabel(label: string) {
   const normalized = label.trim();
 
   const dictionary: Record<string, string> = {
@@ -24,7 +24,7 @@ function shortenBreadcrumbLabel(label: string) {
   return dictionary[normalized] ?? normalized;
 }
 
-function shortenProductName(label: string) {
+export function shortenProductName(label: string) {
   return label
     .replace(/^Смартфон\s+/i, "")
     .replace(/^Samsung Galaxy\s+/i, "")
@@ -32,46 +32,76 @@ function shortenProductName(label: string) {
 }
 
 export default function ProductBreadcrumbsCompact({
-  breadcrumbs,
-  productName,
+  items,
+  currentLabel,
+  homeTo = "/",
+  rootTo = "/",
+  rootLabel = "Главная",
+  compactRootLabel,
+  shortenItemLabel = shortenBreadcrumbLabel,
+  shortenCurrentLabel,
 }: {
-  breadcrumbs: BreadcrumbItem[];
-  productName: string;
+  items: CompactBreadcrumbItem[];
+  currentLabel?: string;
+  homeTo?: string;
+  rootTo?: string;
+  rootLabel?: string;
+  compactRootLabel?: string;
+  shortenItemLabel?: (label: string) => string;
+  shortenCurrentLabel?: (label: string) => string;
 }) {
-  const tailBreadcrumbs = breadcrumbs.slice(-2);
+  const visibleItems = items.slice(-2);
+  const renderedCurrentLabel = currentLabel
+    ? shortenCurrentLabel?.(currentLabel) ?? currentLabel
+    : null;
 
   return (
     <nav className="bg-white">
       <div className="container-main">
         <div className="flex h-9 items-center">
           <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-[11px] font-semibold text-[#7A7F87] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Link to="/" className="shrink-0 text-[#464A50]">
+            <Link to={homeTo} className="shrink-0 text-[#464A50]" aria-label={rootLabel}>
               <Home size={14} />
             </Link>
 
             <ChevronRight size={12} className="shrink-0 text-[#C0C5CC]" />
 
-            <Link to="/catalog" className="shrink-0">
-              Кат.
-            </Link>
+            {compactRootLabel ? (
+              <Link to={rootTo} className="shrink-0">
+                {compactRootLabel}
+              </Link>
+            ) : null}
 
-            {tailBreadcrumbs.map(breadcrumb => (
-              <Fragment key={breadcrumb.id}>
-                <ChevronRight size={12} className="shrink-0 text-[#C0C5CC]" />
-                <Link
-                  to={`/catalog?cat=${breadcrumb.slug}`}
-                  className="max-w-[92px] shrink-0 truncate hover:text-[#1F2328]"
-                >
-                  {shortenBreadcrumbLabel(String(breadcrumb.name))}
-                </Link>
+            {visibleItems.map((item, index) => (
+              <Fragment key={item.id ?? `${item.label}-${index}`}>
+                {(compactRootLabel || index > 0) ? (
+                  <ChevronRight size={12} className="shrink-0 text-[#C0C5CC]" />
+                ) : null}
+                {item.to ? (
+                  <Link
+                    to={item.to}
+                    className="max-w-[92px] shrink-0 truncate hover:text-[#1F2328]"
+                  >
+                    {shortenItemLabel(item.label)}
+                  </Link>
+                ) : (
+                  <span className="max-w-[92px] shrink-0 truncate">
+                    {shortenItemLabel(item.label)}
+                  </span>
+                )}
               </Fragment>
             ))}
 
-            <ChevronRight size={12} className="shrink-0 text-[#C0C5CC]" />
-
-            <span className="min-w-0 truncate text-[#1F2328]">
-              {shortenProductName(productName)}
-            </span>
+            {renderedCurrentLabel ? (
+              <>
+                {(compactRootLabel || visibleItems.length > 0) ? (
+                  <ChevronRight size={12} className="shrink-0 text-[#C0C5CC]" />
+                ) : null}
+                <span className="min-w-0 truncate text-[#1F2328]">
+                  {renderedCurrentLabel}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
