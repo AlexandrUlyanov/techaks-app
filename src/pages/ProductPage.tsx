@@ -495,24 +495,6 @@ export default function ProductPage() {
               ) : null}
             </div>
 
-            {(merchandisingBadges.length > 0 || product.badge) ? (
-              <div className="flex flex-wrap gap-2">
-                {merchandisingBadges.map(itemBadge => (
-                  <span
-                    key={`mobile-${itemBadge}`}
-                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
-                  >
-                    {getMerchandisingBadgeLabel(itemBadge)}
-                  </span>
-                ))}
-                {product.badge ? (
-                  <span className="rounded-full bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50]">
-                    {product.badge}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-
             <h1 className="line-clamp-2 text-[29px] font-black leading-[1.04] tracking-tight text-[#1F2328]">
               {product.name}
             </h1>
@@ -534,16 +516,21 @@ export default function ProductPage() {
                 images={displayedImages}
                 productName={product.name}
                 badges={
-                  merchandisingBadges.length > 0 ? (
+                  merchandisingBadges.length > 0 || product.badge ? (
                     <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
                       {merchandisingBadges.map(itemBadge => (
                         <span
                           key={itemBadge}
-                          className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
+                          className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
                         >
                           {getMerchandisingBadgeLabel(itemBadge)}
                         </span>
                       ))}
+                      {product.badge ? (
+                        <span className="rounded-xl bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50] opacity-75">
+                          {product.badge}
+                        </span>
+                      ) : null}
                     </div>
                   ) : null
                 }
@@ -588,24 +575,6 @@ export default function ProductPage() {
                     <span className="text-[#6B7280]">Код: {displayedArticle}</span>
                   ) : null}
                 </div>
-
-                {(merchandisingBadges.length > 0 || product.badge) ? (
-                  <div className="flex flex-wrap gap-2">
-                    {merchandisingBadges.map(itemBadge => (
-                      <span
-                        key={itemBadge}
-                        className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wide`}
-                      >
-                        {getMerchandisingBadgeLabel(itemBadge)}
-                      </span>
-                    ))}
-                    {product.badge ? (
-                      <span className="rounded-full bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50]">
-                        {product.badge}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328] md:text-5xl xl:text-[3.6rem]">
                   {product.name}
