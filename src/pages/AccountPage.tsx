@@ -440,8 +440,13 @@ function AccountOrderCard({
                               <div className="font-semibold leading-snug">
                                 {item.productName || `Товар #${item.productId}`}
                               </div>
+                              {item.variantName ? (
+                                <div className="mt-1 text-xs font-medium text-foreground/75">
+                                  Вариант: {item.variantName}
+                                </div>
+                              ) : null}
                               <div className="mt-1 text-xs text-muted-foreground">
-                                SKU: {item.sku || "—"}
+                                Артикул: {item.article || item.sku || "—"}
                               </div>
                               <div className="mt-2 text-xs text-muted-foreground">
                                 {item.quantity} шт. × {formatPrice(item.price)}

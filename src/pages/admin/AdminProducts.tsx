@@ -72,6 +72,10 @@ export default function AdminProducts() {
     { productId: editingProduct?.id ?? 0 },
     { enabled: Boolean(editingProduct?.id) }
   );
+  const { data: productVariants = [] } = trpc.product.getAdminVariants.useQuery(
+    { productId: editingProduct?.id ?? 0 },
+    { enabled: Boolean(editingProduct?.id) }
+  );
 
   const products = pagedData?.items || [];
   const totalPages = pagedData?.totalPages || 1;
@@ -559,6 +563,62 @@ export default function AdminProducts() {
                       </div>
                     )}
                   </div>
+                </div>
+              ) : null}
+
+              {editingProduct.id ? (
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-sm font-semibold text-gray-900">
+                    Модификации товара
+                  </div>
+                  {productVariants.length === 0 ? (
+                    <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                      У товара пока нет синхронизированных модификаций.
+                    </div>
+                  ) : (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="text-xs uppercase tracking-[0.16em] text-gray-400">
+                          <tr>
+                            <th className="px-3 py-2">Название</th>
+                            <th className="px-3 py-2">Артикул</th>
+                            <th className="px-3 py-2">Цена</th>
+                            <th className="px-3 py-2">Остаток</th>
+                            <th className="px-3 py-2">Активна</th>
+                            <th className="px-3 py-2">ID МойСклад</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {productVariants.map((variant: any) => (
+                            <tr key={variant.id}>
+                              <td className="px-3 py-3 font-medium text-[#15171A]">
+                                {variant.name}
+                              </td>
+                              <td className="px-3 py-3 text-gray-500">
+                                {variant.article || "—"}
+                              </td>
+                              <td className="px-3 py-3 text-gray-500">
+                                {new Intl.NumberFormat("ru-RU").format(Number(variant.price || 0))} ₽
+                              </td>
+                              <td className="px-3 py-3 text-gray-500">{variant.stock}</td>
+                              <td className="px-3 py-3">
+                                <span
+                                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                    variant.isActive
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  {variant.isActive ? "Да" : "Нет"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 text-gray-400">{variant.msId || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ) : null}
 

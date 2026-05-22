@@ -2,7 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface CartItem {
+  cartKey: string;
   id: number;
+  variantId?: number | null;
+  variantName?: string | null;
+  article?: string | null;
   slug: string;
   name: string;
   price: number;
@@ -10,11 +14,15 @@ export interface CartItem {
   quantity: number;
 }
 
+function buildCartKey(productId: number, variantId?: number | null) {
+  return `${productId}:${typeof variantId === "number" ? variantId : 0}`;
+}
+
 interface CartStore {
   items: CartItem[];
-  addItem: (product: Omit<CartItem, "quantity">) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  addItem: (product: Omit<CartItem, "quantity" | "cartKey">) => void;
+  removeItem: (cartKey: string) => void;
+  updateQuantity: (cartKey: string, quantity: number) => void;
   replaceItems: (items: CartItem[]) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
@@ -27,37 +35,44 @@ export const useCart = create<CartStore>()(
       items: [],
       addItem: product => {
         const currentItems = get().items;
-        const existingItem = currentItems.find(item => item.id === product.id);
+        const cartKey = buildCartKey(product.id, product.variantId);
+        const existingItem = currentItems.find(item => item.cartKey === cartKey);
 
         if (existingItem) {
           set({
             items: currentItems.map(item =>
-              item.id === product.id
+              item.cartKey === cartKey
                 ? { ...item, quantity: item.quantity + 1 }
                 : item
             ),
           });
         } else {
-          set({ items: [...currentItems, { ...product, quantity: 1 }] });
+          set({ items: [...currentItems, { ...product, cartKey, quantity: 1 }] });
         }
       },
-      removeItem: productId => {
+      removeItem: cartKey => {
         set({
-          items: get().items.filter(item => item.id !== productId),
+          items: get().items.filter(item => item.cartKey !== cartKey),
         });
       },
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (cartKey, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId);
+          get().removeItem(cartKey);
           return;
         }
         set({
           items: get().items.map(item =>
-            item.id === productId ? { ...item, quantity } : item
+            item.cartKey === cartKey ? { ...item, quantity } : item
           ),
         });
       },
-      replaceItems: items => set({ items }),
+      replaceItems: items =>
+        set({
+          items: items.map(item => ({
+            ...item,
+            cartKey: item.cartKey || buildCartKey(item.id, item.variantId),
+          })),
+        }),
       clearCart: () => set({ items: [] }),
       getTotalPrice: () => {
         return get().items.reduce(
@@ -71,6 +86,27 @@ export const useCart = create<CartStore>()(
     }),
     {
       name: "techaks-cart",
+      version: 2,
+      migrate: (persistedState: any) => {
+        const items = Array.isArray(persistedState?.items)
+          ? persistedState.items.map((item: any) => ({
+              ...item,
+              cartKey:
+                item?.cartKey ||
+                buildCartKey(Number(item?.id ?? 0), item?.variantId ?? null),
+              variantId:
+                typeof item?.variantId === "number" ? item.variantId : null,
+              variantName:
+                typeof item?.variantName === "string" ? item.variantName : null,
+              article: typeof item?.article === "string" ? item.article : null,
+            }))
+          : [];
+
+        return {
+          ...persistedState,
+          items,
+        };
+      },
     }
   )
 );

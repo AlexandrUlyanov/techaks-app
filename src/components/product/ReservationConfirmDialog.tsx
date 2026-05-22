@@ -33,7 +33,13 @@ export default function ReservationConfirmDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  product: { id: number; name: string };
+  product: {
+    id: number;
+    name: string;
+    variantId?: number | null;
+    variantName?: string | null;
+    article?: string | null;
+  };
   store: ProductStoreAvailability | null;
   onReserved: (payload: ReservationSuccessPayload) => void;
 }) {
@@ -141,6 +147,7 @@ export default function ReservationConfirmDialog({
               setFieldError(null);
               createReservation.mutate({
                 productId: product.id,
+                variantId: product.variantId ?? null,
                 storeId: store.storeId,
                 quantity: 1,
                 phone: phone || user?.phone || undefined,
@@ -170,8 +177,14 @@ export default function ReservationConfirmDialog({
                 <div className="font-semibold text-[#15171A]">{store.storeName}</div>
                 <div className="mt-1 text-gray-500">{store.storeAddress}</div>
                 <div className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-400">
-                  {product.name} · 1 шт.
+                  {product.name}
+                  {product.variantName ? ` · ${product.variantName}` : ""} · 1 шт.
                 </div>
+                {product.article ? (
+                  <div className="mt-2 text-[11px] text-gray-500">
+                    Артикул: {product.article}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

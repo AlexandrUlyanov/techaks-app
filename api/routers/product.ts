@@ -46,6 +46,7 @@ import {
   rebuildSearchDocumentsForCategories,
   rebuildSearchDocumentsForProducts,
 } from "../lib/search";
+import { getProductVariants } from "../lib/product-variants";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -323,7 +324,12 @@ export const productRouter = createRouter({
         .where(and(eq(products.slug, input.slug), publicProductVisibilityCondition))
         .limit(1);
       const [item] = await attachVisibleMerchandisingBadges(result);
-      return item || null;
+      if (!item) return null;
+      const variants = await getProductVariants(db, item.id);
+      return {
+        ...item,
+        variants,
+      };
     }),
 
   getCategories: publicQuery.query(async () => {
@@ -752,7 +758,12 @@ export const productRouter = createRouter({
     }),
 
   getStockBySlug: publicQuery
-    .input(z.object({ slug: z.string() }))
+    .input(
+      z.object({
+        slug: z.string(),
+        variantId: z.number().optional().nullable(),
+      })
+    )
     .query(async ({ input }) => {
       const db = getDb();
       const product = await db
@@ -763,7 +774,19 @@ export const productRouter = createRouter({
 
       if (!product[0]) return [];
 
-      return await getProductStoreAvailability(db, product[0].id);
+      return await getProductStoreAvailability(
+        db,
+        product[0].id,
+        input.variantId ?? null
+      );
+    }),
+
+  getAdminVariants: protectedProcedure
+    .input(z.object({ productId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Product");
+      const db = getDb();
+      return getProductVariants(db, input.productId);
     }),
 
   getReservationSummary: protectedProcedure

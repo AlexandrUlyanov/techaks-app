@@ -121,6 +121,7 @@ export default function CheckoutPage() {
       },
       items: items.map(i => ({
         productId: i.id,
+        variantId: i.variantId ?? null,
         quantity: i.quantity,
         price: i.price,
       })),
@@ -238,7 +239,7 @@ export default function CheckoutPage() {
               <div className="divide-y divide-border">
                 {items.map(item => (
                   <div
-                    key={item.id}
+                    key={item.cartKey}
                     className="p-8 flex flex-col sm:flex-row gap-6 group transition-colors hover:bg-muted/10"
                   >
                     <div className="w-24 h-24 rounded-2xl bg-white border border-border p-3 flex items-center justify-center shrink-0">
@@ -258,14 +259,14 @@ export default function CheckoutPage() {
                           {item.name}
                         </Link>
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                          Артикул: {item.id + 1000}
+                          Артикул: {item.article || item.id + 1000}
                         </p>
                       </div>
                       <div className="mt-4 flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-2 bg-muted rounded-xl p-1.5 border border-border">
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
+                              updateQuantity(item.cartKey, item.quantity - 1)
                             }
                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-background text-muted-foreground transition-all"
                           >
@@ -276,7 +277,7 @@ export default function CheckoutPage() {
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity + 1)
+                              updateQuantity(item.cartKey, item.quantity + 1)
                             }
                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-background text-muted-foreground transition-all"
                           >
@@ -295,7 +296,7 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           <button
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => removeItem(item.cartKey)}
                             className="p-2.5 rounded-xl bg-destructive/5 text-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-all"
                           >
                             <Trash2 size={18} />

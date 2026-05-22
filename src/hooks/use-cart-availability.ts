@@ -3,18 +3,29 @@ import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 
-function normalizeItems(items: Array<{ id: number; quantity: number }>) {
+function normalizeItems(
+  items: Array<{ id: number; variantId?: number | null; quantity: number }>
+) {
   return items
     .map(item => ({
       productId: item.id,
+      variantId: item.variantId ?? null,
       quantity: item.quantity,
     }))
-    .sort((a, b) => a.productId - b.productId);
+    .sort(
+      (a, b) =>
+        a.productId - b.productId ||
+        Number(a.variantId ?? 0) - Number(b.variantId ?? 0)
+    );
 }
 
 function cartItemsEqual(
   left: Array<{
     id: number;
+    cartKey: string;
+    variantId?: number | null;
+    variantName?: string | null;
+    article?: string | null;
     slug: string;
     name: string;
     image: string;
@@ -23,6 +34,10 @@ function cartItemsEqual(
   }>,
   right: Array<{
     id: number;
+    cartKey: string;
+    variantId?: number | null;
+    variantName?: string | null;
+    article?: string | null;
     slug: string;
     name: string;
     image: string;
@@ -35,6 +50,10 @@ function cartItemsEqual(
     const other = right[index];
     return (
       item.id === other.id &&
+      item.cartKey === other.cartKey &&
+      (item.variantId ?? null) === (other.variantId ?? null) &&
+      (item.variantName ?? null) === (other.variantName ?? null) &&
+      (item.article ?? null) === (other.article ?? null) &&
       item.slug === other.slug &&
       item.name === other.name &&
       item.image === other.image &&

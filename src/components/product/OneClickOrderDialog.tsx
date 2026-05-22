@@ -25,7 +25,13 @@ export default function OneClickOrderDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  product: { id: number; name: string };
+  product: {
+    id: number;
+    name: string;
+    variantId?: number | null;
+    variantName?: string | null;
+    article?: string | null;
+  };
 }) {
   const { user } = useAuth();
   const [phone, setPhone] = useState("");
@@ -91,6 +97,7 @@ export default function OneClickOrderDialog({
               setFieldError(null);
               createOneClickOrder.mutate({
                 productId: product.id,
+                variantId: product.variantId ?? null,
                 quantity: 1,
                 phone: phone || user?.phone || undefined,
                 customerName: customerName || user?.fullName || undefined,
@@ -115,6 +122,14 @@ export default function OneClickOrderDialog({
 
             <div className="rounded-2xl border border-border bg-gray-50 p-4 text-sm">
               <div className="font-semibold text-[#15171A]">{product.name}</div>
+              {product.variantName ? (
+                <div className="mt-2 text-sm text-gray-600">
+                  Вариант: {product.variantName}
+                </div>
+              ) : null}
+              {product.article ? (
+                <div className="mt-1 text-[11px] text-gray-500">Артикул: {product.article}</div>
+              ) : null}
               <div className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-400">
                 Количество: 1 шт.
               </div>

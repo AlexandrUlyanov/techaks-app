@@ -2,6 +2,8 @@ import {
   categories,
   productReservations,
   productStocks,
+  productVariantStocks,
+  productVariants,
   products,
   stores,
 } from "@db/schema";
@@ -25,15 +27,49 @@ export const publicActiveReservedQtySql = sql<number>`coalesce((
     and ${productReservations.reservedUntil} > now()
 ), 0)`;
 
-export const publicAvailableStockQtySql = sql<number>`greatest(
-  coalesce((
-    select sum(${productStocks.quantity})
-    from ${productStocks}
-    inner join ${stores} stock_stores on stock_stores.id = ${productStocks.storeId}
-    where ${productStocks.productId} = ${products.id}
-  ), 0) - ${publicActiveReservedQtySql},
-  0
+export const publicProductHasVariantsSql = sql<boolean>`exists(
+  select 1
+  from ${productVariants}
+  where ${productVariants.productId} = ${products.id}
+    and ${productVariants.isActive} = true
 )`;
+
+export const publicVariantActiveReservedQtySql = sql<number>`coalesce((
+  select sum(${productReservations.quantity})
+  from ${productReservations}
+  inner join ${productVariants} reserved_variants on reserved_variants.id = ${productReservations.variantId}
+  inner join ${stores} reserved_variant_stores on reserved_variant_stores.id = ${productReservations.storeId}
+  where reserved_variants.product_id = ${products.id}
+    and ${productReservations.status} = 'active'
+    and ${productReservations.reservedUntil} > now()
+), 0)`;
+
+export const publicProductStockQtySql = sql<number>`coalesce((
+  select sum(${productStocks.quantity})
+  from ${productStocks}
+  inner join ${stores} stock_stores on stock_stores.id = ${productStocks.storeId}
+  where ${productStocks.productId} = ${products.id}
+), 0)`;
+
+export const publicVariantStockQtySql = sql<number>`coalesce((
+  select sum(${productVariantStocks.quantity})
+  from ${productVariantStocks}
+  inner join ${productVariants} variant_stock_variants on variant_stock_variants.id = ${productVariantStocks.variantId}
+  inner join ${stores} variant_stock_stores on variant_stock_stores.id = ${productVariantStocks.storeId}
+  where variant_stock_variants.product_id = ${products.id}
+    and variant_stock_variants.is_active = true
+), 0)`;
+
+export const publicAvailableStockQtySql = sql<number>`case
+  when ${publicProductHasVariantsSql} then greatest(
+    ${publicVariantStockQtySql} - ${publicVariantActiveReservedQtySql},
+    0
+  )
+  else greatest(
+    ${publicProductStockQtySql} - ${publicActiveReservedQtySql},
+    0
+  )
+end`;
 
 export const productSelectFields = {
   id: products.id,

@@ -7,6 +7,7 @@ import {
   orderHistory,
   orders,
   products,
+  productVariants,
   stores,
   syncLogs,
   users,
@@ -89,12 +90,16 @@ type LoadedOrder = {
   moyskladExternalCode: string | null;
   items: Array<{
     productId: number;
+    variantId: number | null;
+    variantName: string | null;
+    article: string | null;
     productName: string | null;
     quantity: number;
     price: number;
     discount: number;
     total: number;
     msId: string | null;
+    msType: "product" | "variant";
   }>;
 };
 
@@ -164,6 +169,10 @@ function getOrderExternalCode(orderId: number) {
 
 function buildProductHref(msId: string) {
   return `https://api.moysklad.ru/api/remap/1.2/entity/product/${msId}`;
+}
+
+function buildVariantHref(msId: string) {
+  return `https://api.moysklad.ru/api/remap/1.2/entity/variant/${msId}`;
 }
 
 function toMoyskladMoment(input: Date | string) {
@@ -508,15 +517,20 @@ async function loadOrderForSync(db: ReturnType<typeof getDb>, orderId: number): 
   const items = await db
     .select({
       productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      variantName: orderItems.variantName,
+      article: orderItems.article,
       productName: sql<string | null>`coalesce(${orderItems.productName}, ${products.name})`,
       quantity: orderItems.quantity,
       price: orderItems.price,
       discount: orderItems.discount,
       total: orderItems.total,
-      msId: products.msId,
+      msId: sql<string | null>`coalesce(${productVariants.msId}, ${products.msId})`,
+      msType: sql<"product" | "variant">`case when ${productVariants.msId} is not null then 'variant' else 'product' end`,
     })
     .from(orderItems)
     .leftJoin(products, eq(orderItems.productId, products.id))
+    .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
     .where(eq(orderItems.orderId, orderId))
     .orderBy(asc(orderItems.id));
 
@@ -604,8 +618,8 @@ function buildCustomerOrderPositions(order: LoadedOrder, reserveOnOrder: boolean
       reserve: reserveOnOrder ? item.quantity : 0,
       assortment: {
         meta: {
-          href: buildProductHref(item.msId),
-          type: "product",
+          href: item.msType === "variant" ? buildVariantHref(item.msId) : buildProductHref(item.msId),
+          type: item.msType,
           mediaType: "application/json",
         },
       },

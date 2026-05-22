@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server";
 import {
   productReservations,
   productStocks,
+  productVariantStocks,
+  productVariants,
   products,
   stores,
   users,
@@ -10,6 +12,7 @@ import { and, eq, lte, or, sql } from "drizzle-orm";
 import { getAppSetting } from "./app-settings";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import { isSoftValidPhone, normalizePhone } from "@contracts/phone";
+import { assertProductVariant } from "./product-variants";
 
 export const RESERVATION_STATUS_ACTIVE = "active";
 export const RESERVATION_STATUS_EXPIRED = "expired";
@@ -71,30 +74,50 @@ export async function getAvailableStock(
   db: DbLike,
   productId: number,
   storeId: number,
+  variantId?: number | null,
   now: Date = new Date()
 ) {
   await expireDueReservations(db, now);
 
-  const rawStockResult = await db.execute(sql`
-    SELECT quantity
-    FROM ${productStocks}
-    WHERE ${productStocks.productId} = ${productId}
-      AND ${productStocks.storeId} = ${storeId}
-    LIMIT 1
-  `);
+  const rawStockResult = variantId
+    ? await db.execute(sql`
+        SELECT quantity
+        FROM ${productVariantStocks}
+        WHERE ${productVariantStocks.variantId} = ${variantId}
+          AND ${productVariantStocks.storeId} = ${storeId}
+        LIMIT 1
+      `)
+    : await db.execute(sql`
+        SELECT quantity
+        FROM ${productStocks}
+        WHERE ${productStocks.productId} = ${productId}
+          AND ${productStocks.storeId} = ${storeId}
+        LIMIT 1
+      `);
   const rawStockRows = Array.isArray((rawStockResult as any)?.[0])
     ? (rawStockResult as any)[0]
     : (rawStockResult as any[]);
   const rawStockQty = Number(rawStockRows?.[0]?.quantity ?? 0);
 
-  const reservedResult = await db.execute(sql`
-    SELECT COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
-    FROM ${productReservations}
-    WHERE ${productReservations.productId} = ${productId}
-      AND ${productReservations.storeId} = ${storeId}
-      AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
-      AND ${productReservations.reservedUntil} > ${now}
-  `);
+  const reservedResult = variantId
+    ? await db.execute(sql`
+        SELECT COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
+        FROM ${productReservations}
+        WHERE ${productReservations.productId} = ${productId}
+          AND ${productReservations.variantId} = ${variantId}
+          AND ${productReservations.storeId} = ${storeId}
+          AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+          AND ${productReservations.reservedUntil} > ${now}
+      `)
+    : await db.execute(sql`
+        SELECT COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
+        FROM ${productReservations}
+        WHERE ${productReservations.productId} = ${productId}
+          AND ${productReservations.variantId} IS NULL
+          AND ${productReservations.storeId} = ${storeId}
+          AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+          AND ${productReservations.reservedUntil} > ${now}
+      `);
   const reservedRows = Array.isArray((reservedResult as any)?.[0])
     ? (reservedResult as any)[0]
     : (reservedResult as any[]);
@@ -107,10 +130,27 @@ export async function getAvailableStock(
   };
 }
 
-export async function getProductStoreAvailability(db: DbLike, productId: number) {
+async function getProductHasActiveVariants(db: DbLike, productId: number) {
+  const rows = await db.execute(sql`
+    SELECT 1
+    FROM ${productVariants}
+    WHERE ${productVariants.productId} = ${productId}
+      AND ${productVariants.isActive} = true
+    LIMIT 1
+  `);
+  const normalizedRows = Array.isArray((rows as any)?.[0]) ? (rows as any)[0] : (rows as any[]);
+  return normalizedRows.length > 0;
+}
+
+export async function getProductStoreAvailability(
+  db: DbLike,
+  productId: number,
+  variantId?: number | null
+) {
   const now = new Date();
   await expireDueReservations(db, now);
 
+  const hasVariants = !variantId && (await getProductHasActiveVariants(db, productId));
   const rows: Array<{
     storeId: number;
     storeName: string;
@@ -118,40 +158,97 @@ export async function getProductStoreAvailability(db: DbLike, productId: number)
     storePhone: string | null;
     storeHours: string | null;
     rawStockQty: number;
-  }> = await db
-    .select({
-      storeId: stores.id,
-      storeName: stores.name,
-      storeAddress: stores.address,
-      storePhone: stores.phone,
-      storeHours: stores.hours,
-      rawStockQty: sql<number>`COALESCE(SUM(${productStocks.quantity}), 0)`,
-    })
-    .from(productStocks)
-    .innerJoin(stores, eq(productStocks.storeId, stores.id))
-    .where(eq(productStocks.productId, productId))
-    .groupBy(
-      stores.id,
-      stores.name,
-      stores.address,
-      stores.phone,
-      stores.hours
-    );
+  }> =
+    variantId
+      ? await db
+          .select({
+            storeId: stores.id,
+            storeName: stores.name,
+            storeAddress: stores.address,
+            storePhone: stores.phone,
+            storeHours: stores.hours,
+            rawStockQty: sql<number>`COALESCE(SUM(${productVariantStocks.quantity}), 0)`,
+          })
+          .from(productVariantStocks)
+          .innerJoin(stores, eq(productVariantStocks.storeId, stores.id))
+          .where(eq(productVariantStocks.variantId, variantId))
+          .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours)
+      : hasVariants
+        ? await db
+            .select({
+              storeId: stores.id,
+              storeName: stores.name,
+              storeAddress: stores.address,
+              storePhone: stores.phone,
+              storeHours: stores.hours,
+              rawStockQty: sql<number>`COALESCE(SUM(${productVariantStocks.quantity}), 0)`,
+            })
+            .from(productVariantStocks)
+            .innerJoin(productVariants, eq(productVariantStocks.variantId, productVariants.id))
+            .innerJoin(stores, eq(productVariantStocks.storeId, stores.id))
+            .where(
+              and(
+                eq(productVariants.productId, productId),
+                eq(productVariants.isActive, true)
+              )
+            )
+            .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours)
+        : await db
+            .select({
+              storeId: stores.id,
+              storeName: stores.name,
+              storeAddress: stores.address,
+              storePhone: stores.phone,
+              storeHours: stores.hours,
+              rawStockQty: sql<number>`COALESCE(SUM(${productStocks.quantity}), 0)`,
+            })
+            .from(productStocks)
+            .innerJoin(stores, eq(productStocks.storeId, stores.id))
+            .where(eq(productStocks.productId, productId))
+            .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours);
 
   if (rows.length === 0) return [];
 
   const storeIds = rows.map(row => row.storeId);
-  const reservedResult = await db.execute(sql`
-    SELECT
-      ${productReservations.storeId} AS storeId,
-      COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
-    FROM ${productReservations}
-    WHERE ${productReservations.productId} = ${productId}
-      AND ${productReservations.storeId} IN (${sql.join(storeIds, sql`, `)})
-      AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
-      AND ${productReservations.reservedUntil} > ${now}
-    GROUP BY ${productReservations.storeId}
-  `);
+  const reservedResult =
+    variantId
+      ? await db.execute(sql`
+          SELECT
+            ${productReservations.storeId} AS storeId,
+            COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
+          FROM ${productReservations}
+          WHERE ${productReservations.productId} = ${productId}
+            AND ${productReservations.variantId} = ${variantId}
+            AND ${productReservations.storeId} IN (${sql.join(storeIds, sql`, `)})
+            AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+            AND ${productReservations.reservedUntil} > ${now}
+          GROUP BY ${productReservations.storeId}
+        `)
+      : hasVariants
+        ? await db.execute(sql`
+            SELECT
+              ${productReservations.storeId} AS storeId,
+              COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
+            FROM ${productReservations}
+            INNER JOIN ${productVariants} ON ${productVariants.id} = ${productReservations.variantId}
+            WHERE ${productVariants.productId} = ${productId}
+              AND ${productReservations.storeId} IN (${sql.join(storeIds, sql`, `)})
+              AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+              AND ${productReservations.reservedUntil} > ${now}
+            GROUP BY ${productReservations.storeId}
+          `)
+        : await db.execute(sql`
+            SELECT
+              ${productReservations.storeId} AS storeId,
+              COALESCE(SUM(${productReservations.quantity}), 0) AS reservedQty
+            FROM ${productReservations}
+            WHERE ${productReservations.productId} = ${productId}
+              AND ${productReservations.variantId} IS NULL
+              AND ${productReservations.storeId} IN (${sql.join(storeIds, sql`, `)})
+              AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+              AND ${productReservations.reservedUntil} > ${now}
+            GROUP BY ${productReservations.storeId}
+          `);
   const reservedRows = Array.isArray((reservedResult as any)?.[0])
     ? (reservedResult as any)[0]
     : (reservedResult as any[]);
@@ -238,6 +335,22 @@ export async function assertReservableProduct(
   return product;
 }
 
+export async function assertReservableProductSelection(
+  db: any,
+  input: { productId: number; variantId?: number | null }
+) {
+  const product = await assertReservableProduct(db, input.productId);
+  const variant =
+    typeof input.variantId === "number" && input.variantId > 0
+      ? await assertProductVariant(db, {
+          productId: input.productId,
+          variantId: input.variantId,
+        })
+      : null;
+
+  return { product, variant };
+}
+
 export async function assertStoreExists(db: DbLike, storeId: number) {
   const [store] = await db
     .select({
@@ -282,6 +395,7 @@ export async function findExistingActiveReservation(
   db: DbLike,
   input: {
     productId: number;
+    variantId?: number | null;
     storeId: number;
     userId?: number | null;
     phone: string;
@@ -295,6 +409,12 @@ export async function findExistingActiveReservation(
     eq(productReservations.status, RESERVATION_STATUS_ACTIVE),
     sql`${productReservations.reservedUntil} > ${now}`,
   ];
+
+  if (typeof input.variantId === "number") {
+    conditions.push(eq(productReservations.variantId, input.variantId));
+  } else {
+    conditions.push(sql`${productReservations.variantId} IS NULL`);
+  }
 
   if (input.userId) {
     conditions.push(

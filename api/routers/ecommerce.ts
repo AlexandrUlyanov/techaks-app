@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
@@ -10,7 +10,7 @@ import { sendOrderNotificationEmail, sendReviewRequestEmail } from "../lib/mail"
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import { ensureReviewRequestRowsForOrder } from "../lib/product-reviews";
 import {
-  assertReservableProduct,
+  assertReservableProductSelection,
   assertStoreExists,
   assertValidReservationPhone,
   backfillUserPhoneIfMissing,
@@ -545,6 +545,7 @@ async function getOrderItemCoreForUpdate(
 
 type RequestedCartItem = {
   productId: number;
+  variantId?: number | null;
   quantity: number;
 };
 
@@ -555,17 +556,29 @@ async function resolvePurchasableCartItems(
   const requestedProductIds = Array.from(
     new Set(inputItems.map(item => item.productId))
   );
+  const requestedVariantIds = Array.from(
+    new Set(
+      inputItems
+        .map(item => item.variantId)
+        .filter((variantId): variantId is number => typeof variantId === "number")
+    )
+  );
 
   if (requestedProductIds.length === 0) {
     return {
       purchasableItems: [] as Array<{
+        cartKey: string;
         productId: number;
+        variantId: number | null;
+        variantName: string | null;
+        article: string | null;
         quantity: number;
         name: string;
         slug: string;
         image: string;
         price: number;
       }>,
+      removedItemKeys: [] as string[],
       removedProductIds: [] as number[],
     };
   }
@@ -585,9 +598,30 @@ async function resolvePurchasableCartItems(
     .where(inArray(products.id, requestedProductIds));
 
   const productById = new Map(productRows.map(product => [product.id, product]));
+  const variantRows =
+    requestedVariantIds.length > 0
+      ? await db
+          .select({
+            id: productVariants.id,
+            productId: productVariants.productId,
+            name: productVariants.name,
+            article: productVariants.article,
+            price: productVariants.price,
+            stock: productVariants.stock,
+            isActive: productVariants.isActive,
+          })
+          .from(productVariants)
+          .where(inArray(productVariants.id, requestedVariantIds))
+      : [];
+  const variantById = new Map(variantRows.map(variant => [variant.id, variant]));
   const removedProductIds = new Set<number>();
+  const removedItemKeys = new Set<string>();
   const purchasableItems: Array<{
+    cartKey: string;
     productId: number;
+    variantId: number | null;
+    variantName: string | null;
+    article: string | null;
     quantity: number;
     name: string;
     slug: string;
@@ -596,6 +630,8 @@ async function resolvePurchasableCartItems(
   }> = [];
 
   for (const item of inputItems) {
+    const variantId = typeof item.variantId === "number" ? item.variantId : null;
+    const cartKey = `${item.productId}:${variantId ?? 0}`;
     const product = productById.get(item.productId);
     if (
       !product ||
@@ -607,21 +643,41 @@ async function resolvePurchasableCartItems(
       })
     ) {
       removedProductIds.add(item.productId);
+      removedItemKeys.add(cartKey);
+      continue;
+    }
+
+    const variant = variantId ? variantById.get(variantId) : null;
+    if (
+      variantId &&
+      (!variant ||
+        variant.productId !== item.productId ||
+        !variant.isActive ||
+        Number(variant.price ?? 0) <= 0 ||
+        Number(variant.stock ?? 0) <= 0)
+    ) {
+      removedProductIds.add(item.productId);
+      removedItemKeys.add(cartKey);
       continue;
     }
 
     purchasableItems.push({
+      cartKey,
       productId: product.id,
+      variantId,
+      variantName: variant?.name ?? null,
+      article: variant?.article ?? null,
       quantity: item.quantity,
-      name: product.name,
+      name: variant ? `${product.name} · ${variant.name}` : product.name,
       slug: product.slug,
       image: product.image,
-      price: Number(product.price),
+      price: Number(variant?.price ?? product.price),
     });
   }
 
   return {
     purchasableItems,
+    removedItemKeys: Array.from(removedItemKeys),
     removedProductIds: Array.from(removedProductIds),
   };
 }
@@ -710,7 +766,15 @@ async function createSingleItemOrder(
   db: ReturnType<typeof getDb>,
   input: {
     userId: number | null;
-    product: { id: number; name: string; image: string; price: number };
+    product: {
+      id: number;
+      name: string;
+      image: string;
+      price: number;
+      variantId?: number | null;
+      variantName?: string | null;
+      article?: string | null;
+    };
     store: { id: number; name: string; address: string };
     phone: string;
     fullName: string;
@@ -750,7 +814,13 @@ async function createSingleItemOrder(
   await db.insert(orderItems).values({
     orderId,
     productId: input.product.id,
-    productName: input.product.name,
+    variantId: input.product.variantId ?? null,
+    variantName: input.product.variantName ?? null,
+    article: input.product.article ?? null,
+    sku: input.product.article ?? null,
+    productName: input.product.variantName
+      ? `${input.product.name} · ${input.product.variantName}`
+      : input.product.name,
     image: input.product.image,
     quantity: input.quantity,
     price: input.product.price,
@@ -776,6 +846,7 @@ export const ecommerceRouter = createRouter({
     .input(
       z.object({
         productId: z.number(),
+        variantId: z.number().optional().nullable(),
         storeId: z.number(),
         quantity: z.number().int().min(1).max(20).default(1),
         phone: z.string().trim().optional(),
@@ -796,11 +867,15 @@ export const ecommerceRouter = createRouter({
       const result = await db.transaction(async tx => {
         await expireDueReservations(tx, now);
 
-        const product = await assertReservableProduct(tx, input.productId);
+        const { product, variant } = await assertReservableProductSelection(tx as any, {
+          productId: input.productId,
+          variantId: input.variantId ?? null,
+        });
         const store = await assertStoreExists(tx, input.storeId);
 
         const existing = await findExistingActiveReservation(tx, {
           productId: input.productId,
+          variantId: input.variantId ?? null,
           storeId: input.storeId,
           userId: ctx.user?.id ?? null,
           phone,
@@ -814,14 +889,24 @@ export const ecommerceRouter = createRouter({
           });
         }
 
-        const stockLockResult = await tx.execute(sql`
-          SELECT quantity
-          FROM ${productStocks}
-          WHERE ${productStocks.productId} = ${input.productId}
-            AND ${productStocks.storeId} = ${input.storeId}
-          LIMIT 1
-          FOR UPDATE
-        `);
+        const stockLockResult =
+          variant
+            ? await tx.execute(sql`
+                SELECT quantity
+                FROM ${productVariantStocks}
+                WHERE ${productVariantStocks.variantId} = ${variant.id}
+                  AND ${productVariantStocks.storeId} = ${input.storeId}
+                LIMIT 1
+                FOR UPDATE
+              `)
+            : await tx.execute(sql`
+                SELECT quantity
+                FROM ${productStocks}
+                WHERE ${productStocks.productId} = ${input.productId}
+                  AND ${productStocks.storeId} = ${input.storeId}
+                LIMIT 1
+                FOR UPDATE
+              `);
         const stockLockRows = Array.isArray((stockLockResult as any)?.[0])
           ? (stockLockResult as any)[0]
           : (stockLockResult as any[]);
@@ -834,15 +919,28 @@ export const ecommerceRouter = createRouter({
           });
         }
 
-        const activeReservationsResult = await tx.execute(sql`
-          SELECT ${productReservations.id}, ${productReservations.quantity}
-          FROM ${productReservations}
-          WHERE ${productReservations.productId} = ${input.productId}
-            AND ${productReservations.storeId} = ${input.storeId}
-            AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
-            AND ${productReservations.reservedUntil} > ${now}
-          FOR UPDATE
-        `);
+        const activeReservationsResult =
+          variant
+            ? await tx.execute(sql`
+                SELECT ${productReservations.id}, ${productReservations.quantity}
+                FROM ${productReservations}
+                WHERE ${productReservations.productId} = ${input.productId}
+                  AND ${productReservations.variantId} = ${variant.id}
+                  AND ${productReservations.storeId} = ${input.storeId}
+                  AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+                  AND ${productReservations.reservedUntil} > ${now}
+                FOR UPDATE
+              `)
+            : await tx.execute(sql`
+                SELECT ${productReservations.id}, ${productReservations.quantity}
+                FROM ${productReservations}
+                WHERE ${productReservations.productId} = ${input.productId}
+                  AND ${productReservations.variantId} IS NULL
+                  AND ${productReservations.storeId} = ${input.storeId}
+                  AND ${productReservations.status} = ${RESERVATION_STATUS_ACTIVE}
+                  AND ${productReservations.reservedUntil} > ${now}
+                FOR UPDATE
+              `);
         const activeReservationRows = Array.isArray((activeReservationsResult as any)?.[0])
           ? (activeReservationsResult as any)[0]
           : (activeReservationsResult as any[]);
@@ -865,6 +963,7 @@ export const ecommerceRouter = createRouter({
         const reservedUntil = getReservationExpiryDate(durationMinutes, now);
         const insertResult = await tx.insert(productReservations).values({
           productId: input.productId,
+          variantId: variant?.id ?? null,
           storeId: input.storeId,
           userId: ctx.user?.id ?? null,
           phone,
@@ -889,8 +988,16 @@ export const ecommerceRouter = createRouter({
           product: {
             id: product.id,
             name: product.name,
-            price: Number(product.price),
+            price: Number(variant?.price ?? product.price),
           },
+          variant: variant
+            ? {
+                id: variant.id,
+                name: variant.name,
+                article: variant.article,
+                price: Number(variant.price),
+              }
+            : null,
           store,
           quantity: input.quantity,
           availableQtyAfterReservation: Math.max(0, availableQty - input.quantity),
@@ -941,6 +1048,7 @@ export const ecommerceRouter = createRouter({
     .input(
       z.object({
         productId: z.number(),
+        variantId: z.number().optional().nullable(),
         storeId: z.number().optional().nullable(),
         quantity: z.number().int().min(1).max(20).default(1),
         phone: z.string().trim().optional(),
@@ -956,8 +1064,15 @@ export const ecommerceRouter = createRouter({
       const email = ctx.user?.email?.trim().toLowerCase() || null;
 
       await expireDueReservations(db, now);
-      const product = await assertReservableProduct(db, input.productId);
-      const availability = await getProductStoreAvailability(db, input.productId);
+      const { product, variant } = await assertReservableProductSelection(db, {
+        productId: input.productId,
+        variantId: input.variantId ?? null,
+      });
+      const availability = await getProductStoreAvailability(
+        db,
+        input.productId,
+        variant?.id ?? null
+      );
       const availableStores = availability.filter(
         (row: (typeof availability)[number]) => row.availableQty >= input.quantity
       );
@@ -1004,7 +1119,10 @@ export const ecommerceRouter = createRouter({
           id: product.id,
           name: product.name,
           image: product.image,
-          price: Number(product.price),
+          price: Number(variant?.price ?? product.price),
+          variantId: variant?.id ?? null,
+          variantName: variant?.name ?? null,
+          article: variant?.article ?? null,
         },
         store,
         phone: customer.normalizedPhone,
@@ -1022,6 +1140,7 @@ export const ecommerceRouter = createRouter({
         newValue: {
           storeId: store.id,
           productId: product.id,
+          variantId: variant?.id ?? null,
           quantity: input.quantity,
         } as any,
         comment: "Быстрый заказ создан через кнопку «Купить в 1 клик».",
@@ -1073,6 +1192,7 @@ export const ecommerceRouter = createRouter({
         .select({
           id: productReservations.id,
           productId: productReservations.productId,
+          variantId: productReservations.variantId,
           storeId: productReservations.storeId,
           userId: productReservations.userId,
           phone: productReservations.phone,
@@ -1086,11 +1206,14 @@ export const ecommerceRouter = createRouter({
           updatedAt: productReservations.updatedAt,
           productName: products.name,
           productSlug: products.slug,
+          variantName: productVariants.name,
+          article: productVariants.article,
           storeName: stores.name,
           storeAddress: stores.address,
         })
         .from(productReservations)
         .innerJoin(products, eq(productReservations.productId, products.id))
+        .leftJoin(productVariants, eq(productReservations.variantId, productVariants.id))
         .innerJoin(stores, eq(productReservations.storeId, stores.id))
         .where(whereClause)
         .orderBy(desc(productReservations.createdAt));
@@ -1129,7 +1252,10 @@ export const ecommerceRouter = createRouter({
         });
       }
 
-      const product = await assertReservableProduct(db, reservation.productId);
+      const { product, variant } = await assertReservableProductSelection(db, {
+        productId: reservation.productId,
+        variantId: reservation.variantId ?? null,
+      });
       const store = await assertStoreExists(db, reservation.storeId);
 
       const customer = await resolveOrCreateCustomerUser(db, {
@@ -1145,7 +1271,10 @@ export const ecommerceRouter = createRouter({
           id: product.id,
           name: product.name,
           image: product.image,
-          price: Number(product.price),
+          price: Number(variant?.price ?? product.price),
+          variantId: variant?.id ?? null,
+          variantName: variant?.name ?? null,
+          article: variant?.article ?? null,
         },
         store,
         phone: reservation.phone,
@@ -1173,6 +1302,7 @@ export const ecommerceRouter = createRouter({
           reservationId: reservation.id,
           storeId: reservation.storeId,
           productId: reservation.productId,
+          variantId: reservation.variantId ?? null,
         } as any,
         comment: "Заказ оформлен из активного резерва.",
       });
@@ -1201,6 +1331,7 @@ export const ecommerceRouter = createRouter({
         items: z.array(
           z.object({
             productId: z.number(),
+            variantId: z.number().optional().nullable(),
             quantity: z.number().min(1),
           })
         ),
@@ -1208,20 +1339,25 @@ export const ecommerceRouter = createRouter({
     )
     .query(async ({ input }) => {
       const db = getDb();
-      const { purchasableItems, removedProductIds } = await resolvePurchasableCartItems(
+      const { purchasableItems, removedItemKeys, removedProductIds } = await resolvePurchasableCartItems(
         db,
         input.items
       );
 
       return {
         items: purchasableItems.map(item => ({
+          cartKey: item.cartKey,
           id: item.productId,
+          variantId: item.variantId,
+          variantName: item.variantName,
+          article: item.article,
           slug: item.slug,
           name: item.name,
           image: item.image,
           price: item.price,
           quantity: item.quantity,
         })),
+        removedItemKeys,
         removedProductIds,
         message:
           removedProductIds.length > 0
@@ -1242,6 +1378,7 @@ export const ecommerceRouter = createRouter({
         items: z.array(
           z.object({
             productId: z.number(),
+            variantId: z.number().optional().nullable(),
             quantity: z.number().min(1),
             price: z.number(),
           })
@@ -1273,6 +1410,7 @@ export const ecommerceRouter = createRouter({
         db,
         input.items.map(item => ({
           productId: item.productId,
+          variantId: item.variantId ?? null,
           quantity: item.quantity,
         }))
       );
@@ -1410,6 +1548,12 @@ export const ecommerceRouter = createRouter({
           await db.insert(orderItems).values({
             orderId,
             productId: item.productId,
+            variantId: item.variantId ?? null,
+            variantName: item.variantName ?? null,
+            article: item.article ?? null,
+            sku: item.article ?? null,
+            productName: item.name,
+            image: item.image,
             total: item.price * item.quantity,
             quantity: item.quantity,
             price: item.price,
@@ -1457,6 +1601,7 @@ export const ecommerceRouter = createRouter({
             items: purchasableItems.map(item => {
               return {
                 title: item.name,
+                sku: item.article ?? undefined,
                 quantity: item.quantity,
                 price: item.price,
                 total: item.price * item.quantity,
@@ -2211,6 +2356,9 @@ export const ecommerceRouter = createRouter({
             id: orderItems.id,
             orderId: orderItems.orderId,
             productId: orderItems.productId,
+            variantId: orderItems.variantId,
+            variantName: orderItems.variantName,
+            article: orderItems.article,
             sku: orderItems.sku,
             productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
             image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
@@ -2282,6 +2430,9 @@ export const ecommerceRouter = createRouter({
           oi.id,
           oi.order_id AS orderId,
           oi.product_id AS productId,
+          NULL AS variantId,
+          NULL AS variantName,
+          NULL AS article,
           NULL AS sku,
           p.name AS productName,
           p.image AS image,
@@ -2367,6 +2518,9 @@ export const ecommerceRouter = createRouter({
             id: orderItems.id,
             orderId: orderItems.orderId,
             productId: orderItems.productId,
+            variantId: orderItems.variantId,
+            variantName: orderItems.variantName,
+            article: orderItems.article,
             sku: orderItems.sku,
             productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
             image: sql<string>`coalesce(${orderItems.image}, ${products.image})`,
@@ -2426,6 +2580,9 @@ export const ecommerceRouter = createRouter({
           oi.id,
           oi.order_id AS orderId,
           oi.product_id AS productId,
+          NULL AS variantId,
+          NULL AS variantName,
+          NULL AS article,
           NULL AS sku,
           p.name AS productName,
           p.image AS image,

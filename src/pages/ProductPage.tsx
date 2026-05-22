@@ -15,6 +15,7 @@ import StoreAvailabilityList from "@/components/product/StoreAvailabilityList";
 import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
+import ProductVariantSelector from "@/components/product/ProductVariantSelector";
 import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
@@ -37,14 +38,52 @@ export default function ProductPage() {
   const [selectedReservationStore, setSelectedReservationStore] =
     useState<ProductStoreAvailability | null>(null);
   const [reservedStoreId, setReservedStoreId] = useState<number | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+  const [variantChosenManually, setVariantChosenManually] = useState(false);
   const { addItem } = useCart();
   const { isAuthenticated } = useAuth();
 
   const { data: product, isLoading } = trpc.product.getBySlug.useQuery({
     slug: slug || "",
   });
+  const variants = useMemo(() => {
+    const rawVariants = (product as { variants?: unknown } | undefined)?.variants;
+    if (!Array.isArray(rawVariants)) return [];
+    return rawVariants
+      .map(variant => variant as {
+        id: number;
+        name: string;
+        article?: string | null;
+        price: number;
+        stock: number;
+        isActive: boolean;
+        attributes?: Record<string, string>;
+      })
+      .sort((left, right) => {
+        const leftRank = left.isActive && left.stock > 0 ? 0 : left.isActive ? 1 : 2;
+        const rightRank = right.isActive && right.stock > 0 ? 0 : right.isActive ? 1 : 2;
+        return leftRank - rightRank || left.price - right.price || left.id - right.id;
+      });
+  }, [product]);
+  const defaultVariant = useMemo(
+    () =>
+      variants.find(variant => variant.isActive && variant.stock > 0) ||
+      variants.find(variant => variant.isActive) ||
+      variants[0] ||
+      null,
+    [variants]
+  );
+  const selectedVariant =
+    variants.find(variant => variant.id === selectedVariantId) ?? defaultVariant ?? null;
+
+  useEffect(() => {
+    setSelectedVariantId(defaultVariant?.id ?? null);
+    setVariantChosenManually(false);
+  }, [defaultVariant?.id, product?.id]);
+
   const { data: stock = [] } = trpc.product.getStockBySlug.useQuery({
     slug: slug || "",
+    variantId: selectedVariant?.id ?? undefined,
   });
   const typedStock = stock as ProductStoreAvailability[];
   const { data: productManufacturer } =
@@ -190,6 +229,11 @@ export default function ProductPage() {
   ]);
   const hasOldPrice =
     typeof product.oldPrice === "number" && product.oldPrice > product.price;
+  const hasVariants = variants.length > 0;
+  const hasVariantPriceRange =
+    hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
+  const displayedPrice = selectedVariant?.price ?? product.price;
+  const displayedStockCount = selectedVariant?.stock ?? availableStores.length;
   const productSpecs =
     product.specs && typeof product.specs === "object"
       ? (product.specs as Record<string, unknown>)
@@ -211,7 +255,7 @@ export default function ProductPage() {
       "@type": "Offer",
       url: buildCanonical(canonicalPath),
       priceCurrency: "RUB",
-      price: String(product.price),
+      price: String(displayedPrice),
       availability: isInStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
@@ -219,11 +263,24 @@ export default function ProductPage() {
   };
 
   const handleAddToCart = () => {
+    if (hasVariants && !selectedVariant) {
+      toast.error("Выберите вариант товара");
+      return;
+    }
+
+    if (selectedVariant && (!selectedVariant.isActive || selectedVariant.stock <= 0)) {
+      toast.error("Выбранный вариант сейчас недоступен");
+      return;
+    }
+
     addItem({
       id: product.id,
+      variantId: selectedVariant?.id ?? null,
+      variantName: selectedVariant?.name ?? null,
+      article: selectedVariant?.article ?? null,
       slug: product.slug,
-      name: product.name,
-      price: product.price,
+      name: selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name,
+      price: selectedVariant?.price ?? product.price,
       image: product.image,
     });
     toast.success("Товар добавлен в корзину");
@@ -383,9 +440,11 @@ export default function ProductPage() {
                     </span>
                     <div className="flex items-center gap-5">
                       <span className="text-4xl md:text-[42px] font-black text-[#05C3D4] font-heading leading-none">
-                        {formatPrice(product.price)}
+                        {hasVariants && hasVariantPriceRange && !variantChosenManually
+                          ? `от ${formatPrice(displayedPrice)}`
+                          : formatPrice(displayedPrice)}
                       </span>
-                      {hasOldPrice && (
+                      {hasOldPrice && !selectedVariant && (
                         <div className="flex flex-col">
                           <span className="text-lg text-muted-foreground/40 line-through font-bold">
                             {formatPrice(product.oldPrice as number)}
@@ -399,13 +458,40 @@ export default function ProductPage() {
                   </div>
                 </div>
 
+                {hasVariants ? (
+                  <div className="mt-5">
+                    <ProductVariantSelector
+                      variants={variants}
+                      selectedVariantId={selectedVariant?.id ?? null}
+                      onSelect={variantId => {
+                        setSelectedVariantId(variantId);
+                        setVariantChosenManually(true);
+                      }}
+                    />
+                  </div>
+                ) : null}
+
                 {/* CTA moved here */}
                 <div className="mt-5 flex flex-col gap-4">
                   <ProductActionButtons
                     onAddToCart={handleAddToCart}
                     onOpenOneClick={() => setOneClickDialogOpen(true)}
-                    disableCart={availableStores.length === 0}
-                    disableOneClick={availableStores.length === 0}
+                    disableCart={
+                      hasVariants
+                        ? !selectedVariant ||
+                          !selectedVariant.isActive ||
+                          displayedStockCount <= 0 ||
+                          availableStores.length === 0
+                        : availableStores.length === 0
+                    }
+                    disableOneClick={
+                      hasVariants
+                        ? !selectedVariant ||
+                          !selectedVariant.isActive ||
+                          displayedStockCount <= 0 ||
+                          availableStores.length === 0
+                        : availableStores.length === 0
+                    }
                   />
                 </div>
               </div>
@@ -704,7 +790,13 @@ export default function ProductPage() {
       <ReservationConfirmDialog
         open={reservationDialogOpen}
         onOpenChange={setReservationDialogOpen}
-        product={{ id: product.id, name: product.name }}
+        product={{
+          id: product.id,
+          name: product.name,
+          variantId: selectedVariant?.id ?? null,
+          variantName: selectedVariant?.name ?? null,
+          article: selectedVariant?.article ?? null,
+        }}
         store={selectedReservationStore}
         onReserved={payload => {
           setReservedStoreId(payload.store.id);
@@ -714,7 +806,13 @@ export default function ProductPage() {
       <OneClickOrderDialog
         open={oneClickDialogOpen}
         onOpenChange={setOneClickDialogOpen}
-        product={{ id: product.id, name: product.name }}
+        product={{
+          id: product.id,
+          name: product.name,
+          variantId: selectedVariant?.id ?? null,
+          variantName: selectedVariant?.name ?? null,
+          article: selectedVariant?.article ?? null,
+        }}
       />
 
       {/* Lead Form Modal */}

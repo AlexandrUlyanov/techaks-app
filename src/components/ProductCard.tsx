@@ -41,7 +41,9 @@ export default function ProductCard({
   onNavigate,
 }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
-  const cartItem = items.find(item => item.id === product.id);
+  const cartItem = items.find(
+    item => item.id === product.id && (item.variantId ?? null) === null
+  );
   const isInStock = Boolean(product.inStock);
 
   const formatPrice = (price: number) => {
@@ -94,13 +96,13 @@ export default function ProductCard({
   const decreaseQuantity = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (cartItem) updateQuantity(product.id, cartItem.quantity - 1);
+    if (cartItem) updateQuantity(cartItem.cartKey, cartItem.quantity - 1);
   };
 
   const increaseQuantity = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (cartItem) updateQuantity(product.id, cartItem.quantity + 1);
+    if (cartItem) updateQuantity(cartItem.cartKey, cartItem.quantity + 1);
   };
 
   const handleNavigate = async (event: React.MouseEvent<HTMLAnchorElement>) => {

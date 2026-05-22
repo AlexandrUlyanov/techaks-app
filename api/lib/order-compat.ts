@@ -132,6 +132,9 @@ export type LegacyOrderItem = {
   id: number;
   orderId: number;
   productId: number;
+  variantId?: number | null;
+  variantName?: string | null;
+  article?: string | null;
   quantity: number;
   price: number;
   discount: number;
@@ -264,6 +267,14 @@ export function mapLegacyOrderItemRow(row: Record<string, unknown>): LegacyOrder
     id: Number(row.id),
     orderId: Number(row.orderId),
     productId: Number(row.productId),
+    variantId:
+      typeof row.variantId === "number"
+        ? row.variantId
+        : row.variantId !== undefined && row.variantId !== null
+          ? Number(row.variantId)
+          : null,
+    variantName: typeof row.variantName === "string" ? row.variantName : null,
+    article: typeof row.article === "string" ? row.article : null,
     quantity: Number(row.quantity ?? 0),
     price: Number(row.price ?? 0),
     discount: Number(row.discount ?? 0),

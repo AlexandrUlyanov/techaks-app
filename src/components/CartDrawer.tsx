@@ -99,7 +99,7 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   </div>
                 )}
                 {items.map(item => (
-                  <div key={item.id} className="flex gap-4 group">
+                  <div key={item.cartKey} className="flex gap-4 group">
                     <div className="w-20 h-20 rounded-xl bg-white border border-border p-2 flex items-center justify-center shrink-0">
                       <img
                         src={resolveProductImageSrc(item.image)}
@@ -116,11 +116,16 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       >
                         {item.name}
                       </Link>
+                      {item.article ? (
+                        <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                          Артикул: {item.article}
+                        </div>
+                      ) : null}
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
+                              updateQuantity(item.cartKey, item.quantity - 1)
                             }
                             className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-background text-muted-foreground transition-all"
                           >
@@ -131,7 +136,7 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity + 1)
+                              updateQuantity(item.cartKey, item.quantity + 1)
                             }
                             className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-background text-muted-foreground transition-all"
                           >
@@ -143,7 +148,7 @@ export default function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                             {formatPrice(item.price)}
                           </span>
                           <button
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => removeItem(item.cartKey)}
                             className="text-[10px] font-black uppercase text-muted-foreground/40 hover:text-destructive transition-colors mt-1"
                           >
                             Удалить

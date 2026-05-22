@@ -59,6 +59,31 @@ export const products = mysqlTable("products", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const productVariants = mysqlTable("product_variants", {
+  id: serial("id").primaryKey(),
+  productId: int("product_id").notNull(),
+  msId: varchar("ms_id", { length: 100 }),
+  externalCode: varchar("external_code", { length: 120 }),
+  name: varchar("name", { length: 512 }).notNull(),
+  article: varchar("article", { length: 120 }),
+  price: int("price").notNull().default(0),
+  stock: int("stock").notNull().default(0),
+  attributesJson: json("attributes_json"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  productActiveIdx: index("product_variants_product_active_idx").on(
+    table.productId,
+    table.isActive,
+    table.price
+  ),
+  msIdIdx: unique("product_variants_ms_id_unique").on(table.msId),
+  externalCodeIdx: index("product_variants_external_code_idx").on(table.externalCode),
+  articleIdx: index("product_variants_article_idx").on(table.article),
+}));
+
 export const stores = mysqlTable("stores", {
   id: serial("id").primaryKey(),
   msId: varchar("ms_id", { length: 100 }),
@@ -384,6 +409,9 @@ export const orderItems = mysqlTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: int("order_id").notNull(),
   productId: int("product_id").notNull(),
+  variantId: int("variant_id"),
+  variantName: varchar("variant_name", { length: 512 }),
+  article: varchar("article", { length: 120 }),
   sku: varchar("sku", { length: 120 }),
   productName: varchar("product_name", { length: 512 }),
   image: varchar("image", { length: 255 }),
@@ -395,6 +423,7 @@ export const orderItems = mysqlTable("order_items", {
 }, table => ({
   orderIdIdx: index("order_items_order_id_idx").on(table.orderId),
   productIdIdx: index("order_items_product_id_idx").on(table.productId),
+  variantIdIdx: index("order_items_variant_id_idx").on(table.variantId),
   skuIdx: index("order_items_sku_idx").on(table.sku),
 }));
 
@@ -432,9 +461,26 @@ export const productStocks = mysqlTable("product_stocks", {
   quantity: int("quantity").notNull().default(0),
 });
 
+export const productVariantStocks = mysqlTable("product_variant_stocks", {
+  id: serial("id").primaryKey(),
+  variantId: int("variant_id").notNull(),
+  storeId: int("store_id").notNull(),
+  quantity: int("quantity").notNull().default(0),
+}, table => ({
+  variantStoreIdx: index("product_variant_stocks_variant_store_idx").on(
+    table.variantId,
+    table.storeId
+  ),
+  storeVariantIdx: index("product_variant_stocks_store_variant_idx").on(
+    table.storeId,
+    table.variantId
+  ),
+}));
+
 export const productReservations = mysqlTable("product_reservations", {
   id: serial("id").primaryKey(),
   productId: int("product_id").notNull(),
+  variantId: int("variant_id"),
   storeId: int("store_id").notNull(),
   userId: int("user_id"),
   phone: varchar("phone", { length: 40 }).notNull(),
@@ -449,6 +495,13 @@ export const productReservations = mysqlTable("product_reservations", {
 }, table => ({
   productStoreStatusIdx: index("product_reservations_product_store_status_idx").on(
     table.productId,
+    table.storeId,
+    table.status,
+    table.reservedUntil
+  ),
+  productVariantStoreStatusIdx: index("product_reservations_product_variant_store_status_idx").on(
+    table.productId,
+    table.variantId,
     table.storeId,
     table.status,
     table.reservedUntil

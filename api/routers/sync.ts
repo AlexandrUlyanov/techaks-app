@@ -253,6 +253,26 @@ function asSpecRecord(value: unknown): Record<string, string> {
   );
 }
 
+function extractMsAttributeRecord(
+  attributes: Array<{ name?: string; value?: unknown }> | undefined | null
+) {
+  const specs: Record<string, string> = {};
+  for (const attr of attributes ?? []) {
+    const key = attr.name?.trim();
+    if (!key) continue;
+
+    let value = attr.value;
+    if (typeof value === "object" && value !== null && "name" in value) {
+      value = (value as { name?: unknown }).name;
+    }
+    const normalizedValue = value == null ? "" : String(value).trim();
+    if (normalizedValue) {
+      specs[key] = normalizedValue;
+    }
+  }
+  return specs;
+}
+
 function getMsIdFromHref(href?: string | null): string | null {
   return href?.split("/").pop()?.split("?")[0] ?? null;
 }
@@ -1432,6 +1452,8 @@ export const syncRouter = createRouter({
         const limit = 500;
         let hasMore = true;
         const msProductIdToLocalId = new Map<string, number>();
+        const localProductNameById = new Map<number, string>();
+        const msVariantIdToLocalId = new Map<string, number>();
 
         const fetchAssortmentWithRetry = async (
           currentOffset: number,
@@ -1495,14 +1517,7 @@ export const syncRouter = createRouter({
             const price = syncPrices && item.salePrices?.length > 0 ? Math.round(item.salePrices[0].value / 100) : 0;
             const inStock = syncStocks ? (item.stock || 0) > 0 : true;
 
-            const specs: Record<string, string> = {};
-            if (item.attributes) {
-              for (const attr of item.attributes) {
-                let val = attr.value;
-                if (typeof val === "object" && val !== null && val.name) val = val.name;
-                specs[attr.name] = String(val);
-              }
-            }
+            const specs = extractMsAttributeRecord(item.attributes);
 
             let imagePath = "/images/nofoto.jpg";
             let imageVariants: ProductImageVariantSet | null = null;
@@ -1603,6 +1618,7 @@ export const syncRouter = createRouter({
             }
             changedProductIds.add(dbProductId);
             msProductIdToLocalId.set(msId, dbProductId);
+            localProductNameById.set(dbProductId, item.name);
             logDetails.stats.products++;
             if (shouldHeartbeat()) {
               await abortIfStopRequested();
@@ -1615,6 +1631,179 @@ export const syncRouter = createRouter({
                   selectedCategoriesCount: selectedCategories?.length ?? 0,
                 },
               });
+            }
+          }
+        }
+
+        if (syncProducts) {
+          logDetails.steps.push("Синхронизация модификаций");
+          await updateLog('running', 'Синхронизация модификаций...');
+          await updateRunStatus({
+            phase: "variants",
+            message: "Синхронизация модификаций...",
+            progress: {
+              phase: "variants",
+              message: "Синхронизация модификаций...",
+              selectedCategoriesCount: selectedCategories?.length ?? 0,
+            },
+            forceHeartbeat: true,
+          });
+
+          let variantOffset = 0;
+          let hasMoreVariants = true;
+          const syncedVariantMsIdsByProduct = new Map<number, Set<string>>();
+          const parentProductsWithVariants = new Set<number>();
+
+          const fetchVariantsWithRetry = async (
+            currentOffset: number,
+            retries = 5
+          ): Promise<AxiosResponse> => {
+            try {
+              return await moyskladApi.get(`/entity/variant?offset=${currentOffset}&limit=${limit}`, {
+                headers: { Authorization: authHeader },
+              });
+            } catch (err: unknown) {
+              if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
+                writeLog(`[Rate Limit] 429 hitting variant fetch. Retrying in 5 seconds... (${retries} left)`);
+                await delay(5000);
+                return fetchVariantsWithRetry(currentOffset, retries - 1);
+              }
+              throw err;
+            }
+          };
+
+          while (hasMoreVariants) {
+            await abortIfStopRequested();
+            writeLog(`Fetching variants offset ${variantOffset}...`);
+            const variantRes = await fetchVariantsWithRetry(variantOffset);
+            const variantItems = variantRes.data.rows || [];
+            if (variantItems.length < limit) hasMoreVariants = false;
+            variantOffset += limit;
+
+            for (const item of variantItems) {
+              await abortIfStopRequested();
+              await delay(150);
+
+              const msVariantId = String(item.id || "").trim();
+              const parentMsProductId = getMsIdFromHref(item.product?.meta?.href);
+              if (!msVariantId || !parentMsProductId) continue;
+
+              const localProductId = msProductIdToLocalId.get(parentMsProductId);
+              if (!localProductId) continue;
+
+              const parentProductName =
+                localProductNameById.get(localProductId) || String(item.product?.name || "").trim();
+              if (!parentProductName) continue;
+
+              const variantPrice =
+                syncPrices && item.salePrices?.length > 0
+                  ? Math.round(Number(item.salePrices[0].value ?? 0) / 100)
+                  : 0;
+              const variantStock = syncStocks ? Number(item.stock || 0) : 0;
+              const variantAttributes = extractMsAttributeRecord(
+                item.characteristics ?? item.attributes
+              );
+              const fallbackVariantName =
+                Object.values(variantAttributes).join(" / ").trim() || msVariantId;
+              const variantNameRaw = String(item.name || "").trim();
+              const normalizedVariantName =
+                variantNameRaw.startsWith(parentProductName)
+                  ? variantNameRaw.slice(parentProductName.length).trim().replace(/^[—\-–]\s*/, "") || variantNameRaw
+                  : variantNameRaw || fallbackVariantName;
+              const article =
+                String(item.article || item.code || item.externalCode || "").trim() || null;
+
+              const existingVariant = await db
+                .select({ id: schema.productVariants.id })
+                .from(schema.productVariants)
+                .where(eq(schema.productVariants.msId, msVariantId))
+                .limit(1);
+
+              let localVariantId = 0;
+              const variantPayload = {
+                productId: localProductId,
+                msId: msVariantId,
+                externalCode: String(item.externalCode || "").trim() || null,
+                name: normalizedVariantName,
+                article,
+                price: variantPrice,
+                stock: variantStock,
+                attributesJson: variantAttributes,
+                isActive: item.archived !== true,
+                lastSyncedAt: new Date(),
+                updatedAt: new Date(),
+              };
+
+              if (existingVariant[0]) {
+                localVariantId = existingVariant[0].id;
+                await db
+                  .update(schema.productVariants)
+                  .set(variantPayload)
+                  .where(eq(schema.productVariants.id, localVariantId));
+              } else {
+                const insertResult = await db.insert(schema.productVariants).values({
+                  ...variantPayload,
+                  createdAt: new Date(),
+                });
+                localVariantId = Number(insertResult[0].insertId);
+              }
+
+              msVariantIdToLocalId.set(msVariantId, localVariantId);
+              parentProductsWithVariants.add(localProductId);
+              changedProductIds.add(localProductId);
+
+              const syncedSet =
+                syncedVariantMsIdsByProduct.get(localProductId) ?? new Set<string>();
+              syncedSet.add(msVariantId);
+              syncedVariantMsIdsByProduct.set(localProductId, syncedSet);
+            }
+          }
+
+          for (const productId of parentProductsWithVariants) {
+            const syncedMsIds = Array.from(syncedVariantMsIdsByProduct.get(productId) ?? []);
+            if (syncedMsIds.length > 0) {
+              await db.execute(sql`
+                UPDATE ${schema.productVariants}
+                SET
+                  ${schema.productVariants.isActive} = false,
+                  ${schema.productVariants.stock} = 0,
+                  ${schema.productVariants.updatedAt} = NOW(),
+                  ${schema.productVariants.lastSyncedAt} = NOW()
+                WHERE ${schema.productVariants.productId} = ${productId}
+                  AND ${schema.productVariants.msId} NOT IN (${sql.join(syncedMsIds, sql`, `)})
+              `);
+            }
+
+            const aggregates = await db
+              .select({
+                minPrice: sql<number>`MIN(CASE WHEN ${schema.productVariants.isActive} = true AND ${schema.productVariants.price} > 0 THEN ${schema.productVariants.price} END)`,
+                activeInStockCount: sql<number>`SUM(CASE WHEN ${schema.productVariants.isActive} = true AND ${schema.productVariants.stock} > 0 THEN 1 ELSE 0 END)`,
+              })
+              .from(schema.productVariants)
+              .where(eq(schema.productVariants.productId, productId));
+
+            const minPrice = Number(aggregates[0]?.minPrice ?? 0);
+            const activeInStockCount = Number(aggregates[0]?.activeInStockCount ?? 0);
+            const productPatch: Partial<typeof schema.products.$inferInsert> = {};
+
+            if (syncPrices && minPrice > 0) {
+              productPatch.price = minPrice;
+              Object.assign(
+                productPatch,
+                applyProductAutoBlockState({
+                  price: minPrice,
+                  isAutoBlocked: false,
+                  autoBlockReason: null,
+                })
+              );
+            }
+
+            if (syncStocks) {
+              productPatch.inStock = activeInStockCount > 0;
+            }
+
+            if (Object.keys(productPatch).length > 0) {
+              await db.update(schema.products).set(productPatch).where(eq(schema.products.id, productId));
             }
           }
         }
@@ -1644,6 +1833,7 @@ export const syncRouter = createRouter({
           });
           writeLog("Fetching detailed stock report by store...");
           await db.execute(sql`DELETE FROM product_stocks`);
+          await db.execute(sql`DELETE FROM product_variant_stocks`);
           
           let stockOffset = 0;
           let stockHasMore = true;
@@ -1686,16 +1876,20 @@ export const syncRouter = createRouter({
             for (const item of stockItems) {
               await abortIfStopRequested();
               // meta.href might look like "https://.../entity/product/cbfcce03-9560-11f0-0a80-10030006c3a6?expand=supplier"
-              const msProductId = getMsIdFromHref(item.meta?.href);
-              if (!msProductId) {
-                writeLog(`[DEBUG SKIP] stock item has no product href: ${JSON.stringify(item.meta)}`);
+              const msAssortmentId = getMsIdFromHref(item.meta?.href);
+              const assortmentType = String(item.meta?.type || "").trim();
+              if (!msAssortmentId) {
+                writeLog(`[DEBUG SKIP] stock item has no assortment href: ${JSON.stringify(item.meta)}`);
                 continue;
               }
 
-              const localProductId = msProductIdToLocalId.get(msProductId);
-              if (!localProductId || !item.stockByStore) {
-                 if (!localProductId) writeLog(`[DEBUG SKIP] msProductId ${msProductId} has no mapping to localProductId.`);
-                 if (!item.stockByStore) writeLog(`[DEBUG SKIP] item ${msProductId} has no stockByStore array.`);
+              const localVariantId =
+                assortmentType === "variant" ? msVariantIdToLocalId.get(msAssortmentId) : undefined;
+              const localProductId =
+                assortmentType === "variant" ? undefined : msProductIdToLocalId.get(msAssortmentId);
+              if ((!localProductId && !localVariantId) || !item.stockByStore) {
+                 if (!localProductId && !localVariantId) writeLog(`[DEBUG SKIP] assortment ${msAssortmentId} (${assortmentType || "unknown"}) has no local mapping.`);
+                 if (!item.stockByStore) writeLog(`[DEBUG SKIP] item ${msAssortmentId} has no stockByStore array.`);
                  continue;
               }
 
@@ -1738,8 +1932,17 @@ export const syncRouter = createRouter({
                    continue;
                 }
                 if (localStoreId) {
-                  writeLog(`[DEBUG STOCK] Inserting stock: product=${localProductId}, store=${localStoreId}, qty=${quantity}`);
-                  await db.insert(schema.productStocks).values({ productId: localProductId, storeId: localStoreId, quantity });
+                  if (localVariantId) {
+                    writeLog(`[DEBUG STOCK] Inserting variant stock: variant=${localVariantId}, store=${localStoreId}, qty=${quantity}`);
+                    await db.insert(schema.productVariantStocks).values({
+                      variantId: localVariantId,
+                      storeId: localStoreId,
+                      quantity,
+                    });
+                  } else if (localProductId) {
+                    writeLog(`[DEBUG STOCK] Inserting stock: product=${localProductId}, store=${localStoreId}, qty=${quantity}`);
+                    await db.insert(schema.productStocks).values({ productId: localProductId, storeId: localStoreId, quantity });
+                  }
                   logDetails.stats.stocks++;
                   if (shouldHeartbeat()) {
                     await abortIfStopRequested();

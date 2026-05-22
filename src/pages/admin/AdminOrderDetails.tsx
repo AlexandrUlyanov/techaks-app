@@ -27,6 +27,9 @@ import {
 type OrderItem = {
   id: number;
   productId: number;
+  variantId?: number | null;
+  variantName?: string | null;
+  article?: string | null;
   productName?: string | null;
   sku?: string | null;
   quantity: number;
@@ -173,7 +176,7 @@ export default function AdminOrderDetails() {
         (item: OrderItem) => `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;">${item.productName || `Товар #${item.productId}`}</td>
-            <td style="padding:8px;border:1px solid #ddd;">${item.sku || "-"}</td>
+            <td style="padding:8px;border:1px solid #ddd;">${item.article || item.sku || "-"}</td>
             <td style="padding:8px;border:1px solid #ddd;text-align:center;">${item.quantity}</td>
             <td style="padding:8px;border:1px solid #ddd;text-align:right;">${formatPrice(item.total || item.price * item.quantity)}</td>
           </tr>`
@@ -515,8 +518,13 @@ export default function AdminOrderDetails() {
                     <p className="font-semibold text-[#15171A]">
                       {item.productName || `Товар #${item.productId}`}
                     </p>
+                    {item.variantName ? (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Вариант: {item.variantName}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs text-gray-500">
-                      SKU: {item.sku || "—"}
+                      Артикул: {item.article || item.sku || "—"}
                     </p>
                   </div>
                   <input
