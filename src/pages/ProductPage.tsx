@@ -580,24 +580,15 @@ export default function ProductPage() {
                   {product.name}
                 </h1>
 
-                <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
-                  {hasPublishedReviews ? (
-                    <>
-                      <div className="flex items-center gap-1 text-[#05C3D4]">
-                        <Star size={15} className="fill-current" />
-                        <span className="font-black text-[#1F2328]">{product.rating}</span>
-                      </div>
-                      <span className="text-[#6B7280]">{reviewCountLabel}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium text-[#1F2328]">Пока без отзывов</span>
-                      <span className="text-[#6B7280]">
-                        Новый товар, можно заказать с проверкой перед выдачей.
-                      </span>
-                    </>
-                  )}
-                </div>
+                {hasPublishedReviews ? (
+                  <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
+                    <div className="flex items-center gap-1 text-[#05C3D4]">
+                      <Star size={15} className="fill-current" />
+                      <span className="font-black text-[#1F2328]">{product.rating}</span>
+                    </div>
+                    <span className="text-[#6B7280]">{reviewCountLabel}</span>
+                  </div>
+                ) : null}
               </div>
 
               <ProductPurchasePanel

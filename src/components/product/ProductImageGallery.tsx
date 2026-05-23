@@ -103,7 +103,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative overflow-hidden rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),transparent_34%),linear-gradient(180deg,#ffffff_0%,#ffffff_100%)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative overflow-hidden rounded-[2rem] bg-white p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
