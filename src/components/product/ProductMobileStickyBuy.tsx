@@ -27,7 +27,7 @@ export default function ProductMobileStickyBuy({
           className={`h-12 min-w-[170px] rounded-[14px] px-5 text-sm font-semibold text-white transition ${
             disabled
               ? "cursor-not-allowed bg-[#D5DADD] text-[#7F8A96]"
-              : "bg-[#05C3D4] active:scale-[0.99]"
+              : "bg-[#F0642B] hover:bg-[#db5823] active:scale-[0.99]"
           }`}
         >
           {disabled ? "Нет в наличии" : "В корзину"}
