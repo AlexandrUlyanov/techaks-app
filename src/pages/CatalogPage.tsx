@@ -7,7 +7,7 @@ import ProductBreadcrumbsCompact, {
 } from "@/components/product/ProductBreadcrumbsCompact";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
-import { ChevronDown, Grid2X2, List, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, Grid2X2, List, SlidersHorizontal, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -15,6 +15,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useSeo } from "@/lib/seo";
 
 const PRODUCT_PAGE_SIZE = 28;
@@ -40,7 +47,6 @@ export default function CatalogPage() {
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
     "default"
   );
-  const [isSortOpen, setIsSortOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
@@ -146,12 +152,38 @@ export default function CatalogPage() {
   );
 
   const hasMoreProducts = visibleProductCount < sortedProducts.length;
-  const sortLabel =
-    sortBy === "price-asc"
-      ? "Цена: по возрастанию"
-      : sortBy === "price-desc"
-      ? "Цена: по убыванию"
-      : "По популярности";
+
+  const selectedFilterLabels = useMemo(() => {
+    const filterValueMap = new Map<
+      string,
+      { key: string; value: string; normalizedKey: string; normalizedValue: string }
+    >();
+
+    specFilters.forEach(group => {
+      group.values.forEach(value => {
+        filterValueMap.set(`${group.normalizedKey}:${value.normalizedValue}`, {
+          key: group.key,
+          value: value.value,
+          normalizedKey: group.normalizedKey,
+          normalizedValue: value.normalizedValue,
+        });
+      });
+    });
+
+    return selectedFilters.map(filter => {
+      const mapped = filterValueMap.get(
+        `${filter.normalizedKey}:${filter.normalizedValue}`
+      );
+      return (
+        mapped ?? {
+          key: filter.normalizedKey,
+          value: filter.normalizedValue,
+          normalizedKey: filter.normalizedKey,
+          normalizedValue: filter.normalizedValue,
+        }
+      );
+    });
+  }, [selectedFilters, specFilters]);
 
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
@@ -357,100 +389,6 @@ export default function CatalogPage() {
           {/* Products Grid */}
           {showProductSection && (
           <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-10 border-t border-border" : ""}>
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-              <div className="flex flex-wrap items-center gap-3">
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <button
-                      className="lg:hidden h-11 w-11 rounded-xl border border-border bg-card flex items-center justify-center"
-                      aria-label="Фильтры"
-                    >
-                      <SlidersHorizontal size={16} />
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
-                    <SheetHeader className="px-0 pt-0">
-                      <SheetTitle className="text-sm font-black uppercase tracking-widest">
-                        Фильтры
-                      </SheetTitle>
-                    </SheetHeader>
-                    <ProductFilters
-                      filters={specFilters}
-                      selected={selectedFilters}
-                      onToggle={toggleFilter}
-                      onClear={clearFilters}
-                    />
-                  </SheetContent>
-                </Sheet>
-                <div className="h-11 rounded-xl border border-border bg-card p-1 flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("grid")}
-                    className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
-                      viewMode === "grid" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    aria-label="Плитка"
-                  >
-                    <Grid2X2 size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("list")}
-                    className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${
-                      viewMode === "list" ? "bg-[#05C3D4] text-black" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    aria-label="Список"
-                  >
-                    <List size={17} />
-                  </button>
-                </div>
-                <div className="relative min-w-[220px]">
-                  <button
-                    type="button"
-                    onClick={() => setIsSortOpen(prev => !prev)}
-                    className="h-11 w-full rounded-xl border border-border bg-card px-4 text-left text-xs font-black uppercase tracking-widest text-foreground shadow-none transition-colors hover:border-[#05C3D4]/50"
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="truncate">{sortLabel}</span>
-                      <ChevronDown
-                        size={16}
-                        className={`shrink-0 text-muted-foreground transition-transform ${
-                          isSortOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </span>
-                  </button>
-                  {isSortOpen && (
-                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 rounded-xl border border-border bg-card p-1 shadow-xl">
-                      {[
-                        { value: "default", label: "По популярности" },
-                        { value: "price-asc", label: "Цена: по возрастанию" },
-                        { value: "price-desc", label: "Цена: по убыванию" },
-                      ].map(option => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            setSortBy(
-                              option.value as "default" | "price-asc" | "price-desc"
-                            );
-                            setIsSortOpen(false);
-                          }}
-                          className={`flex h-9 w-full items-center rounded-lg px-3 text-left text-[11px] font-black uppercase tracking-wider transition-colors ${
-                            sortBy === option.value
-                              ? "bg-[#05C3D4] text-black"
-                              : "text-foreground hover:bg-muted/70"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
@@ -470,7 +408,111 @@ export default function CatalogPage() {
                     onClear={clearFilters}
                   />
                 </div>
-                <div>
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <button
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-white text-foreground shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] lg:hidden"
+                          aria-label="Фильтры"
+                        >
+                          <SlidersHorizontal size={16} />
+                        </button>
+                      </SheetTrigger>
+                      <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
+                        <SheetHeader className="px-0 pt-0">
+                          <SheetTitle className="text-sm font-black uppercase tracking-widest">
+                            Фильтры
+                          </SheetTitle>
+                        </SheetHeader>
+                        <ProductFilters
+                          filters={specFilters}
+                          selected={selectedFilters}
+                          onToggle={toggleFilter}
+                          onClear={clearFilters}
+                        />
+                      </SheetContent>
+                    </Sheet>
+
+                    <Select
+                      value={sortBy}
+                      onValueChange={value =>
+                        setSortBy(value as "default" | "price-asc" | "price-desc")
+                      }
+                    >
+                      <SelectTrigger className="h-11 min-w-[230px] rounded-2xl border-border/70 bg-white pl-3 pr-4 text-sm font-semibold shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]">
+                            <ArrowUpDown size={15} />
+                          </span>
+                          <SelectValue placeholder="Сортировка" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">По популярности</SelectItem>
+                        <SelectItem value="price-asc">По возрастанию цены</SelectItem>
+                        <SelectItem value="price-desc">По убыванию цены</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <div className="ml-auto inline-flex items-center gap-1 rounded-2xl border border-border/70 bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("grid")}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                          viewMode === "grid"
+                            ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                        }`}
+                        aria-label="Плитка"
+                      >
+                        <Grid2X2 size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("list")}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                          viewMode === "list"
+                            ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                        }`}
+                        aria-label="Список"
+                      >
+                        <List size={17} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedFilterLabels.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedFilterLabels.map(filter => (
+                        <button
+                          key={`${filter.normalizedKey}:${filter.normalizedValue}`}
+                          type="button"
+                          onClick={() =>
+                            toggleFilter({
+                              normalizedKey: filter.normalizedKey,
+                              normalizedValue: filter.normalizedValue,
+                            })
+                          }
+                          className="inline-flex h-9 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,white)] px-4 text-sm font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_22%,white)]"
+                        >
+                          <span className="truncate max-w-[180px]">{filter.value}</span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_22%,white)] text-[var(--tech-color-primary)]">
+                            <X size={11} />
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="inline-flex h-9 items-center gap-2 rounded-full bg-muted px-4 text-sm font-semibold text-foreground transition hover:bg-muted/80"
+                      >
+                        Сбросить все
+                      </button>
+                    </div>
+                  )}
+
                   <div className={
                     viewMode === "grid"
                       ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"
