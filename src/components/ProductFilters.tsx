@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { X } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 
 type FilterValue = {
@@ -100,12 +100,8 @@ export default function ProductFilters({
 
   return (
     <aside className="space-y-5">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-foreground">
-          <SlidersHorizontal size={16} className="text-[#05C3D4]" />
-          Фильтры
-        </div>
-        {selected.length > 0 && (
+      {selected.length > 0 && (
+        <div className="flex items-center justify-end gap-4">
           <button
             type="button"
             onClick={onClear}
@@ -114,8 +110,8 @@ export default function ProductFilters({
             <X size={12} />
             Сбросить
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         {visibleFilters.map(group => (

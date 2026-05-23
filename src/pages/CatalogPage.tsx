@@ -358,10 +358,6 @@ export default function CatalogPage() {
           {showProductSection && (
           <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-10 border-t border-border" : ""}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-              <h2 className="hidden md:block text-xl font-black uppercase tracking-widest text-foreground leading-none">
-                Товары
-              </h2>
-              
               <div className="flex flex-wrap items-center gap-3">
                 <Sheet>
                   <SheetTrigger asChild>

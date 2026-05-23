@@ -42,10 +42,7 @@ export default function SearchFilters({
 
   return (
     <div className="space-y-6 rounded-[var(--tech-radius-card)] border border-border bg-card p-5 shadow-[var(--tech-shadow-card)]">
-      <div className="flex items-center justify-between">
-        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-          Фильтры
-        </div>
+      <div className="flex items-center justify-end">
         <Button variant="ghost" size="sm" onClick={onReset}>
           Сбросить
         </Button>
