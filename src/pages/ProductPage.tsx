@@ -515,9 +515,7 @@ export default function ProductPage() {
               ) : null}
             </div>
 
-            <h1 className="line-clamp-2 text-[29px] font-black leading-[1.04] tracking-tight text-[var(--tech-color-text-main)]">
-              {product.name}
-            </h1>
+            <h1>{product.name}</h1>
 
             {hasPublishedReviews ? (
               <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
@@ -596,9 +594,7 @@ export default function ProductPage() {
                   ) : null}
                 </div>
 
-                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[var(--tech-color-text-main)] md:text-5xl xl:text-[3.6rem]">
-                  {product.name}
-                </h1>
+                <h1>{product.name}</h1>
 
                 {hasPublishedReviews ? (
                   <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
