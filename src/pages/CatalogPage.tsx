@@ -7,7 +7,14 @@ import ProductBreadcrumbsCompact, {
 } from "@/components/product/ProductBreadcrumbsCompact";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
-import { ArrowUpDown, Grid2X2, List, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  Grid2X2,
+  List,
+  RotateCcw,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -184,6 +191,7 @@ export default function CatalogPage() {
       );
     });
   }, [selectedFilters, specFilters]);
+  const hasSelectedFilters = selectedFilterLabels.length > 0;
 
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
@@ -483,7 +491,7 @@ export default function CatalogPage() {
                     </div>
                   </div>
 
-                  {selectedFilterLabels.length > 0 && (
+                  {hasSelectedFilters && (
                     <div className="flex flex-wrap items-center gap-2 pt-0.5">
                       {selectedFilterLabels.map(filter => (
                         <button
@@ -542,10 +550,49 @@ export default function CatalogPage() {
                     </div>
                   )}
                   {sortedProducts.length === 0 && (
-                    <div className="text-center py-24">
-                      <p className="text-xl font-black uppercase font-heading text-white/10 tracking-widest">
-                        Товары скоро появятся
-                      </p>
+                    <div className="py-12">
+                      <div className="mx-auto flex max-w-2xl flex-col items-center rounded-[2rem] border border-dashed border-border bg-[var(--tech-color-surface)] px-6 py-14 text-center sm:px-10">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                          <SlidersHorizontal size={22} />
+                        </div>
+                        <h2 className="mt-6 text-2xl font-black tracking-tight text-foreground">
+                          {hasSelectedFilters
+                            ? "Подходящих товаров сейчас нет"
+                            : "Товары скоро появятся"}
+                        </h2>
+                        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+                          {hasSelectedFilters
+                            ? "Попробуйте снять часть фильтров или сбросить их полностью — тогда мы покажем больше подходящих товаров."
+                            : "В этой категории пока пусто, но мы уже готовим подборку. Попробуйте открыть весь каталог или соседние категории."}
+                        </p>
+                        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                          {hasSelectedFilters ? (
+                            <button
+                              type="button"
+                              onClick={clearFilters}
+                              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#05C3D4] px-5 text-sm font-black text-white transition hover:bg-[#27E6F2] dark:text-black"
+                            >
+                              <RotateCcw size={15} />
+                              Сбросить фильтры
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => navigate("/catalog?cat=all")}
+                              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#05C3D4] px-5 text-sm font-black text-white transition hover:bg-[#27E6F2] dark:text-black"
+                            >
+                              Перейти в каталог
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => navigate("/contacts")}
+                            className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-background px-5 text-sm font-semibold text-foreground transition hover:bg-[var(--tech-color-surface)]"
+                          >
+                            Нужна помощь с подбором
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

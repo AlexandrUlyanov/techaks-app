@@ -5,20 +5,22 @@ import { trpc } from "@/providers/trpc";
 export default function ContactsPage() {
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
+  const legalFormLabel =
+    siteProfile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН";
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       {/* Hero */}
-      <section className="relative py-20 md:py-32 overflow-hidden border-b border-white/5">
+      <section className="relative overflow-hidden border-b border-border py-20 md:py-32">
         <div className="absolute top-0 right-0 w-[40%] h-full bg-[#05C3D4]/5 blur-[100px] rounded-full" />
         <div className="container-main relative z-10">
           <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">
             Связь
           </span>
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-white">
-            КОНТАКТЫ <span className="text-white/20">ТЕХАКС</span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+            КОНТАКТЫ <span className="text-muted-foreground/30">ТЕХАКС</span>
           </h1>
-          <p className="mt-8 text-lg text-white/40 max-w-xl font-medium leading-relaxed">
+          <p className="mt-8 max-w-xl text-lg font-medium leading-relaxed text-muted-foreground">
             Мы на связи ежедневно. Выбирайте удобный способ общения или заходите
             в гости.
           </p>
@@ -33,20 +35,20 @@ export default function ContactsPage() {
             <div className="flex-1 space-y-12">
               {/* Phone */}
               <div className="flex items-start gap-6 group">
-                <div className="w-14 h-14 rounded-2xl bg-[#05C3D4]/10 border border-[#05C3D4]/20 flex items-center justify-center text-[#05C3D4] group-hover:bg-[#05C3D4] group-hover:text-black transition-all duration-300">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[color:color-mix(in_srgb,var(--tech-color-primary)_22%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-[#05C3D4] transition-all duration-300 group-hover:bg-[#05C3D4] group-hover:text-black">
                   <Phone size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                  <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Телефон
                   </span>
                   <a
                     href={`tel:${(siteProfile?.contacts.primaryPhone || "").replace(/\s+/g, "")}`}
-                    className="text-2xl md:text-3xl font-black text-white hover:text-[#05C3D4] transition-colors font-heading tracking-tight"
+                    className="font-heading text-2xl font-black tracking-tight text-foreground transition-colors hover:text-[#05C3D4] md:text-3xl"
                   >
                     {siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}
                   </a>
-                  <p className="mt-2 text-sm font-bold text-white/40 uppercase tracking-widest">
+                  <p className="mt-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
                     {siteProfile?.contacts.workingHours || "Ежедневно 9:00–21:00"}
                   </p>
                 </div>
@@ -54,14 +56,14 @@ export default function ContactsPage() {
 
               {/* Email */}
               <div className="flex items-start gap-6 group">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/30 group-hover:border-[#05C3D4]/40 group-hover:text-[#05C3D4] transition-all duration-300">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-[var(--tech-color-surface)] text-muted-foreground transition-all duration-300 group-hover:border-[#05C3D4]/40 group-hover:text-[#05C3D4]">
                   <Mail size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                  <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     E-mail
                   </span>
-                  <span className="text-xl md:text-2xl font-bold text-white/80">
+                  <span className="text-xl font-bold text-foreground md:text-2xl">
                     {siteProfile?.contacts.email || "tech.aks@yandex.ru"}
                   </span>
                 </div>
@@ -69,18 +71,18 @@ export default function ContactsPage() {
 
               {/* Telegram */}
               <div className="flex items-start gap-6 group">
-                <div className="w-14 h-14 rounded-2xl bg-[#0088cc]/10 border border-[#0088cc]/20 flex items-center justify-center text-[#0088cc] group-hover:bg-[#0088cc] group-hover:text-white transition-all duration-300">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#0088cc]/20 bg-[#0088cc]/10 text-[#0088cc] transition-all duration-300 group-hover:bg-[#0088cc] group-hover:text-white">
                   <Send size={24} />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2 block">
+                  <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Telegram
                   </span>
                   <a
                     href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xl md:text-2xl font-bold text-white/80 hover:text-[#0088cc] transition-colors"
+                    className="text-xl font-bold text-foreground transition-colors hover:text-[#0088cc] md:text-2xl"
                   >
                     {siteProfile?.contacts.telegramHandle || "@tech_aks"}
                   </a>
@@ -88,9 +90,9 @@ export default function ContactsPage() {
               </div>
 
               {/* Addresses */}
-              <div className="pt-12 border-t border-white/5 space-y-8">
+              <div className="space-y-8 border-t border-border pt-12">
                 <div className="flex items-start gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-[var(--tech-color-surface)] text-muted-foreground">
                     <MapPin size={24} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
@@ -100,7 +102,7 @@ export default function ContactsPage() {
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
                             {store.name}
                           </p>
-                          <p className="text-lg font-bold text-white/80 leading-tight">
+                          <p className="text-lg font-bold leading-tight text-foreground">
                             {store.address}
                           </p>
                         </div>
@@ -110,7 +112,7 @@ export default function ContactsPage() {
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] mb-2">
                           Юридический адрес
                         </p>
-                        <p className="text-lg font-bold text-white/80 leading-tight">
+                        <p className="text-lg font-bold leading-tight text-foreground">
                           {siteProfile?.seller.legalAddress ||
                             "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12"}
                         </p>
@@ -120,18 +122,18 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              <div className="pt-12 border-t border-white/5 space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+              <div className="space-y-4 border-t border-border pt-12">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
                   Реквизиты продавца
                 </h3>
-                <div className="rounded-3xl border border-white/5 bg-white/5 p-6">
-                  <div className="space-y-2 text-sm leading-6 text-white/70">
-                    <p className="font-black text-white">{siteProfile?.seller.fullName}</p>
+                <div className="rounded-3xl border border-border bg-[var(--tech-color-surface)] p-6">
+                  <div className="space-y-2 text-sm leading-6 text-muted-foreground">
+                    <p className="font-black text-foreground">{siteProfile?.seller.fullName}</p>
                     <p>Юр. адрес: {siteProfile?.seller.legalAddress}</p>
                     <p>Факт. адрес: {siteProfile?.seller.actualAddress}</p>
                     <p>ИНН: {siteProfile?.seller.inn}</p>
                     <p>
-                      {siteProfile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН"}:{" "}
+                      {legalFormLabel}:{" "}
                       {siteProfile?.seller.ogrnip}
                     </p>
                     {siteProfile?.seller.kpp ? <p>КПП: {siteProfile.seller.kpp}</p> : null}
@@ -145,8 +147,8 @@ export default function ContactsPage() {
               </div>
 
               {/* Messengers */}
-              <div className="pt-12 border-t border-white/5">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mb-6">
+              <div className="border-t border-border pt-12">
+                <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
                   Быстрые сообщения
                 </h3>
                 <div className="flex flex-wrap gap-4">
@@ -154,7 +156,7 @@ export default function ContactsPage() {
                     href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0088cc] hover:border-[#0088cc] transition-all active:scale-95"
+                    className="rounded-xl border border-border bg-[var(--tech-color-surface)] px-8 py-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-all active:scale-95 hover:border-[#0088cc] hover:bg-[#0088cc] hover:text-white"
                   >
                     Telegram
                   </a>
@@ -162,7 +164,7 @@ export default function ContactsPage() {
                     href={siteProfile?.contacts.whatsappUrl || "https://wa.me/79273642888"}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#25d366] hover:border-[#25d366] transition-all active:scale-95"
+                    className="rounded-xl border border-border bg-[var(--tech-color-surface)] px-8 py-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-all active:scale-95 hover:border-[#25d366] hover:bg-[#25d366] hover:text-white"
                   >
                     WhatsApp
                   </a>
@@ -174,7 +176,6 @@ export default function ContactsPage() {
             <div className="flex-1 lg:max-w-[450px]">
               <div className="sticky top-28">
                 <LeadForm
-                  dark
                   title="ОБРАТНАЯ СВЯЗЬ"
                   subtitle="Оставьте сообщение — мы ответим вам в течение 15 минут."
                   type="question"
