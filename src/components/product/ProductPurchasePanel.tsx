@@ -4,30 +4,20 @@ type ProductPurchasePanelProps = {
   priceLabel: string;
   oldPriceLabel?: string | null;
   discountLabel?: string | null;
-  summaryTitle: string;
-  summaryText: string;
-  reserveLabel?: string;
   onAddToCart: () => void;
   onOpenOneClick: () => void;
-  onReserveClick: () => void;
   disableCart?: boolean;
   disableOneClick?: boolean;
-  disableReserve?: boolean;
 };
 
 export default function ProductPurchasePanel({
   priceLabel,
   oldPriceLabel,
   discountLabel,
-  summaryTitle,
-  summaryText,
-  reserveLabel = "Зарезервировать в магазине",
   onAddToCart,
   onOpenOneClick,
-  onReserveClick,
   disableCart = false,
   disableOneClick = false,
-  disableReserve = false,
 }: ProductPurchasePanelProps) {
   return (
     <div className="space-y-5">
@@ -55,25 +45,6 @@ export default function ProductPurchasePanel({
         disableCart={disableCart}
         disableOneClick={disableOneClick}
       />
-
-      <div className="rounded-[1.4rem] bg-[var(--tech-color-surface)] px-5 py-4 shadow-[var(--tech-shadow-card)]">
-        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">
-          {summaryTitle}
-        </div>
-        <div className="mt-2 text-sm leading-6 text-[var(--tech-color-text-main)]">{summaryText}</div>
-        <button
-          type="button"
-          onClick={onReserveClick}
-          disabled={disableReserve}
-          className={`mt-3 inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold transition ${
-            disableReserve
-              ? "cursor-not-allowed bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_85%,var(--tech-color-background))] text-[var(--tech-color-text-muted)]/80"
-              : "bg-[var(--tech-color-surface-muted)] text-[var(--tech-color-text-main)] hover:brightness-95"
-          }`}
-        >
-          {reserveLabel}
-        </button>
-      </div>
     </div>
   );
 }

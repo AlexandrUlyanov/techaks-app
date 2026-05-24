@@ -320,12 +320,6 @@ export default function ProductPage() {
         .slice(0, 4)
     : [];
   const topStore = availableStores[0] ?? null;
-  const topStoreLabel = topStore
-    ? [topStore.storeName, topStore.storeAddress].filter(Boolean).join(", ")
-    : null;
-  const deliverySummary = topStore
-    ? `Самовывоз сегодня: ${topStoreLabel}`
-    : "Наличие уточняйте у менеджера";
   const compactPickupText = topStore
     ? `Сегодня, ${topStore.storeAddress || topStore.storeName}`
     : "Уточняйте у менеджера";
@@ -333,8 +327,6 @@ export default function ProductPage() {
   const availabilitySummary = availableStores.length
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";
-  const reserveActionLabel =
-    "Заберу в магазине";
   const compactDetailSpecs = quickSpecs.slice(0, 3);
   const selectedVariantSummary = selectedVariant
     ? Object.values(selectedVariant.attributes ?? {}).filter(Boolean).join(" · ") ||
@@ -417,22 +409,6 @@ export default function ProductPage() {
   const openReservationDialog = (store: ProductStoreAvailability) => {
     setSelectedReservationStore(store);
     setReservationDialogOpen(true);
-  };
-
-  const handleReserveShortcut = () => {
-    if (availableStores.length === 1 && availableStores[0]) {
-      openReservationDialog(availableStores[0]);
-      return;
-    }
-
-    setProductTab("stock");
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document
-          .getElementById("product-store-availability")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 60);
-    });
   };
 
   const setProductTab = (tab: ProductDetailsTabKey) => {
@@ -611,15 +587,10 @@ export default function ProductPage() {
                 priceLabel={displayedPriceLabel}
                 oldPriceLabel={oldPriceLabel}
                 discountLabel={discountLabel}
-                summaryTitle="Самовывоз и доставка"
-                summaryText={`${deliverySummary}. Доставка по Пензе и России после подтверждения заказа.`}
-                reserveLabel={reserveActionLabel}
                 onAddToCart={handleAddToCart}
                 onOpenOneClick={() => setOneClickDialogOpen(true)}
-                onReserveClick={handleReserveShortcut}
                 disableCart={!canPurchase}
                 disableOneClick={!canPurchase}
-                disableReserve={availableStores.length === 0}
               />
 
               <div className="space-y-2 lg:hidden">
