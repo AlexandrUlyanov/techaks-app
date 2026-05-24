@@ -52,7 +52,7 @@ export default function ProductSpecsTab({
 
   if (groups.length === 0) {
     return (
-      <div className="py-8 text-sm leading-6 text-[#6B7280]">
+      <div className="py-8 text-sm leading-6 text-[var(--tech-color-text-muted)]">
         Характеристики пока не добавлены. Мы обновим их после следующей синхронизации.
       </div>
     );
@@ -65,7 +65,7 @@ export default function ProductSpecsTab({
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-2xl font-black tracking-tight text-[#1F2328] md:text-3xl">
+        <h2 className="text-2xl font-black tracking-tight text-[var(--tech-color-text-main)] md:text-3xl">
           Характеристики
         </h2>
         {totalItems > visibleLimit ? (
@@ -93,7 +93,7 @@ export default function ProductSpecsTab({
 
           return (
             <section key={group.title} className="space-y-4">
-              <h3 className="text-lg font-semibold text-[#1F2328] md:text-xl">
+              <h3 className="text-lg font-semibold text-[var(--tech-color-text-main)] md:text-xl">
                 {group.title}
               </h3>
               <dl className="space-y-0">
@@ -101,13 +101,13 @@ export default function ProductSpecsTab({
                   <div
                     key={`${group.title}-${key}`}
                     className={`grid gap-3 py-3 md:grid-cols-[minmax(220px,320px)_1fr] md:gap-8 ${
-                      index > 0 ? "border-t border-[#F1F2F3]" : ""
+                      index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""
                     }`}
                   >
-                    <dt className="text-sm font-medium text-[#7A7F87] md:text-[15px]">
+                    <dt className="text-sm font-medium text-[var(--tech-color-text-muted)] md:text-[15px]">
                       {key}
                     </dt>
-                    <dd className="text-sm font-semibold text-[#1F2328] md:text-[15px]">
+                    <dd className="text-sm font-semibold text-[var(--tech-color-text-main)] md:text-[15px]">
                       {String(value)}
                     </dd>
                   </div>

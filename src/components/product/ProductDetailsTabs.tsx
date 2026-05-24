@@ -49,7 +49,7 @@ export default function ProductDetailsTabs({
   return (
     <section className="mt-16 md:mt-20">
       <div className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="inline-flex min-w-full items-center gap-2 border-b border-[#E9EDF0] pb-3">
+        <div className="inline-flex min-w-full items-center gap-2 border-b border-[var(--tech-color-border)]/65 pb-3">
           {TAB_ITEMS.map(item => {
             const isActive = item.key === activeTab;
             return (
@@ -60,8 +60,8 @@ export default function ProductDetailsTabs({
                 className={cn(
                   "relative shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors md:px-5",
                   isActive
-                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[#1F2328]"
-                    : "text-[#6B7280] hover:bg-[#F6F7F8] hover:text-[#1F2328]"
+                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))] text-[var(--tech-color-text-main)]"
+                    : "text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
                 )}
                 aria-pressed={isActive}
               >
@@ -78,7 +78,7 @@ export default function ProductDetailsTabs({
         </div>
       </div>
 
-      <div className="mt-6 rounded-[1.75rem] border border-[#EDF1F4] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+      <div className="mt-6 rounded-[1.75rem] border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface)] shadow-[var(--tech-shadow-card)]">
         {TAB_ITEMS.map(item => {
           const isActive = item.key === activeTab;
           return (

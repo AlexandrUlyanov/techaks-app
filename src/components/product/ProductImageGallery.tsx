@@ -77,12 +77,12 @@ export default function ProductImageGallery({
                   <button
                     key={`${image.original}-${index}`}
                     type="button"
-                    onClick={() => selectImage(index)}
-                    aria-label={`Показать изображение ${index + 1} товара ${productName}`}
-                    className={`overflow-hidden rounded-xl bg-[#F6F7F8] p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  onClick={() => selectImage(index)}
+                  aria-label={`Показать изображение ${index + 1} товара ${productName}`}
+                    className={`overflow-hidden rounded-xl bg-[var(--tech-color-surface-muted)] p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       index === activeIndex
                         ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
-                        : "hover:bg-[#ECEFF1]"
+                        : "hover:brightness-95"
                     }`}
                   >
                     <img
@@ -103,7 +103,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative overflow-hidden rounded-[2rem] bg-white p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative overflow-hidden rounded-[2rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
@@ -112,7 +112,7 @@ export default function ProductImageGallery({
               <button
                 type="button"
                 onClick={goToPrevious}
-                className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#1F2328] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:left-5"
+                className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-surface)_90%,white)] text-[var(--tech-color-text-main)] transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:left-5"
                 aria-label="Предыдущее изображение"
               >
                 <ChevronLeft size={20} />
@@ -120,7 +120,7 @@ export default function ProductImageGallery({
               <button
                 type="button"
                 onClick={goToNext}
-                className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#1F2328] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:right-5"
+                className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-surface)_90%,white)] text-[var(--tech-color-text-main)] transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 md:right-5"
                 aria-label="Следующее изображение"
               >
                 <ChevronRight size={20} />
@@ -132,7 +132,7 @@ export default function ProductImageGallery({
             type="button"
             onClick={() => openLightbox(activeIndex)}
             aria-label={`Увеличить изображение товара ${productName}`}
-            className="relative z-10 flex h-full w-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-white"
+            className="relative z-10 flex h-full w-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
           >
             <img
               src={activeImageProps.src}
@@ -146,7 +146,7 @@ export default function ProductImageGallery({
           </button>
 
           {hasMultipleImages ? (
-            <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+            <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-surface)_90%,white)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-text-muted)]">
               {activeIndex + 1} / {normalizedImages.length}
             </div>
           ) : null}

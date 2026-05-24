@@ -267,7 +267,7 @@ export default function ProductPage() {
           </p>
           <Link
             to="/catalog"
-            className="mt-4 inline-flex items-center gap-2 text-[#05C3D4] hover:underline"
+            className="mt-4 inline-flex items-center gap-2 text-[var(--tech-color-primary)] hover:underline"
           >
             <ArrowLeft size={16} />
             Вернуться в каталог
@@ -481,7 +481,7 @@ export default function ProductPage() {
             {hasManufacturer ? (
               <Link
                 to={manufacturer?.href || "#"}
-                className="inline-flex w-fit items-center gap-2 rounded-full bg-[#F6F7F8] px-3 py-2 text-[#1F2328] transition hover:bg-[#ECEFF1]"
+                  className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--tech-color-surface)] px-3 py-2 text-[var(--tech-color-text-main)] shadow-[var(--tech-shadow-card)] transition hover:brightness-95"
               >
                 {manufacturer?.logo ? (
                   <img
@@ -490,7 +490,7 @@ export default function ProductPage() {
                     className="h-4 max-w-[88px] object-contain"
                   />
                 ) : (
-                  <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[#1F2328]">
+                  <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--tech-color-text-main)]">
                     {manufacturer?.title}
                   </span>
                 )}
@@ -500,32 +500,32 @@ export default function ProductPage() {
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span
                 className={`inline-flex items-center gap-2 font-medium ${
-                  isInStock ? "text-emerald-600" : "text-[#6B7280]"
+                  isInStock ? "text-emerald-500" : "text-[var(--tech-color-text-muted)]"
                 }`}
               >
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    isInStock ? "bg-emerald-500" : "bg-[#BDC4CC]"
+                    isInStock ? "bg-emerald-500" : "bg-[var(--tech-color-border)]"
                   }`}
                 />
                 {isInStock ? "В наличии" : "Нет в наличии"}
               </span>
               {displayedArticle ? (
-                <span className="text-[#6B7280]">Код: {displayedArticle}</span>
+                <span className="text-[var(--tech-color-text-muted)]">Код: {displayedArticle}</span>
               ) : null}
             </div>
 
-            <h1 className="line-clamp-2 text-[29px] font-black leading-[1.04] tracking-tight text-[#1F2328]">
+            <h1 className="line-clamp-2 text-[29px] font-black leading-[1.04] tracking-tight text-[var(--tech-color-text-main)]">
               {product.name}
             </h1>
 
             {hasPublishedReviews ? (
               <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
-                <div className="flex items-center gap-1 text-[#05C3D4]">
+                <div className="flex items-center gap-1 text-[var(--tech-color-primary)]">
                   <Star size={15} className="fill-current" />
-                  <span className="font-black text-[#1F2328]">{product.rating}</span>
+                  <span className="font-black text-[var(--tech-color-text-main)]">{product.rating}</span>
                 </div>
-                <span className="text-[#6B7280]">{reviewCountLabel}</span>
+                <span className="text-[var(--tech-color-text-muted)]">{reviewCountLabel}</span>
               </div>
             ) : null}
           </div>
@@ -547,7 +547,7 @@ export default function ProductPage() {
                         </span>
                       ))}
                       {product.badge ? (
-                        <span className="rounded-xl bg-[#F4F5F6] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#464A50] opacity-75">
+                        <span className="rounded-xl bg-[var(--tech-color-surface-muted)] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[var(--tech-color-text-main)] opacity-75">
                           {product.badge}
                         </span>
                       ) : null}
@@ -562,7 +562,7 @@ export default function ProductPage() {
                 {hasManufacturer ? (
                   <Link
                     to={manufacturer?.href || "#"}
-                    className="inline-flex w-fit items-center gap-3 rounded-full bg-[#F6F7F8] px-4 py-2.5 text-[#1F2328] transition hover:bg-[#ECEFF1]"
+                    className="inline-flex w-fit items-center gap-3 rounded-full bg-[var(--tech-color-surface)] px-4 py-2.5 text-[var(--tech-color-text-main)] shadow-[var(--tech-shadow-card)] transition hover:brightness-95"
                   >
                     {manufacturer?.logo ? (
                       <img
@@ -571,7 +571,7 @@ export default function ProductPage() {
                         className="h-5 max-w-[120px] object-contain"
                       />
                     ) : (
-                      <span className="text-sm font-black uppercase tracking-[0.28em] text-[#1F2328]">
+                      <span className="text-sm font-black uppercase tracking-[0.28em] text-[var(--tech-color-text-main)]">
                         {manufacturer?.title}
                       </span>
                     )}
@@ -581,32 +581,32 @@ export default function ProductPage() {
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <span
                     className={`inline-flex items-center gap-2 font-medium ${
-                      isInStock ? "text-emerald-600" : "text-[#6B7280]"
+                      isInStock ? "text-emerald-500" : "text-[var(--tech-color-text-muted)]"
                     }`}
                   >
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
-                        isInStock ? "bg-emerald-500" : "bg-[#BDC4CC]"
+                        isInStock ? "bg-emerald-500" : "bg-[var(--tech-color-border)]"
                       }`}
                     />
                     {isInStock ? "В наличии" : "Нет в наличии"}
                   </span>
                   {displayedArticle ? (
-                    <span className="text-[#6B7280]">Код: {displayedArticle}</span>
+                    <span className="text-[var(--tech-color-text-muted)]">Код: {displayedArticle}</span>
                   ) : null}
                 </div>
 
-                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[#1F2328] md:text-5xl xl:text-[3.6rem]">
+                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-[var(--tech-color-text-main)] md:text-5xl xl:text-[3.6rem]">
                   {product.name}
                 </h1>
 
                 {hasPublishedReviews ? (
                   <div className="flex min-h-6 flex-wrap items-center gap-3 text-sm">
-                    <div className="flex items-center gap-1 text-[#05C3D4]">
+                    <div className="flex items-center gap-1 text-[var(--tech-color-primary)]">
                       <Star size={15} className="fill-current" />
-                      <span className="font-black text-[#1F2328]">{product.rating}</span>
+                      <span className="font-black text-[var(--tech-color-text-main)]">{product.rating}</span>
                     </div>
-                    <span className="text-[#6B7280]">{reviewCountLabel}</span>
+                    <span className="text-[var(--tech-color-text-muted)]">{reviewCountLabel}</span>
                   </div>
                 ) : null}
               </div>
@@ -628,8 +628,8 @@ export default function ProductPage() {
 
               <div className="space-y-2 lg:hidden">
                 {selectedVariantSummary ? (
-                  <div className="text-sm leading-6 text-[#6B7280]">
-                    Выбрано: <span className="font-medium text-[#1F2328]">{selectedVariantSummary}</span>
+                  <div className="text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                    Выбрано: <span className="font-medium text-[var(--tech-color-text-main)]">{selectedVariantSummary}</span>
                   </div>
                 ) : null}
               </div>
@@ -649,11 +649,11 @@ export default function ProductPage() {
 
               {compactDetailSpecs.length > 0 ? (
                 <div className="space-y-3">
-                  <div className="text-lg font-semibold text-[#1F2328]">О товаре</div>
+                  <div className="text-lg font-semibold text-[var(--tech-color-text-main)]">О товаре</div>
                   <div className="grid gap-2">
                     {compactDetailSpecs.map(([key, value]) => (
-                      <div key={key} className="text-[15px] leading-6 text-[#1F2328]">
-                        <span className="font-medium text-[#7A7F87]">{key}:</span>{" "}
+                      <div key={key} className="text-[15px] leading-6 text-[var(--tech-color-text-main)]">
+                        <span className="font-medium text-[var(--tech-color-text-muted)]">{key}:</span>{" "}
                         <span className="font-semibold">{String(value)}</span>
                       </div>
                     ))}

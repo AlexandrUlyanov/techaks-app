@@ -8,10 +8,10 @@ export default function ProductWarrantyTab({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black tracking-tight text-[#1F2328] md:text-3xl">
+        <h2 className="text-2xl font-black tracking-tight text-[var(--tech-color-text-main)] md:text-3xl">
           Гарантия
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+        <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
           Мы рекомендуем проверять внешний вид, комплектацию и работоспособность товара при получении.
         </p>
       </div>
@@ -37,16 +37,16 @@ export default function ProductWarrantyTab({
             text: "При самовывозе и доставке можно проверить комплектность, внешний вид и базовую работоспособность товара перед подтверждением получения.",
           },
         ].map((item, index) => (
-          <div key={item.title} className={`py-4 ${index > 0 ? "border-t border-[#F1F2F3]" : ""}`}>
-            <div className="text-base font-semibold text-[#1F2328]">{item.title}</div>
-            <div className="mt-2 text-sm leading-6 text-[#6B7280]">{item.text}</div>
+          <div key={item.title} className={`py-4 ${index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""}`}>
+            <div className="text-base font-semibold text-[var(--tech-color-text-main)]">{item.title}</div>
+            <div className="mt-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">{item.text}</div>
           </div>
         ))}
       </div>
 
       <Link
         to="/returns"
-        className="inline-flex h-11 items-center justify-center rounded-xl bg-[#F6F7F8] px-5 text-sm font-semibold text-[#1F2328] transition hover:bg-[#ECEFF1]"
+        className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--tech-color-surface-muted)] px-5 text-sm font-semibold text-[var(--tech-color-text-main)] transition hover:brightness-95"
       >
         Возврат и обмен
       </Link>

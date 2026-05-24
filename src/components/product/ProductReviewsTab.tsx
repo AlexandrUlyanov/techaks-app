@@ -59,23 +59,23 @@ export default function ProductReviewsTab({
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-[#1F2328] md:text-3xl">
+          <h2 className="text-2xl font-black tracking-tight text-[var(--tech-color-text-main)] md:text-3xl">
             Отзывы
           </h2>
-          <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+          <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
             Мнения покупателей и ответы магазина.
           </p>
         </div>
 
         {totalCount > 0 ? (
-          <div className="rounded-2xl bg-[#F6F7F8] px-5 py-4">
-            <div className="text-3xl font-black text-[#05C3D4]">
+          <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-5 py-4">
+            <div className="text-3xl font-black text-[var(--tech-color-primary)]">
               {avgRating.toFixed(1)}
             </div>
-            <div className="mt-1 text-sm font-semibold text-[#1F2328]">
+            <div className="mt-1 text-sm font-semibold text-[var(--tech-color-text-main)]">
               {formatRussianCount(totalCount, ["отзыв", "отзыва", "отзывов"])}
             </div>
-            <div className="text-xs text-[#6B7280]">
+            <div className="text-xs text-[var(--tech-color-text-muted)]">
               Подтверждённых покупок: {Number(summary?.verifiedCount ?? 0)}
             </div>
           </div>
@@ -95,19 +95,19 @@ export default function ProductReviewsTab({
       </div>
 
       {reviews.length === 0 ? (
-        <div className="rounded-2xl bg-[#F7FEFF] px-5 py-5">
-          <div className="text-base font-black text-[#1F2328]">
+        <div className="rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] px-5 py-5">
+          <div className="text-base font-black text-[var(--tech-color-text-main)]">
             Отзывов пока нет. Станьте первым, кто оставит отзыв о товаре.
           </div>
         </div>
       ) : (
-        <div className="border-t border-[#F1F2F3]">
+        <div className="border-t border-[var(--tech-color-border)]/55">
           {reviews.map(review => (
-            <article key={review.id} className="border-b border-[#F1F2F3] py-6">
+            <article key={review.id} className="border-b border-[var(--tech-color-border)]/55 py-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-black text-[#15171A]">{review.title}</h3>
+                    <h3 className="text-lg font-black text-[var(--tech-color-text-main)]">{review.title}</h3>
                     {review.isVerifiedPurchase ? (
                       <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
                         Подтверждённая покупка
@@ -121,7 +121,7 @@ export default function ProductReviewsTab({
                       : ""}
                   </div>
                 </div>
-                <div className="text-lg font-black text-[#05C3D4]">{review.rating}/5</div>
+                <div className="text-lg font-black text-[var(--tech-color-primary)]">{review.rating}/5</div>
               </div>
               {review.pros ? (
                 <p className="mt-4 text-sm text-emerald-700">
@@ -133,13 +133,13 @@ export default function ProductReviewsTab({
                   <strong>Недостатки:</strong> {review.cons}
                 </p>
               ) : null}
-              <p className="mt-4 text-sm leading-7 text-[#15171A]">{review.text}</p>
+              <p className="mt-4 text-sm leading-7 text-[var(--tech-color-text-main)]">{review.text}</p>
               {review.storeReply ? (
-                <div className="mt-5 rounded-2xl bg-[#F7FEFF] p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
+                <div className="mt-5 rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--tech-color-primary)]">
                     Ответ магазина
                   </div>
-                  <div className="mt-2 text-sm leading-6 text-[#15171A]">{review.storeReply}</div>
+                  <div className="mt-2 text-sm leading-6 text-[var(--tech-color-text-main)]">{review.storeReply}</div>
                 </div>
               ) : null}
             </article>
@@ -158,9 +158,9 @@ export default function ProductReviewsTab({
             onSuccess={onSuccess}
           />
         ) : (
-          <div className="rounded-2xl border border-[#EDF1F4] bg-[#F6F7F8] p-5">
-            <div className="text-base font-black text-[#15171A]">Оставить отзыв</div>
-            <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+          <div className="rounded-2xl border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface-muted)] p-5">
+            <div className="text-base font-black text-[var(--tech-color-text-main)]">Оставить отзыв</div>
+            <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
               Чтобы оставить отзыв, войдите в личный кабинет. После отправки отзыв попадёт на модерацию и только потом появится на сайте.
             </p>
             <Link

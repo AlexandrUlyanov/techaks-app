@@ -99,7 +99,7 @@ export default function ProductVariantSelector({
     return (
       <div className="space-y-4">
         {colorAttributeKey && selectedVariant?.attributes?.[colorAttributeKey] ? (
-          <div className="text-sm font-bold text-[#15171A]">
+          <div className="text-sm font-bold text-[var(--tech-color-text-main)]">
             {colorAttributeKey}
             <span className="text-muted-foreground">
               : {selectedVariant.attributes[colorAttributeKey]}
@@ -130,13 +130,13 @@ export default function ProductVariantSelector({
                 type="button"
                 onClick={() => onSelect(variant.id)}
                 disabled={!isAvailable}
-                className={`overflow-hidden rounded-[1.2rem] bg-[#F8F9FA] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                className={`overflow-hidden rounded-[1.2rem] bg-[var(--tech-color-surface)] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   isSelected
                     ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
-                    : "hover:bg-[#F1F4F5]"
+                    : "hover:brightness-[1.03]"
                 } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
               >
-                <div className="aspect-square bg-[#F8F9FA] p-3">
+                <div className="aspect-square bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-3">
                   <img
                     src={imageProps.src}
                     srcSet={imageProps.srcSet}
@@ -150,7 +150,7 @@ export default function ProductVariantSelector({
                 </div>
 
                 <div className="space-y-2 p-3">
-                  <div className="min-h-[1.5rem] text-sm font-bold leading-5 text-[#15171A]">
+                  <div className="min-h-[1.5rem] text-sm font-bold leading-5 text-[var(--tech-color-text-main)]">
                     {colorLabel}
                   </div>
 
@@ -160,7 +160,7 @@ export default function ProductVariantSelector({
                     </div>
                   ) : null}
 
-                  <div className="text-lg font-black text-[#05C3D4]">
+                  <div className="text-lg font-black text-[var(--tech-color-primary)]">
                     {formatPrice(variant.price)}
                   </div>
 
@@ -198,7 +198,7 @@ export default function ProductVariantSelector({
 
             return (
               <div key={attributeKey} className="space-y-3">
-                <div className="text-sm font-bold text-[#15171A]">
+                <div className="text-sm font-bold text-[var(--tech-color-text-main)]">
                   {attributeKey}
                   {selectedVariant?.attributes?.[attributeKey] ? (
                     <span className="text-muted-foreground">
@@ -232,10 +232,10 @@ export default function ProductVariantSelector({
                           type="button"
                           onClick={() => candidateVariant && onSelect(candidateVariant.id)}
                           disabled={!isAvailable}
-                          className={`overflow-hidden rounded-[1rem] bg-[#F4F5F6] p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          className={`overflow-hidden rounded-[1rem] bg-[var(--tech-color-surface-muted)] p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                             isSelected
                               ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
-                              : "hover:bg-[#ECEFF1]"
+                              : "hover:brightness-95"
                           } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
                         >
                           <div className="flex h-[76px] w-[76px] items-center justify-center rounded-2xl bg-muted/35 p-2">
@@ -250,7 +250,7 @@ export default function ProductVariantSelector({
                               onError={applyProductImageFallback}
                             />
                           </div>
-                          <div className="px-1 pb-1 pt-2 text-center text-[11px] font-bold leading-4 text-[#15171A]">
+                          <div className="px-1 pb-1 pt-2 text-center text-[11px] font-bold leading-4 text-[var(--tech-color-text-main)]">
                             {value}
                           </div>
                         </button>
@@ -263,10 +263,10 @@ export default function ProductVariantSelector({
                         type="button"
                         onClick={() => candidateVariant && onSelect(candidateVariant.id)}
                         disabled={!isAvailable}
-                        className={`inline-flex min-h-11 items-center justify-center rounded-xl border-none bg-[#F4F5F6] px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        className={`inline-flex min-h-11 items-center justify-center rounded-xl border-none bg-[var(--tech-color-surface-muted)] px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           isSelected
-                            ? "bg-[#464A50] text-white"
-                            : "text-[#15171A] hover:bg-[#ECEFF1]"
+                            ? "bg-[var(--tech-color-brand-dark)] text-white"
+                            : "text-[var(--tech-color-text-main)] hover:brightness-95"
                         } ${!isAvailable ? "cursor-not-allowed opacity-50" : ""}`}
                       >
                         {value}
@@ -305,13 +305,13 @@ export default function ProductVariantSelector({
               type="button"
               onClick={() => onSelect(variant.id)}
               disabled={!isAvailable}
-              className={`overflow-hidden rounded-[1.2rem] bg-[#F8F9FA] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              className={`overflow-hidden rounded-[1.2rem] bg-[var(--tech-color-surface)] text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 isSelected
                   ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
-                  : "hover:bg-[#F1F4F5]"
+                  : "hover:brightness-[1.03]"
               } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
             >
-              <div className="aspect-square bg-[#F8F9FA] p-3">
+              <div className="aspect-square bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-3">
                 <img
                   src={imageProps.src}
                   srcSet={imageProps.srcSet}
@@ -325,7 +325,7 @@ export default function ProductVariantSelector({
               </div>
 
               <div className="space-y-2 p-3">
-                <div className="min-h-[2.75rem] text-sm font-bold leading-5 text-[#15171A]">
+                <div className="min-h-[2.75rem] text-sm font-bold leading-5 text-[var(--tech-color-text-main)]">
                   {attributeSummary || variant.name}
                 </div>
 
@@ -335,7 +335,7 @@ export default function ProductVariantSelector({
                   </div>
                 ) : null}
 
-                <div className="text-lg font-black text-[#05C3D4]">
+                <div className="text-lg font-black text-[var(--tech-color-primary)]">
                   {formatPrice(variant.price)}
                 </div>
 

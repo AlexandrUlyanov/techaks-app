@@ -305,9 +305,9 @@ export default function CatalogPage() {
                     key={manufacturer.id}
                     type="button"
                     onClick={() => navigate(`/catalog?view=brands&brand=${manufacturer.slug}`)}
-                    className="flex min-h-[156px] flex-col items-center justify-center rounded-2xl border border-border bg-white/5 p-5 text-center transition-all hover:border-[#05C3D4] hover:bg-white/10"
+                    className="flex min-h-[156px] flex-col items-center justify-center rounded-2xl border border-border bg-[var(--tech-color-surface)] p-5 text-center transition-all hover:border-[#05C3D4] hover:brightness-[1.03]"
                   >
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-3">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-3">
                       {manufacturer.logoUrl ? (
                         <img
                           src={manufacturer.logoUrl}
@@ -344,7 +344,7 @@ export default function CatalogPage() {
                     <div
                       key={cat.id}
                       onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="flex flex-col p-6 bg-white/5 border border-border rounded-2xl hover:border-[#05C3D4] hover:bg-white/10 transition-all cursor-pointer group"
+                      className="flex flex-col rounded-2xl border border-border bg-[var(--tech-color-surface)] p-6 transition-all cursor-pointer group hover:border-[#05C3D4] hover:brightness-[1.03]"
                     >
                       <div className="flex items-center gap-3 mb-4">
                         <CategoryIcon 
@@ -394,7 +394,7 @@ export default function CatalogPage() {
                 {[...Array(8)].map((_, i) => (
                   <div
                     key={i}
-                    className="bg-white/5 border border-white/5 rounded-2xl h-[400px] animate-pulse"
+                    className="h-[400px] rounded-2xl border border-border bg-[var(--tech-color-surface)] animate-pulse"
                   />
                 ))}
               </div>
@@ -413,7 +413,7 @@ export default function CatalogPage() {
                     <Sheet>
                       <SheetTrigger asChild>
                         <button
-                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-[#F8FAFB] text-muted-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] lg:hidden"
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-[var(--tech-color-surface)] text-muted-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] lg:hidden"
                           aria-label="Фильтры"
                         >
                           <SlidersHorizontal size={15} />
@@ -440,9 +440,9 @@ export default function CatalogPage() {
                         setSortBy(value as "default" | "price-asc" | "price-desc")
                       }
                     >
-                      <SelectTrigger className="h-10 min-w-0 flex-1 rounded-full border-border/60 bg-[#F8FAFB] pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none sm:min-w-[230px] sm:flex-none">
+                      <SelectTrigger className="h-10 min-w-0 flex-1 rounded-full border-border/60 bg-[var(--tech-color-surface)] pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none sm:min-w-[230px] sm:flex-none">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)]">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                             <ArrowUpDown size={14} />
                           </span>
                           <SelectValue placeholder="Сортировка" />
@@ -455,14 +455,14 @@ export default function CatalogPage() {
                       </SelectContent>
                     </Select>
 
-                    <div className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-[#F8FAFB] p-1">
+                    <div className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
                       <button
                         type="button"
                         onClick={() => setViewMode("grid")}
                         className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
                           viewMode === "grid"
                             ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                            : "text-muted-foreground hover:bg-white hover:text-foreground"
+                            : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
                         }`}
                         aria-label="Плитка"
                       >
@@ -474,7 +474,7 @@ export default function CatalogPage() {
                         className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
                           viewMode === "list"
                             ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                            : "text-muted-foreground hover:bg-white hover:text-foreground"
+                            : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
                         }`}
                         aria-label="Список"
                       >
@@ -495,10 +495,10 @@ export default function CatalogPage() {
                               normalizedValue: filter.normalizedValue,
                             })
                           }
-                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,white)]"
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
                         >
                           <span className="truncate max-w-[180px]">{filter.value}</span>
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,white)] text-[var(--tech-color-primary)]">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                             <X size={10} />
                           </span>
                         </button>
@@ -506,7 +506,7 @@ export default function CatalogPage() {
                       <button
                         type="button"
                         onClick={clearFilters}
-                        className="inline-flex h-8 items-center gap-2 rounded-full bg-[#F3F5F6] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[#ECEFF1]"
+                        className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--tech-color-surface)] px-3.5 text-[13px] font-semibold text-foreground transition hover:brightness-95"
                       >
                         Сбросить все
                       </button>
