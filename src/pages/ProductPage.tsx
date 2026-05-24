@@ -1,5 +1,5 @@
 import { useParams, Link, useLocation, useNavigate } from "react-router";
-import { Star, MessageCircle, ArrowLeft } from "lucide-react";
+import { Star, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
 import { useEffect, useMemo, useState } from "react";
@@ -9,17 +9,22 @@ import { toast } from "sonner";
 import { buildCanonical, useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
-import ReviewComposer from "@/components/reviews/ReviewComposer";
-import StoreAvailabilityList from "@/components/product/StoreAvailabilityList";
 import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
 import ProductVariantSelector from "@/components/product/ProductVariantSelector";
 import ProductServices from "@/components/product/ProductServices";
-import ProductDescription from "@/components/product/ProductDescription";
-import ProductSpecifications from "@/components/product/ProductSpecifications";
 import ProductMobileStickyBuy from "@/components/product/ProductMobileStickyBuy";
 import ProductPurchasePanel from "@/components/product/ProductPurchasePanel";
+import ProductDetailsTabs, {
+  type ProductDetailsTabKey,
+} from "@/components/product/ProductDetailsTabs";
+import ProductAboutTab from "@/components/product/ProductAboutTab";
+import ProductSpecsTab from "@/components/product/ProductSpecsTab";
+import ProductStockTab from "@/components/product/ProductStockTab";
+import ProductDeliveryTab from "@/components/product/ProductDeliveryTab";
+import ProductReviewsTab from "@/components/product/ProductReviewsTab";
+import ProductWarrantyTab from "@/components/product/ProductWarrantyTab";
 import ProductBreadcrumbsCompact, {
   shortenProductName,
   type CompactBreadcrumbItem,
@@ -35,13 +40,18 @@ import {
   resolveProductImageCollection,
 } from "@/lib/product-images";
 
+const PRODUCT_TAB_KEYS = ["about", "specs", "stock", "delivery", "reviews", "warranty"] as const;
+
+function isProductTabKey(value: string | null): value is ProductDetailsTabKey {
+  return Boolean(value && PRODUCT_TAB_KEYS.includes(value as ProductDetailsTabKey));
+}
+
 export default function ProductPage() {
   const { id: slug } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
-  const [reviewSort, setReviewSort] = useState<"newest" | "highest" | "lowest" | "verified">("newest");
-  const [showReviewSection, setShowReviewSection] = useState(false);
+  const reviewSort: "newest" | "highest" | "lowest" | "verified" = "newest";
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
   const [oneClickDialogOpen, setOneClickDialogOpen] = useState(false);
   const [selectedReservationStore, setSelectedReservationStore] =
@@ -170,9 +180,15 @@ export default function ProductPage() {
       retry: false,
     }
   );
-  const hasReviewItems = (reviewFeed?.items ?? []).length > 0;
   const availableStores = typedStock.filter(store => store.availableQty > 0);
-  const lowAvailabilityStores = availableStores.filter(store => store.availableQty <= 3);
+  const requestedTab = useMemo(() => {
+    const rawTab = new URLSearchParams(location.search).get("tab");
+    if (isProductTabKey(rawTab)) return rawTab;
+    if (location.hash === "#reviews" || location.hash === "#review-composer") {
+      return "reviews";
+    }
+    return "about" as ProductDetailsTabKey;
+  }, [location.hash, location.search]);
 
   const breadcrumbs = useMemo(() => {
     if (!product || !categories.length) return [];
@@ -201,17 +217,6 @@ export default function ProductPage() {
     canonicalPath: seoCanonicalPath,
     noindex: !product,
   });
-
-  useEffect(() => {
-    if (hasReviewItems) {
-      setShowReviewSection(true);
-      return;
-    }
-
-    if (location.hash === "#reviews" || location.hash === "#review-composer") {
-      setShowReviewSection(true);
-    }
-  }, [hasReviewItems, location.hash]);
 
   const productImages = useMemo(() => {
     if (!product) return [];
@@ -289,7 +294,6 @@ export default function ProductPage() {
     (product as { merchandisingBadges?: unknown }).merchandisingBadges
   ).slice(0, 4);
   const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
-  const shouldShowReviewSection = hasReviewItems || showReviewSection;
   const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
     "отзыв",
     "отзыва",
@@ -355,6 +359,10 @@ export default function ProductPage() {
             availableStores.length > 0
         )
       : availableStores.length > 0;
+  const aboutBenefits = [
+    ...merchandisingBadges.map(getMerchandisingBadgeLabel),
+    ...(product.badge ? [product.badge] : []),
+  ];
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -406,17 +414,6 @@ export default function ProductPage() {
     window.location.href = "/checkout";
   };
 
-  const revealReviewSection = () => {
-    setShowReviewSection(true);
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document
-          .getElementById("review-composer")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 60);
-    });
-  };
-
   const openReservationDialog = (store: ProductStoreAvailability) => {
     setSelectedReservationStore(store);
     setReservationDialogOpen(true);
@@ -428,9 +425,32 @@ export default function ProductPage() {
       return;
     }
 
-    document
-      .getElementById("product-store-availability")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setProductTab("stock");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document
+          .getElementById("product-store-availability")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    });
+  };
+
+  const setProductTab = (tab: ProductDetailsTabKey) => {
+    const currentParams = new URLSearchParams(location.search);
+    if (tab === "about") {
+      currentParams.delete("tab");
+    } else {
+      currentParams.set("tab", tab);
+    }
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: currentParams.toString() ? `?${currentParams.toString()}` : "",
+        hash: tab === "reviews" ? "#reviews" : "",
+      },
+      { replace: true }
+    );
   };
 
   return (
@@ -650,52 +670,53 @@ export default function ProductPage() {
           </div>
           </div>
 
-          <div className="mt-20">
-            <ProductSpecifications
-              specs={productSpecs}
-              isManufacturerSpec={isManufacturerSpec}
-            />
-            <ProductDescription description={normalizedDescription} />
-
-            <section id="product-store-availability" className="mt-16">
-              <h2 className="text-3xl font-black tracking-tight text-[#1F2328] md:text-4xl">
-                Наличие в магазинах
-              </h2>
-              <div className="mt-6">
-                {typedStock.length > 0 ? (
-                  <StoreAvailabilityList
-                    stores={typedStock}
-                    reservedStoreId={reservedStoreId}
-                    onReserve={openReservationDialog}
-                  />
-                ) : (
-                  <div className="py-6 text-sm font-medium text-[#6B7280]">
-                    Информацию о наличии уточняйте у менеджера.
-                  </div>
-                )}
+          <ProductDetailsTabs
+            activeTab={requestedTab}
+            onTabChange={setProductTab}
+            about={
+              <ProductAboutTab
+                description={normalizedDescription}
+                quickSpecs={quickSpecs}
+                benefits={aboutBenefits}
+              />
+            }
+            specs={
+              <ProductSpecsTab
+                specs={productSpecs}
+                isManufacturerSpec={isManufacturerSpec}
+              />
+            }
+            stock={
+              <div id="product-store-availability">
+                <ProductStockTab
+                  stores={typedStock}
+                  reservedStoreId={reservedStoreId}
+                  onReserve={openReservationDialog}
+                  onNotify={() => setShowForm(true)}
+                />
               </div>
-              {isInStock && lowAvailabilityStores.length > 0 ? (
-                <div className="mt-5 inline-flex items-center gap-3 rounded-full bg-orange-50 px-4 py-2.5">
-                  <div className="h-2 w-2 rounded-full bg-orange-500" />
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">
-                    Товар заканчивается в некоторых магазинах
-                  </span>
-                </div>
-              ) : null}
-            </section>
-
-            <section className="mt-12">
-              <a
-                href="https://t.me/tech_aks"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 text-sm font-medium text-[#464A50] transition hover:text-[#1F2328]"
-              >
-                <MessageCircle size={18} className="text-[#05C3D4]" />
-                Задать вопрос в Telegram
-              </a>
-            </section>
-          </div>
+            }
+            delivery={<ProductDeliveryTab />}
+            reviews={
+              <div id="reviews">
+                <ProductReviewsTab
+                  productId={product.id}
+                  productName={product.name}
+                  isAuthenticated={isAuthenticated}
+                  summary={reviewFeed?.summary}
+                  reviews={reviewFeed?.items ?? []}
+                  existingReview={reviewEligibility?.existingReview}
+                  verifiedPurchase={reviewEligibility?.verifiedPurchase}
+                  onSuccess={async () => {
+                    setProductTab("reviews");
+                  }}
+                />
+              </div>
+            }
+            warranty={
+              <ProductWarrantyTab manufacturerName={productManufacturer?.title} />
+            }
+          />
         </div>
       </section>
 
@@ -704,200 +725,6 @@ export default function ProductPage() {
         disabled={!canPurchase}
         onAddToCart={handleAddToCart}
       />
-      <section
-        id="reviews"
-        className={`bg-white ${shouldShowReviewSection ? "py-20" : "py-10 md:py-12"}`}
-      >
-        <div className="container-main">
-          {!shouldShowReviewSection ? (
-            <div className="rounded-[1.75rem] bg-[#F7FEFF] px-5 py-4 md:px-6 md:py-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
-                    Отзывы о товаре
-                  </div>
-                  <div className="mt-2 text-base font-black uppercase tracking-tight text-[#15171A] md:text-lg">
-                    Пока отзывов нет
-                  </div>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    Можно оставить первый отзыв и помочь следующему покупателю быстрее понять товар.
-                  </p>
-                </div>
-                {isAuthenticated ? (
-                  <button
-                    type="button"
-                    onClick={revealReviewSection}
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                  >
-                    Оставить первый отзыв
-                  </button>
-                ) : (
-                  <Link
-                    to="/login"
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                  >
-                    Войти и оставить отзыв
-                  </Link>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-              <div className="space-y-6">
-                <div>
-                  <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
-                    Доверие
-                  </span>
-                  <h2 className="text-4xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-5xl">
-                    ОТЗЫВЫ <span className="text-muted-foreground/30">О ТОВАРЕ</span>
-                  </h2>
-                </div>
-
-                <div className="rounded-[2rem] bg-[#F6F7F8] p-8">
-                  <div className="flex items-end gap-5">
-                    <div className="text-6xl font-black text-[#05C3D4]">
-                      {reviewFeed?.summary.avgRating?.toFixed(1) || "0.0"}
-                    </div>
-                    <div className="pb-2">
-                      <div className="text-sm font-bold text-[#15171A]">
-                        {formatRussianCount(reviewFeed?.summary.totalCount ?? 0, [
-                          "отзыв",
-                          "отзыва",
-                          "отзывов",
-                        ])}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Подтверждённых покупок: {reviewFeed?.summary.verifiedCount ?? 0}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6 space-y-3">
-                    {[5, 4, 3, 2, 1].map(stars => {
-                      const total = reviewFeed?.summary.totalCount ?? 0;
-                      const count = reviewFeed?.summary.ratingBreakdown?.[stars as 1 | 2 | 3 | 4 | 5] ?? 0;
-                      const width = total > 0 ? `${(count / total) * 100}%` : "0%";
-                      return (
-                        <div key={stars} className="grid grid-cols-[42px_1fr_42px] items-center gap-3 text-sm">
-                          <span className="font-bold text-[#15171A]">{stars}★</span>
-                          <div className="h-2 rounded-full bg-muted">
-                            <div className="h-2 rounded-full bg-[#05C3D4]" style={{ width }} />
-                          </div>
-                          <span className="text-right text-muted-foreground">{count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div id="review-composer">
-                  {isAuthenticated ? (
-                    <ReviewComposer
-                      productId={product.id}
-                      productName={product.name}
-                      existingReview={reviewEligibility?.existingReview}
-                      verifiedPurchase={reviewEligibility?.verifiedPurchase}
-                    />
-                  ) : (
-                    <div className="rounded-[2rem] bg-[#F6F7F8] p-8">
-                      <div className="text-lg font-black text-[#15171A]">Оставить отзыв</div>
-                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                        Чтобы оставить отзыв, войдите в личный кабинет. Если товар уже был в заказе, мы пометим отзыв как подтверждённую покупку.
-                      </p>
-                      <Link
-                        to="/login"
-                        className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#05C3D4] px-5 text-sm font-black uppercase tracking-[0.12em] text-white"
-                      >
-                        Войти и оставить отзыв
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm font-bold text-muted-foreground">
-                    Реальные отзывы покупателей и ответы магазина
-                  </div>
-                  {hasReviewItems ? (
-                    <select
-                      value={reviewSort}
-                      onChange={event => setReviewSort(event.target.value as typeof reviewSort)}
-                      className="h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-[#05C3D4]"
-                    >
-                      <option value="newest">Сначала новые</option>
-                      <option value="verified">Сначала подтверждённые</option>
-                      <option value="highest">Сначала высокие оценки</option>
-                      <option value="lowest">Сначала низкие оценки</option>
-                    </select>
-                  ) : null}
-                </div>
-
-                {!hasReviewItems ? (
-                  <div className="rounded-[2rem] bg-[#F7FEFF] p-8">
-                    <div className="text-lg font-black text-[#15171A]">Пока отзывов нет</div>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                      У этого товара ещё нет отзывов. Первый честный отзыв помогает следующему покупателю быстрее понять, подходит ли ему товар в реальном использовании.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border-t border-[#F1F2F3]">
-                    {(reviewFeed?.items ?? []).map(review => (
-                    <article key={review.id} className="border-b border-[#F1F2F3] py-6">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-black text-[#15171A]">{review.title}</h3>
-                            {review.isVerifiedPurchase ? (
-                              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                                Подтверждённая покупка
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="mt-1 text-sm text-muted-foreground">
-                            {review.authorName} · {new Date(review.publishedAt || "").toLocaleDateString("ru-RU")}
-                          </div>
-                        </div>
-                        <div className="text-lg font-black text-[#05C3D4]">{review.rating}/5</div>
-                      </div>
-                      {review.pros ? (
-                        <p className="mt-4 text-sm text-emerald-700"><strong>Достоинства:</strong> {review.pros}</p>
-                      ) : null}
-                      {review.cons ? (
-                        <p className="mt-2 text-sm text-rose-700"><strong>Недостатки:</strong> {review.cons}</p>
-                      ) : null}
-                      <p className="mt-4 text-sm leading-7 text-[#15171A]">{review.text}</p>
-                      {(review.usageContext || review.usageDuration) ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {review.usageContext ? (
-                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                              Где использовали: {review.usageContext}
-                            </span>
-                          ) : null}
-                          {review.usageDuration ? (
-                            <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                              Срок: {review.usageDuration}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {review.storeReply ? (
-                        <div className="mt-5 rounded-2xl bg-[#F7FEFF] p-4">
-                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0099A8]">
-                            Ответ магазина
-                          </div>
-                          <div className="mt-2 text-sm leading-6 text-[#15171A]">{review.storeReply}</div>
-                        </div>
-                      ) : null}
-                    </article>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
 
       <ReservationConfirmDialog
         open={reservationDialogOpen}
