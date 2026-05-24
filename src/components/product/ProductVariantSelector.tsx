@@ -136,7 +136,7 @@ export default function ProductVariantSelector({
                     : "hover:brightness-[1.03]"
                 } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
               >
-                <div className="aspect-square bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-3">
+                <div className="aspect-square bg-white p-3">
                   <img
                     src={imageProps.src}
                     srcSet={imageProps.srcSet}
@@ -232,7 +232,7 @@ export default function ProductVariantSelector({
                           type="button"
                           onClick={() => candidateVariant && onSelect(candidateVariant.id)}
                           disabled={!isAvailable}
-                          className={`overflow-hidden rounded-[1rem] bg-[var(--tech-color-surface-muted)] p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          className={`overflow-hidden rounded-[1rem] bg-white p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                             isSelected
                               ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
                               : "hover:brightness-95"
@@ -311,7 +311,7 @@ export default function ProductVariantSelector({
                   : "hover:brightness-[1.03]"
               } ${!isAvailable ? "cursor-not-allowed opacity-60" : ""}`}
             >
-              <div className="aspect-square bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-3">
+              <div className="aspect-square bg-white p-3">
                 <img
                   src={imageProps.src}
                   srcSet={imageProps.srcSet}

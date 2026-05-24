@@ -79,7 +79,7 @@ export default function ProductImageGallery({
                     type="button"
                   onClick={() => selectImage(index)}
                   aria-label={`Показать изображение ${index + 1} товара ${productName}`}
-                    className={`overflow-hidden rounded-xl bg-[var(--tech-color-surface-muted)] p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    className={`overflow-hidden rounded-xl bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                       index === activeIndex
                         ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
                         : "hover:brightness-95"
@@ -103,7 +103,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative overflow-hidden rounded-[2rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_88%,white)] p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative overflow-hidden rounded-[2rem] bg-white p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
