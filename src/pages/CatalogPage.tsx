@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams, Link, useNavigate } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
 import ProductBreadcrumbsCompact, {
@@ -341,55 +341,49 @@ export default function CatalogPage() {
           )}
 
           {displayCategories.length > 0 && (
-            <div>
-              <h2 className="text-xl font-black uppercase tracking-widest mb-6 text-foreground">
-                {activeCategory === "all" ? "Категории" : "Подкатегории"}
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {displayCategories.map(cat => {
-                  const subCats = categories.filter(c => c.parentId === cat.id);
-                  return (
-                    <div
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
+                  {activeCategory === "all" ? "Категории" : "Подкатегории"}
+                </h2>
+                {activeCategory !== "all" ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/catalog?cat=all")}
+                    className="text-[11px] font-semibold text-muted-foreground transition hover:text-[var(--tech-color-primary)]"
+                  >
+                    Весь каталог
+                  </button>
+                ) : null}
+              </div>
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <div className="flex gap-3 pb-1 sm:flex-wrap">
+                  {displayCategories.map(cat => (
+                    <button
                       key={cat.id}
+                      type="button"
                       onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="flex flex-col rounded-2xl border border-border bg-[var(--tech-color-surface)] p-6 transition-all cursor-pointer group hover:border-[#05C3D4] hover:brightness-[1.03]"
+                      className="group inline-flex min-w-[196px] shrink-0 items-center gap-3 rounded-2xl border border-border bg-[var(--tech-color-surface)] px-4 py-3 text-left transition-all hover:border-[#05C3D4] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,var(--tech-color-surface))] sm:min-w-0"
                     >
-                      <div className="flex items-center gap-3 mb-4">
-                        <CategoryIcon 
-                          name={cat.name} 
-                          slug={cat.slug} 
-                          size={24} 
-                          className="text-muted-foreground group-hover:text-[#05C3D4] transition-colors" 
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-[var(--tech-color-primary)] transition group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))]">
+                        <CategoryIcon
+                          name={cat.name}
+                          slug={cat.slug}
+                          size={20}
+                          className="text-current"
                         />
-                        <span className="text-sm font-bold uppercase tracking-wider group-hover:text-[#05C3D4] transition-colors line-clamp-2">
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block line-clamp-2 text-sm font-bold leading-tight text-foreground">
                           {cat.name}
                         </span>
-                      </div>
-                      
-                      {subCats.length > 0 && (
-                        <ul className="space-y-2 mt-auto border-t border-white/5 pt-4">
-                          {subCats.slice(0, 6).map(sub => (
-                            <li key={sub.id}>
-                              <Link
-                                to={`/catalog?cat=${sub.slug}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center gap-2"
-                              >
-                                <span className="w-1 h-1 rounded-full bg-[#05C3D4]/50 shrink-0" />
-                                <span className="truncate">{sub.name}</span>
-                              </Link>
-                            </li>
-                          ))}
-                          {subCats.length > 6 && (
-                            <li className="text-[10px] text-muted-foreground italic mt-2 uppercase tracking-wider">
-                              и еще {subCats.length - 6}...
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </div>
-                  );
-                })}
+                        <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                          Открыть подборку
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
