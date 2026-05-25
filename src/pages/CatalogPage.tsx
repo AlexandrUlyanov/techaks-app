@@ -25,6 +25,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -590,7 +595,7 @@ export default function CatalogPage() {
                     </div>
 
                     <div className="mt-3 flex items-center gap-2 md:hidden">
-                      <Sheet open={isMobileSortOpen} onOpenChange={setIsMobileSortOpen}>
+                      <Sheet>
                         <SheetTrigger asChild>
                           <button
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
@@ -615,8 +620,8 @@ export default function CatalogPage() {
                         </SheetContent>
                       </Sheet>
 
-                      <Sheet open={isMobileSortOpen} onOpenChange={setIsMobileSortOpen}>
-                        <SheetTrigger asChild>
+                      <Popover open={isMobileSortOpen} onOpenChange={setIsMobileSortOpen}>
+                        <PopoverTrigger asChild>
                           <button
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
                             aria-label="Сортировка"
@@ -624,14 +629,14 @@ export default function CatalogPage() {
                             <ArrowUpDown size={15} />
                             Сортировка
                           </button>
-                        </SheetTrigger>
-                        <SheetContent side="bottom" className="rounded-t-[1.5rem] p-5">
-                          <SheetHeader className="px-0 pt-0">
-                            <SheetTitle className="text-sm font-black uppercase tracking-widest">
-                              Сортировка и вид
-                            </SheetTitle>
-                          </SheetHeader>
-                          <div className="mt-5 space-y-4">
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          side="bottom"
+                          sideOffset={10}
+                          className="w-[min(86vw,19rem)] rounded-[1.35rem] border-none bg-[var(--tech-color-surface)] p-3 shadow-[0_18px_44px_rgba(15,23,42,0.16)]"
+                        >
+                          <div className="space-y-3">
                             <div className="space-y-2">
                               {sortOptions.map(option => (
                                 <button
@@ -651,7 +656,7 @@ export default function CatalogPage() {
                                 </button>
                               ))}
                             </div>
-                            <div className="inline-flex items-center gap-1 rounded-full bg-[var(--tech-color-surface)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-[var(--tech-color-surface-muted)] p-1">
                               <button
                                 type="button"
                                 onClick={() => applyMobileLayout("grid")}
@@ -680,8 +685,8 @@ export default function CatalogPage() {
                               </button>
                             </div>
                           </div>
-                        </SheetContent>
-                      </Sheet>
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     {hasSelectedFilters && (
