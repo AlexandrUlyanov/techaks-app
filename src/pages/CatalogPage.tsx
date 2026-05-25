@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router";
+import { useSearchParams, useNavigate, useLocation } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
+import RootCatalogNavigator from "@/components/Catalog/RootCatalogNavigator";
 import ProductBreadcrumbsCompact, {
   type CompactBreadcrumbItem,
 } from "@/components/product/ProductBreadcrumbsCompact";
@@ -37,10 +38,13 @@ const INITIAL_CATEGORY_SHELF_COUNT = 8;
 
 export default function CatalogPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const catalogView = searchParams.get("view") === "brands" ? "brands" : "categories";
   const activeCategory = searchParams.get("cat") || "all";
   const activeBrand = searchParams.get("brand") || "";
+  const activeTreeSlugFromHash = decodeURIComponent(location.hash.replace(/^#/, "").trim());
+  const isRootCatalogNavigator = catalogView === "categories" && activeCategory === "all";
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
     return searchParams
@@ -72,7 +76,7 @@ export default function CatalogPage() {
     { categorySlug: activeCategory },
     {
       placeholderData: prev => prev,
-      enabled: catalogView === "categories",
+      enabled: catalogView === "categories" && activeCategory !== "all",
     }
   );
   const { data: manufacturerSpecFilters = [] } =
@@ -345,6 +349,18 @@ export default function CatalogPage() {
       {/* Content */}
       <section className="py-10 md:py-12">
         <div className="container-main space-y-8 md:space-y-10">
+          {isRootCatalogNavigator ? (
+            <RootCatalogNavigator
+              categories={categories}
+              products={products}
+              activeBranchSlug={activeTreeSlugFromHash || null}
+              onSelectBranch={slug =>
+                navigate(`/catalog?cat=all#${encodeURIComponent(slug)}`, { replace: true })
+              }
+              onOpenLeafCategory={slug => navigate(`/catalog?cat=${slug}`)}
+            />
+          ) : (
+            <>
           
           {/* Categories Grid */}
           {displayManufacturers.length > 0 && (
@@ -767,6 +783,8 @@ export default function CatalogPage() {
               </div>
             )}
           </div>
+          )}
+            </>
           )}
         </div>
       </section>
