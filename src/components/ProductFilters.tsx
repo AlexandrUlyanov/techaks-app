@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +56,7 @@ export default function ProductFilters({
   filters,
   selected,
   onToggle,
-  onClear,
+  onClear: _onClear,
 }: ProductFiltersProps) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
@@ -102,28 +102,7 @@ export default function ProductFilters({
 
   return (
     <aside className="space-y-5">
-      {selected.length > 0 && (
-        <div className="flex items-center justify-end gap-4 px-1 py-1">
-          <button
-            type="button"
-            onClick={onClear}
-            className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:text-[#05C3D4]"
-          >
-            <RotateCcw size={12} />
-            Сбросить
-          </button>
-        </div>
-      )}
-
       <div className="px-1">
-        <div className="mb-2 flex items-center justify-end gap-3">
-          {selected.length > 0 ? (
-            <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,var(--tech-color-surface))] px-2 text-[11px] font-black text-[var(--tech-color-primary)]">
-              {selected.length}
-            </span>
-          ) : null}
-        </div>
-
         <div className="space-y-5">
           {visibleFilters.map(group => (
             <div key={group.normalizedKey} className="pb-5 last:pb-0">
