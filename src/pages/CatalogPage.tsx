@@ -722,7 +722,7 @@ export default function CatalogPage() {
 
                   <div className={
                     viewMode === "grid"
-                      ? "grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4"
+                      ? "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-4"
                       : "grid grid-cols-1 gap-4"
                   }>
                     {visibleProducts.map((product: any) => (
