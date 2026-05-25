@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 export type ProductDetailsTabKey =
   | "about"
@@ -38,7 +38,6 @@ export default function ProductDetailsTabs({
   warranty: ReactNode;
 }) {
   const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
-  const railRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Record<ProductDetailsTabKey, HTMLButtonElement | null>>({
     about: null,
     specs: null,
@@ -56,26 +55,6 @@ export default function ProductDetailsTabs({
     warranty,
   };
   const activeIndex = TAB_ITEMS.findIndex(item => item.key === activeTab);
-  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
-
-  useLayoutEffect(() => {
-    const updateIndicator = () => {
-      const rail = railRef.current;
-      const activeButton = tabButtonRefs.current[activeTab];
-      if (!rail || !activeButton) return;
-
-      const center = activeButton.offsetLeft + activeButton.offsetWidth / 2;
-      const width = Math.min(Math.max(activeButton.offsetWidth * 0.58, 34), 68);
-      setIndicator({ left: center, width });
-    };
-
-    updateIndicator();
-    window.addEventListener("resize", updateIndicator);
-
-    return () => {
-      window.removeEventListener("resize", updateIndicator);
-    };
-  }, [activeTab]);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
@@ -105,34 +84,7 @@ export default function ProductDetailsTabs({
         ref={mobileScrollerRef}
         className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div
-          ref={railRef}
-          className="relative inline-flex min-w-full items-center gap-2 pb-4"
-        >
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[color:color-mix(in_srgb,var(--tech-color-border)_72%,transparent)]" />
-          {indicator ? (
-            <>
-              <span
-                className="pointer-events-none absolute bottom-0 hidden h-[2px] rounded-full bg-[var(--tech-color-primary)] opacity-90 shadow-[0_0_14px_rgba(5,195,212,0.28)] transition-[left,width] duration-300 ease-out md:block"
-                style={{
-                  left: indicator.left,
-                  width: indicator.width,
-                  transform: "translateX(-50%)",
-                }}
-              />
-              <span
-                className="pointer-events-none absolute bottom-0 z-10 h-[3px] rounded-full bg-[var(--tech-color-primary)] shadow-[0_0_16px_rgba(5,195,212,0.34)] transition-[left,width] duration-300 ease-out md:hidden"
-                style={{
-                  left: indicator.left,
-                  width: indicator.width,
-                  transform: "translateX(-50%)",
-                }}
-              >
-                <span className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-[72%] rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,white)] shadow-[0_0_0_6px_rgba(5,195,212,0.11),0_0_22px_rgba(5,195,212,0.28)]" />
-                <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-[72%] rounded-full bg-[var(--tech-color-primary)] shadow-[0_0_12px_rgba(5,195,212,0.55)]" />
-              </span>
-            </>
-          ) : null}
+        <div className="inline-flex min-w-full items-center gap-2 border-b border-[var(--tech-color-border)]/65 pb-3">
           {TAB_ITEMS.map(item => {
             const isActive = item.key === activeTab;
             return (
@@ -181,7 +133,7 @@ export default function ProductDetailsTabs({
                 </span>
                 <span
                   className={cn(
-                    "pointer-events-none absolute inset-x-4 -bottom-[14px] hidden h-0.5 rounded-full transition-opacity md:block",
+                    "pointer-events-none absolute inset-x-4 -bottom-[13px] h-0.5 rounded-full transition-opacity",
                     isActive ? "bg-[var(--tech-color-primary)] opacity-100" : "opacity-0"
                   )}
                 />
@@ -191,8 +143,7 @@ export default function ProductDetailsTabs({
         </div>
       </div>
 
-      <div className="relative mt-6 overflow-hidden rounded-[1.75rem] border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface)] shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-        <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(5,195,212,0.32),transparent)]" />
+      <div className="mt-6 rounded-[1.75rem] border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface)] shadow-[var(--tech-shadow-card)]">
         {TAB_ITEMS.map(item => {
           const isActive = item.key === activeTab;
           return (
@@ -201,12 +152,7 @@ export default function ProductDetailsTabs({
               id={`product-tab-panel-${item.key}`}
               data-state={isActive ? "active" : "inactive"}
               aria-hidden={!isActive}
-              className={cn(
-                "p-5 md:p-8",
-                isActive
-                  ? "block motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
-                  : "hidden"
-              )}
+              className={cn("p-5 md:p-8", isActive ? "block" : "hidden")}
             >
               {panels[item.key]}
             </div>
