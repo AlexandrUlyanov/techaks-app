@@ -269,7 +269,6 @@ export default function CatalogPage() {
     : activeCategoryName;
   const showProductSection = catalogView === "categories" || Boolean(activeBrand);
   const currentResultCount = sortedProducts.length;
-  const topLevelCategoryCount = categories.filter(c => !c.parentId).length;
 
   const seoTitle = currentManufacturer
     ? `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
@@ -329,18 +328,6 @@ export default function CatalogPage() {
           <h1 className="text-3xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-[3.2rem]">
             {headerTitle}
           </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-            {showProductSection ? (
-              <span className="rounded-full bg-[var(--tech-color-surface)] px-3 py-2">
-                {currentResultCount} товаров
-              </span>
-            ) : null}
-            {catalogView === "categories" && activeCategory === "all" ? (
-              <span className="rounded-full bg-[var(--tech-color-surface)] px-3 py-2">
-                {topLevelCategoryCount} категорий
-              </span>
-            ) : null}
-          </div>
           </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, FolderTree, Search, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderTree, Search } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { CategoryIcon } from "@/lib/category-icons";
@@ -257,39 +257,26 @@ export default function RootCatalogNavigator({
 
   return (
     <div className="space-y-6 md:space-y-8">
-      <div className="rounded-[1.75rem] border border-white/5 bg-[rgba(255,255,255,0.03)] px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-6 md:py-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-foreground md:text-[2rem]">
-              Все
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Категории и подкатегории интернет-магазина ТЕХАКС. Сначала выбираем ветку каталога, потом открываем конечную категорию с товарами.
-            </p>
-          </div>
-
-          <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-white/5 bg-[rgba(255,255,255,0.04)] px-4 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[rgba(255,255,255,0.06)]"
-                >
-                  <FolderTree size={16} />
-                  Категории
-                </button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-full max-w-none overflow-y-auto border-r-white/5 bg-background p-0">
-                <SheetHeader className="border-b border-white/5 px-5 py-4">
-                  <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
-                    Категории
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="p-4">{treePanel}</div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
+      <div className="md:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-white/5 bg-[rgba(255,255,255,0.04)] px-4 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[rgba(255,255,255,0.06)]"
+            >
+              <FolderTree size={16} />
+              Категории
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-full max-w-none overflow-y-auto border-r-white/5 bg-background p-0">
+            <SheetHeader className="border-b border-white/5 px-5 py-4">
+              <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
+                Категории
+              </SheetTitle>
+            </SheetHeader>
+            <div className="p-4">{treePanel}</div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
@@ -309,10 +296,6 @@ export default function RootCatalogNavigator({
                     ? `Найдено ${visibleLeafCategories.length}`
                     : effectiveBranch?.name ?? "Каталог"}
                 </div>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--tech-color-primary)]">
-                <Sparkles size={14} />
-                {visibleLeafCategories.length} категорий
               </div>
             </div>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
