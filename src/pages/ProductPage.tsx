@@ -667,7 +667,7 @@ export default function ProductPage() {
               />
             }
             stock={
-              <div id="product-store-availability">
+              <div data-section="product-store-availability">
                 <ProductStockTab
                   stores={typedStock}
                   reservedStoreId={reservedStoreId}
@@ -677,7 +677,7 @@ export default function ProductPage() {
               </div>
             }
             stockMobile={
-              <div id="product-store-availability">
+              <div data-section="product-store-availability">
                 <ProductStockTab
                   stores={typedStock}
                   reservedStoreId={reservedStoreId}
@@ -690,7 +690,7 @@ export default function ProductPage() {
             delivery={<ProductDeliveryTab />}
             deliveryMobile={<ProductDeliveryTab mobile />}
             reviews={
-              <div id="reviews">
+              <div data-section="reviews">
                 <ProductReviewsTab
                   productId={product.id}
                   productName={product.name}
@@ -706,7 +706,7 @@ export default function ProductPage() {
               </div>
             }
             reviewsMobile={
-              <div id="reviews">
+              <div data-section="reviews">
                 <ProductReviewsTab
                   productId={product.id}
                   productName={product.name}
