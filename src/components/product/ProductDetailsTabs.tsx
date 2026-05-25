@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export type ProductDetailsTabKey =
   | "about"
@@ -38,6 +38,7 @@ export default function ProductDetailsTabs({
   warranty: ReactNode;
 }) {
   const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
+  const tabsRailRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Record<ProductDetailsTabKey, HTMLButtonElement | null>>({
     about: null,
     specs: null,
@@ -55,6 +56,7 @@ export default function ProductDetailsTabs({
     warranty,
   };
   const activeIndex = TAB_ITEMS.findIndex(item => item.key === activeTab);
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
@@ -78,62 +80,107 @@ export default function ProductDetailsTabs({
     scroller.scrollTo({ left: clampedLeft, behavior: "smooth" });
   }, [activeIndex, activeTab]);
 
+  useLayoutEffect(() => {
+    const rail = tabsRailRef.current;
+    const activeButton = tabButtonRefs.current[activeTab];
+    if (!rail || !activeButton) return;
+
+    const syncIndicator = () => {
+      const railRect = rail.getBoundingClientRect();
+      const buttonRect = activeButton.getBoundingClientRect();
+      setIndicator({
+        left: buttonRect.left - railRect.left + buttonRect.width / 2,
+        width: Math.max(buttonRect.width - 18, 42),
+      });
+    };
+
+    syncIndicator();
+    window.addEventListener("resize", syncIndicator);
+    return () => window.removeEventListener("resize", syncIndicator);
+  }, [activeTab]);
+
   return (
     <section className="mt-16 md:mt-20">
-      <div
-        ref={mobileScrollerRef}
-        className="overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <div className="inline-flex min-w-full items-center gap-2 border-b border-[var(--tech-color-border)]/65 pb-3">
+      <div className="overflow-hidden rounded-[1.75rem] border border-[var(--tech-color-border)]/75 bg-[var(--tech-color-surface)] shadow-[var(--tech-shadow-card)]">
+        <div
+          ref={mobileScrollerRef}
+          className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div
+            ref={tabsRailRef}
+            className="relative inline-flex min-w-full items-end gap-2 px-3 pt-3 md:px-5 md:pt-5"
+          >
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[var(--tech-color-border)]/75 transition-colors duration-300" />
+            {indicator ? (
+              <>
+                <span
+                  className="pointer-events-none absolute bottom-0 z-10 h-px bg-[var(--tech-color-primary)]/90 shadow-[0_0_12px_rgba(5,195,212,0.28)] transition-[left,width] duration-300 ease-out"
+                  style={{
+                    left: indicator.left,
+                    width: indicator.width,
+                    transform: "translateX(-50%)",
+                  }}
+                />
+                <span
+                  className="pointer-events-none absolute bottom-0 z-10 h-4 transition-[left,width] duration-300 ease-out"
+                  style={{
+                    left: indicator.left,
+                    width: Math.min(indicator.width, 48),
+                    transform: "translateX(-50%)",
+                  }}
+                >
+                  <span className="absolute left-1/2 top-[1px] h-4 w-full -translate-x-1/2 rounded-t-full border-x border-t border-[var(--tech-color-primary)]/85 bg-[var(--tech-color-surface)] shadow-[0_-2px_10px_rgba(5,195,212,0.10)]" />
+                </span>
+              </>
+            ) : null}
+            {TAB_ITEMS.map(item => {
+              const isActive = item.key === activeTab;
+              return (
+                <button
+                  key={item.key}
+                  ref={node => {
+                    tabButtonRefs.current[item.key] = node;
+                  }}
+                  type="button"
+                  onClick={() => onTabChange(item.key)}
+                  className={cn(
+                    "relative z-20 shrink-0 whitespace-nowrap rounded-t-[1.15rem] border border-b-0 px-4 py-3 text-sm font-semibold transition-[color,border-color,background-color,transform,box-shadow] duration-300 ease-out md:px-5",
+                    isActive
+                      ? "translate-y-px border-[var(--tech-color-primary)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-[var(--tech-color-text-main)] shadow-[0_-8px_18px_rgba(5,195,212,0.10)]"
+                      : "border-transparent bg-transparent text-[var(--tech-color-text-muted)] hover:border-[var(--tech-color-border)]/75 hover:bg-[var(--tech-color-surface-muted)]/60 hover:text-[var(--tech-color-text-main)]"
+                  )}
+                  aria-pressed={isActive}
+                  aria-label={item.label}
+                >
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[color:color-mix(in_srgb,var(--tech-color-primary)_72%,var(--tech-color-border))] transition-colors duration-300" />
           {TAB_ITEMS.map(item => {
             const isActive = item.key === activeTab;
             return (
-              <button
+              <div
                 key={item.key}
-                ref={node => {
-                  tabButtonRefs.current[item.key] = node;
-                }}
-                type="button"
-                onClick={() => onTabChange(item.key)}
+                id={`product-tab-panel-${item.key}`}
+                data-state={isActive ? "active" : "inactive"}
+                aria-hidden={!isActive}
                 className={cn(
-                  "relative shrink-0 overflow-hidden rounded-full px-4 py-2.5 text-sm font-semibold transition-[background-color,color] duration-200 md:px-5",
+                  "p-5 md:p-8",
                   isActive
-                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))] text-[var(--tech-color-text-main)]"
-                    : "px-4 text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
+                    ? "block motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-300"
+                    : "hidden"
                 )}
-                aria-pressed={isActive}
-                aria-label={item.label}
               >
-                <span className="whitespace-nowrap">
-                  {item.label}
-                </span>
-                <span
-                  className={cn(
-                    "pointer-events-none absolute inset-x-4 -bottom-[13px] h-0.5 rounded-full transition-opacity",
-                    isActive ? "bg-[var(--tech-color-primary)] opacity-100" : "opacity-0"
-                  )}
-                />
-              </button>
+                {panels[item.key]}
+              </div>
             );
           })}
         </div>
-      </div>
-
-      <div className="mt-6 rounded-[1.75rem] border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface)] shadow-[var(--tech-shadow-card)]">
-        {TAB_ITEMS.map(item => {
-          const isActive = item.key === activeTab;
-          return (
-            <div
-              key={item.key}
-              id={`product-tab-panel-${item.key}`}
-              data-state={isActive ? "active" : "inactive"}
-              aria-hidden={!isActive}
-              className={cn("p-5 md:p-8", isActive ? "block" : "hidden")}
-            >
-              {panels[item.key]}
-            </div>
-          );
-        })}
       </div>
     </section>
   );
