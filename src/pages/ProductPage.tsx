@@ -435,6 +435,7 @@ export default function ProductPage() {
       />
       <ProductBreadcrumbsCompact
         rootTo="/catalog"
+        rootLabel="Каталог"
         compactRootLabel="Кат."
         items={breadcrumbs.map(
           breadcrumb =>

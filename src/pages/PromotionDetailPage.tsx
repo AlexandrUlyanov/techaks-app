@@ -47,6 +47,7 @@ export default function PromotionDetailPage() {
     <div className="min-h-screen pb-20 bg-background text-foreground">
       <ProductBreadcrumbsCompact
         rootTo="/promotions"
+        rootLabel="Акции"
         compactRootLabel="Акции"
         items={[]}
         currentLabel={promo.title}

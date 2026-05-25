@@ -35,8 +35,9 @@ export default function ProductBreadcrumbsCompact({
   items,
   currentLabel,
   homeTo = "/",
+  homeLabel = "Главная",
   rootTo = "/",
-  rootLabel = "Главная",
+  rootLabel,
   compactRootLabel,
   shortenItemLabel = shortenBreadcrumbLabel,
   shortenCurrentLabel,
@@ -44,6 +45,7 @@ export default function ProductBreadcrumbsCompact({
   items: CompactBreadcrumbItem[];
   currentLabel?: string;
   homeTo?: string;
+  homeLabel?: string;
   rootTo?: string;
   rootLabel?: string;
   compactRootLabel?: string;
@@ -63,7 +65,7 @@ export default function ProductBreadcrumbsCompact({
             <Link
               to={homeTo}
               className="shrink-0 text-[var(--tech-color-text-main)]"
-              aria-label={rootLabel}
+              aria-label={homeLabel}
             >
               <Home size={14} />
             </Link>
@@ -72,7 +74,7 @@ export default function ProductBreadcrumbsCompact({
 
             {compactRootLabel ? (
               <Link to={rootTo} className="shrink-0 hover:text-[var(--tech-color-text-main)]">
-                {rootLabel}
+                {rootLabel ?? compactRootLabel}
               </Link>
             ) : null}
 
@@ -110,7 +112,7 @@ export default function ProductBreadcrumbsCompact({
             <Link
               to={homeTo}
               className="shrink-0 text-[var(--tech-color-text-main)]"
-              aria-label={rootLabel}
+              aria-label={homeLabel}
             >
               <Home size={14} />
             </Link>

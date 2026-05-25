@@ -359,6 +359,7 @@ export default function CatalogPage() {
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
       <ProductBreadcrumbsCompact
         rootTo="/catalog?cat=all"
+        rootLabel="Каталог"
         compactRootLabel="Кат."
         items={
           catalogView === "brands"
