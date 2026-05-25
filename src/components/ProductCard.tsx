@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
-import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
+import { Heart, Minus, Plus, Star } from "lucide-react";
 import { toast } from "sonner";
 import { CartIcon } from "@/components/product/ProductActionIcons";
 import {
@@ -116,11 +116,10 @@ export default function ProductCard({
       <button
         type="button"
         disabled
-        className="flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] bg-[var(--tech-color-surface-muted)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-text-muted)] cursor-not-allowed shadow-none"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--tech-color-surface-muted)] text-[var(--tech-color-text-muted)] cursor-not-allowed shadow-none"
         aria-label="Нет в наличии"
       >
-      <ShoppingCart size={14} className="hidden sm:block opacity-70" />
-      Нет в наличии
+      <CartIcon size={18} />
     </button>
   ) : cartItem ? (
     <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-[calc(var(--tech-radius-button)-4px)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)]">
@@ -164,11 +163,11 @@ export default function ProductCard({
         >
           <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
             {merchandisingBadges.length > 0 && (
-              <div className="absolute left-2 top-2 z-10 flex max-w-[130px] flex-wrap gap-1">
+              <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-nowrap gap-2 overflow-hidden">
                 {merchandisingBadges.map(itemBadge => (
                   <span
                     key={itemBadge}
-                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
+                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
                   >
                     {getMerchandisingBadgeLabel(itemBadge)}
                   </span>
@@ -177,7 +176,7 @@ export default function ProductCard({
             )}
             {product.badge && (
               <span
-                className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
+                className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-12" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
               >
                 {product.badge}
               </span>
@@ -196,9 +195,6 @@ export default function ProductCard({
           </div>
 
           <div className="min-w-0 flex flex-col gap-2">
-            {product.categoryName ? (
-              <div className="text-xs text-muted-foreground">{product.categoryName}</div>
-            ) : null}
             <div className="flex items-center justify-start gap-3">
               <span className={!isInStock ? "text-[11px] font-medium text-muted-foreground" : "text-[11px] font-medium text-green-600"}>
                 {!isInStock ? "Нет в наличии" : "В наличии"}
@@ -250,11 +246,11 @@ export default function ProductCard({
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
         <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
           {merchandisingBadges.length > 0 && (
-            <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-wrap gap-1">
+            <div className="absolute left-2 top-2 z-10 flex max-w-[180px] flex-nowrap gap-2 overflow-hidden">
               {merchandisingBadges.map(itemBadge => (
                 <span
                   key={itemBadge}
-                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
+                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
                 >
                   {getMerchandisingBadgeLabel(itemBadge)}
                 </span>
@@ -263,7 +259,7 @@ export default function ProductCard({
           )}
           {product.badge && (
             <span
-              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
+              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-12" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
             >
               {product.badge}
             </span>
@@ -282,9 +278,6 @@ export default function ProductCard({
         </div>
 
         <div className="flex flex-1 flex-col px-3 pb-2 pt-3 sm:px-4">
-          {product.categoryName ? (
-            <div className="mb-1 text-center text-xs text-muted-foreground">{product.categoryName}</div>
-          ) : null}
           <h3 className="text-center text-[15px] font-medium leading-snug text-foreground line-clamp-2 min-h-[2.7rem]">
             {product.name}
           </h3>
