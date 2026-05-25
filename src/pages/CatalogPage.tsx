@@ -478,11 +478,11 @@ export default function CatalogPage() {
           {showProductSection && (
           <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-6" : ""}>
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                 {[...Array(8)].map((_, i) => (
                   <div
                     key={i}
-                    className="h-[400px] rounded-2xl bg-[var(--tech-color-surface)] animate-pulse"
+                    className="h-[380px] rounded-[28px] bg-[var(--tech-color-surface)] animate-pulse"
                   />
                 ))}
               </div>
@@ -693,7 +693,7 @@ export default function CatalogPage() {
 
                   <div className={
                     viewMode === "grid"
-                      ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5"
+                      ? "grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4"
                       : "grid grid-cols-1 gap-4"
                   }>
                     {visibleProducts.map((product: any) => (

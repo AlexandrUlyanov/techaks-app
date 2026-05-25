@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
+import { CartIcon } from "@/components/product/ProductActionIcons";
 import {
   getMerchandisingBadgeLabel,
   getMerchandisingBadgeStyle,
@@ -146,20 +147,20 @@ export default function ProductCard({
   ) : (
     <button
       onClick={handleAddToCart}
-      className="magnetic flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] bg-[var(--tech-color-primary)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-primary-foreground)] transition-all duration-300 hover:brightness-95 active:scale-95 relative overflow-hidden group shadow-[var(--tech-shadow-button)]"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F0642B] text-white transition-colors hover:bg-[#db5823]"
+      aria-label="В корзину"
     >
-      <ShoppingCart size={14} className="hidden sm:block" />
-      В корзину
+      <CartIcon size={18} />
     </button>
   );
 
   if (variant === "list") {
     return (
-      <div className="group relative overflow-hidden rounded-[var(--tech-radius-card)] bg-transparent transition-transform duration-300 hover:-translate-y-0.5">
+      <div className="overflow-hidden rounded-[28px] bg-white">
         <Link
           to={`/product/${product.slug}`}
           onClick={handleNavigate}
-          className="grid grid-cols-[112px_1fr] gap-4 rounded-[var(--tech-radius-card)] p-2 sm:grid-cols-[148px_1fr] sm:p-3"
+          className="grid grid-cols-[112px_1fr] gap-4 p-3 sm:grid-cols-[148px_1fr] sm:p-4"
         >
           <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
             {merchandisingBadges.length > 0 && (
@@ -195,36 +196,39 @@ export default function ProductCard({
           </div>
 
           <div className="min-w-0 flex flex-col gap-2">
-            <div className="flex items-center justify-end gap-3">
-              <span className={!isInStock ? "text-[10px] font-bold text-muted-foreground" : "text-[10px] font-bold text-green-600"}>
+            {product.categoryName ? (
+              <div className="text-xs text-muted-foreground">{product.categoryName}</div>
+            ) : null}
+            <div className="flex items-center justify-start gap-3">
+              <span className={!isInStock ? "text-[11px] font-medium text-muted-foreground" : "text-[11px] font-medium text-green-600"}>
                 {!isInStock ? "Нет в наличии" : "В наличии"}
               </span>
             </div>
-            <h3 className="line-clamp-2 text-sm sm:text-base font-bold leading-snug text-foreground">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground sm:text-base">
               {product.name}
             </h3>
             {hasRating && (
-              <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Star size={12} className="fill-[var(--tech-color-primary)] text-[var(--tech-color-primary)]" />
                 {rating.toFixed(1)} · {reviewCountLabel}
               </div>
             )}
             <div className="mt-auto flex items-end justify-between gap-3">
               <div>
-                <div className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)]">
-                  {formatPrice(product.price)}
-                </div>
                 {product.oldPrice && (
-                  <div className="text-xs text-muted-foreground/60 line-through font-bold">
+                  <div className="mb-1 text-xs text-muted-foreground/60 line-through">
                     {formatPrice(product.oldPrice)}
                   </div>
                 )}
+                <div className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)]">
+                  {formatPrice(product.price)}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {cartControl}
                 <button
                   type="button"
-                  className="hidden h-10 w-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)] sm:flex"
+                  className="hidden h-11 w-11 items-center justify-center rounded-full bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)] sm:flex"
                   aria-label="В избранное"
                   onClick={e => {
                     e.preventDefault();
@@ -242,9 +246,9 @@ export default function ProductCard({
   }
 
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-[var(--tech-radius-card)] bg-transparent transition-transform duration-300 hover:-translate-y-0.5">
+    <div className="flex h-full flex-col overflow-hidden rounded-[28px] bg-white">
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
-        <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-white p-3 transition-all duration-300 sm:h-[180px] sm:p-4">
+        <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
           {merchandisingBadges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-wrap gap-1">
               {merchandisingBadges.map(itemBadge => (
@@ -269,7 +273,7 @@ export default function ProductCard({
             srcSet={productImage.srcSet}
             sizes={productImage.sizes}
             alt={product.name}
-            className="h-full w-full object-contain transition-all duration-300"
+            className="h-full w-full object-contain"
             loading={productImage.loading}
             fetchPriority={productImage.fetchPriority}
             decoding={productImage.decoding}
@@ -277,41 +281,44 @@ export default function ProductCard({
           />
         </div>
 
-        <div className="flex flex-1 flex-col px-1 pb-1 pt-3 sm:px-2 sm:pt-4">
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className={!isInStock ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
-              {!isInStock ? "Нет в наличии" : "В наличии"}
-            </span>
-          </div>
-          <h3 className="text-sm sm:text-[15px] font-bold text-foreground line-clamp-2 leading-snug min-h-[2.55rem]">
+        <div className="flex flex-1 flex-col px-3 pb-2 pt-3 sm:px-4">
+          {product.categoryName ? (
+            <div className="mb-1 text-center text-xs text-muted-foreground">{product.categoryName}</div>
+          ) : null}
+          <h3 className="text-center text-[15px] font-medium leading-snug text-foreground line-clamp-2 min-h-[2.7rem]">
             {product.name}
           </h3>
           {hasRating && (
-            <div className="mt-2 flex items-center gap-1">
-                <Star size={10} className="fill-[var(--tech-color-primary)] text-[var(--tech-color-primary)]" />
-                <span className="text-[10px] font-bold text-muted-foreground">
-                  {rating.toFixed(1)} · {reviewCountLabel}
-                </span>
+            <div className="mt-2 flex items-center justify-center gap-1">
+              <Star size={10} className="fill-[var(--tech-color-primary)] text-[var(--tech-color-primary)]" />
+              <span className="text-[10px] text-muted-foreground">
+                {rating.toFixed(1)}
+              </span>
             </div>
           )}
-          <div className="mt-auto pt-3 flex items-end gap-2">
-            <span className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)] leading-none">
-              {formatPrice(product.price)}
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <span className={!isInStock ? "text-[11px] font-medium text-muted-foreground" : "text-[11px] font-medium text-green-600"}>
+              {!isInStock ? "Нет в наличии" : "В наличии"}
             </span>
-            {product.oldPrice && (
-              <span className="text-xs text-muted-foreground/60 line-through font-bold">
-                {formatPrice(product.oldPrice)}
-              </span>
-            )}
           </div>
         </div>
       </Link>
 
-      <div className="grid grid-cols-[1fr_40px] gap-2 px-1 pb-1 pt-3 sm:px-2 sm:pb-2 sm:pt-0">
-        {cartControl}
+      <div className="mt-auto grid grid-cols-[1fr_auto] items-end gap-2 px-3 pb-4 pt-2 sm:px-4">
+        <div className="min-w-0">
+          {product.oldPrice && (
+            <div className="mb-1 text-xs text-muted-foreground/60 line-through">
+              {formatPrice(product.oldPrice)}
+            </div>
+          )}
+          <div className="text-[19px] font-black leading-none text-[#20262E] sm:text-[20px]">
+            {formatPrice(product.price)}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
         <button
           type="button"
-          className="flex h-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)]"
           aria-label="В избранное"
           onClick={e => {
             e.preventDefault();
@@ -320,6 +327,8 @@ export default function ProductCard({
         >
           <Heart size={15} />
         </button>
+          {cartControl}
+        </div>
       </div>
     </div>
   );
