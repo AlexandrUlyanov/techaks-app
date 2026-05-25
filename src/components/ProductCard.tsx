@@ -179,11 +179,11 @@ export default function ProductCard({
         >
           <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
             {topBadges.length > 0 && (
-              <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-2 overflow-hidden whitespace-nowrap">
+              <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
                 {topBadges.map(itemBadge => (
                   <span
                     key={itemBadge.key}
-                    className={`${itemBadge.className} truncate rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
+                    className={`${itemBadge.className} truncate rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] opacity-75`}
                   >
                     {itemBadge.label}
                   </span>
@@ -255,11 +255,11 @@ export default function ProductCard({
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
         <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
           {topBadges.length > 0 && (
-            <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-2 overflow-hidden whitespace-nowrap">
+            <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
               {topBadges.map(itemBadge => (
                 <span
                   key={itemBadge.key}
-                  className={`${itemBadge.className} truncate rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
+                  className={`${itemBadge.className} truncate rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] opacity-75`}
                 >
                   {itemBadge.label}
                 </span>
