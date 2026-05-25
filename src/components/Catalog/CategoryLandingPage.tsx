@@ -383,6 +383,7 @@ function MobileCategoryAccordion({
   previewsByCategoryId: Map<number, CategoryPreviewRecord>;
   getBranchCount: (category: CategoryRecord) => number;
 }) {
+  const navigate = useNavigate();
   const [openSlugs, setOpenSlugs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -401,36 +402,52 @@ function MobileCategoryAccordion({
       {sections.map(section => {
         const isOpen = openSlugs[section.slug] ?? false;
         const children = getChildren(byParent, section.id);
+        const hasChildren = children.length > 0;
         return (
           <div key={section.id} className="rounded-[1.4rem] bg-white/86 px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
             <button
               type="button"
-              onClick={() =>
-                setOpenSlugs(prev => ({ ...prev, [section.slug]: !isOpen }))
-              }
-              aria-expanded={isOpen}
+              onClick={() => {
+                if (!hasChildren) {
+                  navigate(`/catalog?cat=${section.slug}`);
+                  return;
+                }
+                setOpenSlugs(prev => ({ ...prev, [section.slug]: !isOpen }));
+              }}
+              aria-expanded={hasChildren ? isOpen : undefined}
               className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
             >
               <div>
                 <div className="text-base font-black text-[#1F2933]">{section.name}</div>
                 <div className="mt-1 text-sm text-[#6B7280]">
-                  {getBranchCount(section) > 0 ? `${getBranchCount(section)} товаров` : "Выберите раздел"}
+                  {getBranchCount(section) > 0
+                    ? `${getBranchCount(section)} товаров`
+                    : hasChildren
+                      ? "Выберите раздел"
+                      : "Открыть раздел"}
                 </div>
               </div>
-              <ChevronDown
-                size={18}
-                className={cn(
-                  "shrink-0 text-[var(--tech-color-primary)] transition-transform",
-                  isOpen ? "rotate-180" : ""
-                )}
-              />
+              {hasChildren ? (
+                <ChevronDown
+                  size={18}
+                  className={cn(
+                    "shrink-0 text-[var(--tech-color-primary)] transition-transform",
+                    isOpen ? "rotate-180" : ""
+                  )}
+                />
+              ) : (
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-[var(--tech-color-primary)]"
+                />
+              )}
             </button>
 
-            {isOpen ? (
+            {hasChildren && isOpen ? (
               <div className="mt-4 grid grid-cols-1 gap-3">
                 {children.map(child => {
-                  const hasChildren = getChildren(byParent, child.id).length > 0;
-                  const preview = hasChildren
+                  const childHasChildren = getChildren(byParent, child.id).length > 0;
+                  const preview = childHasChildren
                     ? findBranchPreview(child, byParent, previewsByCategoryId)
                     : previewsByCategoryId.get(child.id);
                   return (
@@ -438,10 +455,10 @@ function MobileCategoryAccordion({
                       key={child.id}
                       category={child}
                       preview={preview}
-                      productCount={hasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
-                      variant={hasChildren ? "parent" : "leaf"}
+                      productCount={childHasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
+                      variant={childHasChildren ? "parent" : "leaf"}
                       childNames={
-                        hasChildren
+                        childHasChildren
                           ? getChildren(byParent, child.id)
                               .slice(0, 4)
                               .map(item => item.name)
@@ -466,6 +483,7 @@ export default function CategoryLandingPage({
   loading = false,
   onShowAllProducts,
 }: CategoryLandingPageProps) {
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
@@ -500,9 +518,11 @@ export default function CategoryLandingPage({
     setActiveSectionSlug(prev =>
       prev && sectionCategories.some(category => category.slug === prev)
         ? prev
-        : sectionCategories[0]?.slug ?? null
+        : sectionCategories.find(category => getChildren(byParent, category.id).length > 0)?.slug ??
+          sectionCategories[0]?.slug ??
+          null
     );
-  }, [sectionCategories]);
+  }, [byParent, sectionCategories]);
 
   const activeSection = useMemo(
     () =>
@@ -517,7 +537,8 @@ export default function CategoryLandingPage({
 
   const desktopCards = useMemo(() => {
     if (!activeSection) return [];
-    return getChildren(byParent, activeSection.id);
+    const children = getChildren(byParent, activeSection.id);
+    return children.length > 0 ? children : [activeSection];
   }, [activeSection, byParent]);
 
   const searchResults = useMemo<SearchResultItem[]>(() => {
@@ -687,7 +708,13 @@ export default function CategoryLandingPage({
                       <div key={section.id} className="space-y-1">
                         <button
                           type="button"
-                          onClick={() => setActiveSectionSlug(section.slug)}
+                          onClick={() => {
+                            if (children.length === 0) {
+                              navigate(`/catalog?cat=${section.slug}`);
+                              return;
+                            }
+                            setActiveSectionSlug(section.slug);
+                          }}
                           className={cn(
                             "flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left transition",
                             isActive
@@ -735,7 +762,9 @@ export default function CategoryLandingPage({
                 </div>
                 <div className="mt-2 text-sm leading-6 text-[#6B7280]">
                   {activeSection
-                    ? `Выберите нужный раздел внутри «${activeSection.name}» и быстро перейдите к товарам.`
+                    ? getChildren(byParent, activeSection.id).length > 0
+                      ? `Выберите нужный раздел внутри «${activeSection.name}» и быстро перейдите к товарам.`
+                      : `Откройте раздел «${activeSection.name}» и перейдите к товарам этой категории.`
                     : "Выберите подкатегорию, чтобы открыть нужный раздел."}
                 </div>
               </div>
