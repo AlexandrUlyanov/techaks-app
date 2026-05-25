@@ -58,6 +58,7 @@ export default function CatalogPage() {
       .filter(Boolean) as SelectedSpecFilter[];
   }, [searchParams, selectedFilterKey]);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [isMobileSortOpen, setIsMobileSortOpen] = useState(false);
   const sortBy = (searchParams.get("sort") as "default" | "price-asc" | "price-desc") || "default";
   const viewMode = (searchParams.get("layout") as "grid" | "list") || "grid";
   const [visibleProductCount, setVisibleProductCount] =
@@ -178,6 +179,11 @@ export default function CatalogPage() {
     () => sortedProducts.slice(0, visibleProductCount),
     [sortedProducts, visibleProductCount]
   );
+  const sortOptions = [
+    { value: "default", label: "По популярности" },
+    { value: "price-asc", label: "По возрастанию цены" },
+    { value: "price-desc", label: "По убыванию цены" },
+  ] as const;
 
   const hasMoreProducts = visibleProductCount < sortedProducts.length;
 
@@ -568,7 +574,7 @@ export default function CatalogPage() {
                     </div>
 
                     <div className="mt-3 flex items-center gap-2 md:hidden">
-                      <Sheet>
+                      <Sheet open={isMobileSortOpen} onOpenChange={setIsMobileSortOpen}>
                         <SheetTrigger asChild>
                           <button
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
@@ -610,27 +616,37 @@ export default function CatalogPage() {
                             </SheetTitle>
                           </SheetHeader>
                           <div className="mt-5 space-y-4">
-                            <Select
-                              value={sortBy}
-                              onValueChange={value =>
-                                updateCatalogParams({
-                                  sort: value === "default" ? null : value,
-                                })
-                              }
-                            >
-                            <SelectTrigger className="h-11 rounded-full border-transparent bg-[var(--tech-color-surface)] text-[13px] font-semibold text-foreground shadow-none">
-                                <SelectValue placeholder="Сортировка" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="default">По популярности</SelectItem>
-                                <SelectItem value="price-asc">По возрастанию цены</SelectItem>
-                                <SelectItem value="price-desc">По убыванию цены</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div className="space-y-2">
+                              {sortOptions.map(option => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => {
+                                    updateCatalogParams({
+                                      sort: option.value === "default" ? null : option.value,
+                                    });
+                                    setIsMobileSortOpen(false);
+                                  }}
+                                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-[14px] font-semibold transition ${
+                                    sortBy === option.value
+                                      ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-foreground"
+                                      : "bg-[var(--tech-color-surface)] text-foreground"
+                                  }`}
+                                >
+                                  <span>{option.label}</span>
+                                  {sortBy === option.value ? (
+                                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--tech-color-primary)]" />
+                                  ) : null}
+                                </button>
+                              ))}
+                            </div>
                             <div className="inline-flex items-center gap-1 rounded-full bg-[var(--tech-color-surface)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
                               <button
                                 type="button"
-                                onClick={() => updateCatalogParams({ layout: null })}
+                                onClick={() => {
+                                  updateCatalogParams({ layout: null });
+                                  setIsMobileSortOpen(false);
+                                }}
                                 className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                                   viewMode === "grid"
                                     ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
@@ -643,7 +659,10 @@ export default function CatalogPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => updateCatalogParams({ layout: "list" })}
+                                onClick={() => {
+                                  updateCatalogParams({ layout: "list" });
+                                  setIsMobileSortOpen(false);
+                                }}
                                 className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                                   viewMode === "list"
                                     ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
