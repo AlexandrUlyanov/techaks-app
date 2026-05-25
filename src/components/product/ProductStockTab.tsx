@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MapPin, PackageCheck, Store } from "lucide-react";
 import type { ProductStoreAvailability } from "./StoreAvailabilityItem";
 
@@ -25,12 +26,15 @@ export default function ProductStockTab({
   reservedStoreId,
   onReserve,
   onNotify,
+  mobile = false,
 }: {
   stores: ProductStoreAvailability[];
   reservedStoreId?: number | null;
   onReserve: (store: ProductStoreAvailability) => void;
   onNotify: () => void;
+  mobile?: boolean;
 }) {
+  const [showAllStores, setShowAllStores] = useState(false);
   if (stores.length === 0) {
     return (
       <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_45%)] px-6 py-14 text-center">
@@ -50,6 +54,70 @@ export default function ProductStockTab({
         >
           Сообщить о поступлении
         </button>
+      </div>
+    );
+  }
+
+  if (mobile) {
+    const visibleStores = showAllStores ? stores : stores.slice(0, 2);
+
+    return (
+      <div className="space-y-4 text-[#20262E]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight">Наличие в магазинах</h2>
+          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+            Смотрите ближайшие точки и оформляйте резерв, если товар доступен.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {visibleStores.map(store => {
+            const status = getStatusMeta(store.availableQty);
+            const isReserved = reservedStoreId === store.storeId;
+            const isAvailable = store.availableQty > 0;
+
+            return (
+              <article key={store.storeId} className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-bold text-[#20262E]">{store.storeName}</div>
+                    <div className="mt-1 text-sm leading-6 text-[#6B7280]">{store.storeAddress}</div>
+                  </div>
+                  <span className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${status.className}`}>
+                    {status.label}
+                  </span>
+                </div>
+                <div className="mt-3 text-sm font-medium text-[#20262E]">
+                  {isAvailable ? `${store.availableQty} шт. доступно` : "Уточните ближайшее поступление"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onReserve(store)}
+                  disabled={!isAvailable || isReserved}
+                  className={`mt-3 inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold transition ${
+                    isReserved
+                      ? "cursor-not-allowed bg-[rgba(5,195,212,0.12)] text-[#047E8A]"
+                      : isAvailable
+                        ? "bg-[#05C3D4] text-white"
+                        : "cursor-not-allowed bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  {isReserved ? "Уже в резерве" : "Забронировать"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+
+        {stores.length > 2 ? (
+          <button
+            type="button"
+            onClick={() => setShowAllStores(prev => !prev)}
+            className="text-sm font-bold text-[#05C3D4]"
+          >
+            {showAllStores ? "Скрыть магазины" : "Показать все магазины"}
+          </button>
+        ) : null}
       </div>
     );
   }

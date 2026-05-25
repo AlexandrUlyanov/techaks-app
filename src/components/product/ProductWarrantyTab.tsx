@@ -3,8 +3,10 @@ import { BadgeCheck, RefreshCcw, ShieldCheck, ShieldPlus } from "lucide-react";
 
 export default function ProductWarrantyTab({
   manufacturerName,
+  mobile = false,
 }: {
   manufacturerName?: string | null;
+  mobile?: boolean;
 }) {
   const items = [
     {
@@ -30,6 +32,32 @@ export default function ProductWarrantyTab({
       text: "При самовывозе и доставке можно проверить комплектность, внешний вид и базовую работоспособность товара.",
     },
   ];
+
+  if (mobile) {
+    return (
+      <div className="space-y-4 text-[#20262E]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight">Гарантия</h2>
+          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+            Коротко о гарантии, проверке товара и условиях возврата.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {items.map(item => (
+            <div key={item.title} className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-4">
+              <div className="text-sm font-bold text-[#20262E]">{item.title}</div>
+              <div className="mt-1 text-sm leading-6 text-[#6B7280]">{item.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <Link to="/returns" className="inline-flex text-sm font-bold text-[#05C3D4]">
+          Возврат и обмен
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 text-[#20262E]">

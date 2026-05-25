@@ -25,7 +25,48 @@ const paymentItems = [
   { icon: HandCoins, title: "При получении" },
 ];
 
-export default function ProductDeliveryTab() {
+export default function ProductDeliveryTab({
+  mobile = false,
+}: {
+  mobile?: boolean;
+}) {
+  if (mobile) {
+    return (
+      <div className="space-y-4 text-[#20262E]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight">Доставка и оплата</h2>
+          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+            Кратко о самых частых способах получения и оплаты заказа.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {deliveryCards.map(item => (
+            <div key={item.title} className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-4">
+              <div className="text-sm font-bold text-[#20262E]">{item.title}</div>
+              <div className="mt-1 text-sm leading-6 text-[#6B7280]">{item.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {paymentItems.map(item => (
+            <span
+              key={item.title}
+              className="inline-flex rounded-full bg-[#F1F5F9] px-3 py-2 text-sm font-semibold text-[#20262E]"
+            >
+              {item.title}
+            </span>
+          ))}
+        </div>
+
+        <Link to="/payment-delivery" className="inline-flex text-sm font-bold text-[#05C3D4]">
+          Подробнее о доставке и оплате
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 text-[#20262E]">
       <div className="max-w-3xl">

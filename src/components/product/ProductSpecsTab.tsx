@@ -1,6 +1,6 @@
 import { Boxes, Layers3, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type SpecGroup = {
   title: string;
@@ -29,11 +29,14 @@ function resolveGroupTitle(key: string) {
 export default function ProductSpecsTab({
   specs,
   isManufacturerSpec,
+  mobile = false,
 }: {
   specs: Record<string, unknown> | null;
   isManufacturerSpec?: (key: string) => boolean;
+  mobile?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const mobileSectionRef = useRef<HTMLDivElement | null>(null);
 
   const groups = useMemo<SpecGroup[]>(() => {
     if (!specs) return [];
@@ -65,6 +68,61 @@ export default function ProductSpecsTab({
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
   const visibleLimit = 12;
   let remainingVisible = visibleLimit;
+
+  if (mobile) {
+    const flatItems = groups.flatMap(group =>
+      group.items.map(item => ({ groupTitle: group.title, item }))
+    );
+    const mobileVisibleLimit = 7;
+    const visibleFlatItems = expanded ? flatItems : flatItems.slice(0, mobileVisibleLimit);
+
+    return (
+      <div
+        ref={node => {
+          mobileSectionRef.current = node;
+        }}
+        className="space-y-4 text-[#20262E]"
+      >
+        <div>
+          <h2 className="text-xl font-black tracking-tight">Характеристики</h2>
+          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+            Основные параметры товара, которые помогут быстро сравнить модель.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {visibleFlatItems.map(({ groupTitle, item: [key, value] }, index) => (
+            <div
+              key={`${groupTitle}-${key}-${index}`}
+              className="border-b border-[#EEF2F7] py-3 last:border-b-0"
+            >
+              <div className="text-[13px] font-medium text-[#6B7280]">{key}</div>
+              <div className="mt-1 text-[15px] font-semibold leading-7 text-[#20262E]">
+                {String(value)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {flatItems.length > mobileVisibleLimit ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (expanded) {
+                setExpanded(false);
+                mobileSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                return;
+              }
+              setExpanded(true);
+            }}
+            className="text-sm font-bold text-[#05C3D4]"
+          >
+            {expanded ? "Скрыть характеристики" : "Показать все характеристики"}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 text-[#20262E]">

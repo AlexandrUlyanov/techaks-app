@@ -1,4 +1,5 @@
 import { Bolt, Cpu, ShieldCheck, Sparkles, Wifi } from "lucide-react";
+import { useState } from "react";
 
 const benefitIcons = [Bolt, Wifi, Cpu, ShieldCheck, Sparkles];
 
@@ -6,11 +7,14 @@ export default function ProductAboutTab({
   description,
   quickSpecs,
   benefits,
+  mobile = false,
 }: {
   description: string;
   quickSpecs: Array<[string, unknown]>;
   benefits?: string[];
+  mobile?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const normalizedDescription = description.trim();
   const visibleBenefits = (benefits ?? []).filter(Boolean).slice(0, 4);
   const visibleSpecs = quickSpecs.slice(0, 6);
@@ -19,6 +23,47 @@ export default function ProductAboutTab({
     "Актуальные остатки по магазинам",
     "Проверка товара перед выдачей",
   ];
+
+  if (mobile) {
+    const shouldTruncate = normalizedDescription.length > 220;
+    const shownDescription =
+      expanded || !shouldTruncate
+        ? normalizedDescription
+        : `${normalizedDescription.slice(0, 220).trimEnd()}...`;
+
+    return (
+      <div className="space-y-4 text-[#20262E]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight">О товаре</h2>
+          <p className="mt-3 text-[15px] leading-7 text-[#6B7280]">
+            {normalizedDescription
+              ? shownDescription
+              : "Описание товара пока не добавлено. Ниже доступны характеристики, наличие и способы получения."}
+          </p>
+          {normalizedDescription && shouldTruncate ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(prev => !prev)}
+              className="mt-3 text-sm font-bold text-[#05C3D4]"
+            >
+              {expanded ? "Скрыть описание" : "Показать полностью"}
+            </button>
+          ) : null}
+        </div>
+
+        {visibleSpecs.length > 0 ? (
+          <div className="grid gap-2">
+            {visibleSpecs.slice(0, 4).map(([key, value]) => (
+              <div key={key} className="text-[14px] leading-6 text-[#20262E]">
+                <span className="font-medium text-[#6B7280]">{key}:</span>{" "}
+                <span className="font-semibold">{String(value)}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 text-[#20262E]">

@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { MessageSquareHeart, Star } from "lucide-react";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
 import { formatRussianCount } from "@/lib/russian-plurals";
+import { useState } from "react";
 
 type ReviewSummary = {
   avgRating?: number | null;
@@ -43,6 +44,7 @@ export default function ProductReviewsTab({
   existingReview,
   verifiedPurchase,
   onSuccess,
+  mobile = false,
 }: {
   productId: number;
   productName: string;
@@ -52,9 +54,91 @@ export default function ProductReviewsTab({
   existingReview?: ExistingReview | null;
   verifiedPurchase?: boolean;
   onSuccess?: () => void | Promise<void>;
+  mobile?: boolean;
 }) {
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const totalCount = Number(summary?.totalCount ?? reviews.length ?? 0);
   const avgRating = Number(summary?.avgRating ?? 0);
+
+  if (mobile) {
+    const visibleReviews = showAllReviews ? reviews : reviews.slice(0, 2);
+
+    return (
+      <div className="space-y-4 text-[#20262E]">
+        <div>
+          <h2 className="text-xl font-black tracking-tight">Отзывы</h2>
+          {totalCount > 0 ? (
+            <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+              {avgRating.toFixed(1)} из 5 · {formatRussianCount(totalCount, ["отзыв", "отзыва", "отзывов"])}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+              Отзывов пока нет. Будьте первым, кто оставит отзыв о товаре.
+            </p>
+          )}
+        </div>
+
+        {reviews.length === 0 ? (
+          <div className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-5">
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById("tab-review-composer")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="text-sm font-bold text-[#05C3D4]"
+            >
+              Оставить отзыв
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {visibleReviews.map(review => (
+                <article key={review.id} className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-bold text-[#20262E]">{review.authorName}</div>
+                    <div className="flex items-center gap-1 text-sm font-bold text-[#047E8A]">
+                      <Star size={14} className="fill-current" />
+                      {review.rating}/5
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-[#20262E]">{review.text}</div>
+                </article>
+              ))}
+            </div>
+            {reviews.length > 2 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllReviews(prev => !prev)}
+                className="text-sm font-bold text-[#05C3D4]"
+              >
+                {showAllReviews ? "Скрыть отзывы" : "Показать все отзывы"}
+              </button>
+            ) : null}
+          </>
+        )}
+
+        <div id="tab-review-composer">
+          {isAuthenticated ? (
+            <ReviewComposer
+              compact
+              productId={productId}
+              productName={productName}
+              existingReview={existingReview}
+              verifiedPurchase={verifiedPurchase}
+              onSuccess={onSuccess}
+            />
+          ) : (
+            <Link to="/login" className="inline-flex text-sm font-bold text-[#05C3D4]">
+              Войти и оставить отзыв
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 text-[#20262E]">

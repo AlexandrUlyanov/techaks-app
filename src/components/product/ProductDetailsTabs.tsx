@@ -32,6 +32,12 @@ export default function ProductDetailsTabs({
   delivery,
   reviews,
   warranty,
+  aboutMobile,
+  specsMobile,
+  stockMobile,
+  deliveryMobile,
+  reviewsMobile,
+  warrantyMobile,
 }: {
   activeTab: ProductDetailsTabKey;
   onTabChange: (tab: ProductDetailsTabKey) => void;
@@ -41,9 +47,26 @@ export default function ProductDetailsTabs({
   delivery: ReactNode;
   reviews: ReactNode;
   warranty: ReactNode;
+  aboutMobile?: ReactNode;
+  specsMobile?: ReactNode;
+  stockMobile?: ReactNode;
+  deliveryMobile?: ReactNode;
+  reviewsMobile?: ReactNode;
+  warrantyMobile?: ReactNode;
 }) {
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
   const tabsRailRef = useRef<HTMLDivElement | null>(null);
+  const mobileSectionRefs = useRef<Record<ProductDetailsTabKey, HTMLElement | null>>({
+    about: null,
+    specs: null,
+    stock: null,
+    delivery: null,
+    reviews: null,
+    warranty: null,
+  });
   const tabButtonRefs = useRef<Record<ProductDetailsTabKey, HTMLButtonElement | null>>({
     about: null,
     specs: null,
@@ -68,9 +91,18 @@ export default function ProductDetailsTabs({
     reviews,
     warranty,
   };
+  const mobilePanels: Record<ProductDetailsTabKey, ReactNode> = {
+    about: aboutMobile ?? about,
+    specs: specsMobile ?? specs,
+    stock: stockMobile ?? stock,
+    delivery: deliveryMobile ?? delivery,
+    reviews: reviewsMobile ?? reviews,
+    warranty: warrantyMobile ?? warranty,
+  };
   const activeIndex = TAB_ITEMS.findIndex(item => item.key === activeTab);
   const [indicator, setIndicator] = useState<IndicatorMetrics | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const [mobileActiveTab, setMobileActiveTab] = useState<ProductDetailsTabKey>(activeTab);
 
   const panelOrder = useMemo(() => TAB_ITEMS.map(item => item.key), []);
 
@@ -91,6 +123,38 @@ export default function ProductDetailsTabs({
 
     scroller.scrollTo({ left: clampedLeft, behavior: "smooth" });
   }, [activeIndex, activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    setMobileActiveTab(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const visibleEntry = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        const nextKey = visibleEntry?.target.getAttribute("data-mobile-tab") as ProductDetailsTabKey | null;
+        if (nextKey) {
+          setMobileActiveTab(nextKey);
+        }
+      },
+      {
+        rootMargin: "-96px 0px -55% 0px",
+        threshold: [0.2, 0.35, 0.5],
+      }
+    );
+
+    for (const key of panelOrder) {
+      const node = mobileSectionRefs.current[key];
+      if (node) observer.observe(node);
+    }
+
+    return () => observer.disconnect();
+  }, [panelOrder]);
 
   useLayoutEffect(() => {
     const rail = tabsRailRef.current;
@@ -153,12 +217,77 @@ export default function ProductDetailsTabs({
     }
   };
 
+  const scrollToMobileSection = (tab: ProductDetailsTabKey) => {
+    const target = mobileSectionRefs.current[tab];
+    if (!target) return;
+    setMobileActiveTab(tab);
+    target.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+    if (typeof window !== "undefined") {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.hash = tab;
+      window.history.replaceState({}, "", nextUrl.toString());
+    }
+  };
+
   return (
     <section className="mt-16 md:mt-20">
-      <div className="rounded-[1.5rem] border border-[rgba(226,232,240,0.9)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06),0_4px_18px_rgba(15,23,42,0.04)] transition-shadow duration-300 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08),0_8px_24px_rgba(15,23,42,0.05)] md:rounded-[1.75rem]">
+      <div className="md:hidden">
+        <div
+          ref={mobileScrollerRef}
+          className="sticky top-[var(--mobile-header-height,64px)] z-20 -mx-4 overflow-x-auto border-y border-[#EEF2F7] bg-[rgba(255,255,255,0.94)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex min-w-max items-center gap-2">
+            {TAB_ITEMS.map(item => {
+              const isActive = item.key === mobileActiveTab;
+              const shortLabel =
+                item.key === "stock"
+                  ? "Наличие"
+                  : item.key === "delivery"
+                    ? "Доставка"
+                    : item.label;
+
+              return (
+                <button
+                  key={`mobile-${item.key}`}
+                  type="button"
+                  onClick={() => scrollToMobileSection(item.key)}
+                  className={cn(
+                    "h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors [scroll-snap-align:start]",
+                    isActive
+                      ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
+                      : "bg-[#F5F7FA] text-[#6B7280]"
+                  )}
+                >
+                  {shortLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-[1.5rem] bg-white">
+          {TAB_ITEMS.map(item => (
+            <section
+              key={`mobile-panel-${item.key}`}
+              ref={node => {
+                mobileSectionRefs.current[item.key] = node;
+              }}
+              id={item.key}
+              data-mobile-tab={item.key}
+              className="scroll-mt-28 border-b border-[#EEF2F7] px-4 py-5 last:border-b-0"
+            >
+              {mobilePanels[item.key]}
+            </section>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden rounded-[1.5rem] border border-[rgba(226,232,240,0.9)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06),0_4px_18px_rgba(15,23,42,0.04)] transition-shadow duration-300 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08),0_8px_24px_rgba(15,23,42,0.05)] md:block md:rounded-[1.75rem]">
         <div className="sticky top-[var(--header-height,78px)] z-20 rounded-t-[1.5rem] bg-[rgba(255,255,255,0.92)] backdrop-blur-[14px] supports-[backdrop-filter]:bg-[rgba(255,255,255,0.92)] md:rounded-t-[1.75rem]">
           <div
-            ref={mobileScrollerRef}
             className="overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
           >
             <div

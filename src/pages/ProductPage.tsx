@@ -645,10 +645,25 @@ export default function ProductPage() {
                 benefits={aboutBenefits}
               />
             }
+            aboutMobile={
+              <ProductAboutTab
+                description={normalizedDescription}
+                quickSpecs={quickSpecs}
+                benefits={aboutBenefits}
+                mobile
+              />
+            }
             specs={
               <ProductSpecsTab
                 specs={productSpecs}
                 isManufacturerSpec={isManufacturerSpec}
+              />
+            }
+            specsMobile={
+              <ProductSpecsTab
+                specs={productSpecs}
+                isManufacturerSpec={isManufacturerSpec}
+                mobile
               />
             }
             stock={
@@ -661,7 +676,19 @@ export default function ProductPage() {
                 />
               </div>
             }
+            stockMobile={
+              <div id="product-store-availability">
+                <ProductStockTab
+                  stores={typedStock}
+                  reservedStoreId={reservedStoreId}
+                  onReserve={openReservationDialog}
+                  onNotify={() => setShowForm(true)}
+                  mobile
+                />
+              </div>
+            }
             delivery={<ProductDeliveryTab />}
+            deliveryMobile={<ProductDeliveryTab mobile />}
             reviews={
               <div id="reviews">
                 <ProductReviewsTab
@@ -678,8 +705,31 @@ export default function ProductPage() {
                 />
               </div>
             }
+            reviewsMobile={
+              <div id="reviews">
+                <ProductReviewsTab
+                  productId={product.id}
+                  productName={product.name}
+                  isAuthenticated={isAuthenticated}
+                  summary={reviewFeed?.summary}
+                  reviews={reviewFeed?.items ?? []}
+                  existingReview={reviewEligibility?.existingReview}
+                  verifiedPurchase={reviewEligibility?.verifiedPurchase}
+                  onSuccess={async () => {
+                    setProductTab("reviews");
+                  }}
+                  mobile
+                />
+              </div>
+            }
             warranty={
               <ProductWarrantyTab manufacturerName={productManufacturer?.title} />
+            }
+            warrantyMobile={
+              <ProductWarrantyTab
+                manufacturerName={productManufacturer?.title}
+                mobile
+              />
             }
           />
         </div>
