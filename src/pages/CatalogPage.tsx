@@ -14,6 +14,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   X,
+  ChevronDown,
 } from "lucide-react";
 import {
   Sheet,
@@ -32,6 +33,7 @@ import {
 import { useSeo } from "@/lib/seo";
 
 const PRODUCT_PAGE_SIZE = 28;
+const INITIAL_CATEGORY_SHELF_COUNT = 8;
 
 export default function CatalogPage() {
   const navigate = useNavigate();
@@ -51,10 +53,9 @@ export default function CatalogPage() {
       })
       .filter(Boolean) as SelectedSpecFilter[];
   }, [searchParams, selectedFilterKey]);
-  const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc">(
-    "default"
-  );
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const sortBy = (searchParams.get("sort") as "default" | "price-asc" | "price-desc") || "default";
+  const viewMode = (searchParams.get("layout") as "grid" | "list") || "grid";
   const [visibleProductCount, setVisibleProductCount] =
     useState(PRODUCT_PAGE_SIZE);
 
@@ -108,6 +109,18 @@ export default function CatalogPage() {
       ? currentManufacturerQuery.isLoading || manufacturerProductsQuery.isLoading
       : categoryProductsQuery.isLoading;
 
+  const updateCatalogParams = (updates: Record<string, string | null>, replace = true) => {
+    const nextParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "") {
+        nextParams.delete(key);
+      } else {
+        nextParams.set(key, value);
+      }
+    });
+    navigate(`/catalog?${nextParams.toString()}`, { replace });
+  };
+
   const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("filter");
@@ -152,6 +165,10 @@ export default function CatalogPage() {
   useEffect(() => {
     setVisibleProductCount(PRODUCT_PAGE_SIZE);
   }, [activeCategory, activeBrand, catalogView, sortBy, selectedFilterKey]);
+
+  useEffect(() => {
+    setShowAllCategories(false);
+  }, [activeCategory, activeBrand, catalogView]);
 
   const visibleProducts = useMemo(
     () => sortedProducts.slice(0, visibleProductCount),
@@ -214,6 +231,13 @@ export default function CatalogPage() {
     }
     return [];
   }, [catalogView, categories, activeCategory, currentCategory]);
+  const visibleCategories = useMemo(
+    () =>
+      showAllCategories
+        ? displayCategories
+        : displayCategories.slice(0, INITIAL_CATEGORY_SHELF_COUNT),
+    [displayCategories, showAllCategories]
+  );
 
   const displayManufacturers = useMemo(() => {
     if (catalogView !== "brands" || activeBrand) return [];
@@ -240,6 +264,8 @@ export default function CatalogPage() {
     ? currentManufacturer?.name || "Производители"
     : activeCategoryName;
   const showProductSection = catalogView === "categories" || Boolean(activeBrand);
+  const currentResultCount = sortedProducts.length;
+  const topLevelCategoryCount = categories.filter(c => !c.parentId).length;
 
   const seoTitle = currentManufacturer
     ? `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
@@ -292,17 +318,33 @@ export default function CatalogPage() {
       />
 
       {/* Header Info */}
-      <section className="pt-12 pb-8 border-b border-border">
+      <section className="border-b border-border/80 pt-8 pb-6 md:pt-12 md:pb-8">
         <div className="container-main">
-          <h1 className="text-4xl md:text-6xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+          <h1 className="text-3xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-[3.2rem]">
             {headerTitle}
           </h1>
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+            {showProductSection ? (
+              <span className="rounded-full bg-[var(--tech-color-surface)] px-3 py-2">
+                {currentResultCount} товаров
+              </span>
+            ) : null}
+            {catalogView === "categories" && activeCategory === "all" ? (
+              <span className="rounded-full bg-[var(--tech-color-surface)] px-3 py-2">
+                {topLevelCategoryCount} категорий
+              </span>
+            ) : null}
+          </div>
+          </div>
+          </div>
         </div>
       </section>
 
       {/* Content */}
-      <section className="py-16">
-        <div className="container-main space-y-12">
+      <section className="py-10 md:py-12">
+        <div className="container-main space-y-8 md:space-y-10">
           
           {/* Categories Grid */}
           {displayManufacturers.length > 0 && (
@@ -342,44 +384,86 @@ export default function CatalogPage() {
 
           {displayCategories.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
-                  {activeCategory === "all" ? "Категории" : "Подкатегории"}
-                </h2>
-                {activeCategory !== "all" ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/catalog?cat=all")}
-                    className="text-[11px] font-semibold text-muted-foreground transition hover:text-[var(--tech-color-primary)]"
-                  >
-                    Весь каталог
-                  </button>
-                ) : null}
-              </div>
-              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-                <div className="flex gap-3 pb-1 sm:flex-wrap">
-                  {displayCategories.map(cat => (
+              <div className="rounded-[1.75rem] border border-border/80 bg-[var(--tech-color-surface)] px-4 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.06)] md:px-5 md:py-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
+                      {activeCategory === "all" ? "Категории" : "Подкатегории"}
+                    </h2>
+                    <p className="mt-1.5 text-sm text-muted-foreground">
+                      Быстрый переход по основным разделам каталога
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {displayCategories.length > INITIAL_CATEGORY_SHELF_COUNT ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCategories(prev => !prev)}
+                        className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-primary)] transition hover:border-[rgba(5,195,212,0.45)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_6%,white)]"
+                      >
+                        {showAllCategories ? "Скрыть" : "Показать все"}
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${showAllCategories ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                    ) : null}
+                    {activeCategory !== "all" ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/catalog?cat=all")}
+                        className="text-[11px] font-semibold text-muted-foreground transition hover:text-[var(--tech-color-primary)]"
+                      >
+                        Весь каталог
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-4 md:hidden -mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex gap-2.5 pb-1">
+                    {visibleCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
+                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full border border-border/80 bg-background px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.45)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98]"
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
+                          <CategoryIcon
+                            name={cat.name}
+                            slug={cat.slug}
+                            size={15}
+                            className="text-current"
+                          />
+                        </span>
+                        <span className="max-w-[170px] truncate text-sm font-semibold text-foreground">
+                          {cat.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 hidden md:flex md:flex-wrap md:gap-2.5">
+                  {visibleCategories.map((cat, index) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="group inline-flex min-w-[196px] shrink-0 items-center gap-3 rounded-2xl border border-border bg-[var(--tech-color-surface)] px-4 py-3 text-left transition-all hover:border-[#05C3D4] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,var(--tech-color-surface))] sm:min-w-0"
+                      className="group inline-flex h-12 items-center gap-2.5 rounded-full border border-border/80 bg-background px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.45)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                      style={{ animationDelay: `${index * 30}ms` }}
                     >
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-[var(--tech-color-primary)] transition group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))]">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
                         <CategoryIcon
                           name={cat.name}
                           slug={cat.slug}
-                          size={20}
+                          size={15}
                           className="text-current"
                         />
                       </span>
-                      <span className="min-w-0">
-                        <span className="block line-clamp-2 text-sm font-bold leading-tight text-foreground">
-                          {cat.name}
-                        </span>
-                        <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                          Открыть подборку
-                        </span>
+                      <span className="max-w-[240px] truncate text-sm font-semibold text-foreground">
+                        {cat.name}
                       </span>
                     </button>
                   ))}
@@ -390,7 +474,7 @@ export default function CatalogPage() {
 
           {/* Products Grid */}
           {showProductSection && (
-          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-10 border-t border-border" : ""}>
+          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-8 border-t border-border" : ""}>
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
@@ -403,90 +487,179 @@ export default function CatalogPage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
                 <div className="hidden lg:block">
+                  <div className="sticky top-[var(--header-height,96px)] self-start">
                   <ProductFilters
                     filters={specFilters}
                     selected={selectedFilters}
                     onToggle={toggleFilter}
                     onClear={clearFilters}
                   />
+                  </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2.5 sm:gap-3">
-                    <Sheet>
-                      <SheetTrigger asChild>
-                        <button
-                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-[var(--tech-color-surface)] text-muted-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] lg:hidden"
-                          aria-label="Фильтры"
-                        >
-                          <SlidersHorizontal size={15} />
-                        </button>
-                      </SheetTrigger>
-                      <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
-                        <SheetHeader className="px-0 pt-0">
-                          <SheetTitle className="text-sm font-black uppercase tracking-widest">
-                            Фильтры
-                          </SheetTitle>
-                        </SheetHeader>
-                        <ProductFilters
-                          filters={specFilters}
-                          selected={selectedFilters}
-                          onToggle={toggleFilter}
-                          onClear={clearFilters}
-                        />
-                      </SheetContent>
-                    </Sheet>
-
-                    <Select
-                      value={sortBy}
-                      onValueChange={value =>
-                        setSortBy(value as "default" | "price-asc" | "price-desc")
-                      }
-                    >
-                      <SelectTrigger className="h-10 min-w-0 flex-1 rounded-full border-border/60 bg-[var(--tech-color-surface)] pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none sm:min-w-[230px] sm:flex-none">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
-                            <ArrowUpDown size={14} />
-                          </span>
-                          <SelectValue placeholder="Сортировка" />
+                  <div className="rounded-[1.5rem] border border-border/80 bg-[var(--tech-color-surface)] p-3.5 shadow-[0_16px_36px_rgba(0,0,0,0.06)] md:p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
+                          {activeCategory === "all" ? "Все товары" : headerTitle}
                         </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">По популярности</SelectItem>
-                        <SelectItem value="price-asc">По возрастанию цены</SelectItem>
-                        <SelectItem value="price-desc">По убыванию цены</SelectItem>
-                      </SelectContent>
-                    </Select>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {currentResultCount > 0
+                            ? `${currentResultCount} ${currentResultCount === 1 ? "товар" : currentResultCount < 5 ? "товара" : "товаров"}`
+                            : "Товары появятся после следующего обновления"}
+                        </div>
+                      </div>
 
-                    <div className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
-                      <button
-                        type="button"
-                        onClick={() => setViewMode("grid")}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                          viewMode === "grid"
-                            ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                            : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
-                        }`}
-                        aria-label="Плитка"
-                      >
-                        <Grid2X2 size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewMode("list")}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                          viewMode === "list"
-                            ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                            : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
-                        }`}
-                        aria-label="Список"
-                      >
-                        <List size={17} />
-                      </button>
+                      <div className="hidden items-center gap-3 md:flex">
+                        <Select
+                          value={sortBy}
+                          onValueChange={value =>
+                            updateCatalogParams({
+                              sort: value === "default" ? null : value,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/60 bg-[var(--tech-color-surface)] pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                                <ArrowUpDown size={14} />
+                              </span>
+                              <SelectValue placeholder="Сортировка" />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">По популярности</SelectItem>
+                            <SelectItem value="price-asc">По возрастанию цены</SelectItem>
+                            <SelectItem value="price-desc">По убыванию цены</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
+                          <button
+                            type="button"
+                            onClick={() => updateCatalogParams({ layout: null })}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+                              viewMode === "grid"
+                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
+                                : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
+                            }`}
+                            aria-label="Плитка"
+                            aria-pressed={viewMode === "grid"}
+                          >
+                            <Grid2X2 size={17} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateCatalogParams({ layout: "list" })}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+                              viewMode === "list"
+                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
+                                : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
+                            }`}
+                            aria-label="Список"
+                            aria-pressed={viewMode === "list"}
+                          >
+                            <List size={17} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {hasSelectedFilters && (
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <div className="mt-3 flex items-center gap-2 md:hidden">
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <button
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/60 bg-[var(--tech-color-surface)] px-4 text-[13px] font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
+                            aria-label="Фильтры"
+                          >
+                            <SlidersHorizontal size={15} />
+                            Фильтры
+                          </button>
+                        </SheetTrigger>
+                        <SheetContent side="left" className="w-[86vw] max-w-sm overflow-y-auto p-5">
+                          <SheetHeader className="px-0 pt-0">
+                            <SheetTitle className="text-sm font-black uppercase tracking-widest">
+                              Фильтры
+                            </SheetTitle>
+                          </SheetHeader>
+                          <ProductFilters
+                            filters={specFilters}
+                            selected={selectedFilters}
+                            onToggle={toggleFilter}
+                            onClear={clearFilters}
+                          />
+                        </SheetContent>
+                      </Sheet>
+
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <button
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/60 bg-[var(--tech-color-surface)] px-4 text-[13px] font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
+                            aria-label="Сортировка"
+                          >
+                            <ArrowUpDown size={15} />
+                            Сортировка
+                          </button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="rounded-t-[1.5rem] p-5">
+                          <SheetHeader className="px-0 pt-0">
+                            <SheetTitle className="text-sm font-black uppercase tracking-widest">
+                              Сортировка и вид
+                            </SheetTitle>
+                          </SheetHeader>
+                          <div className="mt-5 space-y-4">
+                            <Select
+                              value={sortBy}
+                              onValueChange={value =>
+                                updateCatalogParams({
+                                  sort: value === "default" ? null : value,
+                                })
+                              }
+                            >
+                              <SelectTrigger className="h-11 rounded-full border-border/60 bg-[var(--tech-color-surface)] text-[13px] font-semibold text-foreground shadow-none">
+                                <SelectValue placeholder="Сортировка" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default">По популярности</SelectItem>
+                                <SelectItem value="price-asc">По возрастанию цены</SelectItem>
+                                <SelectItem value="price-desc">По убыванию цены</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
+                              <button
+                                type="button"
+                                onClick={() => updateCatalogParams({ layout: null })}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+                                  viewMode === "grid"
+                                    ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                                    : "text-muted-foreground"
+                                }`}
+                                aria-label="Плитка"
+                                aria-pressed={viewMode === "grid"}
+                              >
+                                <Grid2X2 size={17} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateCatalogParams({ layout: "list" })}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+                                  viewMode === "list"
+                                    ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                                    : "text-muted-foreground"
+                                }`}
+                                aria-label="Список"
+                                aria-pressed={viewMode === "list"}
+                              >
+                                <List size={17} />
+                              </button>
+                            </div>
+                          </div>
+                        </SheetContent>
+                      </Sheet>
+                    </div>
+
+                    {hasSelectedFilters && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
                       {selectedFilterLabels.map(filter => (
                         <button
                           key={`${filter.normalizedKey}:${filter.normalizedValue}`}
@@ -512,8 +685,9 @@ export default function CatalogPage() {
                       >
                         Сбросить все
                       </button>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
 
                   <div className={
                     viewMode === "grid"
