@@ -103,7 +103,7 @@ export default function ProductFilters({
   return (
     <aside className="space-y-5">
       {selected.length > 0 && (
-        <div className="flex items-center justify-end gap-4 rounded-2xl bg-[var(--tech-color-surface)]/92 px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
+        <div className="flex items-center justify-end gap-4 px-1 py-1">
           <button
             type="button"
             onClick={onClear}
@@ -115,7 +115,7 @@ export default function ProductFilters({
         </div>
       )}
 
-      <div className="rounded-[1.5rem] bg-[var(--tech-color-surface)]/92 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+      <div className="px-1">
         <div className="mb-2 flex items-center justify-end gap-3">
           {selected.length > 0 ? (
             <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,var(--tech-color-surface))] px-2 text-[11px] font-black text-[var(--tech-color-primary)]">
@@ -124,9 +124,9 @@ export default function ProductFilters({
           ) : null}
         </div>
 
-      <div className="space-y-5">
-        {visibleFilters.map(group => (
-          <div key={group.normalizedKey} className="pb-5 last:pb-0">
+        <div className="space-y-5">
+          {visibleFilters.map(group => (
+            <div key={group.normalizedKey} className="pb-5 last:pb-0">
             <button
               type="button"
               onClick={() =>
@@ -170,7 +170,7 @@ export default function ProductFilters({
                     key={`${group.normalizedKey}:${value.normalizedValue}`}
                     type="button"
                     onClick={() => onToggle(filter)}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-muted/45"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-muted/35"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -221,9 +221,9 @@ export default function ProductFilters({
                 {expandedGroups[group.normalizedKey] ? "Свернуть" : "Показать все"}
               </button>
             ) : null}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
       </div>
     </aside>
   );

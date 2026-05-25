@@ -115,14 +115,14 @@ export default function ProductCard({
       <button
         type="button"
         disabled
-        className="flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] border border-[var(--tech-color-border)] bg-[var(--tech-color-surface-muted)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-text-muted)] cursor-not-allowed shadow-none"
+        className="flex h-10 items-center justify-center gap-2 rounded-[var(--tech-radius-button)] bg-[var(--tech-color-surface-muted)] px-4 text-[10px] font-black uppercase tracking-widest text-[var(--tech-color-text-muted)] cursor-not-allowed shadow-none"
         aria-label="Нет в наличии"
       >
       <ShoppingCart size={14} className="hidden sm:block opacity-70" />
       Нет в наличии
     </button>
   ) : cartItem ? (
-    <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-[calc(var(--tech-radius-button)-4px)] border border-[color:color-mix(in_srgb,var(--tech-color-primary)_40%,white)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)]">
+    <div className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden rounded-[calc(var(--tech-radius-button)-4px)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)]">
       <button
         type="button"
         onClick={decreaseQuantity}
@@ -155,13 +155,13 @@ export default function ProductCard({
 
   if (variant === "list") {
     return (
-      <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] relative after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
+      <div className="group relative overflow-hidden rounded-[var(--tech-radius-card)] bg-transparent transition-transform duration-300 hover:-translate-y-0.5">
         <Link
           to={`/product/${product.slug}`}
           onClick={handleNavigate}
-          className="grid grid-cols-[112px_1fr] sm:grid-cols-[148px_1fr] gap-4 p-3 sm:p-4"
+          className="grid grid-cols-[112px_1fr] gap-4 rounded-[var(--tech-radius-card)] p-2 sm:grid-cols-[148px_1fr] sm:p-3"
         >
-          <div className="relative h-[112px] sm:h-[132px] rounded-lg bg-white flex items-center justify-center p-3 overflow-hidden">
+          <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
             {merchandisingBadges.length > 0 && (
               <div className="absolute left-2 top-2 z-10 flex max-w-[130px] flex-wrap gap-1">
                 {merchandisingBadges.map(itemBadge => (
@@ -224,7 +224,7 @@ export default function ProductCard({
                 {cartControl}
                 <button
                   type="button"
-                  className="hidden sm:flex h-10 w-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] border border-border text-muted-foreground hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
+                  className="hidden h-10 w-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)] sm:flex"
                   aria-label="В избранное"
                   onClick={e => {
                     e.preventDefault();
@@ -242,15 +242,15 @@ export default function ProductCard({
   }
 
   return (
-    <div className="group bg-card border border-border rounded-[var(--tech-radius-card)] overflow-hidden transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_30%,white)] shadow-[var(--tech-shadow-card)] hover:shadow-[var(--tech-shadow-card)] relative flex flex-col h-full after:pointer-events-none after:absolute after:inset-0 after:rounded-[var(--tech-radius-card)] after:opacity-0 after:transition-opacity after:duration-500 after:bg-[linear-gradient(90deg,transparent,var(--tech-color-primary),transparent),linear-gradient(180deg,transparent,var(--tech-color-primary),transparent)] after:bg-[length:180%_1px,1px_180%] after:bg-[position:-180%_0,100%_-180%] after:bg-no-repeat group-hover:after:opacity-60 group-hover:after:animate-[electric-border_2.8s_linear_infinite]">
-      <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex-1 flex flex-col">
-        <div className="relative h-[150px] sm:h-[180px] bg-white flex items-center justify-center p-3 sm:p-4 transition-all duration-300 overflow-hidden">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-[var(--tech-radius-card)] bg-transparent transition-transform duration-300 hover:-translate-y-0.5">
+      <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
+        <div className="relative flex h-[150px] items-center justify-center overflow-hidden rounded-[1.5rem] bg-white p-3 transition-all duration-300 sm:h-[180px] sm:p-4">
           {merchandisingBadges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-wrap gap-1">
               {merchandisingBadges.map(itemBadge => (
                 <span
                   key={itemBadge}
-                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase shadow-sm`}
+                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
                 >
                   {getMerchandisingBadgeLabel(itemBadge)}
                 </span>
@@ -259,7 +259,7 @@ export default function ProductCard({
           )}
           {product.badge && (
             <span
-              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase shadow-sm`}
+              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-11" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded px-2 py-0.5 text-[9px] font-black uppercase`}
             >
               {product.badge}
             </span>
@@ -277,7 +277,7 @@ export default function ProductCard({
           />
         </div>
 
-        <div className="p-3 sm:p-4 flex-1 flex flex-col">
+        <div className="flex flex-1 flex-col px-1 pb-1 pt-3 sm:px-2 sm:pt-4">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <span className={!isInStock ? "shrink-0 text-[10px] font-bold text-muted-foreground" : "shrink-0 text-[10px] font-bold text-green-600"}>
               {!isInStock ? "Нет в наличии" : "В наличии"}
@@ -307,11 +307,11 @@ export default function ProductCard({
         </div>
       </Link>
 
-      <div className="p-3 sm:p-4 pt-0 grid grid-cols-[1fr_40px] gap-2">
+      <div className="grid grid-cols-[1fr_40px] gap-2 px-1 pb-1 pt-3 sm:px-2 sm:pb-2 sm:pt-0">
         {cartControl}
         <button
           type="button"
-          className="flex h-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] border border-border text-muted-foreground hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] transition-colors"
+          className="flex h-10 items-center justify-center rounded-[calc(var(--tech-radius-button)-4px)] bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)]"
           aria-label="В избранное"
           onClick={e => {
             e.preventDefault();

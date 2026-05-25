@@ -386,7 +386,7 @@ export default function CatalogPage() {
 
           {displayCategories.length > 0 && (
             <div className="space-y-4">
-              <div className="rounded-[1.75rem] bg-[var(--tech-color-surface)]/88 px-4 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.06)] md:px-5 md:py-5">
+              <div className="px-1 py-1 md:px-0 md:py-0">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
@@ -401,7 +401,7 @@ export default function CatalogPage() {
                       <button
                         type="button"
                         onClick={() => setShowAllCategories(prev => !prev)}
-                        className="inline-flex items-center gap-2 rounded-full bg-background/92 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-primary)] transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
+                        className="inline-flex items-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)]/85 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-primary)] transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)]"
                       >
                         {showAllCategories ? "Скрыть" : "Показать все"}
                         <ChevronDown
@@ -429,7 +429,7 @@ export default function CatalogPage() {
                         key={cat.id}
                         type="button"
                         onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-background/94 px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98]"
+                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-[var(--tech-color-surface-muted)]/85 px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--tech-color-surface-muted)] active:scale-[0.98]"
                       >
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
                           <CategoryIcon
@@ -453,7 +453,7 @@ export default function CatalogPage() {
                       key={cat.id}
                       type="button"
                       onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-background/94 px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                      className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-[var(--tech-color-surface-muted)]/85 px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--tech-color-surface-muted)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
                       style={{ animationDelay: `${index * 30}ms` }}
                     >
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
@@ -499,7 +499,7 @@ export default function CatalogPage() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="rounded-[1.5rem] bg-[var(--tech-color-surface)]/92 p-3.5 shadow-[0_16px_36px_rgba(0,0,0,0.06)] md:p-4">
+                  <div className="py-1 md:py-0">
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <div className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
@@ -521,7 +521,7 @@ export default function CatalogPage() {
                             })
                           }
                         >
-                          <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-background/96 pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none">
+                          <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-[var(--tech-color-surface-muted)]/85 pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none">
                             <div className="flex min-w-0 items-center gap-2">
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                                 <ArrowUpDown size={14} />
@@ -536,14 +536,14 @@ export default function CatalogPage() {
                           </SelectContent>
                         </Select>
 
-                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-background/96 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--tech-color-surface-muted)]/85 p-1">
                           <button
                             type="button"
                             onClick={() => updateCatalogParams({ layout: null })}
                             className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                               viewMode === "grid"
-                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                                : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
+                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                                : "text-muted-foreground hover:bg-background hover:text-foreground"
                             }`}
                             aria-label="Плитка"
                             aria-pressed={viewMode === "grid"}
@@ -555,8 +555,8 @@ export default function CatalogPage() {
                             onClick={() => updateCatalogParams({ layout: "list" })}
                             className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                               viewMode === "list"
-                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)] shadow-[0_6px_18px_rgba(5,195,212,0.28)]"
-                                : "text-muted-foreground hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
+                                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                                : "text-muted-foreground hover:bg-background hover:text-foreground"
                             }`}
                             aria-label="Список"
                             aria-pressed={viewMode === "list"}
@@ -571,7 +571,7 @@ export default function CatalogPage() {
                       <Sheet>
                         <SheetTrigger asChild>
                           <button
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/60 bg-[var(--tech-color-surface)] px-4 text-[13px] font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
                             aria-label="Фильтры"
                           >
                             <SlidersHorizontal size={15} />
@@ -596,7 +596,7 @@ export default function CatalogPage() {
                       <Sheet>
                         <SheetTrigger asChild>
                           <button
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/60 bg-[var(--tech-color-surface)] px-4 text-[13px] font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
                             aria-label="Сортировка"
                           >
                             <ArrowUpDown size={15} />
