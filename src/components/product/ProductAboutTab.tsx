@@ -18,11 +18,6 @@ export default function ProductAboutTab({
   const normalizedDescription = description.trim();
   const visibleBenefits = (benefits ?? []).filter(Boolean).slice(0, 4);
   const visibleSpecs = quickSpecs.slice(0, 6);
-  const whyChoose = visibleBenefits.length > 0 ? visibleBenefits : [
-    "Официальная витрина ТЕХАКС",
-    "Актуальные остатки по магазинам",
-    "Проверка товара перед выдачей",
-  ];
 
   if (mobile) {
     const shouldTruncate = normalizedDescription.length > 220;
@@ -133,28 +128,30 @@ export default function ProductAboutTab({
           </section>
         ) : null}
 
-        <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-          <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
-            <Sparkles size={20} />
-          </div>
-          <h3 className="mt-4 text-lg font-extrabold text-[#20262E]">
-            Почему стоит выбрать
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-            Несколько причин, почему эта модель хорошо впишется в повседневный сценарий.
-          </p>
+        {visibleBenefits.length > 0 ? (
+          <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
+              <Sparkles size={20} />
+            </div>
+            <h3 className="mt-4 text-lg font-extrabold text-[#20262E]">
+              Почему стоит выбрать
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+              Несколько причин, почему эта модель хорошо впишется в повседневный сценарий.
+            </p>
 
-          <div className="mt-4 space-y-3">
-            {whyChoose.map(item => (
-              <div
-                key={item}
-                className="rounded-[1rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#20262E]"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </section>
+            <div className="mt-4 space-y-3">
+              {visibleBenefits.map(item => (
+                <div
+                  key={item}
+                  className="rounded-[1rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#20262E]"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

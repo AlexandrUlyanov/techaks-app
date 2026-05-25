@@ -18,17 +18,17 @@ type CategoryRecord = {
   icon?: string | null;
 };
 
-type ProductRecord = {
-  id: number;
+type CategoryPreviewRecord = {
   categoryId: number;
-  name: string;
-  image?: string | null;
-  imageVariants?: unknown;
+  productCount: number;
+  previewImage?: string | null;
+  previewImageVariants?: unknown;
+  hasChildren: boolean;
 };
 
 type RootCatalogNavigatorProps = {
   categories: CategoryRecord[];
-  products: ProductRecord[];
+  previews: CategoryPreviewRecord[];
   activeBranchSlug: string | null;
   onSelectBranch: (slug: string) => void;
   onOpenCategory: (slug: string) => void;
@@ -59,7 +59,7 @@ function highlightLabel(label: string, query: string) {
 
 export default function RootCatalogNavigator({
   categories,
-  products,
+  previews,
   activeBranchSlug,
   onSelectBranch,
   onOpenCategory,
@@ -109,6 +109,11 @@ export default function RootCatalogNavigator({
     return children.flatMap(child => getLeafDescendants(child));
   };
 
+  const getBranchDescendants = (category: CategoryRecord): CategoryRecord[] => {
+    const children = byParent.get(category.id) ?? [];
+    return [category, ...children.flatMap(child => getBranchDescendants(child))];
+  };
+
   const normalizedSearchQuery = normalizeText(searchQuery);
 
   const matchedLeafCategories = useMemo(() => {
@@ -137,42 +142,38 @@ export default function RootCatalogNavigator({
     return null;
   }, [activeBranchSlug, slugMap]);
 
-  const visibleLeafCategories = useMemo(() => {
-    if (normalizedSearchQuery) return matchedLeafCategories;
-    if (!effectiveBranch) return [];
-    return getLeafDescendants(effectiveBranch);
-  }, [effectiveBranch, matchedLeafCategories, normalizedSearchQuery]);
-
-  const categoryStats = useMemo(() => {
-    const map = new Map<number, { count: number; product?: ProductRecord }>();
-    for (const product of products) {
-      const current = map.get(product.categoryId) ?? { count: 0, product: undefined };
-      current.count += 1;
-      if (!current.product && product.image) {
-        current.product = product;
-      }
-      map.set(product.categoryId, current);
-    }
-    return map;
-  }, [products]);
+  const previewByCategoryId = useMemo(
+    () => new Map(previews.map(preview => [preview.categoryId, preview] as const)),
+    [previews]
+  );
 
   const branchStats = useMemo(() => {
-    const map = new Map<number, { count: number; product?: ProductRecord }>();
+    const map = new Map<
+      number,
+      {
+        count: number;
+        previewImage?: string | null;
+        previewImageVariants?: unknown;
+      }
+    >();
     for (const category of categories) {
-      const leaves = getLeafDescendants(category);
+      const branch = getBranchDescendants(category);
       let count = 0;
-      let product: ProductRecord | undefined;
-      for (const leaf of leaves) {
-        const stats = categoryStats.get(leaf.id);
-        count += stats?.count ?? 0;
-        if (!product && stats?.product) {
-          product = stats.product;
+      let previewImage: string | null | undefined;
+      let previewImageVariants: unknown;
+
+      for (const item of branch) {
+        const stats = previewByCategoryId.get(item.id);
+        count += stats?.productCount ?? 0;
+        if (!previewImage && stats?.previewImage) {
+          previewImage = stats.previewImage;
+          previewImageVariants = stats.previewImageVariants;
         }
       }
-      map.set(category.id, { count, product });
+      map.set(category.id, { count, previewImage, previewImageVariants });
     }
     return map;
-  }, [categories, categoryStats]);
+  }, [categories, previewByCategoryId]);
 
   const toggleExpanded = (slug: string) => {
     setExpandedSlugs(prev => ({ ...prev, [slug]: !prev[slug] }));
@@ -282,24 +283,62 @@ export default function RootCatalogNavigator({
     </div>
   );
 
-  const rootCategoryCards = (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-      {topLevelCategories.map((category, index) => {
-        const stats = branchStats.get(category.id);
-        const previewProduct = stats?.product;
-        const imageProps = previewProduct
-          ? getProductCardImageProps({
-              image: previewProduct.image,
-              imageVariants: previewProduct.imageVariants,
-              sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 30vw, 260px",
-            })
-          : null;
+  const mobileRootCategories = topLevelCategories;
+  const desktopVisibleCategories = normalizedSearchQuery
+    ? matchedLeafCategories
+    : effectiveBranch
+      ? getLeafDescendants(effectiveBranch)
+      : topLevelCategories;
+  const mobileVisibleCategories = normalizedSearchQuery
+    ? matchedLeafCategories
+    : effectiveBranch
+      ? getLeafDescendants(effectiveBranch)
+      : mobileRootCategories;
+
+  const getCardCount = (
+    stats:
+      | CategoryPreviewRecord
+      | {
+          count: number;
+          previewImage?: string | null;
+          previewImageVariants?: unknown;
+        }
+      | undefined
+  ) => {
+    if (!stats) return 0;
+    return "productCount" in stats ? stats.productCount : stats.count;
+  };
+
+  const renderCategoryCards = (
+    items: CategoryRecord[],
+    mode: "branch" | "leaf",
+    layoutClassName: string,
+    imageSizes: string
+  ) => (
+    <div className={layoutClassName}>
+      {items.map((category, index) => {
+        const stats =
+          mode === "branch"
+            ? branchStats.get(category.id)
+            : previewByCategoryId.get(category.id) ?? branchStats.get(category.id);
+        const imageProps =
+          stats?.previewImage
+            ? getProductCardImageProps({
+                image: stats.previewImage,
+                imageVariants: stats.previewImageVariants,
+                sizes: imageSizes,
+              })
+            : null;
 
         return (
           <button
             key={category.id}
             type="button"
-            onClick={() => onSelectBranch(category.slug)}
+            onClick={() =>
+              mode === "branch"
+                ? onSelectBranch(category.slug)
+                : onOpenLeafCategory(category.slug)
+            }
             className="group overflow-hidden rounded-[1.75rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
             style={{ animationDelay: `${index * 30}ms` }}
           >
@@ -317,16 +356,21 @@ export default function RootCatalogNavigator({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
-                  <CategoryIcon name={category.name} slug={category.slug} size={52} className="text-current" />
+                  <CategoryIcon name={category.name} slug={category.slug} size={mode === "branch" ? 52 : 42} className="text-current" />
                 </div>
               )}
             </div>
             <div className="space-y-2 px-4 py-4 md:px-5">
-              <div className="line-clamp-2 text-sm font-black uppercase tracking-[0.03em] text-foreground md:text-base">
-                {category.name}
+              <div className={cn(
+                "line-clamp-2 text-foreground",
+                mode === "branch"
+                  ? "text-sm font-black uppercase tracking-[0.03em] md:text-base"
+                  : "text-sm font-bold leading-5"
+              )}>
+                {highlightLabel(category.name, searchQuery)}
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>{stats?.count ? `${stats.count} товаров` : "Открыть категорию"}</span>
+                <span>{getCardCount(stats) > 0 ? `${getCardCount(stats)} товаров` : mode === "branch" ? "Открыть категорию" : "Подборка товаров"}</span>
                 <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
               </div>
             </div>
@@ -336,13 +380,11 @@ export default function RootCatalogNavigator({
     </div>
   );
 
-  const showBranchNavigator = normalizedSearchQuery.length > 0 || Boolean(effectiveBranch);
-
   return (
     <div className="space-y-6 md:space-y-8">
-      {showBranchNavigator ? (
-        <>
-          <div className="md:hidden">
+      <div className="md:hidden">
+        {normalizedSearchQuery.length > 0 || effectiveBranch ? (
+          <>
             <Sheet>
               <SheetTrigger asChild>
                 <button
@@ -362,24 +404,14 @@ export default function RootCatalogNavigator({
                 <div className="p-4">{treePanel}</div>
               </SheetContent>
             </Sheet>
-          </div>
 
-          <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
-            <div className="hidden lg:block">{treePanel}</div>
-
-            <div className="space-y-4">
-              <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                      {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
-                    </div>
-                    <div className="mt-1 text-lg font-black text-foreground">
-                      {normalizedSearchQuery
-                        ? `Найдено ${visibleLeafCategories.length}`
-                        : effectiveBranch?.name ?? "Каталог"}
-                    </div>
-                  </div>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                  {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
+                </div>
+                <div className="mt-1 text-lg font-black text-foreground">
+                  {normalizedSearchQuery ? `Найдено ${mobileVisibleCategories.length}` : effectiveBranch?.name ?? "Каталог"}
                 </div>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   {normalizedSearchQuery
@@ -388,60 +420,13 @@ export default function RootCatalogNavigator({
                 </p>
               </div>
 
-              {visibleLeafCategories.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {visibleLeafCategories.map((category, index) => {
-                    const stats = categoryStats.get(category.id);
-                    const previewProduct = stats?.product;
-                    const imageProps = previewProduct
-                      ? getProductCardImageProps({
-                          image: previewProduct.image,
-                          imageVariants: previewProduct.imageVariants,
-                          sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 220px",
-                        })
-                      : null;
-
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => onOpenLeafCategory(category.slug)}
-                        className="group overflow-hidden rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <div className="flex h-[124px] items-center justify-center bg-white p-4">
-                          {imageProps ? (
-                            <img
-                              src={imageProps.src}
-                              srcSet={imageProps.srcSet}
-                              sizes={imageProps.sizes}
-                              alt={category.name}
-                              loading="lazy"
-                              decoding="async"
-                              className="category-leaf-card__image h-full w-full object-contain transition duration-200 group-hover:scale-[1.045] motion-reduce:transition-none"
-                              onError={applyProductImageFallback}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
-                              <CategoryIcon name={category.name} slug={category.slug} size={42} className="text-current" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-2 px-4 py-4">
-                          <div className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
-                            {highlightLabel(category.name, searchQuery)}
-                          </div>
-                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                            <span>
-                              {stats?.count ? `${stats.count} товаров` : "Подборка товаров"}
-                            </span>
-                            <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+              {mobileVisibleCategories.length > 0 ? (
+                renderCategoryCards(
+                  mobileVisibleCategories,
+                  "leaf",
+                  "grid grid-cols-2 gap-3 sm:grid-cols-2",
+                  "(max-width: 768px) 44vw, 220px"
+                )
               ) : (
                 <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
@@ -454,21 +439,65 @@ export default function RootCatalogNavigator({
                 </div>
               )}
             </div>
-          </div>
-        </>
-      ) : (
-        <div className="space-y-5">
+          </>
+        ) : (
+          renderCategoryCards(
+            mobileRootCategories,
+            "branch",
+            "grid grid-cols-2 gap-3 sm:grid-cols-2",
+            "(max-width: 768px) 44vw, 260px"
+          )
+        )}
+      </div>
+
+      <div className="hidden gap-6 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
+        <div className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh-var(--header-height,96px)-24px)] overflow-y-auto pr-2">
+          {treePanel}
+        </div>
+
+        <div className="space-y-4">
           <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-              Категории каталога
+              {normalizedSearchQuery
+                ? "Результаты поиска"
+                : effectiveBranch
+                  ? "Конечные категории"
+                  : "Категории каталога"}
             </div>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Выберите основной раздел, а затем мы покажем конечные категории и подкатегории без перегруза товарной выдачей.
+            <div className="mt-1 text-lg font-black text-foreground">
+              {normalizedSearchQuery
+                ? `Найдено ${desktopVisibleCategories.length}`
+                : effectiveBranch?.name ?? "Выберите ветку каталога"}
+            </div>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {normalizedSearchQuery
+                ? "Показали конечные категории, которые совпали по названию или находятся внутри подходящей ветки."
+                : effectiveBranch
+                  ? "Откройте нужную конечную категорию и перейдите к обычной товарной выдаче."
+                  : "Слева выберите ветку каталога, а справа мы сразу покажем основные разделы верхнего уровня."}
             </p>
           </div>
-          {rootCategoryCards}
+
+          {desktopVisibleCategories.length > 0 ? (
+            renderCategoryCards(
+              desktopVisibleCategories,
+              effectiveBranch || normalizedSearchQuery ? "leaf" : "branch",
+              "grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4",
+              "(max-width: 1280px) 26vw, 240px"
+            )
+          ) : (
+            <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
+                <Search size={22} />
+              </div>
+              <div className="mt-5 text-xl font-black text-foreground">Категории не найдены</div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Попробуйте другой запрос или откройте соседнюю ветку каталога.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

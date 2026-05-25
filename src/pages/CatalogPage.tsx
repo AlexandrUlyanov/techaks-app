@@ -70,6 +70,11 @@ export default function CatalogPage() {
     useState(PRODUCT_PAGE_SIZE);
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: rootCategoryPreviews = [] } =
+    trpc.product.getCatalogCategoryPreviews.useQuery(undefined, {
+      enabled: isRootCatalogNavigator,
+      placeholderData: prev => prev,
+    });
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
@@ -97,7 +102,7 @@ export default function CatalogPage() {
     { categorySlug: activeCategory, specFilters: selectedFilters },
     {
       placeholderData: prev => prev,
-      enabled: catalogView === "categories",
+      enabled: catalogView === "categories" && activeCategory !== "all",
     }
   );
   const manufacturerProductsQuery = trpc.product.getByManufacturer.useQuery(
@@ -364,7 +369,7 @@ export default function CatalogPage() {
           {isRootCatalogNavigator ? (
             <RootCatalogNavigator
               categories={categories}
-              products={products}
+              previews={rootCategoryPreviews}
               activeBranchSlug={activeTreeSlugFromHash || null}
               onSelectBranch={slug =>
                 navigate(`/catalog?cat=all#${encodeURIComponent(slug)}`, { replace: true })

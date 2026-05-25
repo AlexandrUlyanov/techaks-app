@@ -11,7 +11,7 @@ import {
   manufacturers,
 } from "@db/schema";
 import * as schema from "@db/schema";
-import { and, eq, asc, desc, like, or, sql } from "drizzle-orm";
+import { and, eq, asc, desc, inArray, like, or, sql } from "drizzle-orm";
 import {
   applyCategorySpecStandardization,
   applyCategorySpecValueStandardization,
@@ -338,6 +338,80 @@ export const productRouter = createRouter({
       .select()
       .from(categories)
       .orderBy(asc(categories.sortOrder));
+  }),
+
+  getCatalogCategoryPreviews: publicQuery.query(async () => {
+    const db = getDb();
+    const allCategories = await db
+      .select()
+      .from(categories)
+      .orderBy(asc(categories.sortOrder));
+
+    const countRows = await db
+      .select({
+        categoryId: products.categoryId,
+        productCount: sql<number>`count(*)`,
+      })
+      .from(products)
+      .where(publicProductVisibilityCondition)
+      .groupBy(products.categoryId);
+
+    const previewIdRows = await db
+      .select({
+        categoryId: products.categoryId,
+        previewProductId: sql<number>`min(${products.id})`,
+      })
+      .from(products)
+      .where(publicProductVisibilityCondition)
+      .groupBy(products.categoryId);
+
+    const previewProductIds = previewIdRows
+      .map(row => Number(row.previewProductId || 0))
+      .filter((value): value is number => value > 0);
+
+    const previewProducts =
+      previewProductIds.length > 0
+        ? await db
+            .select({
+              id: products.id,
+              categoryId: products.categoryId,
+              image: products.image,
+              imageVariants: products.imageVariants,
+            })
+            .from(products)
+            .where(inArray(products.id, previewProductIds))
+        : [];
+
+    const previewByProductId = new Map(
+      previewProducts.map(product => [product.id, product] as const)
+    );
+    const countByCategoryId = new Map(
+      countRows.map(row => [row.categoryId, Number(row.productCount || 0)] as const)
+    );
+    const previewProductIdByCategoryId = new Map(
+      previewIdRows.map(row => [row.categoryId, Number(row.previewProductId || 0)] as const)
+    );
+    const childrenByParentId = new Map<number | null, number[]>();
+    for (const category of allCategories) {
+      const key = category.parentId ?? null;
+      const bucket = childrenByParentId.get(key) ?? [];
+      bucket.push(category.id);
+      childrenByParentId.set(key, bucket);
+    }
+
+    return allCategories.map(category => {
+      const previewProduct = previewByProductId.get(
+        previewProductIdByCategoryId.get(category.id) ?? 0
+      );
+
+      return {
+        categoryId: category.id,
+        productCount: countByCategoryId.get(category.id) ?? 0,
+        previewImage: previewProduct?.image ?? null,
+        previewImageVariants: previewProduct?.imageVariants ?? null,
+        hasChildren: (childrenByParentId.get(category.id)?.length ?? 0) > 0,
+      };
+    });
   }),
 
   getByManufacturer: publicQuery
