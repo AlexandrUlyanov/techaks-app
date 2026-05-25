@@ -185,6 +185,22 @@ export default function CatalogPage() {
     { value: "price-desc", label: "По убыванию цены" },
   ] as const;
 
+  const applyMobileSort = (value: (typeof sortOptions)[number]["value"]) => {
+    setIsMobileSortOpen(false);
+    window.setTimeout(() => {
+      updateCatalogParams({
+        sort: value === "default" ? null : value,
+      });
+    }, 0);
+  };
+
+  const applyMobileLayout = (layout: "grid" | "list") => {
+    setIsMobileSortOpen(false);
+    window.setTimeout(() => {
+      updateCatalogParams({ layout: layout === "grid" ? null : layout });
+    }, 0);
+  };
+
   const hasMoreProducts = visibleProductCount < sortedProducts.length;
 
   const selectedFilterLabels = useMemo(() => {
@@ -599,7 +615,7 @@ export default function CatalogPage() {
                         </SheetContent>
                       </Sheet>
 
-                      <Sheet>
+                      <Sheet open={isMobileSortOpen} onOpenChange={setIsMobileSortOpen}>
                         <SheetTrigger asChild>
                           <button
                             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)] px-4 text-[13px] font-semibold text-foreground transition hover:text-[var(--tech-color-primary)]"
@@ -621,12 +637,7 @@ export default function CatalogPage() {
                                 <button
                                   key={option.value}
                                   type="button"
-                                  onClick={() => {
-                                    updateCatalogParams({
-                                      sort: option.value === "default" ? null : option.value,
-                                    });
-                                    setIsMobileSortOpen(false);
-                                  }}
+                                  onClick={() => applyMobileSort(option.value)}
                                   className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-[14px] font-semibold transition ${
                                     sortBy === option.value
                                       ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-foreground"
@@ -643,10 +654,7 @@ export default function CatalogPage() {
                             <div className="inline-flex items-center gap-1 rounded-full bg-[var(--tech-color-surface)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  updateCatalogParams({ layout: null });
-                                  setIsMobileSortOpen(false);
-                                }}
+                                onClick={() => applyMobileLayout("grid")}
                                 className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                                   viewMode === "grid"
                                     ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
@@ -659,10 +667,7 @@ export default function CatalogPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  updateCatalogParams({ layout: "list" });
-                                  setIsMobileSortOpen(false);
-                                }}
+                                onClick={() => applyMobileLayout("list")}
                                 className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
                                   viewMode === "list"
                                     ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
