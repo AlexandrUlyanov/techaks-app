@@ -59,6 +59,22 @@ export default function ProductCard({
   const merchandisingBadges = normalizeMerchandisingBadges(
     product.merchandisingBadges ?? product.badges
   ).slice(0, 3);
+  const topBadges = [
+    ...merchandisingBadges.map(itemBadge => ({
+      key: itemBadge,
+      label: getMerchandisingBadgeLabel(itemBadge),
+      className: getMerchandisingBadgeStyle(itemBadge),
+    })),
+    ...(product.badge
+      ? [
+          {
+            key: `manual:${product.badge}`,
+            label: product.badge,
+            className: badgeColors[product.badge] || "bg-gray-500 text-white",
+          },
+        ]
+      : []),
+  ].slice(0, 2);
   const productImage = getProductCardImageProps({
     image: product.image,
     imageVariants: product.imageVariants,
@@ -162,24 +178,17 @@ export default function ProductCard({
           className="grid grid-cols-[112px_1fr] gap-4 p-3 sm:grid-cols-[148px_1fr] sm:p-4"
         >
           <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
-            {merchandisingBadges.length > 0 && (
-              <div className="absolute left-2 top-2 z-10 flex max-w-[150px] flex-nowrap gap-2 overflow-hidden">
-                {merchandisingBadges.map(itemBadge => (
+            {topBadges.length > 0 && (
+              <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-2 overflow-hidden whitespace-nowrap">
+                {topBadges.map(itemBadge => (
                   <span
-                    key={itemBadge}
-                    className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
+                    key={itemBadge.key}
+                    className={`${itemBadge.className} truncate rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
                   >
-                    {getMerchandisingBadgeLabel(itemBadge)}
+                    {itemBadge.label}
                   </span>
                 ))}
               </div>
-            )}
-            {product.badge && (
-              <span
-                className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-12" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
-              >
-                {product.badge}
-              </span>
             )}
             <img
               src={productImage.src}
@@ -245,24 +254,17 @@ export default function ProductCard({
     <div className="flex h-full flex-col overflow-hidden rounded-[28px] bg-white">
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
         <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
-          {merchandisingBadges.length > 0 && (
-            <div className="absolute left-2 top-2 z-10 flex max-w-[180px] flex-nowrap gap-2 overflow-hidden">
-              {merchandisingBadges.map(itemBadge => (
+          {topBadges.length > 0 && (
+            <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-2 overflow-hidden whitespace-nowrap">
+              {topBadges.map(itemBadge => (
                 <span
-                  key={itemBadge}
-                  className={`${getMerchandisingBadgeStyle(itemBadge)} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
+                  key={itemBadge.key}
+                  className={`${itemBadge.className} truncate rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
                 >
-                  {getMerchandisingBadgeLabel(itemBadge)}
+                  {itemBadge.label}
                 </span>
               ))}
             </div>
-          )}
-          {product.badge && (
-            <span
-              className={`absolute ${merchandisingBadges.length > 0 ? "left-2 top-12" : "left-2 top-2"} z-10 ${badgeColors[product.badge] || "bg-gray-500"} rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-wide opacity-75`}
-            >
-              {product.badge}
-            </span>
           )}
           <img
             src={productImage.src}
