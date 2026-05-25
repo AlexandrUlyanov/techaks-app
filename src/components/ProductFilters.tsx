@@ -58,7 +58,8 @@ export default function ProductFilters({
   onToggle,
   onClear: _onClear,
 }: ProductFiltersProps) {
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
@@ -104,34 +105,44 @@ export default function ProductFilters({
     <aside className="space-y-5">
       <div className="px-1">
         <div className="space-y-5">
-          {visibleFilters.map(group => (
-            <div key={group.normalizedKey} className="pb-5 last:pb-0">
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedGroups(prev => ({
-                  ...prev,
-                  [group.normalizedKey]: !prev[group.normalizedKey],
-                }))
-              }
-              className="mb-3 flex w-full items-center justify-between gap-3 text-left"
-            >
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                {group.key}
-              </span>
-              <span className="flex items-center gap-2 text-[10px] font-black text-muted-foreground">
-                {group.values.length}
-                <ChevronDown
-                  size={14}
-                  className={cn(
-                    "transition-transform duration-200",
-                    expandedGroups[group.normalizedKey] ? "rotate-180" : ""
-                  )}
-                />
-              </span>
-            </button>
-            <div className="space-y-1.5">
-              {(expandedGroups[group.normalizedKey] ? group.values : group.values.slice(0, 6)).map(value => {
+          {visibleFilters.map((group, index) => {
+            const isOpen = openGroups[group.normalizedKey] ?? index < 2;
+            const isExpanded = showAllGroups[group.normalizedKey] ?? false;
+            const valuesToRender = !isOpen
+              ? []
+              : isExpanded
+                ? group.values
+                : group.values.slice(0, 6);
+
+            return (
+              <div key={group.normalizedKey} className="pb-5 last:pb-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenGroups(prev => ({
+                      ...prev,
+                      [group.normalizedKey]: !isOpen,
+                    }))
+                  }
+                  className="mb-3 flex w-full items-center justify-between gap-3 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    {group.key}
+                  </span>
+                  <span className="flex items-center gap-2 text-[10px] font-black text-muted-foreground">
+                    {!isOpen ? group.values.length : null}
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "transition-transform duration-200",
+                        isOpen ? "rotate-180" : ""
+                      )}
+                    />
+                  </span>
+                </button>
+                {isOpen ? <div className="space-y-1.5">
+              {valuesToRender.map(value => {
                 const filter = {
                   normalizedKey: group.normalizedKey,
                   normalizedValue: value.normalizedValue,
@@ -185,23 +196,24 @@ export default function ProductFilters({
                   </button>
                 );
               })}
-            </div>
-            {group.values.length > 6 ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedGroups(prev => ({
-                    ...prev,
-                    [group.normalizedKey]: !prev[group.normalizedKey],
-                  }))
-                }
-                className="mt-3 text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
-              >
-                {expandedGroups[group.normalizedKey] ? "Свернуть" : "Показать все"}
-              </button>
-            ) : null}
-            </div>
-          ))}
+            </div> : null}
+                {isOpen && group.values.length > 6 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAllGroups(prev => ({
+                        ...prev,
+                        [group.normalizedKey]: !isExpanded,
+                      }))
+                    }
+                    className="mt-3 text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
+                  >
+                    {isExpanded ? "Свернуть" : "Показать все"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </div>
     </aside>
