@@ -182,6 +182,8 @@ export default function ProductPage() {
   );
   const availableStores = typedStock.filter(store => store.availableQty > 0);
   const requestedTab = useMemo(() => {
+    const rawHash = location.hash.replace(/^#/, "");
+    if (isProductTabKey(rawHash)) return rawHash;
     const rawTab = new URLSearchParams(location.search).get("tab");
     if (isProductTabKey(rawTab)) return rawTab;
     if (location.hash === "#reviews" || location.hash === "#review-composer") {
@@ -413,17 +415,13 @@ export default function ProductPage() {
 
   const setProductTab = (tab: ProductDetailsTabKey) => {
     const currentParams = new URLSearchParams(location.search);
-    if (tab === "about") {
-      currentParams.delete("tab");
-    } else {
-      currentParams.set("tab", tab);
-    }
+    currentParams.delete("tab");
 
     navigate(
       {
         pathname: location.pathname,
         search: currentParams.toString() ? `?${currentParams.toString()}` : "",
-        hash: tab === "reviews" ? "#reviews" : "",
+        hash: tab === "about" ? "" : `#${tab}`,
       },
       { replace: true }
     );

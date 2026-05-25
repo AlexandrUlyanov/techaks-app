@@ -1,53 +1,100 @@
+import { Banknote, CreditCard, HandCoins, MapPinned, Package, Truck } from "lucide-react";
 import { Link } from "react-router";
 
-const DELIVERY_ITEMS = [
+const deliveryCards = [
   {
-    title: "Самовывоз из магазина",
+    icon: Package,
+    title: "Самовывоз",
     text: "После подтверждения заказа товар можно забрать в ближайшем магазине ТЕХАКС.",
   },
   {
-    title: "Курьерская доставка",
-    text: "Доставка по городу доступна после подтверждения менеджером и уточнения адреса.",
+    icon: MapPinned,
+    title: "Доставка по Пензе",
+    text: "Бережно доставим по городу после подтверждения заказа и согласования адреса.",
   },
   {
-    title: "Доставка транспортной компанией",
-    text: "Отправляем заказы по России удобной транспортной компанией или службой доставки.",
+    icon: Truck,
+    title: "Доставка по России",
+    text: "Отправляем заказы по России транспортной компанией или курьерской службой.",
   },
-  {
-    title: "Оплата",
-    text: "Доступна оплата наличными, картой и при получении в зависимости от способа получения заказа.",
-  },
+];
+
+const paymentItems = [
+  { icon: Banknote, title: "Наличными" },
+  { icon: CreditCard, title: "Картой" },
+  { icon: HandCoins, title: "При получении" },
 ];
 
 export default function ProductDeliveryTab() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black tracking-tight text-[var(--tech-color-text-main)] md:text-3xl">
+    <div className="space-y-8 text-[#20262E]">
+      <div className="max-w-3xl">
+        <div className="text-sm font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
           Доставка и оплата
+        </div>
+        <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
+          Как получить и оплатить заказ
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--tech-color-text-muted)]">
-          Условия получения и оплаты заказа. Этот блок подготовлен так, чтобы позже брать тексты из настроек сайта без переделки интерфейса.
+        <p className="mt-3 text-sm leading-7 text-[#6B7280]">
+          Блок подготовлен так, чтобы позже условия можно было забирать из настроек сайта без переделки интерфейса.
         </p>
       </div>
 
-      <div className="space-y-0">
-        {DELIVERY_ITEMS.map((item, index) => (
-          <div key={item.title} className={`py-4 ${index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""}`}>
-            <div className="text-base font-semibold text-[var(--tech-color-text-main)]">{item.title}</div>
-            <div className="mt-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">{item.text}</div>
-          </div>
-        ))}
+      <div className="grid gap-4 xl:grid-cols-3">
+        {deliveryCards.map(item => {
+          const Icon = item.icon;
+          return (
+            <article
+              key={item.title}
+              className="rounded-[1.4rem] border border-[#E2E8F0] bg-[#F8FAFC] p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[2px] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+            >
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
+                <Icon size={22} />
+              </div>
+              <h3 className="mt-4 text-lg font-extrabold text-[#20262E]">{item.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#6B7280]">{item.text}</p>
+            </article>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-extrabold text-[#20262E]">Способы оплаты</h3>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              Подберём удобный вариант под способ получения заказа.
+            </p>
+          </div>
+          <span className="inline-flex rounded-full bg-[rgba(5,195,212,0.1)] px-3 py-2 text-xs font-bold text-[#047E8A]">
+            3 способа
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {paymentItems.map(item => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="rounded-[1.1rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-4"
+              >
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#05C3D4] shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+                  <Icon size={18} />
+                </div>
+                <div className="mt-3 text-sm font-bold text-[#20262E]">{item.title}</div>
+              </div>
+            );
+          })}
+        </div>
+
         <Link
           to="/payment-delivery"
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--tech-color-surface-muted)] px-5 text-sm font-semibold text-[var(--tech-color-text-main)] transition hover:brightness-95"
+          className="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-[#F1F5F9] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:shadow-[0_12px_24px_rgba(15,23,42,0.06)]"
         >
           Подробнее о доставке и оплате
         </Link>
-      </div>
+      </section>
     </div>
   );
 }
