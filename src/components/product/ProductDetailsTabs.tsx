@@ -268,6 +268,9 @@ export default function ProductDetailsTabs({
               return (
                 <button
                   key={`mobile-${item.key}`}
+                  ref={node => {
+                    tabButtonRefs.current[item.key] = node;
+                  }}
                   type="button"
                   onClick={() => scrollToMobileSection(item.key)}
                   className={cn(
