@@ -116,26 +116,34 @@ export default function ProductDetailsTabs({
     return (Number.isFinite(headerHeight) ? headerHeight : 64) + navHeight + 14;
   };
 
-  useEffect(() => {
+  const syncMobileRail = (tab: ProductDetailsTabKey) => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const scroller = mobileScrollerRef.current;
-    const activeIndex = TAB_ITEMS.findIndex(item => item.key === mobileActiveTab);
-    const activeButton = tabButtonRefs.current[mobileActiveTab];
-    if (!scroller || !activeButton) return;
+    const activeButton = scroller?.querySelector<HTMLButtonElement>(
+      `[data-mobile-tab-trigger="${tab}"]`
+    );
+    const activeIndex = TAB_ITEMS.findIndex(item => item.key === tab);
+    if (!scroller || !activeButton || activeIndex === -1) return;
 
-    const nextLeft =
-      activeButton.offsetLeft -
-      scroller.clientWidth / 2 +
-      activeButton.clientWidth / 2;
-    const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-    const clampedLeft =
-      activeIndex <= 1 ? 0 : Math.min(Math.max(0, nextLeft), maxScroll);
+    window.requestAnimationFrame(() => {
+      const nextLeft =
+        activeButton.offsetLeft -
+        scroller.clientWidth / 2 +
+        activeButton.clientWidth / 2;
+      const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      const clampedLeft =
+        activeIndex <= 1 ? 0 : Math.min(Math.max(0, nextLeft), maxScroll);
 
-    scroller.scrollTo({
-      left: clampedLeft,
-      behavior: reducedMotion ? "auto" : "smooth",
+      scroller.scrollTo({
+        left: clampedLeft,
+        behavior: reducedMotion ? "auto" : "smooth",
+      });
     });
+  };
+
+  useEffect(() => {
+    syncMobileRail(mobileActiveTab);
   }, [mobileActiveTab, reducedMotion]);
 
   useEffect(() => {
@@ -154,6 +162,7 @@ export default function ProductDetailsTabs({
         const nextKey = visibleEntry?.target.getAttribute("data-mobile-tab") as ProductDetailsTabKey | null;
         if (nextKey) {
           setMobileActiveTab(nextKey);
+          syncMobileRail(nextKey);
         }
       },
       {
@@ -235,6 +244,7 @@ export default function ProductDetailsTabs({
     const target = mobileSectionRefs.current[tab];
     if (!target) return;
     setMobileActiveTab(tab);
+    syncMobileRail(tab);
     const nextTop =
       target.getBoundingClientRect().top + window.scrollY - getMobileScrollOffset();
     window.scrollTo({
@@ -268,9 +278,7 @@ export default function ProductDetailsTabs({
               return (
                 <button
                   key={`mobile-${item.key}`}
-                  ref={node => {
-                    tabButtonRefs.current[item.key] = node;
-                  }}
+                  data-mobile-tab-trigger={item.key}
                   type="button"
                   onClick={() => scrollToMobileSection(item.key)}
                   className={cn(
