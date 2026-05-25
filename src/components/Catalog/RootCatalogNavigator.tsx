@@ -129,12 +129,11 @@ export default function RootCatalogNavigator({
   }, [matchedLeafCategories, normalizedSearchQuery]);
 
   const effectiveBranch = useMemo(() => {
-    if (normalizedSearchQuery) return null;
     if (activeBranchSlug && slugMap.has(activeBranchSlug)) {
       return slugMap.get(activeBranchSlug) ?? null;
     }
-    return topLevelCategories[0] ?? null;
-  }, [activeBranchSlug, normalizedSearchQuery, slugMap, topLevelCategories]);
+    return null;
+  }, [activeBranchSlug, slugMap]);
 
   const visibleLeafCategories = useMemo(() => {
     if (normalizedSearchQuery) return matchedLeafCategories;
@@ -154,6 +153,24 @@ export default function RootCatalogNavigator({
     }
     return map;
   }, [products]);
+
+  const branchStats = useMemo(() => {
+    const map = new Map<number, { count: number; product?: ProductRecord }>();
+    for (const category of categories) {
+      const leaves = getLeafDescendants(category);
+      let count = 0;
+      let product: ProductRecord | undefined;
+      for (const leaf of leaves) {
+        const stats = categoryStats.get(leaf.id);
+        count += stats?.count ?? 0;
+        if (!product && stats?.product) {
+          product = stats.product;
+        }
+      }
+      map.set(category.id, { count, product });
+    }
+    return map;
+  }, [categories, categoryStats]);
 
   const toggleExpanded = (slug: string) => {
     setExpandedSlugs(prev => ({ ...prev, [slug]: !prev[slug] }));
@@ -249,129 +266,197 @@ export default function RootCatalogNavigator({
         </div>
       </div>
 
-      <div className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-        {renderTree(topLevelCategories)}
-      </div>
+      <div>{renderTree(topLevelCategories)}</div>
     </div>
   );
 
+  const rootCategoryCards = (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+      {topLevelCategories.map((category, index) => {
+        const stats = branchStats.get(category.id);
+        const previewProduct = stats?.product;
+        const imageProps = previewProduct
+          ? getProductCardImageProps({
+              image: previewProduct.image,
+              imageVariants: previewProduct.imageVariants,
+              sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 30vw, 260px",
+            })
+          : null;
+
+        return (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => onSelectBranch(category.slug)}
+            className="group overflow-hidden rounded-[1.75rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
+            style={{ animationDelay: `${index * 30}ms` }}
+          >
+            <div className="flex h-[152px] items-center justify-center bg-white p-5">
+              {imageProps ? (
+                <img
+                  src={imageProps.src}
+                  srcSet={imageProps.srcSet}
+                  sizes={imageProps.sizes}
+                  alt={category.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.045] motion-reduce:transition-none"
+                  onError={applyProductImageFallback}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
+                  <CategoryIcon name={category.name} slug={category.slug} size={52} className="text-current" />
+                </div>
+              )}
+            </div>
+            <div className="space-y-2 px-4 py-4 md:px-5">
+              <div className="line-clamp-2 text-sm font-black uppercase tracking-[0.03em] text-foreground md:text-base">
+                {category.name}
+              </div>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{stats?.count ? `${stats.count} товаров` : "Открыть категорию"}</span>
+                <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const showBranchNavigator = normalizedSearchQuery.length > 0 || Boolean(effectiveBranch);
+
   return (
     <div className="space-y-6 md:space-y-8">
-      <div className="md:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-white/5 bg-[rgba(255,255,255,0.04)] px-4 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[rgba(255,255,255,0.06)]"
-            >
-              <FolderTree size={16} />
-              Категории
-            </button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-full max-w-none overflow-y-auto border-r-white/5 bg-background p-0">
-            <SheetHeader className="border-b border-white/5 px-5 py-4">
-              <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
-                Категории
-              </SheetTitle>
-            </SheetHeader>
-            <div className="p-4">{treePanel}</div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
-        <div className="hidden lg:block">
-          <div className="sticky top-[var(--header-height,96px)]">{treePanel}</div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                  {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
-                </div>
-                <div className="mt-1 text-lg font-black text-foreground">
-                  {normalizedSearchQuery
-                    ? `Найдено ${visibleLeafCategories.length}`
-                    : effectiveBranch?.name ?? "Каталог"}
-                </div>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {normalizedSearchQuery
-                ? "Показали конечные категории, которые совпали по названию или находятся внутри подходящей ветки."
-                : "Откройте нужную конечную категорию и перейдите к обычной товарной выдаче."}
-            </p>
+      {showBranchNavigator ? (
+        <>
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-white/5 bg-[rgba(255,255,255,0.04)] px-4 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[rgba(255,255,255,0.06)]"
+                >
+                  <FolderTree size={16} />
+                  Категории
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-full max-w-none overflow-y-auto border-r-white/5 bg-background p-0">
+                <SheetHeader className="border-b border-white/5 px-5 py-4">
+                  <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
+                    Категории
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="p-4">{treePanel}</div>
+              </SheetContent>
+            </Sheet>
           </div>
 
-          {visibleLeafCategories.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleLeafCategories.map((category, index) => {
-                const stats = categoryStats.get(category.id);
-                const previewProduct = stats?.product;
-                const imageProps = previewProduct
-                  ? getProductCardImageProps({
-                      image: previewProduct.image,
-                      imageVariants: previewProduct.imageVariants,
-                      sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 220px",
-                    })
-                  : null;
+          <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
+            <div className="hidden lg:block">{treePanel}</div>
 
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => onOpenLeafCategory(category.slug)}
-                    className="group overflow-hidden rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
-                    style={{ animationDelay: `${index * 30}ms` }}
-                  >
-                    <div className="flex h-[124px] items-center justify-center bg-white p-4">
-                      {imageProps ? (
-                        <img
-                          src={imageProps.src}
-                          srcSet={imageProps.srcSet}
-                          sizes={imageProps.sizes}
-                          alt={category.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="category-leaf-card__image h-full w-full object-contain transition duration-200 group-hover:scale-[1.045] motion-reduce:transition-none"
-                          onError={applyProductImageFallback}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
-                          <CategoryIcon name={category.name} slug={category.slug} size={42} className="text-current" />
-                        </div>
-                      )}
+            <div className="space-y-4">
+              <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                      {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
                     </div>
-                    <div className="space-y-2 px-4 py-4">
-                      <div className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
-                        {highlightLabel(category.name, searchQuery)}
-                      </div>
-                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {stats?.count ? `${stats.count} товаров` : "Подборка товаров"}
-                        </span>
-                        <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                      </div>
+                    <div className="mt-1 text-lg font-black text-foreground">
+                      {normalizedSearchQuery
+                        ? `Найдено ${visibleLeafCategories.length}`
+                        : effectiveBranch?.name ?? "Каталог"}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
-                <Search size={22} />
+                  </div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {normalizedSearchQuery
+                    ? "Показали конечные категории, которые совпали по названию или находятся внутри подходящей ветки."
+                    : "Откройте нужную конечную категорию и перейдите к обычной товарной выдаче."}
+                </p>
               </div>
-              <div className="mt-5 text-xl font-black text-foreground">Категории не найдены</div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Попробуйте другой запрос или откройте соседнюю ветку каталога.
-              </p>
+
+              {visibleLeafCategories.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {visibleLeafCategories.map((category, index) => {
+                    const stats = categoryStats.get(category.id);
+                    const previewProduct = stats?.product;
+                    const imageProps = previewProduct
+                      ? getProductCardImageProps({
+                          image: previewProduct.image,
+                          imageVariants: previewProduct.imageVariants,
+                          sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 220px",
+                        })
+                      : null;
+
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => onOpenLeafCategory(category.slug)}
+                        className="group overflow-hidden rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <div className="flex h-[124px] items-center justify-center bg-white p-4">
+                          {imageProps ? (
+                            <img
+                              src={imageProps.src}
+                              srcSet={imageProps.srcSet}
+                              sizes={imageProps.sizes}
+                              alt={category.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="category-leaf-card__image h-full w-full object-contain transition duration-200 group-hover:scale-[1.045] motion-reduce:transition-none"
+                              onError={applyProductImageFallback}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
+                              <CategoryIcon name={category.name} slug={category.slug} size={42} className="text-current" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2 px-4 py-4">
+                          <div className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
+                            {highlightLabel(category.name, searchQuery)}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                            <span>
+                              {stats?.count ? `${stats.count} товаров` : "Подборка товаров"}
+                            </span>
+                            <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
+                    <Search size={22} />
+                  </div>
+                  <div className="mt-5 text-xl font-black text-foreground">Категории не найдены</div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Попробуйте другой запрос или откройте соседнюю ветку каталога.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        </>
+      ) : (
+        <div className="space-y-5">
+          <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+              Категории каталога
+            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Выберите основной раздел, а затем мы покажем конечные категории и подкатегории без перегруза товарной выдачей.
+            </p>
+          </div>
+          {rootCategoryCards}
         </div>
-      </div>
+      )}
     </div>
   );
 }

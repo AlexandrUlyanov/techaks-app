@@ -320,21 +320,22 @@ export default function CatalogPage() {
         }
       />
 
-      {/* Header Info */}
-      <section className="border-b border-border/80 pt-8 pb-6 md:pt-12 md:pb-8">
-        <div className="container-main">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-          <h1 className="text-3xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-[3.2rem]">
-            {headerTitle}
-          </h1>
+      {!isRootCatalogNavigator ? (
+        <section className="border-b border-border/80 pt-8 pb-6 md:pt-12 md:pb-8">
+          <div className="container-main">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+            <h1 className="text-3xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-[3.2rem]">
+              {headerTitle}
+            </h1>
+            </div>
+            </div>
           </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* Content */}
-      <section className="py-10 md:py-12">
+      <section className={isRootCatalogNavigator ? "py-6 md:py-8" : "py-10 md:py-12"}>
         <div className="container-main space-y-8 md:space-y-10">
           {isRootCatalogNavigator ? (
             <RootCatalogNavigator
