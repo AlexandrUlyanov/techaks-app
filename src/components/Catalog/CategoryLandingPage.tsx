@@ -110,15 +110,6 @@ function getDescendants(
   return children.flatMap(child => [child, ...getDescendants(child, byParent)]);
 }
 
-function getLeafDescendants(
-  category: CategoryRecord,
-  byParent: Map<number | null, CategoryRecord[]>
-): CategoryRecord[] {
-  const children = getChildren(byParent, category.id);
-  if (children.length === 0) return [category];
-  return children.flatMap(child => getLeafDescendants(child, byParent));
-}
-
 function getBranchProductCount(
   category: CategoryRecord,
   byParent: Map<number | null, CategoryRecord[]>,
@@ -509,9 +500,14 @@ export default function CategoryLandingPage({
     () => getChildren(byParent, currentCategory.id),
     [byParent, currentCategory.id]
   );
+  const compactLayout = sectionCategories.length <= 6;
 
   useEffect(() => {
     if (!sectionCategories.length) {
+      setActiveSectionSlug(null);
+      return;
+    }
+    if (compactLayout) {
       setActiveSectionSlug(null);
       return;
     }
@@ -522,13 +518,11 @@ export default function CategoryLandingPage({
           sectionCategories[0]?.slug ??
           null
     );
-  }, [byParent, sectionCategories]);
+  }, [byParent, compactLayout, sectionCategories]);
 
   const activeSection = useMemo(
     () =>
-      sectionCategories.find(category => category.slug === activeSectionSlug) ??
-      sectionCategories[0] ??
-      null,
+      sectionCategories.find(category => category.slug === activeSectionSlug) ?? null,
     [activeSectionSlug, sectionCategories]
   );
 
@@ -536,10 +530,12 @@ export default function CategoryLandingPage({
     getBranchProductCount(category, byParent, previewsByCategoryId);
 
   const desktopCards = useMemo(() => {
-    if (!activeSection) return [];
+    if (compactLayout || !activeSection) {
+      return sectionCategories;
+    }
     const children = getChildren(byParent, activeSection.id);
     return children.length > 0 ? children : [activeSection];
-  }, [activeSection, byParent]);
+  }, [activeSection, byParent, compactLayout, sectionCategories]);
 
   const searchResults = useMemo<SearchResultItem[]>(() => {
     const normalizedQuery = normalizeText(debouncedSearch);
@@ -577,22 +573,6 @@ export default function CategoryLandingPage({
       )
       .slice(0, 12);
   }, [byParent, categoryById, currentCategory, debouncedSearch, previewsByCategoryId]);
-
-  const popularLeafCategories = useMemo(() => {
-    return getLeafDescendants(currentCategory, byParent)
-      .map(category => ({
-        category,
-        count: previewsByCategoryId.get(category.id)?.productCount ?? 0,
-      }))
-      .filter(item => item.count > 0)
-      .sort(
-        (
-          a: { category: CategoryRecord; count: number },
-          b: { category: CategoryRecord; count: number }
-        ) => b.count - a.count || a.category.name.localeCompare(b.category.name, "ru")
-      )
-      .slice(0, 5);
-  }, [byParent, currentCategory, previewsByCategoryId]);
 
   const topDescription =
     currentCategory.description?.trim() ||
@@ -666,41 +646,24 @@ export default function CategoryLandingPage({
           <button
             type="button"
             onClick={onShowAllProducts}
-            className="inline-flex h-11 items-center rounded-full bg-[#05C3D4] px-5 text-sm font-black text-white transition hover:bg-[#27E6F2]"
+            className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-[#05C3D4] ring-1 ring-[rgba(5,195,212,0.28)] transition hover:bg-[rgba(5,195,212,0.05)]"
           >
             Показать все товары в разделе
           </button>
-          {popularLeafCategories.length > 0 && !searchValue.trim() ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#6B7280]">
-                Популярные категории
-              </span>
-              {popularLeafCategories.map(item => (
-                <Link
-                  key={item.category.id}
-                  to={`/catalog?cat=${item.category.slug}`}
-                  className="inline-flex min-h-11 items-center rounded-full bg-white/84 px-4 text-sm font-semibold text-[#1F2933] shadow-[0_10px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:bg-white"
-                >
-                  {item.category.name}
-                </Link>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
 
       {!searchValue.trim() ? (
         <>
-          <div className="hidden gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] xl:gap-8">
-            <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh-var(--header-height,96px)-24px)] overflow-y-auto pr-2">
-              <div className="rounded-[1.6rem] bg-[rgba(255,255,255,0.72)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B7280]">
-                  Разделы категории
-                </div>
-                <div className="mt-1 text-sm text-[#6B7280]">
-                  Быстрый переход по подкатегориям
-                </div>
-                <div className="mt-4 space-y-1">
+          <div
+            className={cn(
+              "hidden gap-6 lg:grid xl:gap-8",
+              compactLayout ? "lg:grid-cols-1" : "lg:grid-cols-[300px_minmax(0,1fr)]"
+            )}
+          >
+            {!compactLayout ? (
+              <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh-var(--header-height,96px)-24px)] overflow-y-auto pr-2">
+                <div className="space-y-1">
                   {sectionCategories.map((section: CategoryRecord) => {
                     const isActive = activeSection?.slug === section.slug;
                     const children = getChildren(byParent, section.id);
@@ -716,23 +679,31 @@ export default function CategoryLandingPage({
                             setActiveSectionSlug(section.slug);
                           }}
                           className={cn(
-                            "flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-left transition",
+                            "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
                             isActive
                               ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-[#1F2933] shadow-[inset_3px_0_0_0_#05C3D4]"
                               : "text-[#464A50] hover:bg-[rgba(5,195,212,0.06)]"
                           )}
                         >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
+                          <span className="flex min-w-0 items-start gap-2">
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
                               <CategoryIcon name={section.name} slug={section.slug} size={16} className="text-current" />
                             </span>
-                            <span className="truncate text-sm font-semibold">
+                            <span className="line-clamp-2 text-sm font-semibold leading-5">
                               {section.name}
                             </span>
                           </span>
-                          <span className="text-xs text-[#6B7280]">
-                            {getBranchCount(section)}
-                          </span>
+                          {children.length > 0 ? (
+                            <ChevronDown
+                              size={16}
+                              className={cn(
+                                "mt-1 shrink-0 text-[#05C3D4] transition-transform",
+                                isActive ? "rotate-180" : ""
+                              )}
+                            />
+                          ) : (
+                            <ChevronRight size={16} className="mt-1 shrink-0 text-[#05C3D4]" />
+                          )}
                         </button>
                         {isActive && children.length > 0 ? (
                           <div className="space-y-1 pl-4">
@@ -742,8 +713,8 @@ export default function CategoryLandingPage({
                                 to={`/catalog?cat=${child.slug}`}
                                 className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-[#464A50] transition hover:bg-[rgba(5,195,212,0.06)] hover:text-[#1F2933]"
                               >
-                                <span className="truncate">{child.name}</span>
-                                <ChevronRight size={14} className="shrink-0 text-[#05C3D4]" />
+                                <span className="line-clamp-2 leading-5">{child.name}</span>
+                                <ChevronRight size={14} className="mt-0.5 shrink-0 text-[#05C3D4]" />
                               </Link>
                             ))}
                           </div>
@@ -752,25 +723,18 @@ export default function CategoryLandingPage({
                     );
                   })}
                 </div>
-              </div>
-            </aside>
+              </aside>
+            ) : null}
 
             <div className="space-y-5">
-              <div className="rounded-[1.6rem] bg-[rgba(255,255,255,0.78)] px-5 py-5 shadow-[0_16px_36px_rgba(15,23,42,0.06)]">
-                <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#6B7280]">
-                  {activeSection?.name ?? currentCategory.name}
-                </div>
-                <div className="mt-2 text-sm leading-6 text-[#6B7280]">
-                  {activeSection
-                    ? getChildren(byParent, activeSection.id).length > 0
-                      ? `Выберите нужный раздел внутри «${activeSection.name}» и быстро перейдите к товарам.`
-                      : `Откройте раздел «${activeSection.name}» и перейдите к товарам этой категории.`
-                    : "Выберите подкатегорию, чтобы открыть нужный раздел."}
+              <div>
+                <div className="text-sm font-bold text-[#6B7280]">
+                  Выберите подкатегорию
                 </div>
               </div>
 
               {desktopCards.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                <div className={cn("grid gap-4", compactLayout ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2 xl:grid-cols-3")}>
                   {desktopCards.map(child => {
                     const hasChildren = getChildren(byParent, child.id).length > 0;
                     const preview = hasChildren
@@ -808,7 +772,7 @@ export default function CategoryLandingPage({
           </div>
 
           <div className="space-y-4 lg:hidden">
-            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#6B7280]">
+            <div className="text-sm font-bold text-[#6B7280]">
               Все категории
             </div>
             <MobileCategoryAccordion
