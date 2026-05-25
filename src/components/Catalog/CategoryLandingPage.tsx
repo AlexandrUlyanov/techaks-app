@@ -51,6 +51,18 @@ function normalizeText(value: string) {
   return value.trim().toLowerCase().replace(/ё/g, "е");
 }
 
+function formatProductCount(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return `${count} товар`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${count} товара`;
+  }
+
+  return `${count} товаров`;
+}
+
 function highlightText(label: string, query: string) {
   if (!query) return label;
   const normalizedLabel = normalizeText(label);
@@ -269,7 +281,7 @@ function CategorySearch({
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-xs text-muted-foreground">
-                        {result.productCount > 0 ? `${result.productCount} товаров` : result.isLeaf ? "Раздел" : "Категория"}
+                        {result.productCount > 0 ? formatProductCount(result.productCount) : result.isLeaf ? "Раздел" : "Категория"}
                       </div>
                       <ChevronRight size={16} className="ml-auto mt-1 text-[var(--tech-color-primary)]" />
                     </div>
@@ -346,8 +358,8 @@ function CategoryCard({
             {category.name}
           </div>
           {variant === "leaf" ? (
-            <div className="mt-2 text-sm text-[#6B7280]">
-              {productCount > 0 ? `${productCount} товаров` : "Перейти в раздел"}
+          <div className="mt-2 text-sm text-[#6B7280]">
+              {productCount > 0 ? formatProductCount(productCount) : "Перейти в раздел"}
             </div>
           ) : childNames?.length ? (
             <div className="mt-2 line-clamp-3 text-sm leading-6 text-[#6B7280]">
@@ -412,7 +424,7 @@ function MobileCategoryAccordion({
                 <div className="text-base font-black text-[#1F2933]">{section.name}</div>
                 <div className="mt-1 text-sm text-[#6B7280]">
                   {getBranchCount(section) > 0
-                    ? `${getBranchCount(section)} товаров`
+                    ? formatProductCount(getBranchCount(section))
                     : hasChildren
                       ? "Выберите раздел"
                       : "Открыть раздел"}
@@ -544,12 +556,21 @@ export default function CategoryLandingPage({
     const scopedCategories = getDescendants(currentCategory, byParent);
     return scopedCategories
       .filter(category => {
-        const trail = [currentCategory, ...getAncestors(category, categoryById), category];
+        const fullTrail = [...getAncestors(category, categoryById), category];
+        const currentCategoryIndex = fullTrail.findIndex(item => item.id === currentCategory.id);
+        const trail =
+          currentCategoryIndex >= 0
+            ? fullTrail.slice(currentCategoryIndex)
+            : [currentCategory, category];
         return trail.some(item => normalizeText(item.name).includes(normalizedQuery));
       })
       .map(category => {
-        const trail = [currentCategory, ...getAncestors(category, categoryById), category]
-          .filter((item, index, array) => index === 0 || item.id !== array[index - 1]?.id);
+        const fullTrail = [...getAncestors(category, categoryById), category];
+        const currentCategoryIndex = fullTrail.findIndex(item => item.id === currentCategory.id);
+        const trail =
+          currentCategoryIndex >= 0
+            ? fullTrail.slice(currentCategoryIndex)
+            : [currentCategory, category];
         const preview =
           previewsByCategoryId.get(category.id)?.previewImage
             ? previewsByCategoryId.get(category.id)
