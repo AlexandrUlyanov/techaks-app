@@ -99,18 +99,29 @@ export default function ProductDetailsTabs({
     reviews: reviewsMobile ?? reviews,
     warranty: warrantyMobile ?? warranty,
   };
-  const activeIndex = TAB_ITEMS.findIndex(item => item.key === activeTab);
   const [indicator, setIndicator] = useState<IndicatorMetrics | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<ProductDetailsTabKey>(activeTab);
 
   const panelOrder = useMemo(() => TAB_ITEMS.map(item => item.key), []);
 
+  const getMobileScrollOffset = () => {
+    if (typeof window === "undefined") return 128;
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const headerHeight = Number.parseInt(
+      rootStyles.getPropertyValue("--mobile-header-height"),
+      10
+    );
+    const navHeight = mobileScrollerRef.current?.offsetHeight ?? 52;
+    return (Number.isFinite(headerHeight) ? headerHeight : 64) + navHeight + 14;
+  };
+
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
 
     const scroller = mobileScrollerRef.current;
-    const activeButton = tabButtonRefs.current[activeTab];
+    const activeIndex = TAB_ITEMS.findIndex(item => item.key === mobileActiveTab);
+    const activeButton = tabButtonRefs.current[mobileActiveTab];
     if (!scroller || !activeButton) return;
 
     const nextLeft =
@@ -121,8 +132,11 @@ export default function ProductDetailsTabs({
     const clampedLeft =
       activeIndex <= 1 ? 0 : Math.min(Math.max(0, nextLeft), maxScroll);
 
-    scroller.scrollTo({ left: clampedLeft, behavior: "smooth" });
-  }, [activeIndex, activeTab]);
+    scroller.scrollTo({
+      left: clampedLeft,
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+  }, [mobileActiveTab, reducedMotion]);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth >= 768) return;
@@ -221,9 +235,11 @@ export default function ProductDetailsTabs({
     const target = mobileSectionRefs.current[tab];
     if (!target) return;
     setMobileActiveTab(tab);
-    target.scrollIntoView({
+    const nextTop =
+      target.getBoundingClientRect().top + window.scrollY - getMobileScrollOffset();
+    window.scrollTo({
+      top: Math.max(0, nextTop),
       behavior: reducedMotion ? "auto" : "smooth",
-      block: "start",
     });
     if (typeof window !== "undefined") {
       const nextUrl = new URL(window.location.href);
@@ -237,7 +253,7 @@ export default function ProductDetailsTabs({
       <div className="md:hidden">
         <div
           ref={mobileScrollerRef}
-          className="sticky top-[var(--mobile-header-height,64px)] z-20 -mx-4 overflow-x-auto border-y border-[#EEF2F7] bg-[rgba(255,255,255,0.94)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
+          className="sticky top-[calc(var(--mobile-header-height,64px)+6px)] z-20 -mx-4 overflow-x-auto border-y border-[#EEF2F7] bg-[rgba(255,255,255,0.94)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex min-w-max items-center gap-2">
             {TAB_ITEMS.map(item => {
@@ -277,7 +293,7 @@ export default function ProductDetailsTabs({
               }}
               id={item.key}
               data-mobile-tab={item.key}
-              className="scroll-mt-28 border-b border-[#EEF2F7] px-4 py-5 last:border-b-0"
+              className="scroll-mt-36 border-b border-[#EEF2F7] px-4 py-5 last:border-b-0"
             >
               {mobilePanels[item.key]}
             </section>
