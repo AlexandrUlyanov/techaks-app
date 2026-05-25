@@ -103,10 +103,7 @@ export default function ProductFilters({
   return (
     <aside className="space-y-5">
       {selected.length > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-[var(--tech-color-border)]/75 bg-[var(--tech-color-surface)] px-4 py-3">
-          <div className="text-[11px] font-black uppercase tracking-[0.18em] text-foreground">
-            Активные фильтры
-          </div>
+        <div className="flex items-center justify-end gap-4 rounded-2xl bg-[var(--tech-color-surface)]/92 px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
           <button
             type="button"
             onClick={onClear}
@@ -118,16 +115,8 @@ export default function ProductFilters({
         </div>
       )}
 
-      <div className="rounded-[1.5rem] border border-[var(--tech-color-border)]/70 bg-[var(--tech-color-surface)] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-foreground">
-              Фильтры
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Сузьте выбор по параметрам товара
-            </div>
-          </div>
+      <div className="rounded-[1.5rem] bg-[var(--tech-color-surface)]/92 p-4 shadow-[0_12px_28px_rgba(0,0,0,0.14)]">
+        <div className="mb-2 flex items-center justify-end gap-3">
           {selected.length > 0 ? (
             <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,var(--tech-color-surface))] px-2 text-[11px] font-black text-[var(--tech-color-primary)]">
               {selected.length}
@@ -137,7 +126,7 @@ export default function ProductFilters({
 
       <div className="space-y-5">
         {visibleFilters.map(group => (
-          <div key={group.normalizedKey} className="border-b border-border/70 pb-5 last:border-b-0 last:pb-0">
+          <div key={group.normalizedKey} className="pb-5 last:pb-0">
             <button
               type="button"
               onClick={() =>
@@ -181,14 +170,14 @@ export default function ProductFilters({
                     key={`${group.normalizedKey}:${value.normalizedValue}`}
                     type="button"
                     onClick={() => onToggle(filter)}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-muted/60"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-muted/45"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
                         className={`relative h-4 w-4 shrink-0 rounded-[5px] border transition-colors ${
                           checked
                             ? "border-[#05C3D4] bg-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.14)]"
-                            : "border-border bg-background"
+                            : "border-border/70 bg-background"
                         }`}
                       >
                         {checked ? (
@@ -211,7 +200,7 @@ export default function ProductFilters({
                         {value.value}
                       </span>
                     </span>
-                    <span className="rounded-full bg-[var(--tech-color-surface-muted)] px-2 py-1 text-[10px] font-black text-muted-foreground">
+                    <span className="rounded-full bg-[var(--tech-color-surface-muted)]/80 px-2 py-1 text-[10px] font-black text-muted-foreground">
                       {value.count}
                     </span>
                   </button>

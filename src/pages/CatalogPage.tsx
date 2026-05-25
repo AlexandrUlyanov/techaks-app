@@ -331,22 +331,8 @@ export default function CatalogPage() {
         }
       />
 
-      {!isRootCatalogNavigator ? (
-        <section className="border-b border-border/80 pt-8 pb-6 md:pt-12 md:pb-8">
-          <div className="container-main">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-            <h1 className="text-3xl font-black uppercase font-heading leading-none tracking-tighter text-foreground md:text-[3.2rem]">
-              {headerTitle}
-            </h1>
-            </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       {/* Content */}
-      <section className={isRootCatalogNavigator ? "py-6 md:py-8" : "py-10 md:py-12"}>
+      <section className={isRootCatalogNavigator ? "py-6 md:py-8" : "py-6 md:py-8"}>
         <div className="container-main space-y-8 md:space-y-10">
           {isRootCatalogNavigator ? (
             <RootCatalogNavigator
@@ -400,7 +386,7 @@ export default function CatalogPage() {
 
           {displayCategories.length > 0 && (
             <div className="space-y-4">
-              <div className="rounded-[1.75rem] border border-border/80 bg-[var(--tech-color-surface)] px-4 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.06)] md:px-5 md:py-5">
+              <div className="rounded-[1.75rem] bg-[var(--tech-color-surface)]/88 px-4 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.06)] md:px-5 md:py-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
@@ -415,7 +401,7 @@ export default function CatalogPage() {
                       <button
                         type="button"
                         onClick={() => setShowAllCategories(prev => !prev)}
-                        className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-primary)] transition hover:border-[rgba(5,195,212,0.45)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_6%,white)]"
+                        className="inline-flex items-center gap-2 rounded-full bg-background/92 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--tech-color-primary)] transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,white)]"
                       >
                         {showAllCategories ? "Скрыть" : "Показать все"}
                         <ChevronDown
@@ -443,7 +429,7 @@ export default function CatalogPage() {
                         key={cat.id}
                         type="button"
                         onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full border border-border/80 bg-background px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.45)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98]"
+                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-background/94 px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98]"
                       >
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
                           <CategoryIcon
@@ -467,7 +453,7 @@ export default function CatalogPage() {
                       key={cat.id}
                       type="button"
                       onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="group inline-flex h-12 items-center gap-2.5 rounded-full border border-border/80 bg-background px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.45)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                      className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-background/94 px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_12px_28px_rgba(0,0,0,0.08)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
                       style={{ animationDelay: `${index * 30}ms` }}
                     >
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
@@ -490,13 +476,13 @@ export default function CatalogPage() {
 
           {/* Products Grid */}
           {showProductSection && (
-          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-8 border-t border-border" : ""}>
+          <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-6" : ""}>
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
                   <div
                     key={i}
-                    className="h-[400px] rounded-2xl border border-border bg-[var(--tech-color-surface)] animate-pulse"
+                    className="h-[400px] rounded-2xl bg-[var(--tech-color-surface)] animate-pulse"
                   />
                 ))}
               </div>
@@ -513,7 +499,7 @@ export default function CatalogPage() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="rounded-[1.5rem] border border-border/80 bg-[var(--tech-color-surface)] p-3.5 shadow-[0_16px_36px_rgba(0,0,0,0.06)] md:p-4">
+                  <div className="rounded-[1.5rem] bg-[var(--tech-color-surface)]/92 p-3.5 shadow-[0_16px_36px_rgba(0,0,0,0.06)] md:p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <div className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
@@ -535,7 +521,7 @@ export default function CatalogPage() {
                             })
                           }
                         >
-                          <SelectTrigger className="h-11 min-w-[220px] rounded-full border-border/60 bg-[var(--tech-color-surface)] pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none">
+                          <SelectTrigger className="h-11 min-w-[220px] rounded-full border-transparent bg-background/96 pl-2.5 pr-3 text-[13px] font-semibold text-foreground shadow-none">
                             <div className="flex min-w-0 items-center gap-2">
                               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                                 <ArrowUpDown size={14} />
@@ -550,7 +536,7 @@ export default function CatalogPage() {
                           </SelectContent>
                         </Select>
 
-                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
+                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-background/96 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
                           <button
                             type="button"
                             onClick={() => updateCatalogParams({ layout: null })}
@@ -632,7 +618,7 @@ export default function CatalogPage() {
                                 })
                               }
                             >
-                              <SelectTrigger className="h-11 rounded-full border-border/60 bg-[var(--tech-color-surface)] text-[13px] font-semibold text-foreground shadow-none">
+                            <SelectTrigger className="h-11 rounded-full border-transparent bg-[var(--tech-color-surface)] text-[13px] font-semibold text-foreground shadow-none">
                                 <SelectValue placeholder="Сортировка" />
                               </SelectTrigger>
                               <SelectContent>
@@ -641,7 +627,7 @@ export default function CatalogPage() {
                                 <SelectItem value="price-desc">По убыванию цены</SelectItem>
                               </SelectContent>
                             </Select>
-                            <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-[var(--tech-color-surface)] p-1">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-[var(--tech-color-surface)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
                               <button
                                 type="button"
                                 onClick={() => updateCatalogParams({ layout: null })}
@@ -675,7 +661,7 @@ export default function CatalogPage() {
                     </div>
 
                     {hasSelectedFilters && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+                      <div className="mt-3 flex flex-wrap items-center gap-2 pt-1">
                       {selectedFilterLabels.map(filter => (
                         <button
                           key={`${filter.normalizedKey}:${filter.normalizedValue}`}
@@ -735,7 +721,7 @@ export default function CatalogPage() {
                   )}
                   {sortedProducts.length === 0 && (
                     <div className="py-12">
-                      <div className="mx-auto flex max-w-2xl flex-col items-center rounded-[2rem] border border-dashed border-border bg-[var(--tech-color-surface)] px-6 py-14 text-center sm:px-10">
+                      <div className="mx-auto flex max-w-2xl flex-col items-center rounded-[2rem] bg-[var(--tech-color-surface)] px-6 py-14 text-center shadow-[0_16px_36px_rgba(0,0,0,0.06)] sm:px-10">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                           <SlidersHorizontal size={22} />
                         </div>
