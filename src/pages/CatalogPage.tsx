@@ -219,6 +219,17 @@ export default function CatalogPage() {
   }, [categories, activeCategory]);
 
   const currentManufacturer = currentManufacturerQuery.data ?? null;
+  const hashedRootCategory = useMemo(() => {
+    if (!activeTreeSlugFromHash) return null;
+    return categories.find(category => category.slug === activeTreeSlugFromHash) ?? null;
+  }, [categories, activeTreeSlugFromHash]);
+
+  useEffect(() => {
+    if (!isRootCatalogNavigator || !hashedRootCategory) return;
+    if (hashedRootCategory.parentId === null) return;
+
+    navigate(`/catalog?cat=${hashedRootCategory.slug}`, { replace: true });
+  }, [hashedRootCategory, isRootCatalogNavigator, navigate]);
 
   const activeCategoryName = useMemo(() => {
     if (activeCategory === "all") return "Все";
@@ -345,6 +356,7 @@ export default function CatalogPage() {
               onSelectBranch={slug =>
                 navigate(`/catalog?cat=all#${encodeURIComponent(slug)}`, { replace: true })
               }
+              onOpenCategory={slug => navigate(`/catalog?cat=${slug}`)}
               onOpenLeafCategory={slug => navigate(`/catalog?cat=${slug}`)}
             />
           ) : (

@@ -31,6 +31,7 @@ type RootCatalogNavigatorProps = {
   products: ProductRecord[];
   activeBranchSlug: string | null;
   onSelectBranch: (slug: string) => void;
+  onOpenCategory: (slug: string) => void;
   onOpenLeafCategory: (slug: string) => void;
 };
 
@@ -61,6 +62,7 @@ export default function RootCatalogNavigator({
   products,
   activeBranchSlug,
   onSelectBranch,
+  onOpenCategory,
   onOpenLeafCategory,
 }: RootCatalogNavigatorProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,9 +204,19 @@ export default function RootCatalogNavigator({
               >
                 <button
                   type="button"
-                  onClick={() =>
-                    hasChildren ? onSelectBranch(category.slug) : onOpenLeafCategory(category.slug)
-                  }
+                  onClick={() => {
+                    if (!hasChildren) {
+                      onOpenLeafCategory(category.slug);
+                      return;
+                    }
+
+                    if (depth === 0) {
+                      onSelectBranch(category.slug);
+                      return;
+                    }
+
+                    onOpenCategory(category.slug);
+                  }}
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)] transition group-hover:scale-[1.03] motion-reduce:transition-none">
