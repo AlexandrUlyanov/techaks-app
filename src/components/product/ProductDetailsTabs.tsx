@@ -58,14 +58,41 @@ export default function ProductDetailsTabs({
                 type="button"
                 onClick={() => onTabChange(item.key)}
                 className={cn(
-                  "relative shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors md:px-5",
+                  "relative shrink-0 overflow-hidden rounded-full py-2.5 text-sm font-semibold transition-[width,padding,background-color,color] duration-200 md:px-5",
                   isActive
-                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))] text-[var(--tech-color-text-main)]"
-                    : "text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
+                    ? "w-10 bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,var(--tech-color-surface))] px-0 text-[var(--tech-color-text-main)] md:w-auto md:px-5"
+                    : "px-4 text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
                 )}
                 aria-pressed={isActive}
+                aria-label={item.label}
               >
-                {item.label}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mx-auto flex h-5 items-center justify-center transition-all duration-200 md:hidden",
+                    isActive ? "w-5 opacity-100" : "w-0 opacity-0"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--tech-color-primary)]" />
+                </span>
+                <span
+                  className={cn(
+                    "hidden whitespace-nowrap transition-all duration-200 md:inline",
+                    isActive ? "md:opacity-100" : "md:opacity-100"
+                  )}
+                >
+                  {item.label}
+                </span>
+                <span
+                  className={cn(
+                    "whitespace-nowrap transition-all duration-200 md:hidden",
+                    isActive
+                      ? "max-w-0 opacity-0"
+                      : "max-w-[13rem] opacity-100"
+                  )}
+                >
+                  {item.label}
+                </span>
                 <span
                   className={cn(
                     "pointer-events-none absolute inset-x-4 -bottom-[13px] h-0.5 rounded-full transition-opacity",
