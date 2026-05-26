@@ -2,6 +2,7 @@ import { trpc } from "@/providers/trpc";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
+  ExternalLink,
   Loader2,
   MessageSquarePlus,
   Package,
@@ -274,12 +275,30 @@ export default function AdminOrderDetails() {
     latestClientCommentMs > 0 && latestClientCommentMs > latestAdminReadClientMs;
   const storeId = "storeId" in order ? order.storeId : null;
   const reservationId = "reservationId" in order ? order.reservationId : null;
+  const moyskladOrderId = "moyskladOrderId" in order ? order.moyskladOrderId : null;
+  const moyskladOrderHref = "moyskladOrderHref" in order ? order.moyskladOrderHref : null;
+  const moyskladExternalCode =
+    "moyskladExternalCode" in order ? order.moyskladExternalCode : null;
+  const moyskladSyncStatus = "moyskladSyncStatus" in order ? order.moyskladSyncStatus : null;
+  const isStatusManagedByMoysklad = Boolean(
+    moyskladOrderId?.trim() || moyskladOrderHref?.trim()
+  );
 
   const itemTotal = order.items.reduce(
     (acc: number, item: OrderItem) =>
       acc + Number(item.total || item.price * item.quantity || 0),
     0
   );
+  const moyskladSyncLabel =
+    moyskladSyncStatus === "success"
+      ? "Синхронизация активна"
+      : moyskladSyncStatus === "processing"
+        ? "Синхронизируется"
+        : moyskladSyncStatus === "error"
+          ? "Ошибка синхронизации"
+          : moyskladSyncStatus === "pending"
+            ? "Ждёт синхронизации"
+            : "Состояние не определено";
 
   return (
     <div className="space-y-6">
@@ -305,6 +324,12 @@ export default function AdminOrderDetails() {
               <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
                 <MessageSquarePlus size={14} />
                 Новое сообщение клиента
+              </span>
+            ) : null}
+            {isStatusManagedByMoysklad ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#05C3D4]/20 bg-[#F7FEFF] px-3 py-1 text-xs font-bold text-[#0099A8]">
+                <Package size={14} />
+                Статус из МойСклад
               </span>
             ) : null}
           </div>
@@ -410,6 +435,68 @@ export default function AdminOrderDetails() {
           tone="success"
         />
       </div>
+
+      {isStatusManagedByMoysklad ? (
+        <AdminSection
+          title="Связь с МойСклад"
+          description="Этот заказ уже связан с МойСклад. Статус на сайте только отображается и обновляется обратной синхронизацией."
+          tone="subtle"
+        >
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="rounded-2xl bg-[#F7FEFF] px-4 py-4 text-[#15171A]">
+                <div className="text-[11px] font-black uppercase tracking-[0.16em] text-[#0099A8]">
+                  Источник статуса
+                </div>
+                <div className="mt-2 text-base font-bold">МойСклад</div>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Если менеджер меняет статус в МойСклад, сайт подтягивает его автоматически.
+                  Локально менять статус такого заказа больше не нужно.
+                </p>
+              </div>
+              {moyskladOrderHref ? (
+                <a
+                  href={moyskladOrderHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#0099A8] hover:text-[#05C3D4]"
+                >
+                  <ExternalLink size={15} />
+                  Открыть документ МойСклад
+                </a>
+              ) : null}
+            </div>
+            <div className="space-y-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-600">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400">
+                  Состояние синхронизации
+                </div>
+                <div className="mt-1 font-semibold text-[#15171A]">{moyskladSyncLabel}</div>
+              </div>
+              {moyskladExternalCode ? (
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400">
+                    External code
+                  </div>
+                  <div className="mt-1 break-all font-medium text-[#15171A]">
+                    {moyskladExternalCode}
+                  </div>
+                </div>
+              ) : null}
+              {moyskladOrderId ? (
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400">
+                    ID документа МойСклад
+                  </div>
+                  <div className="mt-1 break-all font-medium text-[#15171A]">
+                    {moyskladOrderId}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </AdminSection>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.95fr)]">
         <div className="space-y-6">
