@@ -17,6 +17,7 @@ import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladFullSyncWatchdog } from "./lib/moysklad-full-sync-watchdog";
 import {
+  getMoyskladOrderWebhookToken,
   ingestMoyskladOrderWebhook,
   processMoyskladOrderSyncJobs,
 } from "./lib/moysklad-order-sync";
@@ -442,13 +443,18 @@ app.post("/api/sync/moysklad/reconcile", async c => {
 
 app.post("/api/moysklad/webhook/orders", async c => {
   try {
-    const configuredToken = env.moyskladWebhookToken.trim();
+    const configuredToken = await getMoyskladOrderWebhookToken();
     if (!configuredToken) {
       return c.body(null, 204);
     }
 
-    const token = c.req.query("token")?.trim() || "";
-    if (!token || token !== configuredToken) {
+    const providedToken =
+      c.req.query("token")?.trim() ||
+      c.req.query("secret")?.trim() ||
+      c.req.header("x-webhook-secret")?.trim() ||
+      c.req.header("x-moysklad-secret")?.trim() ||
+      "";
+    if (!providedToken || providedToken !== configuredToken) {
       return c.json({ ok: false, error: "Unauthorized" }, 401);
     }
 

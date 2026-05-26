@@ -202,6 +202,14 @@ async function writeOrderSyncLog(
   });
 }
 
+export async function getMoyskladOrderWebhookToken() {
+  const envToken = env.moyskladWebhookToken.trim();
+  if (envToken) return envToken;
+
+  const settings = await getAppSettings(["moysklad_webhook_secret"]);
+  return settings.moysklad_webhook_secret?.trim() || "";
+}
+
 export async function getMoyskladOrderSyncSettings(): Promise<OrderSyncSettings> {
   const settings = await getAppSettings([...ORDER_SYNC_SETTINGS_KEYS]);
   return {
@@ -212,7 +220,7 @@ export async function getMoyskladOrderSyncSettings(): Promise<OrderSyncSettings>
     createCounterparties: parseBoolean(settings.moysklad_order_create_counterparties, true),
     reserveOnOrder: env.moyskladReserveOnOrder,
     defaultCounterpartyHref: env.moyskladDefaultCounterpartyHref?.trim() || null,
-    webhookTokenConfigured: Boolean(env.moyskladWebhookToken.trim()),
+    webhookTokenConfigured: Boolean(await getMoyskladOrderWebhookToken()),
     statusMapping: parseJsonRecord(settings.moysklad_order_status_mapping_json),
   };
 }
@@ -246,10 +254,12 @@ export async function saveMoyskladOrderSyncSettings(input: {
 
 export async function getCustomerOrderStates() {
   const client = await getMoyskladClient();
-  const data = await client.get<{ rows?: Array<{ name?: string; meta?: { href?: string } }> }>(
-    "/entity/customerorder/metadata/states"
+  const data = await client.get<{
+    states?: Array<{ name?: string; meta?: { href?: string } }>;
+  }>(
+    "/entity/customerorder/metadata"
   );
-  return (data.rows ?? [])
+  return (data.states ?? [])
     .map(row => ({
       name: row.name?.trim() || "",
       href: row.meta?.href?.trim() || "",

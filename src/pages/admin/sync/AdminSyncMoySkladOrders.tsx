@@ -427,8 +427,9 @@ export default function AdminSyncMoySkladOrders() {
             ))}
 
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-xs text-gray-600">
-              Webhook token для заказов хранится только в ENV и во frontend не
-              выводится. Если он не задан, endpoint остаётся выключенным.
+              Для webhook заказов используется токен из ENV или сохранённый
+              секрет вебхука из настроек МойСклад. Если ни один из них не
+              задан, endpoint остаётся выключенным.
             </div>
           </div>
         </AdminSection>
