@@ -197,9 +197,9 @@ export default function RootCatalogNavigator({
             <div key={category.id} className="space-y-1">
               <div
                 className={cn(
-                  "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-all duration-200 motion-reduce:transition-none",
+                  "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-colors duration-200 motion-reduce:transition-none",
                   active
-                    ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-foreground shadow-[inset_3px_0_0_0_#05C3D4]"
+                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_13%,transparent)] text-foreground"
                     : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,transparent)] hover:text-foreground"
                 )}
               >
@@ -232,7 +232,7 @@ export default function RootCatalogNavigator({
                   <button
                     type="button"
                     onClick={() => toggleExpanded(category.slug)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
                     aria-label={isExpanded(category) ? "Свернуть категорию" : "Раскрыть категорию"}
                   >
                     <ChevronDown
@@ -257,7 +257,7 @@ export default function RootCatalogNavigator({
   };
 
   const treePanel = (
-    <div className="rounded-[1.6rem] border border-white/5 bg-[rgba(255,255,255,0.035)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-sm md:p-5">
+    <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] p-4 md:p-5">
       <div className="mb-4">
         <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
           Дерево каталога
@@ -274,7 +274,7 @@ export default function RootCatalogNavigator({
             value={searchQuery}
             onChange={event => setSearchQuery(event.target.value)}
             placeholder="Найти категорию..."
-            className="h-11 rounded-full border-white/8 bg-[rgba(255,255,255,0.025)] pl-9 pr-4 text-sm shadow-none focus-visible:ring-[var(--tech-color-primary)]/25"
+            className="h-11 rounded-full border-transparent bg-[var(--tech-color-surface-muted)]/80 pl-9 pr-4 text-sm shadow-none focus-visible:ring-[var(--tech-color-primary)]/25"
           />
         </div>
       </div>
@@ -339,7 +339,7 @@ export default function RootCatalogNavigator({
                 ? onSelectBranch(category.slug)
                 : onOpenLeafCategory(category.slug)
             }
-            className="group overflow-hidden rounded-[1.75rem] border border-white/5 bg-[rgba(255,255,255,0.035)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] transition duration-200 hover:-translate-y-[3px] hover:bg-[rgba(255,255,255,0.055)] hover:shadow-[0_20px_45px_rgba(0,0,0,0.22)] active:scale-[0.99] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
+            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left transition-colors duration-200 hover:bg-[color:color-mix(in_srgb,var(--tech-color-surface)_82%,var(--tech-color-surface-muted))] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
             style={{ animationDelay: `${index * 30}ms` }}
           >
             <div className="flex h-[152px] items-center justify-center bg-white p-5">
@@ -355,7 +355,7 @@ export default function RootCatalogNavigator({
                   onError={applyProductImageFallback}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[rgba(255,255,255,0.025)] text-[var(--tech-color-primary)]">
+                <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[var(--tech-color-surface-muted)]/60 text-[var(--tech-color-primary)]">
                   <CategoryIcon name={category.name} slug={category.slug} size={mode === "branch" ? 52 : 42} className="text-current" />
                 </div>
               )}
@@ -371,7 +371,7 @@ export default function RootCatalogNavigator({
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>{getCardCount(stats) > 0 ? `${getCardCount(stats)} товаров` : mode === "branch" ? "Открыть категорию" : "Подборка товаров"}</span>
-                <ChevronRight size={15} className="text-[var(--tech-color-primary)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                <ChevronRight size={15} className="text-[var(--tech-color-primary)]" />
               </div>
             </div>
           </button>
@@ -389,14 +389,14 @@ export default function RootCatalogNavigator({
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-white/5 bg-[rgba(255,255,255,0.04)] px-4 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:bg-[rgba(255,255,255,0.06)]"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[var(--tech-color-surface-muted)]/80 px-4 text-sm font-semibold text-foreground transition-colors hover:bg-[var(--tech-color-surface-muted)]"
                 >
                   <FolderTree size={16} />
                   Категории
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-full max-w-none overflow-y-auto border-r-white/5 bg-background p-0">
-                <SheetHeader className="border-b border-white/5 px-5 py-4">
+              <SheetContent side="left" className="w-full max-w-none bg-background p-0">
+                <SheetHeader className="px-5 py-4">
                   <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
                     Категории
                   </SheetTitle>
@@ -406,7 +406,7 @@ export default function RootCatalogNavigator({
             </Sheet>
 
             <div className="mt-6 space-y-4">
-              <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+              <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4">
                 <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
                   {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
                 </div>
@@ -428,7 +428,7 @@ export default function RootCatalogNavigator({
                   "(max-width: 768px) 44vw, 220px"
                 )
               ) : (
-                <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+                <div className="rounded-[1.5rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-6 py-12 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
                     <Search size={22} />
                   </div>
@@ -451,12 +451,12 @@ export default function RootCatalogNavigator({
       </div>
 
       <div className="hidden gap-6 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
-        <div className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh-var(--header-height,96px)-24px)] overflow-y-auto pr-2">
+        <div className="sticky top-[var(--header-height,96px)] self-start">
           {treePanel}
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-[1.5rem] border border-white/5 bg-[rgba(255,255,255,0.035)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)] md:px-5">
+          <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4 md:px-5">
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
               {normalizedSearchQuery
                 ? "Результаты поиска"
@@ -486,7 +486,7 @@ export default function RootCatalogNavigator({
               "(max-width: 1280px) 26vw, 240px"
             )
           ) : (
-            <div className="rounded-[1.75rem] border border-dashed border-white/8 bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_40px_rgba(0,0,0,0.16)]">
+            <div className="rounded-[1.5rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-6 py-12 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
                 <Search size={22} />
               </div>
