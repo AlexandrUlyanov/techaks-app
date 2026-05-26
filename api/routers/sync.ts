@@ -1095,11 +1095,14 @@ export const syncRouter = createRouter({
         await tx.execute(sql`DELETE FROM manufacturer_category_index`);
         await tx.execute(sql`DELETE FROM manufacturers`);
 
-        // Stocks, reservations, and order line items tied to products.
+        // Stocks, reservations, and order data tied to products.
         await tx.execute(sql`DELETE FROM product_variant_stocks`);
         await tx.execute(sql`DELETE FROM product_stocks`);
         await tx.execute(sql`DELETE FROM product_reservations`);
+        await tx.execute(sql`DELETE FROM order_comments`);
+        await tx.execute(sql`DELETE FROM order_history`);
         await tx.execute(sql`DELETE FROM order_items`);
+        await tx.execute(sql`DELETE FROM orders`);
 
         // Core catalog entities.
         await tx.execute(sql`DELETE FROM product_variants`);
@@ -1110,7 +1113,7 @@ export const syncRouter = createRouter({
       return {
         success: true,
         message:
-          "Каталог полностью очищен: удалены категории, товары, модификации, остатки, поиск, отзывы и товарные строки заказов",
+          "Каталог полностью очищен: удалены категории, товары, модификации, остатки, поиск, отзывы и заказы",
       };
     } catch (error: unknown) {
       throw new Error(
