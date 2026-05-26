@@ -183,6 +183,10 @@ export default function ProductPage() {
     }
   );
   const availableStores = typedStock.filter(store => store.availableQty > 0);
+  const selectedVariantAvailableQty = availableStores.reduce(
+    (sum, store) => sum + Math.max(0, Number(store.availableQty ?? 0)),
+    0
+  );
   const requestedTab = useMemo(() => {
     const rawHash = location.hash.replace(/^#/, "");
     if (isProductTabKey(rawHash)) return rawHash;
@@ -321,7 +325,9 @@ export default function ProductPage() {
   const isManufacturerSpec = (key: string) =>
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
   const normalizedDescription = (product.description || "").trim();
-  const isInStock = Boolean(product.inStock);
+  const isInStock = hasVariants
+    ? selectedVariantAvailableQty > 0
+    : Boolean(product.inStock);
   const manufacturer = productManufacturer ?? null;
   const hasManufacturer = Boolean(manufacturer);
   const merchandisingBadges = normalizeMerchandisingBadges(
@@ -338,7 +344,9 @@ export default function ProductPage() {
   const hasVariantPriceRange =
     hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
   const displayedPrice = selectedVariant?.price ?? product.price;
-  const displayedStockCount = selectedVariant?.stock ?? availableStores.length;
+  const displayedStockCount = hasVariants
+    ? selectedVariantAvailableQty
+    : selectedVariant?.stock ?? availableStores.length;
   const displayedArticle =
     selectedVariant?.article ||
     (product as { article?: string | null; externalCode?: string | null }).article ||
@@ -433,7 +441,10 @@ export default function ProductPage() {
       return false;
     }
 
-    if (selectedVariant && (!selectedVariant.isActive || selectedVariant.stock <= 0)) {
+    if (
+      selectedVariant &&
+      (!selectedVariant.isActive || selectedVariantAvailableQty <= 0)
+    ) {
       toast.error("Выбранный вариант сейчас недоступен");
       return false;
     }
