@@ -229,6 +229,7 @@ export default function AdminLeads() {
       await utils.ecommerce.listOrders.invalidate();
       toast.success("Статус заказа обновлен");
     },
+    onError: err => toast.error(err.message || "Ошибка обновления статуса"),
   });
   const bulkStatusMutation = trpc.ecommerce.bulkUpdateOrderStatus.useMutation({
     onSuccess: async result => {
@@ -251,6 +252,10 @@ export default function AdminLeads() {
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const compatibilityWarnings = data?.compatibilityWarnings ?? [];
+  const selectedOrders = orders.filter(order => selectedIds.includes(order.id));
+  const hasSelectedMoyskladManagedOrders = selectedOrders.some(
+    order => Boolean((order as any).moyskladOrderId || (order as any).moyskladOrderHref)
+  );
 
   const pendingConversations = orders.filter(order => {
     const clientCommentsCount = Number((order as any).clientCommentsCount ?? 0);
@@ -501,6 +506,7 @@ export default function AdminLeads() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="text-sm text-gray-600">
             Меняйте статус сразу у группы заказов, когда это действительно нужно.
+            Заказы, уже связанные с МойСклад, обновляют статус только оттуда.
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
@@ -522,13 +528,22 @@ export default function AdminLeads() {
               onClick={() =>
                 bulkStatusMutation.mutate({ orderIds: selectedIds, status: bulkStatus })
               }
-              disabled={selectedIds.length === 0 || bulkStatusMutation.isPending}
+              disabled={
+                selectedIds.length === 0 ||
+                bulkStatusMutation.isPending ||
+                hasSelectedMoyskladManagedOrders
+              }
               className="h-10 rounded-xl bg-[#05C3D4] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
             >
               Применить массово
             </button>
           </div>
         </div>
+        {hasSelectedMoyskladManagedOrders ? (
+          <div className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            В выборке есть заказы, синхронизированные с МойСклад. Их статусы нужно менять в МойСклад.
+          </div>
+        ) : null}
       </AdminSection>
 
       <div className="grid grid-cols-1 gap-4">
@@ -538,6 +553,9 @@ export default function AdminLeads() {
           </div>
         ) : (
           orders.map(order => {
+            const isStatusManagedByMoysklad = Boolean(
+              (order as any).moyskladOrderId || (order as any).moyskladOrderHref
+            );
             const clientCommentsCount = Number((order as any).clientCommentsCount ?? 0);
             const latestClientCommentAt = (order as any).latestClientCommentAt
               ? new Date((order as any).latestClientCommentAt).getTime()
@@ -586,6 +604,12 @@ export default function AdminLeads() {
                       </div>
 
                       <OrderStatusPill status={order.status} />
+
+                      {isStatusManagedByMoysklad ? (
+                        <span className="rounded-full border border-[#05C3D4]/20 bg-[#F7FEFF] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#0099A8]">
+                          Статус из МойСклад
+                        </span>
+                      ) : null}
 
                       {order.source === "legacy" ? (
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">
@@ -719,7 +743,7 @@ export default function AdminLeads() {
                             | "problem",
                         })
                       }
-                      disabled={updateStatusMutation.isPending}
+                      disabled={updateStatusMutation.isPending || isStatusManagedByMoysklad}
                       className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:opacity-50"
                     >
                       <option value="pending">Новый</option>
@@ -734,6 +758,12 @@ export default function AdminLeads() {
                       <option value="problem">Проблемный</option>
                       <option value="cancelled">Отменен</option>
                     </select>
+
+                    {isStatusManagedByMoysklad ? (
+                      <p className="text-xs leading-5 text-gray-500">
+                        Статус этого заказа приходит из МойСклад. Меняйте его там, сайт обновится автоматически.
+                      </p>
+                    ) : null}
 
                     {ability.can("manage", "all") ? (
                       <button

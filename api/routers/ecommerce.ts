@@ -459,6 +459,8 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
         id: orders.id,
         totalPrice: orders.totalPrice,
         status: orders.status,
+        moyskladOrderId: orders.moyskladOrderId,
+        moyskladOrderHref: orders.moyskladOrderHref,
         paymentStatus: orders.paymentStatus,
         deliveryStatus: orders.deliveryStatus,
         deliveryType: orders.deliveryType,
@@ -483,6 +485,8 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
         id,
         total_price AS totalPrice,
         status,
+        NULL AS moyskladOrderId,
+        NULL AS moyskladOrderHref,
         payment_status AS paymentStatus,
         CASE
           WHEN delivery_type = 'delivery' THEN 'awaiting_processing'
@@ -505,6 +509,27 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
     const rows = Array.isArray((raw as any)?.[0]) ? (raw as any)[0] : (raw as any[]);
     return rows[0];
   }
+}
+
+function isOrderStatusManagedByMoysklad(order: {
+  moyskladOrderId?: string | null;
+  moyskladOrderHref?: string | null;
+}) {
+  return Boolean(order.moyskladOrderId?.trim() || order.moyskladOrderHref?.trim());
+}
+
+function assertOrderStatusEditableLocally(order: {
+  id?: number | null;
+  orderNumber?: string | null;
+  moyskladOrderId?: string | null;
+  moyskladOrderHref?: string | null;
+}) {
+  if (!isOrderStatusManagedByMoysklad(order)) return;
+  const humanNumber = order.orderNumber?.trim() || (order.id ? `#${order.id}` : "этого заказа");
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: `Статус заказа ${humanNumber} управляется из МойСклад. Меняйте его в МойСклад — сайт подтянет обновление автоматически.`,
+  });
 }
 
 async function getOrderItemCoreForUpdate(
@@ -1994,6 +2019,9 @@ export const ecommerceRouter = createRouter({
             orderNumber: orders.orderNumber,
             userId: orders.userId,
             status: orders.status,
+            moyskladOrderId: orders.moyskladOrderId,
+            moyskladOrderHref: orders.moyskladOrderHref,
+            moyskladSyncStatus: orders.moyskladSyncStatus,
             totalPrice: orders.totalPrice,
             subtotal: orders.subtotal,
             discountTotal: orders.discountTotal,
@@ -2235,6 +2263,7 @@ export const ecommerceRouter = createRouter({
       const db = getDb();
       const existing = [await getOrderCoreForUpdate(db, input.id)].filter(Boolean);
       if (!existing[0]) throw new Error("Заказ не найден");
+      assertOrderStatusEditableLocally(existing[0]);
       ensureTransition(ORDER_STATUS_FLOW, existing[0].status, input.status, "заказа");
       try {
         await db
@@ -2310,6 +2339,9 @@ export const ecommerceRouter = createRouter({
             reservationId: orders.reservationId,
             orderNumber: orders.orderNumber,
             status: orders.status,
+            moyskladOrderId: orders.moyskladOrderId,
+            moyskladOrderHref: orders.moyskladOrderHref,
+            moyskladSyncStatus: orders.moyskladSyncStatus,
             paymentStatus: orders.paymentStatus,
             deliveryStatus: orders.deliveryStatus,
             totalPrice: orders.totalPrice,
@@ -3408,10 +3440,17 @@ export const ecommerceRouter = createRouter({
       const targetOrders = await db
         .select({
           id: orders.id,
+          orderNumber: orders.orderNumber,
           status: orders.status,
+          moyskladOrderId: orders.moyskladOrderId,
+          moyskladOrderHref: orders.moyskladOrderHref,
         })
         .from(orders)
         .where(inArray(orders.id, input.orderIds));
+
+      for (const order of targetOrders) {
+        assertOrderStatusEditableLocally(order);
+      }
 
       for (const order of targetOrders) {
         ensureTransition(ORDER_STATUS_FLOW, order.status, input.status, "заказа");
