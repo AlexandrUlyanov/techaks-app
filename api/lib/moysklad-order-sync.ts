@@ -175,6 +175,21 @@ function buildVariantHref(msId: string) {
   return `https://api.moysklad.ru/api/remap/1.2/entity/variant/${msId}`;
 }
 
+function toMoyskladApiPath(href: string) {
+  const normalizedHref = href.trim();
+  if (!normalizedHref) return "";
+  const apiPrefix = "https://api.moysklad.ru/api/remap/1.2";
+  if (normalizedHref.startsWith(apiPrefix)) {
+    return normalizedHref.slice(apiPrefix.length) || "";
+  }
+  try {
+    const url = new URL(normalizedHref);
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return normalizedHref;
+  }
+}
+
 function toMoyskladMoment(input: Date | string) {
   const date = input instanceof Date ? input : new Date(input);
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -965,6 +980,7 @@ async function processWebhookEvent(eventId: number) {
       .filter(([, href]) => href)
       .map(([localStatus, href]) => [href, localStatus])
   );
+  const client = reverseMapping.size > 0 ? await getMoyskladClient() : null;
 
   for (const item of events) {
     const eventMetaHref =
@@ -988,8 +1004,17 @@ async function processWebhookEvent(eventId: number) {
 
     if (!order) continue;
 
-    const stateHref =
+    let stateHref =
       (item.state as { meta?: { href?: string } } | undefined)?.meta?.href?.trim() || null;
+    if (!stateHref && client) {
+      const path = toMoyskladApiPath(eventMetaHref);
+      if (path) {
+        const remoteOrder = await client.get<{
+          state?: { meta?: { href?: string } };
+        }>(path);
+        stateHref = remoteOrder.state?.meta?.href?.trim() || null;
+      }
+    }
     const nextLocalStatus = stateHref ? reverseMapping.get(stateHref) : null;
     if (!nextLocalStatus || nextLocalStatus === order.status) continue;
 
