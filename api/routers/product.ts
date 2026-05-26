@@ -22,6 +22,10 @@ import {
   upsertCategorySpecValueRule,
   upsertCategorySpecValueRulesBulk,
 } from "../lib/product-spec-standardization";
+import {
+  normalizeSpecKeyForDisplay,
+  normalizeSpecToken,
+} from "../lib/product-normalization";
 import { suggestCategorySpecRulesWithGemini } from "../lib/gemini-spec-standardization";
 import {
   getManufacturerFilterKeys,
@@ -114,6 +118,86 @@ function collectDescendantCategoryIds(
   }
 
   return ids;
+}
+
+function collectAncestorCategoryIds(
+  allCategories: Array<typeof categories.$inferSelect>,
+  categoryId: number
+) {
+  const byId = new Map(allCategories.map(category => [category.id, category]));
+  const ids: number[] = [];
+  let currentId: number | null = categoryId;
+
+  while (currentId) {
+    const category = byId.get(currentId);
+    if (!category) break;
+    ids.unshift(category.id);
+    currentId = category.parentId ?? null;
+  }
+
+  return ids;
+}
+
+async function buildPublicProductSpecs(
+  db: ReturnType<typeof getDb>,
+  product: Pick<typeof products.$inferSelect, "categoryId" | "specs">
+) {
+  const rawSpecs =
+    product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+      ? (product.specs as Record<string, unknown>)
+      : null;
+
+  if (!rawSpecs) return product.specs;
+
+  const allCategories = await db.select().from(categories);
+  const ancestorCategoryIds = collectAncestorCategoryIds(
+    allCategories,
+    product.categoryId
+  );
+
+  if (ancestorCategoryIds.length === 0) return rawSpecs;
+
+  const rules = await db
+    .select()
+    .from(schema.productSpecRules)
+    .where(inArray(schema.productSpecRules.categoryId, ancestorCategoryIds));
+
+  const rulesByCategoryId = new Map<number, typeof rules>();
+  for (const rule of rules) {
+    const bucket = rulesByCategoryId.get(rule.categoryId) ?? [];
+    bucket.push(rule);
+    rulesByCategoryId.set(rule.categoryId, bucket);
+  }
+
+  const mergedRules = new Map<string, (typeof rules)[number]>();
+  for (const categoryId of ancestorCategoryIds) {
+    const categoryRules = rulesByCategoryId.get(categoryId) ?? [];
+    for (const rule of categoryRules) {
+      mergedRules.set(rule.sourceNormalizedKey, rule);
+    }
+  }
+
+  const nextSpecs: Record<string, unknown> = {};
+
+  for (const [rawKey, rawValue] of Object.entries(rawSpecs)) {
+    const normalizedValue = String(rawValue ?? "").trim();
+    if (!normalizedValue) continue;
+
+    const displayKey = normalizeSpecKeyForDisplay(String(rawKey));
+    const normalizedKey = normalizeSpecToken(displayKey).slice(0, 120);
+    const rule = mergedRules.get(normalizedKey);
+
+    if (rule && !rule.isVisible) {
+      continue;
+    }
+
+    const targetKey = rule?.targetKey || displayKey;
+    if (!(targetKey in nextSpecs)) {
+      nextSpecs[targetKey] = rawValue;
+    }
+  }
+
+  return nextSpecs;
 }
 
 function buildManufacturerCondition(normalizedName: string) {
@@ -325,9 +409,11 @@ export const productRouter = createRouter({
         .limit(1);
       const [item] = await attachVisibleMerchandisingBadges(result);
       if (!item) return null;
+      const publicSpecs = await buildPublicProductSpecs(db, item);
       const variants = await getProductVariants(db, item.id);
       return {
         ...item,
+        specs: publicSpecs,
         variants,
       };
     }),
