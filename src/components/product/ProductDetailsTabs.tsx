@@ -53,6 +53,7 @@ export default function ProductDetailsTabs({
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
+  const desktopNavRef = useRef<HTMLDivElement | null>(null);
   const mobileSectionRefs = useRef<Record<ProductDetailsTabKey, HTMLElement | null>>({
     about: null,
     specs: null,
@@ -95,6 +96,8 @@ export default function ProductDetailsTabs({
   };
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<ProductDetailsTabKey>(activeTab);
+  const [isDesktopNavStuck, setIsDesktopNavStuck] = useState(false);
+  const [isMobileNavStuck, setIsMobileNavStuck] = useState(false);
 
   const panelOrder = useMemo(() => TAB_ITEMS.map(item => item.key), []);
 
@@ -185,6 +188,47 @@ export default function ProductDetailsTabs({
     return () => window.removeEventListener("resize", syncMetrics);
   }, [activeTab, panelOrder]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let frame = 0;
+
+    const readPixelVar = (name: string, fallback: number) => {
+      const raw = window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue(name);
+      const value = Number.parseInt(raw, 10);
+      return Number.isFinite(value) ? value : fallback;
+    };
+
+    const syncStickyState = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const mobileTop = readPixelVar("--mobile-header-height", 64) + 18;
+        const desktopTop = readPixelVar("--header-height", 78);
+        const mobileRect = mobileScrollerRef.current?.getBoundingClientRect();
+        const desktopRect = desktopNavRef.current?.getBoundingClientRect();
+
+        setIsMobileNavStuck(
+          Boolean(mobileRect && mobileRect.top <= mobileTop + 1 && window.scrollY > 0)
+        );
+        setIsDesktopNavStuck(
+          Boolean(desktopRect && desktopRect.top <= desktopTop + 1 && window.scrollY > 0)
+        );
+      });
+    };
+
+    syncStickyState();
+    window.addEventListener("scroll", syncStickyState, { passive: true });
+    window.addEventListener("resize", syncStickyState);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", syncStickyState);
+      window.removeEventListener("resize", syncStickyState);
+    };
+  }, []);
+
   const focusTab = (index: number) => {
     const target = TAB_ITEMS[(index + TAB_ITEMS.length) % TAB_ITEMS.length];
     const button = tabButtonRefs.current[target.key];
@@ -248,9 +292,20 @@ export default function ProductDetailsTabs({
       <div className="md:hidden">
         <div
           ref={mobileScrollerRef}
-          className="sticky top-[calc(var(--mobile-header-height,64px)+18px)] z-20 -mx-4 overflow-x-auto px-4 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
+          className={cn(
+            "sticky top-[calc(var(--mobile-header-height,64px)+18px)] z-20 -mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden",
+            "transition-[background,padding,box-shadow] duration-300 ease-out motion-reduce:transition-none",
+            isMobileNavStuck
+              ? "bg-white/[0.92] py-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-[14px]"
+              : "py-2"
+          )}
         >
-          <div className="flex min-w-max items-center gap-2">
+          <div
+            className={cn(
+              "flex min-w-max items-center transition-[gap] duration-300 ease-out motion-reduce:transition-none",
+              isMobileNavStuck ? "gap-1.5" : "gap-2"
+            )}
+          >
             {TAB_ITEMS.map(item => {
               const isActive = item.key === mobileActiveTab;
               const shortLabel =
@@ -267,7 +322,8 @@ export default function ProductDetailsTabs({
                   type="button"
                   onClick={() => scrollToMobileSection(item.key)}
                   className={cn(
-                    "h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors [scroll-snap-align:start]",
+                    "shrink-0 text-[13px] font-semibold transition-[background,color,border-radius,height,padding] duration-300 ease-out [scroll-snap-align:start] motion-reduce:transition-none",
+                    isMobileNavStuck ? "h-8 rounded-xl px-3.5" : "h-9 rounded-full px-4",
                     isActive
                       ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
                       : "bg-white/70 text-[#6B7280] hover:bg-white"
@@ -298,14 +354,25 @@ export default function ProductDetailsTabs({
       </div>
 
       <div className="hidden md:block">
-        <div className="sticky top-[var(--header-height,78px)] z-20 py-3">
+        <div
+          ref={desktopNavRef}
+          className={cn(
+            "sticky top-[var(--header-height,78px)] z-20 transition-[background,padding,box-shadow] duration-300 ease-out motion-reduce:transition-none",
+            isDesktopNavStuck
+              ? "-mx-3 bg-white/[0.92] px-3 py-2 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-[14px]"
+              : "py-3"
+          )}
+        >
           <div
             className="overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
           >
             <div
               role="tablist"
               aria-label="Информация о товаре"
-              className="relative inline-flex min-w-full items-center gap-2 px-0 py-1 md:min-h-[56px]"
+              className={cn(
+                "relative inline-flex min-w-full items-center px-0 py-1 transition-[gap,min-height] duration-300 ease-out motion-reduce:transition-none",
+                isDesktopNavStuck ? "gap-1 md:min-h-[46px]" : "gap-2 md:min-h-[56px]"
+              )}
             >
               {TAB_ITEMS.map((item, index) => {
                 const isActive = item.key === activeTab;
@@ -325,7 +392,10 @@ export default function ProductDetailsTabs({
                     onClick={() => onTabChange(item.key)}
                     onKeyDown={event => handleTabKeyDown(event, index)}
                     className={cn(
-                      "relative z-30 h-11 shrink-0 [scroll-snap-align:start] rounded-full px-4 text-sm font-bold transition-[color,background,transform] duration-200 ease-out md:h-[46px] md:px-[18px]",
+                      "relative z-30 shrink-0 [scroll-snap-align:start] text-sm font-bold transition-[color,background,transform,border-radius,height,padding] duration-300 ease-out motion-reduce:transition-none",
+                      isDesktopNavStuck
+                        ? "h-10 rounded-xl px-3.5"
+                        : "h-11 rounded-full px-4 md:h-[46px] md:px-[18px]",
                       isActive
                         ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
                         : "text-[#64748B] hover:-translate-y-px hover:bg-white/70 hover:text-[#20262E]"
