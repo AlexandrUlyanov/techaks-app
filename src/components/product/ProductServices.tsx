@@ -5,6 +5,7 @@ type ProductServicesProps = {
   deliveryText: string;
   storeText: string;
   compactMobile?: boolean;
+  onPickupClick?: () => void;
 };
 
 const rows = [
@@ -35,6 +36,7 @@ export default function ProductServices({
   deliveryText,
   storeText,
   compactMobile = false,
+  onPickupClick,
 }: ProductServicesProps) {
   const mobileRows = rows.filter(row => row.key !== "store");
   const rowsToRender = compactMobile ? mobileRows : rows;
@@ -57,13 +59,13 @@ export default function ProductServices({
       <div className={compactMobile ? "mt-0 md:mt-4" : "mt-4"}>
         {rowsToRender.map((row, index) => {
           const Icon = row.icon;
-          return (
-            <div
-              key={row.key}
-              className={`flex items-start justify-between gap-4 py-4 ${
-                index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""
-              }`}
-            >
+          const isPickupAction = row.key === "pickup" && Boolean(onPickupClick);
+          const rowClassName = `flex w-full items-start justify-between gap-4 py-4 text-left transition ${
+            index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""
+          } ${isPickupAction ? "cursor-pointer rounded-2xl hover:bg-[rgba(5,195,212,0.06)]" : ""}`;
+
+          const content = (
+            <>
               <div className="flex min-w-0 items-start gap-3">
                 <div
                   className={`mt-0.5 flex shrink-0 items-center justify-center rounded-2xl bg-[var(--tech-color-surface-muted)] text-[var(--tech-color-text-main)] ${
@@ -91,6 +93,28 @@ export default function ProductServices({
                   </div>
                 </div>
               </div>
+            </>
+          );
+
+          if (isPickupAction) {
+            return (
+              <button
+                key={row.key}
+                type="button"
+                onClick={onPickupClick}
+                className={rowClassName}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={row.key}
+              className={rowClassName}
+            >
+              {content}
             </div>
           );
         })}

@@ -269,6 +269,24 @@ export default function ProductDetailsTabs({
     }
   };
 
+  const scrollDesktopTabsIntoView = () => {
+    if (typeof window === "undefined" || window.innerWidth < 768) return;
+    const nav = desktopNavRef.current;
+    if (!nav) return;
+
+    const rawHeaderHeight = window
+      .getComputedStyle(document.documentElement)
+      .getPropertyValue("--header-height");
+    const headerHeight = Number.parseInt(rawHeaderHeight, 10);
+    const offset = Number.isFinite(headerHeight) ? headerHeight : 78;
+    const top = nav.getBoundingClientRect().top + window.scrollY - offset;
+
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+  };
+
   const scrollToMobileSection = (tab: ProductDetailsTabKey) => {
     const target = mobileSectionRefs.current[tab];
     if (!target) return;
@@ -389,7 +407,10 @@ export default function ProductDetailsTabs({
                     tabIndex={isActive ? 0 : -1}
                     aria-selected={isActive}
                     aria-controls={`product-tab-panel-${item.key}`}
-                    onClick={() => onTabChange(item.key)}
+                    onClick={() => {
+                      scrollDesktopTabsIntoView();
+                      onTabChange(item.key);
+                    }}
                     onKeyDown={event => handleTabKeyDown(event, index)}
                     className={cn(
                       "relative z-30 shrink-0 [scroll-snap-align:start] text-sm font-bold transition-[color,background,transform,border-radius,height,padding] duration-300 ease-out motion-reduce:transition-none",

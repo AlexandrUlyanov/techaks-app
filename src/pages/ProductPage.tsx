@@ -2,7 +2,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router";
 import { Star, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
@@ -60,7 +60,8 @@ export default function ProductPage() {
   const [reservedStoreId, setReservedStoreId] = useState<number | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [variantChosenManually, setVariantChosenManually] = useState(false);
-  const { addItem } = useCart();
+  const detailsTabsRef = useRef<HTMLDivElement | null>(null);
+  const { addItem, items: cartItems } = useCart();
   const { isAuthenticated } = useAuth();
 
   const { data: product, isLoading } = trpc.product.getBySlug.useQuery({
@@ -354,7 +355,14 @@ export default function ProductPage() {
     : [];
   const topStore = availableStores[0] ?? null;
   const compactPickupText = topStore
-    ? `Сегодня, ${topStore.storeAddress || topStore.storeName}`
+    ? availableStores
+        .map(store => {
+          const address = store.storeAddress || store.storeName;
+          return store.storeName && store.storeName !== address
+            ? `${store.storeName}: ${address}`
+            : address;
+        })
+        .join("; ")
     : "Уточняйте у менеджера";
   const compactDeliveryText = "По Пензе и России";
   const availabilitySummary = availableStores.length
@@ -384,6 +392,10 @@ export default function ProductPage() {
             availableStores.length > 0
         )
       : availableStores.length > 0;
+  const selectedCartKey = `${product.id}:${selectedVariant?.id ?? 0}`;
+  const isSelectedProductInCart = cartItems.some(
+    item => item.cartKey === selectedCartKey
+  );
   const aboutBenefits = [
     ...merchandisingBadges.map(getMerchandisingBadgeLabel),
     ...(product.badge ? [product.badge] : []),
@@ -466,6 +478,29 @@ export default function ProductPage() {
     );
   };
 
+  const scrollToDetailsTabs = () => {
+    if (typeof window === "undefined") return;
+    const target = detailsTabsRef.current;
+    if (!target) return;
+
+    const rawHeaderHeight = window
+      .getComputedStyle(document.documentElement)
+      .getPropertyValue("--header-height");
+    const headerHeight = Number.parseInt(rawHeaderHeight, 10);
+    const offset = Number.isFinite(headerHeight) ? headerHeight : 78;
+    const nextTop = target.getBoundingClientRect().top + window.scrollY - offset;
+
+    window.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: "smooth",
+    });
+  };
+
+  const openStockTab = () => {
+    setProductTab("stock");
+    window.setTimeout(scrollToDetailsTabs, 0);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-36 text-foreground md:pb-0">
       <script
@@ -495,13 +530,13 @@ export default function ProductPage() {
             {hasManufacturer ? (
               <Link
                 to={manufacturer?.href || "#"}
-                  className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--tech-color-surface)] px-3 py-2 text-[var(--tech-color-text-main)] shadow-[var(--tech-shadow-card)] transition hover:brightness-95"
+                className="inline-flex w-fit items-center gap-2 text-[var(--tech-color-text-main)] transition hover:opacity-80"
               >
                 {manufacturer?.logo ? (
                   <img
                     src={manufacturer.logo}
                     alt={manufacturer.title || "Бренд"}
-                    className="h-4 max-w-[88px] object-contain"
+                    className="h-8 max-w-[176px] object-contain"
                   />
                 ) : (
                   <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--tech-color-text-main)]">
@@ -574,13 +609,13 @@ export default function ProductPage() {
                 {hasManufacturer ? (
                   <Link
                     to={manufacturer?.href || "#"}
-                    className="inline-flex w-fit items-center gap-3 rounded-full bg-[var(--tech-color-surface)] px-4 py-2.5 text-[var(--tech-color-text-main)] shadow-[var(--tech-shadow-card)] transition hover:brightness-95"
+                    className="inline-flex w-fit items-center gap-3 text-[var(--tech-color-text-main)] transition hover:opacity-80"
                   >
                     {manufacturer?.logo ? (
                       <img
                         src={manufacturer.logo}
                         alt={manufacturer.title || "Бренд"}
-                        className="h-5 max-w-[120px] object-contain"
+                        className="h-10 max-w-[240px] object-contain"
                       />
                     ) : (
                       <span className="text-sm font-black uppercase tracking-[0.28em] text-[var(--tech-color-text-main)]">
@@ -657,11 +692,17 @@ export default function ProductPage() {
               {compactDetailSpecs.length > 0 ? (
                 <div className="space-y-3">
                   <div className="text-lg font-semibold text-[var(--tech-color-text-main)]">О товаре</div>
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     {compactDetailSpecs.map(([key, value]) => (
-                      <div key={key} className="text-[15px] leading-6 text-[var(--tech-color-text-main)]">
-                        <span className="font-medium text-[var(--tech-color-text-muted)]">{key}:</span>{" "}
-                        <span className="font-semibold">{String(value)}</span>
+                      <div
+                        key={key}
+                        className="grid grid-cols-[auto_minmax(28px,1fr)_auto] items-baseline gap-2 text-[15px] leading-6"
+                      >
+                        <span className="font-medium text-[var(--tech-color-text-muted)]">{key}</span>
+                        <span className="translate-y-[-3px] border-b border-dotted border-[var(--tech-color-border)]" />
+                        <span className="max-w-[48vw] text-right font-semibold text-[var(--tech-color-text-main)] lg:max-w-[220px]">
+                          {String(value)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -673,10 +714,12 @@ export default function ProductPage() {
               deliveryText={compactDeliveryText}
               storeText={availabilitySummary}
               compactMobile
+              onPickupClick={openStockTab}
             />
           </div>
           </div>
 
+          <div ref={detailsTabsRef}>
           <ProductDetailsTabs
             activeTab={requestedTab}
             onTabChange={setProductTab}
@@ -774,13 +817,14 @@ export default function ProductPage() {
               />
             }
           />
+          </div>
         </div>
       </section>
 
       <ProductMobileStickyBuy
         disabled={!canPurchase}
+        inCart={isSelectedProductInCart}
         onAddToCart={handleMobileStickyAddToCart}
-        onAdded={() => setShowMobileStickyBuy(false)}
         visible={canPurchase && showMobileStickyBuy}
       />
 
