@@ -1204,7 +1204,9 @@ export async function ingestMoyskladOrderWebhook(requestId: string, payload: unk
       },
     });
 
-  const insertId = Number((result as { insertId?: number }).insertId ?? 0);
+  const insertMeta =
+    (Array.isArray(result) ? result[0] : result) as { insertId?: number } | undefined;
+  const insertId = Number(insertMeta?.insertId ?? 0);
   if (insertId > 0) {
     await enqueueMoyskladSyncJob({
       entityType: "webhook",
