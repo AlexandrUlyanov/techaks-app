@@ -2020,6 +2020,46 @@ export const syncRouter = createRouter({
               }
             }
           }
+
+          writeLog("Recalculating aggregate stocks for products and variants...");
+          await db.execute(sql`
+            UPDATE ${schema.productVariants} pv
+            LEFT JOIN (
+              SELECT
+                ${schema.productVariantStocks.variantId} AS variant_id,
+                COALESCE(SUM(${schema.productVariantStocks.quantity}), 0) AS total_qty
+              FROM ${schema.productVariantStocks}
+              GROUP BY ${schema.productVariantStocks.variantId}
+            ) stock_agg ON stock_agg.variant_id = pv.id
+            SET
+              pv.${sql.raw("stock")} = COALESCE(stock_agg.total_qty, 0),
+              pv.${sql.raw("updated_at")} = NOW()
+          `);
+
+          await db.execute(sql`
+            UPDATE ${schema.products} p
+            SET p.${sql.raw("in_stock")} = CASE
+              WHEN EXISTS (
+                SELECT 1
+                FROM ${schema.productVariants} pv
+                WHERE pv.${sql.raw("product_id")} = p.id
+                  AND pv.${sql.raw("is_active")} = true
+              )
+              THEN EXISTS (
+                SELECT 1
+                FROM ${schema.productVariants} pv
+                WHERE pv.${sql.raw("product_id")} = p.id
+                  AND pv.${sql.raw("is_active")} = true
+                  AND pv.${sql.raw("stock")} > 0
+              )
+              ELSE EXISTS (
+                SELECT 1
+                FROM ${schema.productStocks} ps
+                WHERE ps.${sql.raw("product_id")} = p.id
+                  AND ps.${sql.raw("quantity")} > 0
+              )
+            END
+          `);
         }
 
         if (syncProducts) {
