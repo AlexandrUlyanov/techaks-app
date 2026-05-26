@@ -249,6 +249,32 @@ export default function ProductPage() {
     ];
   }, [productImages, selectedVariantImage]);
 
+  useEffect(() => {
+    const target = mobilePrimaryActionRef.current;
+    if (!target) {
+      setShowMobileStickyBuy(false);
+      return;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+      setShowMobileStickyBuy(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowMobileStickyBuy(!entry.isIntersecting);
+      },
+      {
+        threshold: 0.4,
+        rootMargin: "0px 0px -84px 0px",
+      }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [product?.id, selectedVariant?.id]);
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -355,27 +381,6 @@ export default function ProductPage() {
             availableStores.length > 0
         )
       : availableStores.length > 0;
-
-  useEffect(() => {
-    const target = mobilePrimaryActionRef.current;
-    if (!target || typeof IntersectionObserver === "undefined") {
-      setShowMobileStickyBuy(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setShowMobileStickyBuy(!entry.isIntersecting);
-      },
-      {
-        threshold: 0.4,
-        rootMargin: "0px 0px -84px 0px",
-      }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [product?.id, selectedVariant?.id, canPurchase]);
   const aboutBenefits = [
     ...merchandisingBadges.map(getMerchandisingBadgeLabel),
     ...(product.badge ? [product.badge] : []),
