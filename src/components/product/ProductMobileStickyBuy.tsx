@@ -1,12 +1,12 @@
+import { ShoppingCart } from "lucide-react";
+
 type ProductMobileStickyBuyProps = {
-  priceLabel: string;
   disabled?: boolean;
   onAddToCart: () => void;
   visible?: boolean;
 };
 
 export default function ProductMobileStickyBuy({
-  priceLabel,
   disabled = false,
   onAddToCart,
   visible = true,
@@ -14,27 +14,21 @@ export default function ProductMobileStickyBuy({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-[72px] z-50 border-t border-[var(--tech-color-border)]/60 bg-[color:color-mix(in_srgb,var(--tech-color-surface)_92%,var(--tech-color-background))] px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur md:hidden">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--tech-color-text-muted)]">
-            Цена
-          </div>
-          <div className="truncate text-xl font-black text-[var(--tech-color-text-main)]">
-            {priceLabel}
-          </div>
-        </div>
+    <div className="fixed inset-x-0 bottom-[72px] z-50 flex justify-center bg-[color:color-mix(in_srgb,var(--tech-color-surface)_94%,white)] px-4 py-3 backdrop-blur md:hidden">
+      <div className="w-full max-w-[220px]">
         <button
           type="button"
           onClick={onAddToCart}
           disabled={disabled}
-          className={`h-12 min-w-[170px] rounded-[14px] px-5 text-sm font-semibold text-white transition ${
+          aria-label="Положить в корзину"
+          className={`flex h-12 w-full items-center justify-center gap-2 rounded-[18px] px-5 text-sm font-black uppercase tracking-wide transition ${
             disabled
-              ? "cursor-not-allowed bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,var(--tech-color-background))] text-[var(--tech-color-text-muted)]"
-              : "bg-[#F0642B] hover:bg-[#db5823] active:scale-[0.99]"
+              ? "cursor-not-allowed bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] text-[var(--tech-color-text-muted)]"
+              : "bg-[#05C3D4] text-white hover:bg-[#27E6F2] active:scale-[0.99]"
           }`}
         >
-          {disabled ? "Нет в наличии" : "В корзину"}
+          <ShoppingCart size={16} strokeWidth={2.4} />
+          <span>Положить в корзину</span>
         </button>
       </div>
     </div>

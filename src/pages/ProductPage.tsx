@@ -2,7 +2,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router";
 import { Star, ArrowLeft } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import LeadForm from "@/components/LeadForm";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
@@ -51,7 +51,6 @@ export default function ProductPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
-  const mobilePrimaryActionRef = useRef<HTMLDivElement | null>(null);
   const [showMobileStickyBuy, setShowMobileStickyBuy] = useState(false);
   const reviewSort: "newest" | "highest" | "lowest" | "verified" = "newest";
   const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
@@ -250,7 +249,9 @@ export default function ProductPage() {
   }, [productImages, selectedVariantImage]);
 
   useEffect(() => {
-    const target = mobilePrimaryActionRef.current;
+    if (typeof window === "undefined") return;
+
+    const target = document.getElementById("about");
     if (!target) {
       setShowMobileStickyBuy(false);
       return;
@@ -263,17 +264,19 @@ export default function ProductPage() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setShowMobileStickyBuy(!entry.isIntersecting);
+        const passedAboutSection =
+          !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        setShowMobileStickyBuy(passedAboutSection);
       },
       {
-        threshold: 0.4,
-        rootMargin: "0px 0px -84px 0px",
+        threshold: [0, 0.2, 0.45],
+        rootMargin: "0px 0px -96px 0px",
       }
     );
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [product?.id, selectedVariant?.id]);
+  }, [product?.id]);
 
   if (isLoading) {
     return (
@@ -610,17 +613,15 @@ export default function ProductPage() {
                 ) : null}
               </div>
 
-              <div ref={mobilePrimaryActionRef}>
-                <ProductPurchasePanel
-                  priceLabel={displayedPriceLabel}
-                  oldPriceLabel={oldPriceLabel}
-                  discountLabel={discountLabel}
-                  onAddToCart={handleAddToCart}
-                  onOpenOneClick={() => setOneClickDialogOpen(true)}
-                  disableCart={!canPurchase}
-                  disableOneClick={!canPurchase}
-                />
-              </div>
+              <ProductPurchasePanel
+                priceLabel={displayedPriceLabel}
+                oldPriceLabel={oldPriceLabel}
+                discountLabel={discountLabel}
+                onAddToCart={handleAddToCart}
+                onOpenOneClick={() => setOneClickDialogOpen(true)}
+                disableCart={!canPurchase}
+                disableOneClick={!canPurchase}
+              />
 
               <div className="space-y-2 lg:hidden">
                 {selectedVariantSummary ? (
@@ -767,7 +768,6 @@ export default function ProductPage() {
       </section>
 
       <ProductMobileStickyBuy
-        priceLabel={displayedPriceLabel}
         disabled={!canPurchase}
         onAddToCart={handleAddToCart}
         visible={showMobileStickyBuy}
