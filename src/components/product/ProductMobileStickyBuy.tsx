@@ -1,34 +1,63 @@
-import { ShoppingCart } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CartIcon } from "./ProductActionIcons";
 
 type ProductMobileStickyBuyProps = {
   disabled?: boolean;
-  onAddToCart: () => void;
+  onAddToCart: () => boolean | void;
+  onAdded?: () => void;
   visible?: boolean;
 };
 
 export default function ProductMobileStickyBuy({
   disabled = false,
   onAddToCart,
+  onAdded,
   visible = true,
 }: ProductMobileStickyBuyProps) {
-  if (!visible) return null;
+  const [isAdded, setIsAdded] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (visible) setIsAdded(false);
+
+    return () => {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [visible]);
+
+  if (!visible || disabled) return null;
+
+  const handleAddToCart = () => {
+    const result = onAddToCart();
+    if (result === false) return;
+
+    setIsAdded(true);
+    hideTimerRef.current = window.setTimeout(() => {
+      onAdded?.();
+    }, 520);
+  };
 
   return (
-    <div className="fixed inset-x-0 bottom-[72px] z-50 flex justify-center bg-[color:color-mix(in_srgb,var(--tech-color-surface)_94%,white)] px-4 py-3 backdrop-blur md:hidden">
-      <div className="w-full max-w-[220px]">
+    <div className="fixed inset-x-0 bottom-[72px] z-50 flex justify-center px-4 py-3 md:hidden">
+      <div
+        className={`rounded-[18px] bg-white/[0.92] p-2 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-[14px] transition-[opacity,transform] duration-300 ${
+          isAdded ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"
+        }`}
+      >
         <button
           type="button"
-          onClick={onAddToCart}
-          disabled={disabled}
+          onClick={handleAddToCart}
+          disabled={isAdded}
           aria-label="Положить в корзину"
-          className={`flex h-12 w-full items-center justify-center gap-2 rounded-[18px] px-5 text-sm font-black uppercase tracking-wide transition ${
-            disabled
-              ? "cursor-not-allowed bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] text-[var(--tech-color-text-muted)]"
-              : "bg-[#05C3D4] text-white hover:bg-[#27E6F2] active:scale-[0.99]"
-          }`}
+          className="flex h-[62px] min-w-[124px] flex-col items-center justify-center gap-1 rounded-[14px] bg-[rgba(5,195,212,0.14)] px-4 text-[#047E8A] transition-[background,transform,color] duration-300 hover:bg-[rgba(5,195,212,0.2)] active:scale-[0.98] disabled:pointer-events-none"
         >
-          <ShoppingCart size={16} strokeWidth={2.4} />
-          <span>Положить в корзину</span>
+          <span className="max-w-[96px] text-center text-[10px] font-black uppercase leading-tight tracking-[0.08em]">
+            {isAdded ? "Добавлено" : "Положить в корзину"}
+          </span>
+          <CartIcon size={20} />
         </button>
       </div>
     </div>

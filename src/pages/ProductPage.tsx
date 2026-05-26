@@ -413,15 +413,17 @@ export default function ProductPage() {
     },
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = ({
+    redirectToCheckout = true,
+  }: { redirectToCheckout?: boolean } = {}) => {
     if (hasVariants && !selectedVariant) {
       toast.error("Выберите вариант товара");
-      return;
+      return false;
     }
 
     if (selectedVariant && (!selectedVariant.isActive || selectedVariant.stock <= 0)) {
       toast.error("Выбранный вариант сейчас недоступен");
-      return;
+      return false;
     }
 
     addItem({
@@ -435,9 +437,15 @@ export default function ProductPage() {
       image: product.image,
     });
     toast.success("Товар добавлен в корзину");
-    // CRO: Redirecting directly to checkout/cart page to reduce steps
-    window.location.href = "/checkout";
+    if (redirectToCheckout) {
+      // CRO: Redirecting directly to checkout/cart page to reduce steps.
+      window.location.href = "/checkout";
+    }
+    return true;
   };
+
+  const handleMobileStickyAddToCart = () =>
+    handleAddToCart({ redirectToCheckout: false });
 
   const openReservationDialog = (store: ProductStoreAvailability) => {
     setSelectedReservationStore(store);
@@ -617,7 +625,9 @@ export default function ProductPage() {
                 priceLabel={displayedPriceLabel}
                 oldPriceLabel={oldPriceLabel}
                 discountLabel={discountLabel}
-                onAddToCart={handleAddToCart}
+                onAddToCart={() => {
+                  handleAddToCart();
+                }}
                 onOpenOneClick={() => setOneClickDialogOpen(true)}
                 disableCart={!canPurchase}
                 disableOneClick={!canPurchase}
@@ -769,8 +779,9 @@ export default function ProductPage() {
 
       <ProductMobileStickyBuy
         disabled={!canPurchase}
-        onAddToCart={handleAddToCart}
-        visible={showMobileStickyBuy}
+        onAddToCart={handleMobileStickyAddToCart}
+        onAdded={() => setShowMobileStickyBuy(false)}
+        visible={canPurchase && showMobileStickyBuy}
       />
 
       <ReservationConfirmDialog
