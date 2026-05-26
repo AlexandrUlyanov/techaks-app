@@ -38,9 +38,13 @@ interface CatalogContextType {
 const CatalogContext = createContext<CatalogContextType | undefined>(undefined);
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
-  const { data: dbCategories = [], isLoading } =
+  const {
+    data: dbCategories = [],
+    isLoading,
+    refetch: refetchCategories,
+  } =
     trpc.product.getCategories.useQuery(undefined, {
-      staleTime: 10 * 60 * 1000,
+      staleTime: 60 * 1000,
       gcTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
     });
@@ -169,13 +173,24 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     [activeCategoryId, catalogCategories]
   );
 
-  const toggle = useCallback(() => setIsOpen(v => !v), []);
+  const toggle = useCallback(() => {
+    setIsOpen(prev => {
+      const next = !prev;
+      if (next) {
+        void refetchCategories();
+      }
+      return next;
+    });
+  }, [refetchCategories]);
   const close = useCallback(() => {
     setIsOpen(false);
     setMobilePath([]);
     setSearchTerm("");
   }, []);
-  const open = useCallback(() => setIsOpen(true), []);
+  const open = useCallback(() => {
+    setIsOpen(true);
+    void refetchCategories();
+  }, [refetchCategories]);
 
   const track = useCallback(
     (event: CatalogAnalyticsEvent, data: Partial<CatalogEventData> = {}) => {
