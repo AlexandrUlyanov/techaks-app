@@ -2,13 +2,17 @@ type ProductMobileStickyBuyProps = {
   priceLabel: string;
   disabled?: boolean;
   onAddToCart: () => void;
+  visible?: boolean;
 };
 
 export default function ProductMobileStickyBuy({
   priceLabel,
   disabled = false,
   onAddToCart,
+  visible = true,
 }: ProductMobileStickyBuyProps) {
+  if (!visible) return null;
+
   return (
     <div className="fixed inset-x-0 bottom-[72px] z-50 border-t border-[var(--tech-color-border)]/60 bg-[color:color-mix(in_srgb,var(--tech-color-surface)_92%,var(--tech-color-background))] px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur md:hidden">
       <div className="flex items-center gap-3">
