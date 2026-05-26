@@ -91,7 +91,6 @@ export async function runMoyskladFullSyncWatchdog() {
     if (!staleReason) continue;
 
     const message = `Синхронизация остановлена watchdog: ${staleReason}`;
-
     await db
       .update(schema.syncRuns)
       .set({
@@ -110,6 +109,37 @@ export async function runMoyskladFullSyncWatchdog() {
         },
       })
       .where(eq(schema.syncRuns.id, run.id));
+
+    const staleLogs = await db
+      .select({ id: schema.syncLogs.id, details: schema.syncLogs.details })
+      .from(schema.syncLogs)
+      .where(
+        and(
+          eq(schema.syncLogs.type, "moysklad"),
+          eq(schema.syncLogs.status, "running")
+        )
+      )
+      .orderBy(desc(schema.syncLogs.createdAt));
+
+    const staleLog = staleLogs[0] ?? null;
+    if (staleLog) {
+      const updatedDetails = {
+        ...(staleLog.details && typeof staleLog.details === "object" && !Array.isArray(staleLog.details)
+          ? (staleLog.details as Record<string, unknown>)
+          : {}),
+        runId: run.id,
+        watchdogRecovered: true,
+        watchdogReason: staleReason,
+      };
+      await db
+        .update(schema.syncLogs)
+        .set({
+          status: "error",
+          message,
+          details: updatedDetails,
+        })
+        .where(eq(schema.syncLogs.id, staleLog.id));
+    }
 
     await db.insert(schema.syncLogs).values({
       type: "moysklad_watchdog",

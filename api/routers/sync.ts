@@ -125,6 +125,7 @@ type MsFolderRow = {
   };
 };
 type SyncLogDetails = {
+  runId?: number;
   steps: string[];
   errors: string[];
   stats: Record<string, number>;
@@ -1275,6 +1276,13 @@ export const syncRouter = createRouter({
           workerId,
         });
         currentRunId = runRes.insertId;
+        logDetails.runId = currentRunId;
+        if (currentLogId) {
+          await db
+            .update(schema.syncLogs)
+            .set({ details: logDetails })
+            .where(eq(schema.syncLogs.id, currentLogId));
+        }
         nextHeartbeatAt = Date.now() + 10_000;
 
         const updateLog = async (status: string, message: string) => {
