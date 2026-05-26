@@ -11,9 +11,11 @@ import {
   MessageSquare,
   Package,
   Phone,
+  RotateCcw,
   Search,
   ShoppingBag,
   Truck,
+  Wallet,
   XCircle,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -85,6 +87,7 @@ const QUICK_TABS: Array<{ key: QuickTabKey; label: string }> = [
 function OrderStatusPill({ status }: { status: string }) {
   const getStatusInfo = (value: string) => {
     switch (value) {
+      case "new":
       case "pending":
         return { label: "Новый", color: "bg-blue-100 text-blue-700", icon: Clock };
       case "waiting_call":
@@ -99,8 +102,26 @@ function OrderStatusPill({ status }: { status: string }) {
           color: "bg-cyan-100 text-cyan-700",
           icon: CheckCircle2,
         };
+      case "awaiting_payment":
+        return {
+          label: "Ожидает оплаты",
+          color: "bg-orange-100 text-orange-700",
+          icon: Wallet,
+        };
+      case "paid":
+        return {
+          label: "Оплачен",
+          color: "bg-emerald-100 text-emerald-700",
+          icon: Wallet,
+        };
       case "shipped":
         return { label: "Отгружен", color: "bg-yellow-100 text-yellow-700", icon: Truck };
+      case "handed_to_delivery":
+        return {
+          label: "Передан в доставку",
+          color: "bg-sky-100 text-sky-700",
+          icon: Truck,
+        };
       case "delivered":
         return {
           label: "Доставлен",
@@ -121,6 +142,24 @@ function OrderStatusPill({ status }: { status: string }) {
           color: "bg-violet-100 text-violet-700",
           icon: Package,
         };
+      case "assembled":
+        return {
+          label: "Собран",
+          color: "bg-purple-100 text-purple-700",
+          icon: Package,
+        };
+      case "ready_for_pickup":
+        return {
+          label: "Готов к выдаче",
+          color: "bg-teal-100 text-teal-700",
+          icon: Package,
+        };
+      case "confirmed_by_customer":
+        return {
+          label: "Подтверждён клиентом",
+          color: "bg-cyan-100 text-cyan-700",
+          icon: CheckCircle2,
+        };
       case "awaiting_dispatch":
         return {
           label: "Ожидает отправки",
@@ -138,6 +177,12 @@ function OrderStatusPill({ status }: { status: string }) {
           label: "Выполнен",
           color: "bg-emerald-100 text-emerald-700",
           icon: CheckCircle2,
+        };
+      case "return_requested":
+        return {
+          label: "Запрошен возврат",
+          color: "bg-rose-100 text-rose-700",
+          icon: RotateCcw,
         };
       case "problem":
         return { label: "Проблемный", color: "bg-rose-100 text-rose-700", icon: XCircle };
