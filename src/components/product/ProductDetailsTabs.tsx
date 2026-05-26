@@ -18,11 +18,6 @@ const TAB_ITEMS: Array<{ key: ProductDetailsTabKey; label: string }> = [
   { key: "warranty", label: "Гарантия" },
 ];
 
-type IndicatorMetrics = {
-  left: number;
-  width: number;
-};
-
 export default function ProductDetailsTabs({
   activeTab,
   onTabChange,
@@ -58,7 +53,6 @@ export default function ProductDetailsTabs({
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const mobileScrollerRef = useRef<HTMLDivElement | null>(null);
-  const tabsRailRef = useRef<HTMLDivElement | null>(null);
   const mobileSectionRefs = useRef<Record<ProductDetailsTabKey, HTMLElement | null>>({
     about: null,
     specs: null,
@@ -99,7 +93,6 @@ export default function ProductDetailsTabs({
     reviews: reviewsMobile ?? reviews,
     warranty: warrantyMobile ?? warranty,
   };
-  const [indicator, setIndicator] = useState<IndicatorMetrics | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<ProductDetailsTabKey>(activeTab);
 
@@ -180,18 +173,10 @@ export default function ProductDetailsTabs({
   }, [panelOrder]);
 
   useLayoutEffect(() => {
-    const rail = tabsRailRef.current;
-    const activeButton = tabButtonRefs.current[activeTab];
     const activePanel = panelRefs.current[activeTab];
-    if (!rail || !activeButton || !activePanel) return;
+    if (!activePanel) return;
 
     const syncMetrics = () => {
-      const railRect = rail.getBoundingClientRect();
-      const buttonRect = activeButton.getBoundingClientRect();
-      setIndicator({
-        left: buttonRect.left - railRect.left + buttonRect.width / 2,
-        width: Math.max(buttonRect.width - 20, 44),
-      });
       setContentHeight(activePanel.scrollHeight);
     };
 
@@ -263,7 +248,7 @@ export default function ProductDetailsTabs({
       <div className="md:hidden">
         <div
           ref={mobileScrollerRef}
-          className="sticky top-[calc(var(--mobile-header-height,64px)+6px)] z-20 -mx-4 overflow-x-auto bg-[rgba(245,247,250,0.92)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
+          className="sticky top-[calc(var(--mobile-header-height,64px)+18px)] z-20 -mx-4 overflow-x-auto px-4 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex min-w-max items-center gap-2">
             {TAB_ITEMS.map(item => {
@@ -285,7 +270,7 @@ export default function ProductDetailsTabs({
                     "h-9 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors [scroll-snap-align:start]",
                     isActive
                       ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
-                      : "bg-[#F5F7FA] text-[#6B7280]"
+                      : "bg-white/70 text-[#6B7280] hover:bg-white"
                   )}
                 >
                   {shortLabel}
@@ -313,27 +298,15 @@ export default function ProductDetailsTabs({
       </div>
 
       <div className="hidden md:block">
-        <div className="sticky top-[var(--header-height,78px)] z-20 bg-[rgba(245,247,250,0.9)] py-3 backdrop-blur-[14px] supports-[backdrop-filter]:bg-[rgba(245,247,250,0.86)]">
+        <div className="sticky top-[var(--header-height,78px)] z-20 py-3">
           <div
             className="overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
           >
             <div
-              ref={tabsRailRef}
               role="tablist"
               aria-label="Информация о товаре"
               className="relative inline-flex min-w-full items-center gap-2 px-0 py-1 md:min-h-[56px]"
             >
-              {indicator ? (
-                <span
-                  className="pointer-events-none absolute bottom-0 z-20 h-[3px] rounded-full bg-[#05C3D4] transition-[left,width] duration-300 ease-out"
-                  style={{
-                    left: indicator.left,
-                    width: indicator.width,
-                    transform: "translateX(-50%)",
-                  }}
-                />
-              ) : null}
-
               {TAB_ITEMS.map((item, index) => {
                 const isActive = item.key === activeTab;
 
@@ -355,7 +328,7 @@ export default function ProductDetailsTabs({
                       "relative z-30 h-11 shrink-0 [scroll-snap-align:start] rounded-full px-4 text-sm font-bold transition-[color,background,transform] duration-200 ease-out md:h-[46px] md:px-[18px]",
                       isActive
                         ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
-                        : "text-[#64748B] hover:-translate-y-px hover:bg-white/80 hover:text-[#20262E]"
+                        : "text-[#64748B] hover:-translate-y-px hover:bg-white/70 hover:text-[#20262E]"
                     )}
                   >
                     <span className="whitespace-nowrap">{item.label}</span>
