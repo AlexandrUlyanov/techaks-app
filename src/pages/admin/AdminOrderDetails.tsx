@@ -38,6 +38,111 @@ type OrderItem = {
   total?: number | null;
 };
 
+function getOrderStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "pending":
+    case "new":
+      return "Новый";
+    case "waiting_call":
+      return "Ждёт звонка";
+    case "confirmed":
+      return "Подтверждён";
+    case "awaiting_payment":
+      return "Ожидает оплаты";
+    case "paid":
+      return "Оплачен";
+    case "processing":
+      return "В обработке";
+    case "confirmed_by_customer":
+      return "Подтверждён клиентом";
+    case "ready_for_pickup":
+      return "Готов к выдаче";
+    case "assembling":
+      return "Собирается";
+    case "assembled":
+      return "Собран";
+    case "awaiting_dispatch":
+      return "Ожидает отправки";
+    case "shipped":
+      return "Отгружен";
+    case "handed_to_delivery":
+      return "Передан в доставку";
+    case "in_delivery":
+      return "Доставляется";
+    case "delivered":
+      return "Доставлен";
+    case "completed":
+      return "Выполнен";
+    case "return_requested":
+      return "Запрошен возврат";
+    case "problem":
+      return "Проблемный";
+    case "cancelled":
+      return "Отменён";
+    default:
+      return value || "Не задан";
+  }
+}
+
+function getPaymentStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "unpaid":
+      return "Не оплачен";
+    case "awaiting_payment":
+      return "Ожидает оплаты";
+    case "paid":
+      return "Оплачен";
+    case "partially_paid":
+      return "Частично оплачен";
+    case "payment_error":
+      return "Ошибка оплаты";
+    case "refund":
+      return "Возврат";
+    case "partial_refund":
+      return "Частичный возврат";
+    default:
+      return value || "Не задан";
+  }
+}
+
+function getDeliveryStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "not_required":
+      return "Не требуется";
+    case "awaiting_processing":
+      return "Готовится";
+    case "prepared":
+      return "Подготовлен";
+    case "handed_to_delivery":
+      return "Передан в доставку";
+    case "in_delivery":
+      return "В пути";
+    case "delivered":
+      return "Доставлен";
+    case "return_in_transit":
+      return "Возврат в пути";
+    case "delivery_error":
+      return "Проблема с доставкой";
+    default:
+      return value || "Не задано";
+  }
+}
+
+function getOrderSourceLabel(value: string | null | undefined) {
+  switch (value) {
+    case "legacy":
+      return "Режим совместимости";
+    case "one_click":
+      return "Заказ в 1 клик";
+    case "reservation":
+      return "Оформлен из резерва";
+    case "site":
+      return "Интернет-магазин";
+    default:
+      return value || "Источник не указан";
+  }
+}
+
 export default function AdminOrderDetails() {
   const ability = useAbility();
   const { id } = useParams<{ id: string }>();
@@ -404,28 +509,20 @@ export default function AdminOrderDetails() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard
           label="Статус заказа"
-          value={order.status || "Не задан"}
-          hint={
-            order.source === "legacy"
-              ? "Legacy-режим"
-              : order.source === "one_click"
-                ? "Заказ в 1 клик"
-                : order.source === "reservation"
-                  ? "Оформлен из резерва"
-                  : order.source || "Источник не указан"
-          }
+          value={getOrderStatusLabel(order.status)}
+          hint={getOrderSourceLabel(order.source)}
           icon={Package}
           tone="accent"
         />
         <AdminStatCard
           label="Оплата"
-          value={order.paymentStatus || "Не задан"}
+          value={getPaymentStatusLabel(order.paymentStatus)}
           hint={`Оплачено: ${formatPrice(order.paidAmount)}`}
           icon={Wallet}
         />
         <AdminStatCard
           label="Доставка"
-          value={order.deliveryStatus || "Не задано"}
+          value={getDeliveryStatusLabel(order.deliveryStatus)}
           hint={order.deliveryType === "delivery" ? "Курьер / доставка" : "Самовывоз"}
         />
         <AdminStatCard
@@ -465,6 +562,17 @@ export default function AdminOrderDetails() {
                   Открыть документ МойСклад
                 </a>
               ) : null}
+              <div className="rounded-2xl bg-white px-4 py-4">
+                <div className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400">
+                  Единый номер заказа
+                </div>
+                <div className="mt-2 text-base font-bold text-[#15171A]">
+                  {order.orderNumber || `#${order.id}`}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Для новых и обновляемых заказов этот же номер отправляется в МойСклад, чтобы менеджеры не путались между сайтом и складом.
+                </p>
+              </div>
             </div>
             <div className="space-y-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-600">
               <div>
@@ -476,7 +584,7 @@ export default function AdminOrderDetails() {
               {moyskladExternalCode ? (
                 <div>
                   <div className="text-[11px] font-black uppercase tracking-[0.16em] text-gray-400">
-                    External code
+                    Внешний код связи
                   </div>
                   <div className="mt-1 break-all font-medium text-[#15171A]">
                     {moyskladExternalCode}

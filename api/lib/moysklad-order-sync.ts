@@ -660,7 +660,10 @@ function buildCustomerOrderPayload(args: {
   onlyStatus?: boolean;
 }) {
   const { order, settings, counterpartyHref, stateHref, onlyStatus } = args;
+  const humanOrderNumber =
+    order.orderNumber?.trim() || `TA-${order.id}`;
   const payload: Record<string, unknown> = {
+    name: humanOrderNumber,
     organization: {
       meta: {
         href: settings.organizationHref,

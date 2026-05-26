@@ -613,7 +613,7 @@ export default function AdminLeads() {
 
                       {order.source === "legacy" ? (
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                          Legacy
+                          Совместимость
                         </span>
                       ) : order.source === "one_click" ? (
                         <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fuchsia-700">
