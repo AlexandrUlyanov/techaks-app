@@ -87,7 +87,7 @@ export default function ProductDeliveryTab({
           return (
             <article
               key={item.title}
-              className="rounded-[1.4rem] border border-[#E2E8F0] bg-[#F8FAFC] p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[2px] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+              className="rounded-[1.4rem] bg-[#F8FAFC] p-5 transition-[background,transform] duration-200 ease-out hover:-translate-y-[2px] hover:bg-[rgba(5,195,212,0.07)]"
             >
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
                 <Icon size={22} />
@@ -99,7 +99,7 @@ export default function ProductDeliveryTab({
         })}
       </div>
 
-      <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+      <section className="rounded-[1.4rem] bg-[#F8FAFC] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-extrabold text-[#20262E]">Способы оплаты</h3>
@@ -118,9 +118,9 @@ export default function ProductDeliveryTab({
             return (
               <div
                 key={item.title}
-                className="rounded-[1.1rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-4"
+                className="rounded-[1.1rem] bg-white/75 px-4 py-4"
               >
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#05C3D4] shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
                   <Icon size={18} />
                 </div>
                 <div className="mt-3 text-sm font-bold text-[#20262E]">{item.title}</div>
@@ -131,7 +131,7 @@ export default function ProductDeliveryTab({
 
         <Link
           to="/payment-delivery"
-          className="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-[#F1F5F9] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:shadow-[0_12px_24px_rgba(15,23,42,0.06)]"
+          className="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-white/75 px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)]"
         >
           Подробнее о доставке и оплате
         </Link>

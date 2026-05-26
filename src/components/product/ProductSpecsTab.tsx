@@ -146,7 +146,7 @@ export default function ProductSpecsTab({
             <button
               type="button"
               onClick={() => setExpanded(prev => !prev)}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:shadow-[0_12px_24px_rgba(15,23,42,0.06)]"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#F1F5F9] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)]"
             >
               {expanded ? "Свернуть" : "Показать все характеристики"}
             </button>
@@ -171,7 +171,7 @@ export default function ProductSpecsTab({
           return (
             <section
               key={group.title}
-              className="rounded-[1.375rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] md:p-[22px]"
+              className="rounded-[1.375rem] bg-[#F8FAFC] p-5 md:p-[22px]"
             >
               <div className="flex items-center gap-4">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
@@ -193,7 +193,7 @@ export default function ProductSpecsTab({
                     key={`${group.title}-${key}`}
                     className={cn(
                       "grid gap-2 rounded-xl py-[14px] transition-[background,padding-left] duration-200 ease-out md:grid-cols-[minmax(180px,280px)_1fr] md:gap-6",
-                      index > 0 ? "border-t border-[#EEF2F7]" : "",
+                      index > 0 ? "border-t border-white" : "",
                       "hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.055),transparent)] hover:pl-2.5"
                     )}
                   >

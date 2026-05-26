@@ -263,7 +263,7 @@ export default function ProductDetailsTabs({
       <div className="md:hidden">
         <div
           ref={mobileScrollerRef}
-          className="sticky top-[calc(var(--mobile-header-height,64px)+6px)] z-20 -mx-4 overflow-x-auto border-y border-[#EEF2F7] bg-[rgba(255,255,255,0.94)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
+          className="sticky top-[calc(var(--mobile-header-height,64px)+6px)] z-20 -mx-4 overflow-x-auto bg-[rgba(245,247,250,0.92)] px-4 py-2 backdrop-blur-[14px] [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
         >
           <div className="flex min-w-max items-center gap-2">
             {TAB_ITEMS.map(item => {
@@ -295,7 +295,7 @@ export default function ProductDetailsTabs({
           </div>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-[1.5rem] bg-white">
+        <div className="mt-4 overflow-hidden bg-white">
           {TAB_ITEMS.map(item => (
             <section
               key={`mobile-panel-${item.key}`}
@@ -304,7 +304,7 @@ export default function ProductDetailsTabs({
               }}
               id={item.key}
               data-mobile-tab={item.key}
-              className="scroll-mt-36 border-b border-[#EEF2F7] px-4 py-5 last:border-b-0"
+              className="scroll-mt-36 px-4 py-6"
             >
               {mobilePanels[item.key]}
             </section>
@@ -312,8 +312,8 @@ export default function ProductDetailsTabs({
         </div>
       </div>
 
-      <div className="hidden rounded-[1.5rem] border border-[rgba(226,232,240,0.9)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06),0_4px_18px_rgba(15,23,42,0.04)] transition-shadow duration-300 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08),0_8px_24px_rgba(15,23,42,0.05)] md:block md:rounded-[1.75rem]">
-        <div className="sticky top-[var(--header-height,78px)] z-20 rounded-t-[1.5rem] bg-[rgba(255,255,255,0.92)] backdrop-blur-[14px] supports-[backdrop-filter]:bg-[rgba(255,255,255,0.92)] md:rounded-t-[1.75rem]">
+      <div className="hidden md:block">
+        <div className="sticky top-[var(--header-height,78px)] z-20 bg-[rgba(245,247,250,0.9)] py-3 backdrop-blur-[14px] supports-[backdrop-filter]:bg-[rgba(245,247,250,0.86)]">
           <div
             className="overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden"
           >
@@ -321,30 +321,17 @@ export default function ProductDetailsTabs({
               ref={tabsRailRef}
               role="tablist"
               aria-label="Информация о товаре"
-              className="relative inline-flex min-w-full items-end gap-1.5 bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_100%)] px-2 py-2.5 md:h-[68px] md:gap-1.5 md:px-3.5 md:py-2.5"
+              className="relative inline-flex min-w-full items-center gap-2 px-0 py-1 md:min-h-[56px]"
             >
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[#E2E8F0]" />
               {indicator ? (
-                <>
-                  <span
-                    className="pointer-events-none absolute bottom-0 z-20 h-[3px] rounded-full bg-[#05C3D4] shadow-[0_0_18px_rgba(5,195,212,0.24)] transition-[left,width] duration-300 ease-out"
-                    style={{
-                      left: indicator.left,
-                      width: indicator.width,
-                      transform: "translateX(-50%)",
-                    }}
-                  />
-                  <span
-                    className="pointer-events-none absolute bottom-0 z-20 h-4 transition-[left,width] duration-300 ease-out"
-                    style={{
-                      left: indicator.left,
-                      width: Math.min(indicator.width, 52),
-                      transform: "translateX(-50%)",
-                    }}
-                  >
-                    <span className="absolute inset-x-0 bottom-0 h-4 rounded-t-[18px] border-x border-t border-[rgba(5,195,212,0.36)] bg-white shadow-[0_-10px_24px_rgba(15,23,42,0.06)]" />
-                  </span>
-                </>
+                <span
+                  className="pointer-events-none absolute bottom-0 z-20 h-[3px] rounded-full bg-[#05C3D4] transition-[left,width] duration-300 ease-out"
+                  style={{
+                    left: indicator.left,
+                    width: indicator.width,
+                    transform: "translateX(-50%)",
+                  }}
+                />
               ) : null}
 
               {TAB_ITEMS.map((item, index) => {
@@ -365,19 +352,13 @@ export default function ProductDetailsTabs({
                     onClick={() => onTabChange(item.key)}
                     onKeyDown={event => handleTabKeyDown(event, index)}
                     className={cn(
-                      "relative z-30 h-11 shrink-0 [scroll-snap-align:start] rounded-2xl px-4 text-sm font-bold transition-[color,background,transform,box-shadow,border-color] duration-200 ease-out md:h-[46px] md:px-[18px]",
+                      "relative z-30 h-11 shrink-0 [scroll-snap-align:start] rounded-full px-4 text-sm font-bold transition-[color,background,transform] duration-200 ease-out md:h-[46px] md:px-[18px]",
                       isActive
-                        ? "translate-y-px bg-white text-[#20262E] shadow-[0_10px_24px_rgba(15,23,42,0.08),inset_0_0_0_1px_rgba(5,195,212,0.35)]"
-                        : "text-[#64748B] hover:-translate-y-px hover:bg-[rgba(5,195,212,0.08)] hover:text-[#20262E]"
+                        ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
+                        : "text-[#64748B] hover:-translate-y-px hover:bg-white/80 hover:text-[#20262E]"
                     )}
                   >
                     <span className="whitespace-nowrap">{item.label}</span>
-                    <span
-                      className={cn(
-                        "pointer-events-none absolute left-1/2 bottom-[6px] h-[3px] w-7 -translate-x-1/2 rounded-full bg-[#05C3D4] shadow-[0_0_14px_rgba(5,195,212,0.25)] transition-opacity duration-200",
-                        isActive ? "opacity-100" : "opacity-0"
-                      )}
-                    />
                   </button>
                 );
               })}
@@ -403,7 +384,7 @@ export default function ProductDetailsTabs({
                 aria-labelledby={`product-tab-${item.key}`}
                 aria-hidden={!isActive}
                 className={cn(
-                  "left-0 top-0 w-full p-5 md:p-8",
+                  "left-0 top-0 w-full py-8",
                   isActive
                     ? "relative z-10 opacity-100 translate-y-0 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none"
                     : "pointer-events-none absolute opacity-0 translate-y-1 transition-[opacity,transform] duration-120 ease-out motion-reduce:transition-none"

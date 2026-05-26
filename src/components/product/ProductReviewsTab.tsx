@@ -156,7 +156,7 @@ export default function ProductReviewsTab({
         </div>
 
         {totalCount > 0 ? (
-          <div className="rounded-[1.4rem] border border-[#E2E8F0] bg-[#F8FAFC] px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+          <div className="rounded-[1.4rem] bg-[#F8FAFC] px-5 py-4">
             <div className="flex items-center gap-2 text-[#05C3D4]">
               <Star size={18} className="fill-current" />
               <span className="text-3xl font-black">{avgRating.toFixed(1)}</span>
@@ -173,7 +173,7 @@ export default function ProductReviewsTab({
 
       {reviews.length === 0 ? (
         <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_45%)] px-6 py-14 text-center">
-          <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#05C3D4] shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+          <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#05C3D4]">
             <MessageSquareHeart size={24} />
           </div>
           <h3 className="mt-5 text-2xl font-black tracking-tight text-[#20262E]">
@@ -189,7 +189,7 @@ export default function ProductReviewsTab({
                 .getElementById("tab-review-composer")
                 ?.scrollIntoView({ behavior: "smooth", block: "start" })
             }
-            className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-[#05C3D4] px-5 text-sm font-extrabold text-white transition hover:-translate-y-px hover:shadow-[0_12px_24px_rgba(5,195,212,0.22)]"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-[#05C3D4] px-5 text-sm font-extrabold text-white transition hover:-translate-y-px hover:bg-[#27E6F2]"
           >
             Оставить отзыв
           </button>
@@ -199,7 +199,7 @@ export default function ProductReviewsTab({
           {reviews.map(review => (
             <article
               key={review.id}
-              className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]"
+              className="rounded-[1.4rem] bg-[#F8FAFC] p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -265,14 +265,14 @@ export default function ProductReviewsTab({
             onSuccess={onSuccess}
           />
         ) : (
-          <div className="rounded-[1.4rem] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
+          <div className="rounded-[1.4rem] bg-[#F8FAFC] p-5">
             <div className="text-base font-extrabold text-[#20262E]">Оставить отзыв</div>
             <p className="mt-3 text-sm leading-6 text-[#6B7280]">
               Чтобы оставить отзыв, войдите в личный кабинет. После отправки отзыв попадёт на модерацию и только потом появится на сайте.
             </p>
             <Link
               to="/login"
-              className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-[#05C3D4] px-5 text-sm font-extrabold text-white transition hover:-translate-y-px hover:shadow-[0_12px_24px_rgba(5,195,212,0.22)]"
+              className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-[#05C3D4] px-5 text-sm font-extrabold text-white transition hover:-translate-y-px hover:bg-[#27E6F2]"
             >
               Войти и оставить отзыв
             </Link>

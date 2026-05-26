@@ -82,7 +82,7 @@ export default function ProductAboutTab({
             return (
               <div
                 key={benefit}
-                className="rounded-[1.25rem] border border-[#E2E8F0] bg-[#F8FAFC] p-[18px] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[3px] hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                className="rounded-[1.25rem] bg-[#F8FAFC] p-[18px] transition-[background,transform] duration-200 ease-out hover:-translate-y-[2px] hover:bg-[rgba(5,195,212,0.08)]"
               >
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
                   <Icon size={20} />
@@ -98,7 +98,7 @@ export default function ProductAboutTab({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
         {visibleSpecs.length > 0 ? (
-          <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+          <section className="rounded-[1.4rem] bg-[#F8FAFC] p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-extrabold text-[#20262E]">
@@ -115,7 +115,7 @@ export default function ProductAboutTab({
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {visibleSpecs.map(([key, value]) => (
-                <div key={key} className="rounded-[1rem] bg-[#F8FAFC] px-4 py-3">
+                <div key={key} className="rounded-[1rem] bg-white/75 px-4 py-3">
                   <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
                     {key}
                   </div>
@@ -129,7 +129,7 @@ export default function ProductAboutTab({
         ) : null}
 
         {visibleBenefits.length > 0 ? (
-          <section className="rounded-[1.4rem] border border-[#E2E8F0] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+          <section className="rounded-[1.4rem] bg-[#F8FAFC] p-5">
             <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
               <Sparkles size={20} />
             </div>
@@ -144,7 +144,7 @@ export default function ProductAboutTab({
               {visibleBenefits.map(item => (
                 <div
                   key={item}
-                  className="rounded-[1rem] border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm font-semibold text-[#20262E]"
+                  className="rounded-[1rem] bg-white/75 px-4 py-3 text-sm font-semibold text-[#20262E]"
                 >
                   {item}
                 </div>
