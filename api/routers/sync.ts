@@ -1068,16 +1068,55 @@ export const syncRouter = createRouter({
   wipeCatalog: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "manage", "Sync");
     const db = getDb();
+
     try {
-      // Delete in order to respect dependencies
-      await db.execute(sql`DELETE FROM product_stocks`);
-      await db.execute(sql`DELETE FROM reviews`);
-      await db.execute(sql`DELETE FROM order_items`);
-      await db.execute(sql`DELETE FROM products`);
-      await db.execute(sql`DELETE FROM categories`);
-      return { success: true, message: "Каталог успешно очищен" };
+      await db.transaction(async tx => {
+        // Search analytics and index.
+        await tx.execute(sql`DELETE FROM search_click_logs`);
+        await tx.execute(sql`DELETE FROM search_logs`);
+        await tx.execute(sql`DELETE FROM search_terms`);
+        await tx.execute(sql`DELETE FROM search_reindex_jobs`);
+        await tx.execute(sql`DELETE FROM search_documents`);
+
+        // Reviews and product feedback.
+        await tx.execute(sql`DELETE FROM product_review_history`);
+        await tx.execute(sql`DELETE FROM product_review_requests`);
+        await tx.execute(sql`DELETE FROM product_reviews`);
+        await tx.execute(sql`DELETE FROM reviews`);
+
+        // Product-derived supporting data.
+        await tx.execute(sql`DELETE FROM product_badge_assignments`);
+        await tx.execute(sql`DELETE FROM merchandising_history`);
+        await tx.execute(sql`DELETE FROM product_merchandising`);
+        await tx.execute(sql`DELETE FROM product_normalization_logs`);
+        await tx.execute(sql`DELETE FROM product_spec_values`);
+        await tx.execute(sql`DELETE FROM product_spec_value_rules`);
+        await tx.execute(sql`DELETE FROM product_spec_rules`);
+        await tx.execute(sql`DELETE FROM manufacturer_category_index`);
+        await tx.execute(sql`DELETE FROM manufacturers`);
+
+        // Stocks, reservations, and order line items tied to products.
+        await tx.execute(sql`DELETE FROM product_variant_stocks`);
+        await tx.execute(sql`DELETE FROM product_stocks`);
+        await tx.execute(sql`DELETE FROM product_reservations`);
+        await tx.execute(sql`DELETE FROM order_items`);
+
+        // Core catalog entities.
+        await tx.execute(sql`DELETE FROM product_variants`);
+        await tx.execute(sql`DELETE FROM products`);
+        await tx.execute(sql`DELETE FROM categories`);
+      });
+
+      return {
+        success: true,
+        message:
+          "Каталог полностью очищен: удалены категории, товары, модификации, остатки, поиск, отзывы и товарные строки заказов",
+      };
     } catch (error: unknown) {
-      throw new Error("Ошибка при очистке каталога: " + getErrorMessage(error, "unknown error"));
+      throw new Error(
+        "Ошибка при полной очистке каталога: " +
+          getErrorMessage(error, "unknown error")
+      );
     }
   }),
 
