@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles, Star } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
+import HomeSectionHeading from "./HomeSectionHeading";
 
 const defaultReviews = [
   {
@@ -67,30 +68,24 @@ export default function HomeSecondarySections({
           </div>
 
           <div className="container-main relative z-10 max-w-[1440px]">
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
-              <div className="max-w-[760px]">
-                <span className="block text-[11px] font-black uppercase tracking-[0.32em] text-[#05C3D4] sm:text-xs">
-                  Производители
-                </span>
-                <h2 className="mt-5 max-w-[10ch] text-[2.5rem] font-black leading-[0.95] tracking-[-0.06em] text-[#111827] sm:text-[3rem] md:text-[3.6rem] lg:text-[4.3rem]">
-                  Бренды <span className="text-[#05C3D4]">в наличии</span>
-                </h2>
-                <p className="mt-5 max-w-[38rem] text-[15px] leading-7 text-[#64748B] sm:text-[17px]">
-                  Выбирайте технику и аксессуары от проверенных производителей
-                </p>
-              </div>
-
-              <Link
-                to="/catalog?view=brands"
-                className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none lg:mt-6"
-              >
-                <span>Все производители</span>
-                <ArrowRight
-                  size={18}
-                  className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
-                />
-              </Link>
-            </div>
+            <HomeSectionHeading
+              eyebrow="Производители"
+              title="Бренды в наличии"
+              accent="в наличии"
+              description="Выбирайте технику и аксессуары от проверенных производителей"
+              action={
+                <Link
+                  to="/catalog?view=brands"
+                  className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none"
+                >
+                  <span>Все производители</span>
+                  <ArrowRight
+                    size={18}
+                    className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+                  />
+                </Link>
+              }
+            />
 
             <div className="mt-12 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-16 sm:gap-x-6 sm:gap-y-10 md:grid-cols-3 md:gap-y-12 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-16 xl:grid-cols-6 xl:gap-x-12 xl:gap-y-[4.5rem]">
               {featuredManufacturers.map(manufacturer => (
@@ -187,14 +182,12 @@ export default function HomeSecondarySections({
 
       <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
-          <div className="text-center mb-16">
-            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-              Локации
-            </span>
-            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-              НАШИ <span className="text-foreground/20">МАГАЗИНЫ</span>
-            </h2>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Локации"
+            title="Наши магазины"
+            accent="магазины"
+            className="mb-16"
+          />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {stores.map(store => (
               <StoreCard
@@ -215,14 +208,12 @@ export default function HomeSecondarySections({
 
       <section id="reviews" className="py-24 bg-background">
         <div className="container-main">
-          <div className="text-center mb-16">
-            <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-              Обратная связь
-            </span>
-            <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-              ОТЗЫВЫ <span className="text-white/20">ПОКУПАТЕЛЕЙ</span>
-            </h2>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Обратная связь"
+            title="Отзывы покупателей"
+            accent="покупателей"
+            className="mb-16"
+          />
 
           <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-border">
             {[
@@ -283,22 +274,20 @@ export default function HomeSecondarySections({
       {latestPosts.length > 0 && (
         <section id="blog" className="py-24 bg-background">
           <div className="container-main">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-              <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-                  Блог ТЕХАКС
-                </span>
-                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  СОВЕТЫ <span className="text-foreground/20">И ОБЗОРЫ</span>
-                </h2>
-              </div>
-              <Link
-                to="/blog"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
-              >
-                Читать все статьи
-              </Link>
-            </div>
+            <HomeSectionHeading
+              eyebrow="Блог ТЕХАКС"
+              title="Советы и обзоры"
+              accent="обзоры"
+              className="mb-16"
+              action={
+                <Link
+                  to="/blog"
+                  className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                >
+                  Читать все статьи
+                </Link>
+              }
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestPosts.map(post => (
@@ -341,22 +330,20 @@ export default function HomeSecondarySections({
 
       <section className="py-24 bg-card border-t border-border">
         <div className="container-main">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-            <div>
-              <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-                Витрина
-              </span>
-              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                ПОПУЛЯРНЫЕ <span className="text-foreground/20">ТОВАРЫ</span>
-              </h2>
-            </div>
-            <Link
-              to="/catalog"
-              className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
-            >
-              Смотреть весь каталог
-            </Link>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Витрина"
+            title="Популярные товары"
+            accent="товары"
+            className="mb-16"
+            action={
+              <Link
+                to="/catalog"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
+              >
+                Смотреть весь каталог
+              </Link>
+            }
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {popularProducts.map((product, index) => (

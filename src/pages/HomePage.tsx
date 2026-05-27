@@ -8,6 +8,7 @@ import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
 import { CategoryIcon } from "@/lib/category-icons";
 import { useSeo } from "@/lib/seo";
+import HomeSectionHeading from "@/components/home/HomeSectionHeading";
 import {
   Carousel,
   CarouselContent,
@@ -91,19 +92,20 @@ export default function HomePage() {
       {/* Category Grid */}
       <section className="py-16 bg-card border-t border-border">
         <div className="container-main">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                КАТЕГОРИИ <span className="text-foreground/20">ТОВАРОВ</span>
-              </h2>
-            </div>
-            <Link
-              to="/catalog"
-              className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
-            >
-              Смотреть все разделы
-            </Link>
-          </div>
+          <HomeSectionHeading
+            eyebrow="Каталог"
+            title="Категории товаров"
+            accent="товаров"
+            className="mb-16"
+            action={
+              <Link
+                to="/catalog"
+                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
+              >
+                Смотреть все разделы
+              </Link>
+            }
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {categories.slice(0, 8).map(cat => (
@@ -139,22 +141,20 @@ export default function HomePage() {
       {weekProducts.length > 0 && (
         <section className="py-20 bg-card/50 relative overflow-hidden">
           <div className="container-main relative z-10">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-              <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
-                  Выбор недели
-                </span>
-                <h2 className="text-4xl md:text-5xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  ТОВАРЫ <span className="text-foreground/20">НЕДЕЛИ</span>
-                </h2>
-              </div>
-              <Link
-                to="/catalog"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
-              >
-                Смотреть весь каталог
-              </Link>
-            </div>
+            <HomeSectionHeading
+              eyebrow="Выбор недели"
+              title="Товары недели"
+              accent="недели"
+              className="mb-10"
+              action={
+                <Link
+                  to="/catalog"
+                  className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                >
+                  Смотреть весь каталог
+                </Link>
+              }
+            />
 
             <Carousel
               opts={{
