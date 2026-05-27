@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import ProductImageLightbox from "./ProductImageLightbox";
 import {
   applyProductImageFallback,
@@ -19,6 +19,8 @@ export default function ProductImageGallery({
   productName,
   badges,
 }: ProductImageGalleryProps) {
+  const thumbsRef = useRef<HTMLDivElement | null>(null);
+  const thumbRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const normalizedImages = useMemo(
     () =>
       images.filter(
@@ -30,16 +32,66 @@ export default function ProductImageGallery({
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
   const hasMultipleImages = normalizedImages.length > 1;
   const activeImage = normalizedImages[activeIndex] ?? normalizedImages[0] ?? null;
   const activeImageProps = getProductGalleryImageProps({
     image: activeImage?.original ?? "",
     imageVariants: activeImage,
   });
+  const getImageRefKey = useCallback(
+    (image: ProductImageVariantSet, index: number) =>
+      image.original ?? image.medium ?? image.card ?? image.thumb ?? `image-${index}`,
+    []
+  );
 
-  const selectImage = (index: number) => {
-    setActiveIndex(index);
-  };
+  const updateScrollState = useCallback(() => {
+    const container = thumbsRef.current;
+    if (!container || typeof window === "undefined" || window.innerWidth < 768) {
+      setCanScrollUp(false);
+      setCanScrollDown(false);
+      return;
+    }
+
+    setCanScrollUp(container.scrollTop > 2);
+    setCanScrollDown(container.scrollTop + container.clientHeight < container.scrollHeight - 2);
+  }, []);
+
+  const scrollThumbs = useCallback((direction: "up" | "down") => {
+    const container = thumbsRef.current;
+    if (!container) return;
+
+    container.scrollBy({
+      top: direction === "up" ? -96 : 96,
+      behavior: "smooth",
+    });
+  }, []);
+
+  const ensureActiveThumbVisible = useCallback(
+    (index: number) => {
+      const image = normalizedImages[index];
+      if (!image) return;
+      const refKey = getImageRefKey(image, index);
+
+      requestAnimationFrame(() => {
+        thumbRefs.current[refKey]?.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+          behavior: "smooth",
+        });
+      });
+    },
+    [getImageRefKey, normalizedImages]
+  );
+
+  const selectImage = useCallback(
+    (index: number) => {
+      setActiveIndex(index);
+      ensureActiveThumbVisible(index);
+    },
+    [ensureActiveThumbVisible]
+  );
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -55,6 +107,34 @@ export default function ProductImageGallery({
     setActiveIndex((activeIndex + 1) % normalizedImages.length);
   };
 
+  useEffect(() => {
+    if (activeIndex <= normalizedImages.length - 1) return;
+    setActiveIndex(0);
+  }, [activeIndex, normalizedImages.length]);
+
+  useEffect(() => {
+    updateScrollState();
+    if (!hasMultipleImages) return;
+
+    const container = thumbsRef.current;
+    if (!container) return;
+
+    container.addEventListener("scroll", updateScrollState, { passive: true });
+    const handleResize = () => updateScrollState();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      container.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [hasMultipleImages, updateScrollState]);
+
+  useEffect(() => {
+    if (!hasMultipleImages) return;
+    ensureActiveThumbVisible(activeIndex);
+    updateScrollState();
+  }, [activeIndex, ensureActiveThumbVisible, hasMultipleImages, updateScrollState]);
+
   return (
     <>
       <div
@@ -65,24 +145,45 @@ export default function ProductImageGallery({
         }`}
       >
         {hasMultipleImages ? (
-          <div>
-            <div className="grid grid-cols-1 gap-3 md:sticky md:top-24">
+          <div className="order-2 flex flex-col gap-4 md:order-1 md:gap-3">
+            <button
+              type="button"
+              onClick={() => scrollThumbs("up")}
+              disabled={!canScrollUp}
+              aria-label="Прокрутить миниатюры вверх"
+              className={`hidden h-9 w-9 items-center justify-center self-center rounded-full bg-[var(--tech-color-surface-muted)] text-[var(--tech-color-text-muted)] transition md:flex ${
+                canScrollUp
+                  ? "hover:bg-[#EAFBFD] hover:text-[#05C3D4]"
+                  : "cursor-default opacity-35"
+              }`}
+            >
+              <ChevronUp size={18} />
+            </button>
+
+            <div
+              ref={thumbsRef}
+              className="flex max-h-none flex-row gap-3 overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:max-h-[436px] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-1"
+            >
               {normalizedImages.map((image, index) => {
                 const thumbnailProps = getProductGalleryImageProps({
                   image: image.original,
                   imageVariants: image,
                 });
+                const refKey = getImageRefKey(image, index);
 
                 return (
                   <button
-                    key={`${image.original}-${index}`}
+                    key={refKey}
+                    ref={node => {
+                      thumbRefs.current[refKey] = node;
+                    }}
                     type="button"
-                  onClick={() => selectImage(index)}
-                  aria-label={`Показать изображение ${index + 1} товара ${productName}`}
-                    className={`overflow-hidden rounded-xl bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                    onClick={() => selectImage(index)}
+                    aria-label={`Показать изображение ${index + 1} товара ${productName}`}
+                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
                       index === activeIndex
-                        ? "outline outline-2 outline-[#05C3D4] outline-offset-2"
-                        : "hover:brightness-95"
+                        ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
+                        : "border-[#E1E7EF] hover:-translate-y-0.5 hover:border-[#05C3D4]"
                     }`}
                   >
                     <img
@@ -90,7 +191,7 @@ export default function ProductImageGallery({
                       srcSet={thumbnailProps.srcSet}
                       sizes="80px"
                       alt={`${productName} — миниатюра ${index + 1}`}
-                      className="h-16 w-full object-contain sm:h-20 md:h-[76px]"
+                      className="max-h-full max-w-full object-contain"
                       loading="lazy"
                       decoding="async"
                       onError={applyProductImageFallback}
@@ -99,11 +200,25 @@ export default function ProductImageGallery({
                 );
               })}
             </div>
+
+            <button
+              type="button"
+              onClick={() => scrollThumbs("down")}
+              disabled={!canScrollDown}
+              aria-label="Прокрутить миниатюры вниз"
+              className={`hidden h-9 w-9 items-center justify-center self-center rounded-full bg-[var(--tech-color-surface-muted)] text-[var(--tech-color-text-muted)] transition md:flex ${
+                canScrollDown
+                  ? "hover:bg-[#EAFBFD] hover:text-[#05C3D4]"
+                  : "cursor-default opacity-35"
+              }`}
+            >
+              <ChevronDown size={18} />
+            </button>
           </div>
         ) : null}
 
         <div
-          className={`relative overflow-hidden rounded-[2rem] bg-white p-4 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 overflow-hidden rounded-[2rem] bg-white p-4 md:order-2 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
