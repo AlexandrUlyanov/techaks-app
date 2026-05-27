@@ -59,7 +59,7 @@ export default function ProductSpecsTab({
 
   if (groups.length === 0) {
     return (
-      <div className="py-6 text-sm leading-7 text-[#6B7280]">
+      <div className="py-6 text-sm leading-7 text-muted-foreground">
         Характеристики пока не добавлены. Мы обновим их после следующей синхронизации.
       </div>
     );
@@ -81,11 +81,11 @@ export default function ProductSpecsTab({
         ref={node => {
           mobileSectionRef.current = node;
         }}
-        className="space-y-4 text-[#20262E]"
+        className="space-y-4 text-foreground"
       >
         <div>
           <h2 className="text-xl font-black tracking-tight">Характеристики</h2>
-          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Основные параметры товара, которые помогут быстро сравнить модель.
           </p>
         </div>
@@ -94,10 +94,10 @@ export default function ProductSpecsTab({
           {visibleFlatItems.map(({ groupTitle, item: [key, value] }, index) => (
             <div
               key={`${groupTitle}-${key}-${index}`}
-              className="border-b border-[#EEF2F7] py-3 last:border-b-0"
+              className="border-b border-border py-3 last:border-b-0"
             >
-              <div className="text-[13px] font-medium text-[#6B7280]">{key}</div>
-              <div className="mt-1 text-[15px] font-semibold leading-7 text-[#20262E]">
+              <div className="text-[13px] font-medium text-muted-foreground">{key}</div>
+              <div className="mt-1 text-[15px] font-semibold leading-7 text-foreground">
                 {String(value)}
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function ProductSpecsTab({
   }
 
   return (
-    <div className="space-y-8 text-[#20262E]">
+    <div className="space-y-8 text-foreground">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-sm font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
@@ -134,7 +134,7 @@ export default function ProductSpecsTab({
           <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
             Основные параметры товара
           </h2>
-          <p className="mt-3 text-sm leading-7 text-[#6B7280]">
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">
             Параметры, которые помогут быстро сравнить модель и понять, подходит ли она под ваш сценарий.
           </p>
         </div>
@@ -146,7 +146,7 @@ export default function ProductSpecsTab({
             <button
               type="button"
               onClick={() => setExpanded(prev => !prev)}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#F1F5F9] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)]"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-muted/70 px-5 text-sm font-bold text-foreground transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)] dark:hover:bg-[#05C3D4]/10"
             >
               {expanded ? "Свернуть" : "Показать все характеристики"}
             </button>
@@ -171,17 +171,17 @@ export default function ProductSpecsTab({
           return (
             <section
               key={group.title}
-              className="rounded-[1.375rem] bg-[#F8FAFC] p-5 md:p-[22px]"
+              className="rounded-[1.375rem] bg-muted/60 p-5 md:p-[22px]"
             >
               <div className="flex items-center gap-4">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
                   <Icon size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#20262E]">
+                  <h3 className="text-lg font-extrabold text-foreground">
                     {group.title}
                   </h3>
-                  <p className="mt-1 text-sm text-[#6B7280]">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {group.items.length} {group.items.length === 1 ? "параметр" : group.items.length < 5 ? "параметра" : "параметров"}
                   </p>
                 </div>
@@ -193,12 +193,12 @@ export default function ProductSpecsTab({
                     key={`${group.title}-${key}`}
                     className={cn(
                       "grid gap-2 rounded-xl py-[14px] transition-[background,padding-left] duration-200 ease-out md:grid-cols-[minmax(180px,280px)_1fr] md:gap-6",
-                      index > 0 ? "border-t border-white" : "",
-                      "hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.055),transparent)] hover:pl-2.5"
+                      index > 0 ? "border-t border-border/80" : "",
+                      "hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.055),transparent)] hover:pl-2.5 dark:hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.08),transparent)]"
                     )}
                   >
-                    <dt className="text-sm font-medium text-[#6B7280]">{key}</dt>
-                    <dd className="text-[15px] font-semibold leading-7 text-[#20262E]">
+                    <dt className="text-sm font-medium text-muted-foreground">{key}</dt>
+                    <dd className="text-[15px] font-semibold leading-7 text-foreground">
                       {String(value)}
                     </dd>
                   </div>

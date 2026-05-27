@@ -314,7 +314,7 @@ export default function ProductDetailsTabs({
             "sticky top-[calc(var(--mobile-header-height,64px)+18px)] z-20 -mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [scroll-snap-type:x_mandatory] [&::-webkit-scrollbar]:hidden",
             "transition-[background,padding,box-shadow] duration-300 ease-out motion-reduce:transition-none",
             isMobileNavStuck
-              ? "bg-white/[0.92] py-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-[14px]"
+              ? "bg-background/92 py-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-[14px] dark:shadow-[0_12px_30px_rgba(0,0,0,0.35)]"
               : "py-2"
           )}
         >
@@ -343,8 +343,8 @@ export default function ProductDetailsTabs({
                     "shrink-0 text-[13px] font-semibold transition-[background,color,border-radius,height,padding] duration-300 ease-out [scroll-snap-align:start] motion-reduce:transition-none",
                     isMobileNavStuck ? "h-8 rounded-xl px-3.5" : "h-9 rounded-full px-4",
                     isActive
-                      ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
-                      : "bg-white/70 text-[#6B7280] hover:bg-white"
+                      ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A] dark:bg-[#05C3D4]/16 dark:text-[#7DE7F0]"
+                      : "bg-card/70 text-muted-foreground hover:bg-card hover:text-foreground"
                   )}
                 >
                   {shortLabel}
@@ -354,7 +354,7 @@ export default function ProductDetailsTabs({
           </div>
         </div>
 
-        <div className="mt-4 overflow-hidden bg-white">
+        <div className="mt-4 overflow-hidden bg-transparent">
           {TAB_ITEMS.map(item => (
             <section
               key={`mobile-panel-${item.key}`}
@@ -377,7 +377,7 @@ export default function ProductDetailsTabs({
           className={cn(
             "sticky top-[var(--header-height,78px)] z-20 transition-[background,padding,box-shadow] duration-300 ease-out motion-reduce:transition-none",
             isDesktopNavStuck
-              ? "-mx-3 bg-white/[0.92] px-3 py-2 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-[14px]"
+              ? "-mx-3 bg-background/92 px-3 py-2 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-[14px] dark:shadow-[0_12px_34px_rgba(0,0,0,0.35)]"
               : "py-3"
           )}
         >
@@ -418,8 +418,8 @@ export default function ProductDetailsTabs({
                         ? "h-10 rounded-xl px-3.5"
                         : "h-11 rounded-full px-4 md:h-[46px] md:px-[18px]",
                       isActive
-                        ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A]"
-                        : "text-[#64748B] hover:-translate-y-px hover:bg-white/70 hover:text-[#20262E]"
+                        ? "bg-[rgba(5,195,212,0.14)] text-[#047E8A] dark:bg-[#05C3D4]/16 dark:text-[#7DE7F0]"
+                        : "text-muted-foreground hover:-translate-y-px hover:bg-card/70 hover:text-foreground"
                     )}
                   >
                     <span className="whitespace-nowrap">{item.label}</span>

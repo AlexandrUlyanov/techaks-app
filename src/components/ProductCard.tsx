@@ -209,7 +209,7 @@ export default function ProductCard({
                 {!isInStock ? "Нет в наличии" : "В наличии"}
               </span>
             </div>
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground sm:text-base">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-[#20262E] sm:text-base">
               {product.name}
             </h3>
             {hasRating && (
@@ -280,7 +280,7 @@ export default function ProductCard({
         </div>
 
         <div className="flex flex-1 flex-col px-3 pb-2 pt-3 sm:px-4">
-          <h3 className="text-center text-[15px] font-medium leading-snug text-foreground line-clamp-2 min-h-[2.7rem]">
+          <h3 className="text-center text-[15px] font-medium leading-snug text-[#20262E] line-clamp-2 min-h-[2.7rem]">
             {product.name}
           </h3>
           {hasRating && (

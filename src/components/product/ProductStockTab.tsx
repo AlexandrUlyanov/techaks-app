@@ -37,20 +37,20 @@ export default function ProductStockTab({
   const [showAllStores, setShowAllStores] = useState(false);
   if (stores.length === 0) {
     return (
-      <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_45%)] px-6 py-14 text-center">
-        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#05C3D4]">
+      <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_45%)] px-6 py-14 text-center dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.14),transparent_45%)]">
+        <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-3xl bg-card text-[#05C3D4]">
           <Store size={24} />
         </div>
-        <h2 className="mt-5 text-2xl font-black tracking-tight text-[#20262E] md:text-3xl">
+        <h2 className="mt-5 text-2xl font-black tracking-tight text-foreground md:text-3xl">
           Наличие в магазинах
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#6B7280]">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
           Сейчас товара нет в наличии в магазинах.
         </p>
         <button
           type="button"
           onClick={onNotify}
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-[#F1F5F9] px-5 text-sm font-bold text-[#20262E] transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)]"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl bg-muted/70 px-5 text-sm font-bold text-foreground transition hover:-translate-y-px hover:bg-[rgba(5,195,212,0.10)] dark:hover:bg-[#05C3D4]/10"
         >
           Сообщить о поступлении
         </button>
@@ -62,10 +62,10 @@ export default function ProductStockTab({
     const visibleStores = showAllStores ? stores : stores.slice(0, 2);
 
     return (
-      <div className="space-y-4 text-[#20262E]">
+      <div className="space-y-4 text-foreground">
         <div>
           <h2 className="text-xl font-black tracking-tight">Наличие в магазинах</h2>
-          <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Смотрите ближайшие точки и оформляйте резерв, если товар доступен.
           </p>
         </div>
@@ -77,17 +77,17 @@ export default function ProductStockTab({
             const isAvailable = store.availableQty > 0;
 
             return (
-              <article key={store.storeId} className="rounded-[1.1rem] bg-[#F8FAFC] px-4 py-4">
+              <article key={store.storeId} className="rounded-[1.1rem] bg-muted/60 px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-bold text-[#20262E]">{store.storeName}</div>
-                    <div className="mt-1 text-sm leading-6 text-[#6B7280]">{store.storeAddress}</div>
+                    <div className="text-sm font-bold text-foreground">{store.storeName}</div>
+                    <div className="mt-1 text-sm leading-6 text-muted-foreground">{store.storeAddress}</div>
                   </div>
                   <span className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${status.className}`}>
                     {status.label}
                   </span>
                 </div>
-                <div className="mt-3 text-sm font-medium text-[#20262E]">
+                <div className="mt-3 text-sm font-medium text-foreground">
                   {isAvailable ? `${store.availableQty} шт. доступно` : "Уточните ближайшее поступление"}
                 </div>
                 <button
@@ -98,7 +98,7 @@ export default function ProductStockTab({
                     isReserved
                       ? "cursor-not-allowed bg-[rgba(5,195,212,0.12)] text-[#047E8A]"
                       : isAvailable
-                        ? "bg-[#05C3D4] text-white"
+                        ? "bg-[#05C3D4] text-white dark:text-black"
                         : "cursor-not-allowed bg-slate-100 text-slate-400"
                   }`}
                 >
@@ -123,7 +123,7 @@ export default function ProductStockTab({
   }
 
   return (
-    <div className="space-y-8 text-[#20262E]">
+    <div className="space-y-8 text-foreground">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-sm font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
@@ -132,7 +132,7 @@ export default function ProductStockTab({
           <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
             Наличие в магазинах
           </h2>
-          <p className="mt-3 text-sm leading-7 text-[#6B7280]">
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">
             Остатки по точкам ТЕХАКС. Для товаров в наличии можно сразу оформить резерв.
           </p>
         </div>
@@ -150,7 +150,7 @@ export default function ProductStockTab({
           return (
             <article
               key={store.storeId}
-              className="rounded-[1.4rem] bg-[#F8FAFC] p-5 transition-[background,transform] duration-200 ease-out hover:-translate-y-[2px] hover:bg-[rgba(5,195,212,0.07)]"
+              className="rounded-[1.4rem] bg-muted/60 p-5 transition-[background,transform] duration-200 ease-out hover:-translate-y-[2px] hover:bg-[rgba(5,195,212,0.07)] dark:hover:bg-[#05C3D4]/10"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-3">
@@ -158,10 +158,10 @@ export default function ProductStockTab({
                     <Store size={20} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-extrabold text-[#20262E]">
+                    <h3 className="text-lg font-extrabold text-foreground">
                       {store.storeName}
                     </h3>
-                    <div className="mt-2 inline-flex items-start gap-2 text-sm leading-6 text-[#6B7280]">
+                    <div className="mt-2 inline-flex items-start gap-2 text-sm leading-6 text-muted-foreground">
                       <MapPin size={16} className="mt-1 shrink-0 text-[#05C3D4]" />
                       <span>{store.storeAddress}</span>
                     </div>
@@ -172,9 +172,9 @@ export default function ProductStockTab({
                 </span>
               </div>
 
-              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-[#F8FAFC] px-4 py-3">
+              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-card/70 px-4 py-3">
                 <PackageCheck size={18} className="text-[#05C3D4]" />
-                <div className="text-sm font-semibold text-[#20262E]">
+                <div className="text-sm font-semibold text-foreground">
                   {isAvailable ? `Доступно: ${store.availableQty} шт.` : "Под этот магазин остатка нет."}
                 </div>
               </div>
@@ -187,7 +187,7 @@ export default function ProductStockTab({
                   isReserved
                     ? "cursor-not-allowed bg-[rgba(5,195,212,0.12)] text-[#047E8A]"
                     : isAvailable
-                      ? "bg-[#05C3D4] text-white hover:-translate-y-px hover:bg-[#27E6F2]"
+                      ? "bg-[#05C3D4] text-white hover:-translate-y-px hover:bg-[#27E6F2] dark:text-black"
                       : "cursor-not-allowed bg-slate-100 text-slate-400"
                 }`}
               >
