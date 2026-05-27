@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, Sparkles, Star } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
@@ -25,6 +25,19 @@ const defaultReviews = [
   },
 ];
 
+function formatProductCount(count: number) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  const mod10 = safeCount % 10;
+  const mod100 = safeCount % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return `${safeCount} товар`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${safeCount} товара`;
+  }
+
+  return `${safeCount} товаров`;
+}
+
 export type HomeSecondarySectionsProps = {
   featuredManufacturers: any[];
   banners: any[];
@@ -45,54 +58,76 @@ export default function HomeSecondarySections({
   return (
     <>
       {featuredManufacturers.length > 0 && (
-        <section className="py-14 bg-background border-t border-border">
-          <div className="container-main">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-              <div>
-                <span className="text-[#05C3D4] text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">
+        <section className="relative overflow-hidden bg-[#F8FAFC] py-[72px] sm:py-[84px] lg:py-[104px]">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.04)_34%,transparent_72%)] opacity-90" />
+            <div className="absolute right-[-72px] top-[-56px] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.03)_42%,transparent_75%)] opacity-80" />
+            <div className="absolute left-[18%] top-[14%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.85)_0%,rgba(255,255,255,0.28)_38%,transparent_78%)] opacity-90 blur-3xl" />
+            <div className="absolute right-[14%] top-[10%] h-32 w-40 opacity-[0.12] [background-image:radial-gradient(circle,rgba(5,195,212,0.8)_1.4px,transparent_1.4px)] [background-position:0_0] [background-size:14px_14px]" />
+          </div>
+
+          <div className="container-main relative z-10 max-w-[1440px]">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
+              <div className="max-w-[760px]">
+                <span className="block text-[11px] font-black uppercase tracking-[0.32em] text-[#05C3D4] sm:text-xs">
                   Производители
                 </span>
-                <h2 className="text-3xl md:text-4xl font-black uppercase font-heading leading-none tracking-tighter text-foreground">
-                  БРЕНДЫ <span className="text-foreground/20">В НАЛИЧИИ</span>
+                <h2 className="mt-5 max-w-[10ch] text-[2.5rem] font-black leading-[0.95] tracking-[-0.06em] text-[#111827] sm:text-[3rem] md:text-[3.6rem] lg:text-[4.3rem]">
+                  Бренды <span className="text-[#05C3D4]">в наличии</span>
                 </h2>
+                <p className="mt-5 max-w-[38rem] text-[15px] leading-7 text-[#64748B] sm:text-[17px]">
+                  Выбирайте технику и аксессуары от проверенных производителей
+                </p>
               </div>
+
               <Link
                 to="/catalog?view=brands"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors mb-2"
+                className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none lg:mt-6"
               >
-                Все производители
+                <span>Все производители</span>
+                <ArrowRight
+                  size={18}
+                  className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+                />
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="mt-12 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-16 sm:gap-x-6 sm:gap-y-10 md:grid-cols-3 md:gap-y-12 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-16 xl:grid-cols-6 xl:gap-x-12 xl:gap-y-[4.5rem]">
               {featuredManufacturers.map(manufacturer => (
                 <Link
                   key={manufacturer.id}
                   to={`/catalog?view=brands&brand=${manufacturer.slug}`}
-                  className="group flex min-h-[122px] flex-col items-center justify-center rounded-2xl border border-border bg-card p-4 text-center transition-all hover:border-[#05C3D4]/60 hover:bg-[#05C3D4]/5"
+                  className="group flex min-h-[128px] flex-col items-center justify-center rounded-[28px] px-3 py-4 text-center text-[#111827] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_22px_70px_rgba(15,23,42,0.045)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgba(5,195,212,0.6)] motion-reduce:transform-none motion-reduce:transition-none sm:min-h-[138px] sm:px-4 sm:py-5 lg:min-h-[150px]"
                 >
-                  <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-2.5">
+                  <span className="flex h-[60px] w-[60px] items-center justify-center sm:h-[68px] sm:w-[68px] lg:h-[72px] lg:w-[72px]">
                     {manufacturer.logo ? (
                       <img
                         src={manufacturer.logo}
                         alt={manufacturer.title}
-                        className="h-full w-full object-contain"
+                        className="max-h-[42px] max-w-[58px] object-contain transition-transform duration-200 group-hover:scale-[1.035] motion-reduce:transform-none motion-reduce:transition-none sm:max-h-[46px] sm:max-w-[64px] lg:max-h-[52px] lg:max-w-[74px]"
                         loading="lazy"
                       />
                     ) : (
-                      <span className="text-xs font-black text-[#05C3D4]">
-                        {manufacturer.title.slice(0, 2).toUpperCase()}
+                      <span className="flex h-[58px] w-[58px] items-center justify-center rounded-[22px] bg-[rgba(5,195,212,0.1)] text-lg font-black text-[#05C3D4] sm:h-[64px] sm:w-[64px] lg:h-[72px] lg:w-[72px]">
+                        {manufacturer.title.slice(0, 1).toUpperCase()}
                       </span>
                     )}
                   </span>
-                  <span className="mt-3 line-clamp-1 text-xs font-black text-foreground transition-colors group-hover:text-[#05C3D4]">
+                  <span className="mt-4 max-w-[14ch] text-sm font-bold leading-tight text-[#111827] transition-colors group-hover:text-[#0F172A] sm:text-[15px] lg:text-[16px]">
                     {manufacturer.title}
                   </span>
-                  <span className="mt-1 text-[10px] font-bold text-muted-foreground">
-                    {manufacturer.productCount} товаров
+                  <span className="mt-2.5 inline-flex items-center justify-center rounded-full bg-[rgba(5,195,212,0.07)] px-2.5 py-1 text-[11px] font-semibold text-[#64748B] transition-colors duration-200 group-hover:bg-[rgba(5,195,212,0.11)] group-hover:text-[#087987] sm:px-3 sm:text-xs">
+                    {formatProductCount(manufacturer.productCount)}
                   </span>
                 </Link>
               ))}
+            </div>
+
+            <div className="mt-14 flex items-center justify-center gap-3 text-center text-sm font-medium text-[#64748B] sm:mt-16">
+              <Sparkles size={16} className="shrink-0 text-[#05C3D4]" />
+              <span>
+                Только <strong className="font-semibold text-[#05C3D4]">оригинальная</strong> продукция
+              </span>
             </div>
           </div>
         </section>
