@@ -140,7 +140,7 @@ export default function ProductImageGallery({
       <div
         className={`grid gap-3 sm:gap-4 md:gap-6 ${
           hasMultipleImages
-            ? "grid-cols-[76px_minmax(0,1fr)] sm:grid-cols-[84px_minmax(0,1fr)] md:grid-cols-[92px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)]"
+            ? "grid-cols-1 md:grid-cols-[92px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)]"
             : "grid-cols-1"
         }`}
       >
@@ -180,7 +180,7 @@ export default function ProductImageGallery({
                     type="button"
                     onClick={() => selectImage(index)}
                     aria-label={`Показать изображение ${index + 1} товара ${productName}`}
-                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
+                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[1rem] border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
                       index === activeIndex
                         ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
                         : "border-[#E1E7EF] hover:-translate-y-0.5 hover:border-[#05C3D4]"
@@ -218,7 +218,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 overflow-hidden rounded-[2rem] bg-white p-4 md:order-2 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 min-w-0 overflow-hidden rounded-[2rem] bg-white p-4 min-h-[360px] md:order-2 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
@@ -254,7 +254,7 @@ export default function ProductImageGallery({
               srcSet={activeImageProps.srcSet}
               sizes={activeImageProps.sizes}
               alt={productName}
-              className="max-h-[420px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
+              className="max-h-[340px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
               decoding="async"
               onError={applyProductImageFallback}
             />
