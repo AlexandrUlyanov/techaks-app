@@ -183,7 +183,7 @@ export default function ProductImageGallery({
                     className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[1rem] border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
                       index === activeIndex
                         ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
-                        : "border-[#E1E7EF] hover:-translate-y-0.5 hover:border-[#05C3D4]"
+                        : "border-[#E1E7EF] hover:border-[#05C3D4]"
                     }`}
                   >
                     <img
