@@ -59,12 +59,12 @@ export default function HomeSecondarySections({
   return (
     <>
       {featuredManufacturers.length > 0 && (
-        <section className="relative overflow-hidden bg-[#F8FAFC] py-[72px] sm:py-[84px] lg:py-[104px]">
+        <section className="relative overflow-hidden bg-[#F8FAFC] py-[72px] sm:py-[84px] lg:py-[104px] dark:bg-[#171A1E]">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.04)_34%,transparent_72%)] opacity-90" />
-            <div className="absolute right-[-72px] top-[-56px] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.03)_42%,transparent_75%)] opacity-80" />
-            <div className="absolute left-[18%] top-[14%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.85)_0%,rgba(255,255,255,0.28)_38%,transparent_78%)] opacity-90 blur-3xl" />
-            <div className="absolute right-[14%] top-[10%] h-32 w-40 opacity-[0.12] [background-image:radial-gradient(circle,rgba(5,195,212,0.8)_1.4px,transparent_1.4px)] [background-position:0_0] [background-size:14px_14px]" />
+            <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.04)_34%,transparent_72%)] opacity-90 dark:bg-[radial-gradient(circle,rgba(5,195,212,0.16)_0%,rgba(5,195,212,0.03)_38%,transparent_74%)] dark:opacity-60" />
+            <div className="absolute right-[-72px] top-[-56px] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.03)_42%,transparent_75%)] opacity-80 dark:bg-[radial-gradient(circle,rgba(5,195,212,0.18)_0%,rgba(5,195,212,0.02)_46%,transparent_78%)] dark:opacity-55" />
+            <div className="absolute left-[18%] top-[14%] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.85)_0%,rgba(255,255,255,0.28)_38%,transparent_78%)] opacity-90 blur-3xl dark:bg-[radial-gradient(circle,rgba(5,195,212,0.08)_0%,rgba(255,255,255,0.02)_42%,transparent_78%)] dark:opacity-80" />
+            <div className="absolute right-[14%] top-[10%] h-32 w-40 opacity-[0.12] [background-image:radial-gradient(circle,rgba(5,195,212,0.8)_1.4px,transparent_1.4px)] [background-position:0_0] [background-size:14px_14px] dark:opacity-[0.08]" />
           </div>
 
           <div className="container-main relative z-10 max-w-[1440px]">
@@ -76,12 +76,12 @@ export default function HomeSecondarySections({
               action={
                 <Link
                   to="/catalog?view=brands"
-                  className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none"
+                  className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06] dark:hover:border-[#05C3D4]/35 dark:focus-visible:ring-offset-[#171A1E]"
                 >
                   <span>Все производители</span>
                   <ArrowRight
                     size={18}
-                    className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+                    className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 dark:text-[#27E6F2] motion-reduce:transform-none motion-reduce:transition-none"
                   />
                 </Link>
               }
@@ -92,7 +92,7 @@ export default function HomeSecondarySections({
                 <Link
                   key={manufacturer.id}
                   to={`/catalog?view=brands&brand=${manufacturer.slug}`}
-                  className="group flex min-h-[128px] flex-col items-center justify-center rounded-[28px] px-3 py-4 text-center text-[#111827] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_22px_70px_rgba(15,23,42,0.045)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgba(5,195,212,0.6)] motion-reduce:transform-none motion-reduce:transition-none sm:min-h-[138px] sm:px-4 sm:py-5 lg:min-h-[150px]"
+                  className="group flex min-h-[128px] flex-col items-center justify-center rounded-[28px] px-3 py-4 text-center text-[#111827] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_22px_70px_rgba(15,23,42,0.045)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgba(5,195,212,0.6)] motion-reduce:transform-none motion-reduce:transition-none dark:text-white dark:hover:bg-white/[0.04] dark:hover:shadow-none sm:min-h-[138px] sm:px-4 sm:py-5 lg:min-h-[150px]"
                 >
                   <span className="flex h-[60px] w-[60px] items-center justify-center sm:h-[68px] sm:w-[68px] lg:h-[72px] lg:w-[72px]">
                     {manufacturer.logo ? (
@@ -103,25 +103,25 @@ export default function HomeSecondarySections({
                         loading="lazy"
                       />
                     ) : (
-                      <span className="flex h-[58px] w-[58px] items-center justify-center rounded-[22px] bg-[rgba(5,195,212,0.1)] text-lg font-black text-[#05C3D4] sm:h-[64px] sm:w-[64px] lg:h-[72px] lg:w-[72px]">
+                      <span className="flex h-[58px] w-[58px] items-center justify-center rounded-[22px] bg-[rgba(5,195,212,0.1)] text-lg font-black text-[#05C3D4] dark:bg-[#05C3D4]/10 dark:text-[#7DE7F0] sm:h-[64px] sm:w-[64px] lg:h-[72px] lg:w-[72px]">
                         {manufacturer.title.slice(0, 1).toUpperCase()}
                       </span>
                     )}
                   </span>
-                  <span className="mt-4 max-w-[14ch] text-sm font-bold leading-tight text-[#111827] transition-colors group-hover:text-[#0F172A] sm:text-[15px] lg:text-[16px]">
+                  <span className="mt-4 max-w-[14ch] text-sm font-bold leading-tight text-[#111827] transition-colors group-hover:text-[#0F172A] dark:text-white dark:group-hover:text-[#D8FBFF] sm:text-[15px] lg:text-[16px]">
                     {manufacturer.title}
                   </span>
-                  <span className="mt-2.5 inline-flex items-center justify-center rounded-full bg-[rgba(5,195,212,0.07)] px-2.5 py-1 text-[11px] font-semibold text-[#64748B] transition-colors duration-200 group-hover:bg-[rgba(5,195,212,0.11)] group-hover:text-[#087987] sm:px-3 sm:text-xs">
+                  <span className="mt-2.5 inline-flex items-center justify-center rounded-full bg-[rgba(5,195,212,0.07)] px-2.5 py-1 text-[11px] font-semibold text-[#64748B] transition-colors duration-200 group-hover:bg-[rgba(5,195,212,0.11)] group-hover:text-[#087987] dark:bg-white/[0.06] dark:text-white/65 dark:group-hover:bg-[#05C3D4]/15 dark:group-hover:text-[#9DECF3] sm:px-3 sm:text-xs">
                     {formatProductCount(manufacturer.productCount)}
                   </span>
                 </Link>
               ))}
             </div>
 
-            <div className="mt-14 flex items-center justify-center gap-3 text-center text-sm font-medium text-[#64748B] sm:mt-16">
-              <Sparkles size={16} className="shrink-0 text-[#05C3D4]" />
+            <div className="mt-14 flex items-center justify-center gap-3 text-center text-sm font-medium text-[#64748B] dark:text-white/60 sm:mt-16">
+              <Sparkles size={16} className="shrink-0 text-[#05C3D4] dark:text-[#27E6F2]" />
               <span>
-                Только <strong className="font-semibold text-[#05C3D4]">оригинальная</strong> продукция
+                Только <strong className="font-semibold text-[#05C3D4] dark:text-[#27E6F2]">оригинальная</strong> продукция
               </span>
             </div>
           </div>

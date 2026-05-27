@@ -22,7 +22,7 @@ function renderTitleWithAccent(title: string, accent?: string) {
   return (
     <>
       {beforeAccent}
-      <span className="text-[#05C3D4]">{accentText}</span>
+      <span className="text-[#05C3D4] dark:text-[#27E6F2]">{accentText}</span>
       {afterAccent}
     </>
   );
@@ -42,11 +42,11 @@ export default function HomeSectionHeading({
         <span className="block text-[11px] font-black uppercase tracking-[0.32em] text-[#05C3D4] sm:text-xs">
           {eyebrow}
         </span>
-        <h2 className="mt-5 text-[2.5rem] font-black leading-[0.95] tracking-[-0.06em] text-[#111827] sm:text-[3rem] md:text-[3.6rem] lg:text-[4.3rem] lg:whitespace-nowrap">
+        <h2 className="mt-5 text-[2.5rem] font-black leading-[0.95] tracking-[-0.06em] text-foreground sm:text-[3rem] md:text-[3.6rem] lg:text-[4.3rem] lg:whitespace-nowrap">
           {renderTitleWithAccent(title, accent)}
         </h2>
         {description ? (
-          <p className="mt-5 max-w-[38rem] text-[15px] leading-7 text-[#64748B] sm:text-[17px]">
+          <p className="mt-5 max-w-[38rem] text-[15px] leading-7 text-muted-foreground sm:text-[17px]">
             {description}
           </p>
         ) : null}
