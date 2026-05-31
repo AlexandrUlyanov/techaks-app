@@ -62,7 +62,7 @@ export default function ProductServices({
           const isPickupAction = row.key === "pickup" && Boolean(onPickupClick);
           const rowClassName = `flex w-full items-start justify-between gap-4 py-4 text-left transition ${
             index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""
-          } ${isPickupAction ? "cursor-pointer rounded-2xl hover:bg-[rgba(5,195,212,0.06)]" : ""}`;
+          } ${isPickupAction ? "cursor-pointer rounded-[18px] px-4 hover:bg-[rgba(5,195,212,0.07)]" : ""}`;
 
           const content = (
             <>
