@@ -49,6 +49,7 @@ jobs:
             NODE_ENV=production
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
             APP_SECRET="${{ secrets.APP_SECRET || 'secret-techaks-2026' }}"
+            APP_ENCRYPTION_KEY="${{ secrets.APP_ENCRYPTION_KEY }}"
             
             # Web Push
             VAPID_PUBLIC_KEY="BCKWu4rcJHLXH9Jo4kSXE9LNFgvMj6yseoKKBZTNvZNwDaOSpxUso5W8cS7QhQxz_3XbQ2pmkqv40lPODunzeZE"
