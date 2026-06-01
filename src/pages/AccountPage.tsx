@@ -5,11 +5,15 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  ExternalLink,
   Loader2,
   LogOut,
   MapPin,
   MessageSquare,
+  MessageCircle,
   Package,
+  Receipt,
+  RotateCcw,
   Send,
   Settings,
   ShoppingBag,
@@ -114,6 +118,95 @@ function getDeliveryStatusLabel(status?: string | null) {
   return deliveryStatusLabels[status] || status;
 }
 
+function getPaymentStatusTone(status?: string | null) {
+  if (status === "paid") {
+    return {
+      className: "bg-emerald-100 text-emerald-700",
+      dot: "bg-emerald-500",
+      title: "Оплачено",
+      subtitle: "Платёж успешно получен",
+    };
+  }
+  if (status === "awaiting_payment") {
+    return {
+      className: "bg-sky-100 text-sky-700",
+      dot: "bg-sky-500",
+      title: "Ожидаем оплату",
+      subtitle: "Платёж ещё не подтверждён",
+    };
+  }
+  if (status === "refund" || status === "partial_refund") {
+    return {
+      className: "bg-violet-100 text-violet-700",
+      dot: "bg-violet-500",
+      title: status === "partial_refund" ? "Частичный возврат" : "Возврат выполнен",
+      subtitle: "Деньги возвращены покупателю",
+    };
+  }
+  if (status === "payment_error") {
+    return {
+      className: "bg-red-100 text-red-700",
+      dot: "bg-red-500",
+      title: "Оплата не прошла",
+      subtitle: "Нужно повторить оплату",
+    };
+  }
+  return {
+    className: "bg-amber-100 text-amber-700",
+    dot: "bg-amber-500",
+    title: "Не оплачено",
+    subtitle: "Ожидаем оплату заказа",
+  };
+}
+
+function extractReceiptMeta(rawPayload: unknown): {
+  receiptUrl?: string;
+  receiptPdfUrl?: string;
+  receiptStatus: "pending" | "ready" | "failed" | "not_required";
+} {
+  if (!rawPayload || typeof rawPayload !== "object") {
+    return { receiptStatus: "not_required" };
+  }
+  const payload = rawPayload as Record<string, any>;
+  const candidateUrl =
+    payload?.receiptUrl ||
+    payload?.receipt_url ||
+    payload?.receiptPdfUrl ||
+    payload?.receipt_pdf_url ||
+    payload?.receipt?.url ||
+    payload?.receipt_registration?.url ||
+    payload?.fiscal_receipt?.url ||
+    null;
+  const candidatePdf =
+    payload?.receiptPdfUrl ||
+    payload?.receipt_pdf_url ||
+    payload?.receipt?.pdf_url ||
+    payload?.fiscal_receipt?.pdf_url ||
+    null;
+  const rawStatus =
+    payload?.receiptStatus ||
+    payload?.receipt_status ||
+    payload?.receipt?.status ||
+    payload?.receipt_registration?.status ||
+    null;
+  if (candidateUrl || candidatePdf) {
+    return {
+      receiptUrl: typeof candidateUrl === "string" ? candidateUrl : undefined,
+      receiptPdfUrl: typeof candidatePdf === "string" ? candidatePdf : undefined,
+      receiptStatus: "ready",
+    };
+  }
+  if (typeof rawStatus === "string") {
+    if (rawStatus === "failed" || rawStatus === "error") {
+      return { receiptStatus: "failed" };
+    }
+    if (rawStatus === "pending" || rawStatus === "processing") {
+      return { receiptStatus: "pending" };
+    }
+  }
+  return { receiptStatus: "not_required" };
+}
+
 function getPaymentTypeLabel(type?: string | null) {
   if (!type) return "Не указан";
   if (type === "cash") return "Наличными";
@@ -176,6 +269,30 @@ function getOrderHistoryActionLabel(actionType?: string | null) {
     default:
       return actionType || "Событие заказа";
   }
+}
+
+function resolveOrderActions(params: {
+  orderStatus?: string | null;
+  paymentStatus?: string | null;
+  hasReceipt: boolean;
+}) {
+  const { orderStatus, paymentStatus, hasReceipt } = params;
+  const isPaid = paymentStatus === "paid";
+  const isCancelled = orderStatus === "cancelled";
+  const isCompleted = orderStatus === "completed";
+  const needsPayment =
+    paymentStatus === "unpaid" ||
+    paymentStatus === "awaiting_payment" ||
+    paymentStatus === "payment_error";
+
+  return {
+    showPay: needsPayment && !isCancelled,
+    showReceipt: hasReceipt && (isPaid || isCancelled || isCompleted),
+    showReceiptPending: isPaid && !hasReceipt,
+    showRepeat: isPaid || isCancelled || isCompleted,
+    showSupport: true,
+    showReview: isCompleted,
+  };
 }
 
 function AccountOrderCard({
@@ -297,6 +414,25 @@ function AccountOrderCard({
     order.latestCustomerReadManagerAt,
   ]);
 
+  const detailsAny = details as Record<string, any> | undefined;
+  const paymentTone = getPaymentStatusTone(
+    detailsAny?.paymentStatus ?? order.paymentStatus
+  );
+  const receiptMeta = extractReceiptMeta(detailsAny?.paymentRawResponseJson);
+  const canDownloadReceipt = Boolean(receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl);
+  const receiptActionHref = receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl;
+  const orderNumberLabel = order.orderNumber || `#${order.id}`;
+  const supportPrefill = encodeURIComponent(
+    `Здравствуйте! У меня вопрос по заказу ${orderNumberLabel}.`
+  );
+  const supportTelegramHref = `https://t.me/tech_aks?text=${supportPrefill}`;
+  const actions = resolveOrderActions({
+    orderStatus: detailsAny?.status ?? order.status,
+    paymentStatus: detailsAny?.paymentStatus ?? order.paymentStatus,
+    hasReceipt: canDownloadReceipt,
+  });
+  const listPaymentTone = getPaymentStatusTone(order.paymentStatus);
+
   useEffect(() => {
     if (expanded && latestManagerCommentIso) {
       const serverSeenAt =
@@ -333,7 +469,7 @@ function AccountOrderCard({
   ]);
 
   return (
-    <div className="bg-card border border-border rounded-3xl shadow-sm hover:shadow-xl transition-all">
+    <div className="bg-card border border-border/70 rounded-3xl transition-colors hover:border-[#05C3D4]/30">
       <button
         type="button"
         onClick={onToggle}
@@ -357,14 +493,25 @@ function AccountOrderCard({
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Статус
+              Оплата
             </span>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-              <p className="text-sm font-black uppercase tracking-tight text-[#22c55e]">
-                {getOrderStatusLabel(order.status)}
-              </p>
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${listPaymentTone.className}`}
+            >
+              <div className={`h-1.5 w-1.5 rounded-full ${listPaymentTone.dot}`} />
+              <p>{getPaymentStatusLabel(order.paymentStatus)}</p>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {getOrderStatusLabel(order.status)}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Статус заказа
+            </span>
+            <p className="text-sm font-bold text-foreground">
+              {getOrderStatusLabel(order.status)}
+            </p>
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -417,6 +564,80 @@ function AccountOrderCard({
 
           {!detailsLoading && !feedLoading && !detailsError && !feedError && details && (
             <div className="space-y-6 pt-6">
+              <div className="rounded-3xl bg-muted/35 p-5 md:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Заказ {orderNumberLabel}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      от {formatDate(detailsAny?.createdAt ?? order.createdAt)}
+                    </div>
+                    <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${paymentTone.className}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${paymentTone.dot}`} />
+                      {paymentTone.title}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{paymentTone.subtitle}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-[#05C3D4]">
+                      {formatPrice(Number(detailsAny?.totalPrice ?? order.totalPrice ?? 0))}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Статус: {getOrderStatusLabel(detailsAny?.status ?? order.status)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {getDeliveryTypeLabel(detailsAny?.deliveryType ?? order.deliveryType)} ·{" "}
+                      {getPaymentTypeLabel(detailsAny?.paymentType ?? order.paymentType)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+                  {actions.showReceipt ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (receiptActionHref) window.open(receiptActionHref, "_blank", "noopener,noreferrer");
+                      }}
+                      className="w-full sm:w-auto"
+                    >
+                      <Receipt size={16} className="mr-2" />
+                      Скачать чек
+                    </Button>
+                  ) : null}
+                  {actions.showPay ? (
+                    <Button type="button" disabled className="w-full sm:w-auto">
+                      Оплатить заказ
+                    </Button>
+                  ) : null}
+                  {actions.showReceiptPending ? (
+                    <Button type="button" variant="outline" disabled className="w-full sm:w-auto">
+                      Чек формируется
+                    </Button>
+                  ) : null}
+                  {actions.showRepeat ? (
+                    <Button type="button" variant="outline" className="w-full sm:w-auto">
+                    <RotateCcw size={16} className="mr-2" />
+                    Повторить заказ
+                    </Button>
+                  ) : null}
+                  {actions.showSupport ? (
+                    <Button asChild type="button" variant="outline" className="w-full sm:w-auto">
+                    <a href={supportTelegramHref} target="_blank" rel="noreferrer">
+                      <MessageCircle size={16} className="mr-2" />
+                      Написать по заказу
+                    </a>
+                    </Button>
+                  ) : null}
+                  {actions.showReview ? (
+                    <Button type="button" variant="outline" className="w-full sm:w-auto">
+                      <MessageSquare size={16} className="mr-2" />
+                      Оставить отзыв
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
               {compatibilityWarnings.length > 0 && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                   <div className="font-semibold">Режим совместимости</div>
@@ -429,7 +650,7 @@ function AccountOrderCard({
               )}
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-border p-4">
+                <div className="rounded-2xl bg-muted/45 p-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Статус заказа
                   </div>
@@ -437,7 +658,7 @@ function AccountOrderCard({
                     {getOrderStatusLabel(details.status)}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-border p-4">
+                <div className="rounded-2xl bg-muted/45 p-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Оплата
                   </div>
@@ -448,7 +669,7 @@ function AccountOrderCard({
                     {getPaymentTypeLabel(details.paymentType)}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-border p-4">
+                <div className="rounded-2xl bg-muted/45 p-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Доставка
                   </div>
@@ -459,7 +680,7 @@ function AccountOrderCard({
                     {getDeliveryTypeLabel(details.deliveryType)}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-border p-4">
+                <div className="rounded-2xl bg-muted/45 p-4">
                   <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     Итого
                   </div>
@@ -469,8 +690,61 @@ function AccountOrderCard({
                 </div>
               </div>
 
+              <div className="rounded-2xl bg-muted/35 p-5">
+                <h3 className="text-sm font-black uppercase tracking-wider">Оплата</h3>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="text-sm">
+                    <div className="text-muted-foreground">Статус</div>
+                    <div className="font-semibold">{getPaymentStatusLabel(detailsAny?.paymentStatus)}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-muted-foreground">Способ</div>
+                    <div className="font-semibold">{getPaymentTypeLabel(detailsAny?.paymentType)}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-muted-foreground">Сумма</div>
+                    <div className="font-semibold">
+                      {formatPrice(Number(detailsAny?.paidAmount || detailsAny?.totalPrice || 0))}
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-muted-foreground">Дата оплаты</div>
+                    <div className="font-semibold">{formatDateTime(detailsAny?.paidAt)}</div>
+                  </div>
+                  <div className="text-sm md:col-span-2">
+                    <div className="text-muted-foreground">ID платежа</div>
+                    <div className="font-semibold break-all">{detailsAny?.paymentId || "—"}</div>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!canDownloadReceipt}
+                    onClick={() => {
+                      if (receiptActionHref) window.open(receiptActionHref, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <Receipt size={16} className="mr-2" />
+                    {canDownloadReceipt
+                      ? "Скачать чек"
+                      : receiptMeta.receiptStatus === "pending"
+                      ? "Чек формируется"
+                      : "Чек временно недоступен"}
+                  </Button>
+                  {!canDownloadReceipt && (
+                    <Button asChild type="button" variant="outline">
+                      <a href={supportTelegramHref} target="_blank" rel="noreferrer">
+                        <ExternalLink size={16} className="mr-2" />
+                        Запросить чек в поддержке
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                <div className="rounded-2xl border border-border p-5">
+                <div className="rounded-2xl bg-muted/35 p-5">
                   <h3 className="text-sm font-black uppercase tracking-wider">
                     Состав заказа
                   </h3>
@@ -481,10 +755,7 @@ function AccountOrderCard({
                       </div>
                     ) : (
                       details.items.map(item => (
-                        <div
-                          key={item.id}
-                          className="rounded-2xl border border-border p-4"
-                        >
+                        <div key={item.id} className="rounded-2xl bg-background p-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <div className="font-semibold leading-snug">
@@ -552,7 +823,7 @@ function AccountOrderCard({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-border p-5">
+                  <div className="rounded-2xl bg-muted/35 p-5">
                     <h3 className="text-sm font-black uppercase tracking-wider">
                       Доставка и оплата
                     </h3>
@@ -600,7 +871,7 @@ function AccountOrderCard({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-border p-5">
+                  <div className="rounded-2xl bg-muted/35 p-5">
                     <h3 className="text-sm font-black uppercase tracking-wider">
                       Написать по заказу
                     </h3>
@@ -634,7 +905,7 @@ function AccountOrderCard({
               </div>
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-border p-5">
+                <div className="rounded-2xl bg-muted/35 p-5">
                   <h3 className="text-sm font-black uppercase tracking-wider">
                     Лента заказа
                   </h3>
@@ -645,10 +916,7 @@ function AccountOrderCard({
                       </div>
                     ) : (
                       (feed?.history ?? []).map(entry => (
-                        <div
-                          key={`history-${entry.id}`}
-                          className="rounded-2xl border border-border p-4"
-                        >
+                        <div key={`history-${entry.id}`} className="rounded-2xl bg-background p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="font-semibold">
                               {getOrderHistoryActionLabel(entry.actionType)}
@@ -668,7 +936,7 @@ function AccountOrderCard({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-border p-5">
+                <div className="rounded-2xl bg-muted/35 p-5">
                   <h3 className="text-sm font-black uppercase tracking-wider">
                     Сообщения по заказу
                   </h3>
@@ -679,10 +947,7 @@ function AccountOrderCard({
                       </div>
                     ) : (
                       (feed?.comments ?? []).map(comment => (
-                        <div
-                          key={`comment-${comment.id}`}
-                          className="rounded-2xl border border-border p-4"
-                        >
+                        <div key={`comment-${comment.id}`} className="rounded-2xl bg-background p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="inline-flex items-center gap-2 text-sm font-semibold">
                               <MessageSquare size={16} className="text-[#05C3D4]" />
@@ -814,11 +1079,14 @@ export default function AccountPage() {
                 <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs">
                   У вас пока нет заказов
                 </p>
+                <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                  Перейдите в каталог и выберите аксессуары для телефона, авто или гаджета.
+                </p>
                 <Link
                   to="/catalog"
                   className="inline-flex h-12 items-center justify-center rounded-full border border-border px-10 text-sm font-bold"
                 >
-                  В МАГАЗИН
+                  Перейти в каталог
                 </Link>
               </div>
             ) : (
@@ -928,19 +1196,21 @@ export default function AccountPage() {
               <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-6">
                 Поддержка
               </h3>
-              <div className="space-y-4">
+              <p className="mb-5 text-sm text-muted-foreground">
+                Поможем с оплатой, чеком и статусом заказа.
+              </p>
+              <div className="space-y-3">
                 <a
                   href="tel:+79273750555"
-                  className="flex items-center justify-between text-sm font-bold hover:text-[#05C3D4] transition-colors"
+                  className="flex items-center justify-between rounded-2xl bg-background px-4 py-3 text-sm font-bold transition-colors hover:text-[#05C3D4]"
                 >
                   <span>Позвонить нам</span>
                   <ChevronRight size={16} />
                 </a>
-                <Separator className="bg-border/50" />
                 <a
                   href="https://t.me/tech_aks"
                   target="_blank"
-                  className="flex items-center justify-between text-sm font-bold hover:text-[#05C3D4] transition-colors"
+                  className="flex items-center justify-between rounded-2xl bg-background px-4 py-3 text-sm font-bold transition-colors hover:text-[#05C3D4]"
                   rel="noreferrer"
                 >
                   <span>Написать в Telegram</span>
