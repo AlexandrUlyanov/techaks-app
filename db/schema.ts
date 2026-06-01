@@ -374,6 +374,11 @@ export const orders = mysqlTable("orders", {
     .default("unpaid"), // unpaid, paid
   paymentMethod: varchar("payment_method", { length: 40 }),
   paymentId: varchar("payment_id", { length: 128 }),
+  paymentProviderStatus: varchar("payment_provider_status", { length: 40 }),
+  paymentTest: boolean("payment_test"),
+  paymentCancellationParty: varchar("payment_cancellation_party", { length: 80 }),
+  paymentCancellationReason: varchar("payment_cancellation_reason", { length: 120 }),
+  paymentRawResponseJson: json("payment_raw_response_json"),
   paidAt: timestamp("paid_at"),
   paymentError: text("payment_error"),
   source: varchar("source", { length: 20 }).notNull().default("site"),

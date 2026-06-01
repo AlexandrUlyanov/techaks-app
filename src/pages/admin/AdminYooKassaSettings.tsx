@@ -31,8 +31,10 @@ export default function AdminYooKassaSettings() {
 
   const [enabled, setEnabled] = useState(false);
   const [testMode, setTestMode] = useState(false);
-  const [shopId, setShopId] = useState("");
-  const [secretKey, setSecretKey] = useState("");
+  const [testShopId, setTestShopId] = useState("");
+  const [testSecretKey, setTestSecretKey] = useState("");
+  const [liveShopId, setLiveShopId] = useState("");
+  const [liveSecretKey, setLiveSecretKey] = useState("");
   const [returnUrl, setReturnUrl] = useState(DEFAULT_RETURN_URL);
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
   const [confirmationType, setConfirmationType] =
@@ -43,8 +45,10 @@ export default function AdminYooKassaSettings() {
     if (!data) return;
     setEnabled(data.enabled);
     setTestMode(data.testMode);
-    setShopId(data.shopId || "");
-    setSecretKey("");
+    setTestShopId(data.testShopId || "");
+    setLiveShopId(data.liveShopId || "");
+    setTestSecretKey("");
+    setLiveSecretKey("");
     setReturnUrl(data.returnUrl || DEFAULT_RETURN_URL);
     setWebhookUrl(data.webhookUrl || DEFAULT_WEBHOOK_URL);
     setConfirmationType(data.confirmationType);
@@ -54,7 +58,8 @@ export default function AdminYooKassaSettings() {
   const saveMutation = trpc.settings.saveYooKassaSettings.useMutation({
     onSuccess: () => {
       utils.settings.getYooKassaSettings.invalidate();
-      setSecretKey("");
+      setTestSecretKey("");
+      setLiveSecretKey("");
       alert("Настройки YooKassa сохранены.");
     },
   });
@@ -87,8 +92,10 @@ export default function AdminYooKassaSettings() {
     saveMutation.mutate({
       enabled,
       testMode,
-      shopId,
-      secretKey,
+      testShopId,
+      testSecretKey,
+      liveShopId,
+      liveSecretKey,
       returnUrl,
       webhookUrl,
       confirmationType,
@@ -101,9 +108,14 @@ export default function AdminYooKassaSettings() {
     alert("Webhook URL скопирован.");
   };
 
-  const secretStatus = data?.secretKeyConfigured
-    ? `Ключ задан${data.secretKeyLast4 ? `, последние 4: ${data.secretKeyLast4}` : ""}`
-    : "Ключ не задан";
+  const formatSecretStatus = (
+    configured?: boolean,
+    last4?: string | null,
+    setAt?: string | null
+  ) =>
+    configured
+      ? `Ключ задан${last4 ? `, последние 4: ${last4}` : ""}${setAt ? `, замена: ${new Date(setAt).toLocaleString("ru-RU")}` : ""}`
+      : "Ключ не задан";
 
   return (
     <div className="space-y-6">
@@ -151,17 +163,6 @@ export default function AdminYooKassaSettings() {
                   checked={testMode}
                   onCheckedChange={setTestMode}
                 />
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-bold text-[#15171A]">
-                    YooKassa Shop ID
-                  </label>
-                  <input
-                    value={shopId}
-                    onChange={event => setShopId(event.target.value)}
-                    placeholder="Например, 123456"
-                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                  />
-                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-[#15171A]">
                     Confirmation type
@@ -187,48 +188,38 @@ export default function AdminYooKassaSettings() {
             </AdminSection>
 
             <AdminSection
-              title="Secret Key"
-              description="Введите ключ только при замене. Старый ключ сохранится, если поле оставить пустым."
+              title="Credentials"
+              description="Тестовая и боевая пары разделены. При test mode используются только test credentials, при live — только live credentials."
             >
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-[#15171A]">
-                    Текущий статус ключа
-                  </label>
-                  <div className="flex h-11 items-center rounded-xl border border-gray-200 px-3 text-sm text-gray-600">
-                    {secretStatus}
-                  </div>
-                  {data?.secretKeySetAt ? (
-                    <p className="text-xs text-gray-500">
-                      Последняя замена: {new Date(data.secretKeySetAt).toLocaleString("ru-RU")}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-[#15171A]">
-                    Новый Secret Key
-                  </label>
-                  <input
-                    type="password"
-                    value={secretKey}
-                    onChange={event => setSecretKey(event.target.value)}
-                    placeholder={
-                      data?.secretKeyConfigured
-                        ? "Оставьте пустым, чтобы не менять"
-                        : "Введите Secret Key"
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                  />
-                  {!data?.encryptionConfigured ? (
-                    <p className="text-xs font-semibold text-red-600">
-                      APP_ENCRYPTION_KEY не задан. Новый Secret Key сохранить нельзя.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500">
-                      Ключ будет сохранен как secret_key_encrypted.
-                    </p>
+              <div className="grid gap-5">
+                <CredentialCard
+                  title="Test credentials"
+                  shopId={testShopId}
+                  onShopIdChange={setTestShopId}
+                  secretKey={testSecretKey}
+                  onSecretKeyChange={setTestSecretKey}
+                  status={formatSecretStatus(
+                    data?.testSecretKeyConfigured,
+                    data?.testSecretKeyLast4,
+                    data?.testSecretKeySetAt
                   )}
-                </div>
+                  active={testMode}
+                  encryptionConfigured={Boolean(data?.encryptionConfigured)}
+                />
+                <CredentialCard
+                  title="Live credentials"
+                  shopId={liveShopId}
+                  onShopIdChange={setLiveShopId}
+                  secretKey={liveSecretKey}
+                  onSecretKeyChange={setLiveSecretKey}
+                  status={formatSecretStatus(
+                    data?.liveSecretKeyConfigured,
+                    data?.liveSecretKeyLast4,
+                    data?.liveSecretKeySetAt
+                  )}
+                  active={!testMode}
+                  encryptionConfigured={Boolean(data?.encryptionConfigured)}
+                />
               </div>
             </AdminSection>
 
@@ -281,6 +272,25 @@ export default function AdminYooKassaSettings() {
                         ? ".env"
                         : "Не настроено"}
                   </span>
+                  <div className="mt-3 text-xs">
+                    Используется сейчас:{" "}
+                    <span className="font-black text-[#15171A]">
+                      {data?.activeMode === "test" ? "test" : "live"} / Shop ID:{" "}
+                      {data?.activeShopId || "не задан"} / Secret:{" "}
+                      {data?.activeSecretKeyConfigured ? "задан" : "не задан"}
+                    </span>
+                  </div>
+                  {data?.lastCheck?.at ? (
+                    <div className="mt-2 text-xs">
+                      Последняя проверка:{" "}
+                      <span className={data.lastCheck.ok ? "text-emerald-700" : "text-red-700"}>
+                        {data.lastCheck.ok ? "успешно" : "ошибка"}
+                      </span>{" "}
+                      ({data.lastCheck.mode}, Shop ID {data.lastCheck.shopId}, HTTP{" "}
+                      {data.lastCheck.status}) —{" "}
+                      {new Date(data.lastCheck.at).toLocaleString("ru-RU")}
+                    </div>
+                  ) : null}
                 </div>
                 {saveMutation.error || testMutation.error ? (
                   <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -371,6 +381,72 @@ function ToggleRow({
         <p className="mt-1 text-xs leading-5 text-gray-500">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
+  );
+}
+
+function CredentialCard({
+  title,
+  shopId,
+  onShopIdChange,
+  secretKey,
+  onSecretKeyChange,
+  status,
+  active,
+  encryptionConfigured,
+}: {
+  title: string;
+  shopId: string;
+  onShopIdChange: (value: string) => void;
+  secretKey: string;
+  onSecretKeyChange: (value: string) => void;
+  status: string;
+  active: boolean;
+  encryptionConfigured: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl p-4 ${
+        active ? "bg-[#E8FAFC] ring-1 ring-[#05C3D4]/20" : "bg-gray-50"
+      }`}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-sm font-black text-[#15171A]">{title}</div>
+        {active ? (
+          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#047987]">
+            используется
+          </span>
+        ) : null}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-[#15171A]">Shop ID</label>
+          <input
+            value={shopId}
+            onChange={event => onShopIdChange(event.target.value)}
+            placeholder="Например, 123456"
+            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-[#15171A]">
+            Новый Secret Key
+          </label>
+          <input
+            type="password"
+            value={secretKey}
+            onChange={event => onSecretKeyChange(event.target.value)}
+            placeholder="Оставьте пустым, чтобы не менять"
+            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+          />
+        </div>
+      </div>
+      <div className="mt-3 text-xs text-gray-600">{status}</div>
+      {!encryptionConfigured ? (
+        <p className="mt-2 text-xs font-semibold text-red-600">
+          APP_ENCRYPTION_KEY не задан. Новый Secret Key сохранить нельзя.
+        </p>
+      ) : null}
     </div>
   );
 }

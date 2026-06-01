@@ -17,6 +17,7 @@ export type OrderDbCapabilities = {
   hasOrdersDeliveryTrackingFields: boolean;
   hasOrdersShippingLifecycleFields: boolean;
   hasOrdersPaymentLifecycleFields: boolean;
+  hasOrdersPaymentProviderMetadata: boolean;
   hasOrdersManagerFields: boolean;
   hasOrdersProblemCancellationCompletionFields: boolean;
   hasOrderItemsSku: boolean;
@@ -42,6 +43,7 @@ const DEFAULT_CAPABILITIES: OrderDbCapabilities = {
   hasOrdersDeliveryTrackingFields: false,
   hasOrdersShippingLifecycleFields: false,
   hasOrdersPaymentLifecycleFields: false,
+  hasOrdersPaymentProviderMetadata: false,
   hasOrdersManagerFields: false,
   hasOrdersProblemCancellationCompletionFields: false,
   hasOrderItemsSku: false,
@@ -476,6 +478,12 @@ export async function getOrderDbCapabilities(
       hasOrdersPaymentLifecycleFields:
         columnSet.has("orders.paid_at") &&
         columnSet.has("orders.payment_error"),
+      hasOrdersPaymentProviderMetadata:
+        columnSet.has("orders.payment_provider_status") &&
+        columnSet.has("orders.payment_test") &&
+        columnSet.has("orders.payment_cancellation_party") &&
+        columnSet.has("orders.payment_cancellation_reason") &&
+        columnSet.has("orders.payment_raw_response_json"),
       hasOrdersManagerFields: columnSet.has("orders.manager_id"),
       hasOrdersProblemCancellationCompletionFields:
         columnSet.has("orders.is_problem") &&

@@ -45,7 +45,10 @@ import {
   mapLegacyOrderItemRow,
   rowsFromExecute,
 } from "../lib/order-compat";
-import { createYooKassaPaymentForOrder } from "../lib/yookassa";
+import {
+  createYooKassaPaymentForOrder,
+  refreshYooKassaPaymentForOrder,
+} from "../lib/yookassa";
 
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
@@ -2405,6 +2408,21 @@ export const ecommerceRouter = createRouter({
             paymentType: orders.paymentType,
             paymentMethod: orders.paymentMethod,
             paymentId: orders.paymentId,
+            paymentProviderStatus: capabilities.hasOrdersPaymentProviderMetadata
+              ? orders.paymentProviderStatus
+              : sql<string | null>`NULL`,
+            paymentTest: capabilities.hasOrdersPaymentProviderMetadata
+              ? orders.paymentTest
+              : sql<boolean | null>`NULL`,
+            paymentCancellationParty: capabilities.hasOrdersPaymentProviderMetadata
+              ? orders.paymentCancellationParty
+              : sql<string | null>`NULL`,
+            paymentCancellationReason: capabilities.hasOrdersPaymentProviderMetadata
+              ? orders.paymentCancellationReason
+              : sql<string | null>`NULL`,
+            paymentRawResponseJson: capabilities.hasOrdersPaymentProviderMetadata
+              ? orders.paymentRawResponseJson
+              : sql<unknown | null>`NULL`,
             paymentError: orders.paymentError,
             paidAt: orders.paidAt,
             deliveryType: orders.deliveryType,
@@ -2485,6 +2503,11 @@ export const ecommerceRouter = createRouter({
           o.payment_type AS paymentType,
           NULL AS paymentMethod,
           NULL AS paymentId,
+          NULL AS paymentProviderStatus,
+          NULL AS paymentTest,
+          NULL AS paymentCancellationParty,
+          NULL AS paymentCancellationReason,
+          NULL AS paymentRawResponseJson,
           NULL AS paymentError,
           NULL AS paidAt,
           o.delivery_type AS deliveryType,
@@ -3248,6 +3271,27 @@ export const ecommerceRouter = createRouter({
         });
       }
       return { success: true };
+    }),
+
+  refreshYooKassaPayment: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_payment");
+      const result = await refreshYooKassaPaymentForOrder(input.id);
+      await safeInsertOrderHistory(getDb(), {
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "payment_updated",
+        newValue: {
+          provider: "yookassa",
+          action: "refresh",
+          paymentId: result.paymentId,
+          status: result.status,
+          test: result.test,
+        } as any,
+      });
+      return result;
     }),
 
   updateOrderDelivery: protectedProcedure

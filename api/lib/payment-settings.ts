@@ -16,6 +16,20 @@ const SETTING_KEYS = [
   "yookassa_secret_key_encrypted",
   "yookassa_secret_key_last4",
   "yookassa_secret_key_set_at",
+  "yookassa_test_shop_id",
+  "yookassa_test_secret_key_encrypted",
+  "yookassa_test_secret_key_last4",
+  "yookassa_test_secret_key_set_at",
+  "yookassa_live_shop_id",
+  "yookassa_live_secret_key_encrypted",
+  "yookassa_live_secret_key_last4",
+  "yookassa_live_secret_key_set_at",
+  "yookassa_last_check_mode",
+  "yookassa_last_check_shop_id",
+  "yookassa_last_check_ok",
+  "yookassa_last_check_status",
+  "yookassa_last_check_at",
+  "yookassa_last_check_message",
   "yookassa_return_url",
   "yookassa_webhook_url",
   "yookassa_confirmation_type",
@@ -25,8 +39,10 @@ const SETTING_KEYS = [
 export const yookassaSettingsInputSchema = z.object({
   enabled: z.boolean(),
   testMode: z.boolean(),
-  shopId: z.string().trim().max(80).default(""),
-  secretKey: z.string().trim().max(255).optional().default(""),
+  testShopId: z.string().trim().max(80).default(""),
+  testSecretKey: z.string().trim().max(255).optional().default(""),
+  liveShopId: z.string().trim().max(80).default(""),
+  liveSecretKey: z.string().trim().max(255).optional().default(""),
   returnUrl: z.string().trim().url().default(DEFAULT_RETURN_URL),
   webhookUrl: z.string().trim().url().default(DEFAULT_WEBHOOK_URL),
   confirmationType: z.enum(["embedded", "redirect"]).default("redirect"),
@@ -36,8 +52,10 @@ export const yookassaSettingsInputSchema = z.object({
 export type YooKassaRuntimeSettings = {
   enabled: boolean;
   testMode: boolean;
+  mode: "test" | "live";
   shopId: string;
   secretKey: string;
+  secretKeyConfigured: boolean;
   returnUrl: string;
   webhookUrl: string;
   confirmationType: "embedded" | "redirect";
@@ -62,6 +80,11 @@ function last4(value: string) {
   return value.slice(-4);
 }
 
+function decryptStoredSecret(value: string) {
+  if (!value || !env.appEncryptionKey.trim()) return "";
+  return decryptSecret(value, env.appEncryptionKey);
+}
+
 async function logPaymentSettingsAudit(
   action: string,
   userId: number | null,
@@ -81,26 +104,73 @@ async function logPaymentSettingsAudit(
 
 export async function getYooKassaAdminSettings() {
   const settings = await getAppSettings([...SETTING_KEYS]);
-  const storedShopId = settings.yookassa_shop_id?.trim() || "";
-  const storedEncryptedSecret =
+  const testMode = parseBoolean(settings.yookassa_test_mode, false);
+  const legacyShopId = settings.yookassa_shop_id?.trim() || "";
+  const legacyEncryptedSecret =
     settings.yookassa_secret_key_encrypted?.trim() || "";
-  const envShopId = env.yookassaShopId.trim();
-  const envSecretKey = env.yookassaSecretKey.trim();
-  const hasDatabaseSettings = Boolean(storedShopId || storedEncryptedSecret);
-  const secretConfigured = Boolean(storedEncryptedSecret || envSecretKey);
-  const secretLast4 =
-    settings.yookassa_secret_key_last4?.trim() ||
-    (envSecretKey ? last4(envSecretKey) : "");
+  const legacyLast4 = settings.yookassa_secret_key_last4?.trim() || "";
+  const dbTestShopId = settings.yookassa_test_shop_id?.trim() || "";
+  const dbLiveShopId = settings.yookassa_live_shop_id?.trim() || "";
+  const dbTestEncryptedSecret =
+    settings.yookassa_test_secret_key_encrypted?.trim() || "";
+  const dbLiveEncryptedSecret =
+    settings.yookassa_live_secret_key_encrypted?.trim() || "";
+  const hasDatabaseSettings = Boolean(
+    dbTestShopId ||
+      dbLiveShopId ||
+      dbTestEncryptedSecret ||
+      dbLiveEncryptedSecret ||
+      legacyShopId ||
+      legacyEncryptedSecret
+  );
+  const hasEnvSettings = Boolean(
+    (env.yookassaTestShopId && env.yookassaTestSecretKey) ||
+      (env.yookassaLiveShopId && env.yookassaLiveSecretKey) ||
+      (env.yookassaShopId && env.yookassaSecretKey)
+  );
+
+  const testShopId =
+    dbTestShopId ||
+    env.yookassaTestShopId.trim() ||
+    (testMode ? legacyShopId : "");
+  const liveShopId =
+    dbLiveShopId ||
+    env.yookassaLiveShopId.trim() ||
+    env.yookassaShopId.trim() ||
+    (!testMode ? legacyShopId : "");
+
+  const testSecretConfigured = Boolean(
+    dbTestEncryptedSecret ||
+      env.yookassaTestSecretKey.trim() ||
+      (testMode && legacyEncryptedSecret)
+  );
+  const liveSecretConfigured = Boolean(
+    dbLiveEncryptedSecret ||
+      env.yookassaLiveSecretKey.trim() ||
+      env.yookassaSecretKey.trim() ||
+      (!testMode && legacyEncryptedSecret)
+  );
 
   return {
     enabled: hasDatabaseSettings
       ? parseBoolean(settings.yookassa_enabled, false)
-      : Boolean(envShopId && envSecretKey),
-    testMode: parseBoolean(settings.yookassa_test_mode, false),
-    shopId: storedShopId || envShopId,
-    secretKeyConfigured: secretConfigured,
-    secretKeyLast4: secretLast4,
-    secretKeySetAt: settings.yookassa_secret_key_set_at || null,
+      : hasEnvSettings,
+    testMode,
+    testShopId,
+    testSecretKeyConfigured: testSecretConfigured,
+    testSecretKeyLast4:
+      settings.yookassa_test_secret_key_last4?.trim() ||
+      (env.yookassaTestSecretKey ? last4(env.yookassaTestSecretKey) : "") ||
+      (testMode ? legacyLast4 : ""),
+    testSecretKeySetAt: settings.yookassa_test_secret_key_set_at || null,
+    liveShopId,
+    liveSecretKeyConfigured: liveSecretConfigured,
+    liveSecretKeyLast4:
+      settings.yookassa_live_secret_key_last4?.trim() ||
+      (env.yookassaLiveSecretKey ? last4(env.yookassaLiveSecretKey) : "") ||
+      (env.yookassaSecretKey ? last4(env.yookassaSecretKey) : "") ||
+      (!testMode ? legacyLast4 : ""),
+    liveSecretKeySetAt: settings.yookassa_live_secret_key_set_at || null,
     returnUrl:
       settings.yookassa_return_url?.trim() ||
       env.yookassaReturnUrl ||
@@ -113,7 +183,29 @@ export async function getYooKassaAdminSettings() {
       settings.yookassa_confirmation_type
     ),
     capture: parseBoolean(settings.yookassa_capture, true),
-    source: hasDatabaseSettings ? "database" : envShopId || envSecretKey ? "env" : "none",
+    source: hasDatabaseSettings
+      ? "database"
+      : hasEnvSettings
+        ? "env"
+        : "none",
+    activeMode: testMode ? "test" : "live",
+    activeShopId: testMode ? testShopId : liveShopId,
+    activeSecretKeyConfigured: testMode
+      ? testSecretConfigured
+      : liveSecretConfigured,
+    lastCheck: {
+      mode: settings.yookassa_last_check_mode || null,
+      shopId: settings.yookassa_last_check_shop_id || null,
+      ok:
+        settings.yookassa_last_check_ok === "true"
+          ? true
+          : settings.yookassa_last_check_ok === "false"
+            ? false
+            : null,
+      status: settings.yookassa_last_check_status || null,
+      at: settings.yookassa_last_check_at || null,
+      message: settings.yookassa_last_check_message || null,
+    },
     encryptionConfigured: Boolean(env.appEncryptionKey.trim()),
   };
 }
@@ -123,18 +215,20 @@ export async function saveYooKassaAdminSettings(
   userId: number | null
 ) {
   const normalized = yookassaSettingsInputSchema.parse(input);
-  const secretKey = normalized.secretKey.trim();
+  const testSecretKey = normalized.testSecretKey.trim();
+  const liveSecretKey = normalized.liveSecretKey.trim();
   const changedFields = [
     "enabled",
     "testMode",
-    "shopId",
+    "testShopId",
+    "liveShopId",
     "returnUrl",
     "webhookUrl",
     "confirmationType",
     "capture",
   ];
 
-  if (secretKey && !env.appEncryptionKey.trim()) {
+  if ((testSecretKey || liveSecretKey) && !env.appEncryptionKey.trim()) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
@@ -144,25 +238,37 @@ export async function saveYooKassaAdminSettings(
 
   await setAppSetting("yookassa_enabled", normalized.enabled ? "true" : "false");
   await setAppSetting("yookassa_test_mode", normalized.testMode ? "true" : "false");
-  await setAppSetting("yookassa_shop_id", normalized.shopId);
+  await setAppSetting("yookassa_test_shop_id", normalized.testShopId);
+  await setAppSetting("yookassa_live_shop_id", normalized.liveShopId);
   await setAppSetting("yookassa_return_url", normalized.returnUrl);
   await setAppSetting("yookassa_webhook_url", normalized.webhookUrl);
   await setAppSetting("yookassa_confirmation_type", normalized.confirmationType);
   await setAppSetting("yookassa_capture", normalized.capture ? "true" : "false");
 
-  if (secretKey) {
+  if (testSecretKey) {
     await setAppSetting(
-      "yookassa_secret_key_encrypted",
-      encryptSecret(secretKey, env.appEncryptionKey)
+      "yookassa_test_secret_key_encrypted",
+      encryptSecret(testSecretKey, env.appEncryptionKey)
     );
-    await setAppSetting("yookassa_secret_key_last4", last4(secretKey));
-    await setAppSetting("yookassa_secret_key_set_at", new Date().toISOString());
-    changedFields.push("secretKey");
+    await setAppSetting("yookassa_test_secret_key_last4", last4(testSecretKey));
+    await setAppSetting("yookassa_test_secret_key_set_at", new Date().toISOString());
+    changedFields.push("testSecretKey");
+  }
+
+  if (liveSecretKey) {
+    await setAppSetting(
+      "yookassa_live_secret_key_encrypted",
+      encryptSecret(liveSecretKey, env.appEncryptionKey)
+    );
+    await setAppSetting("yookassa_live_secret_key_last4", last4(liveSecretKey));
+    await setAppSetting("yookassa_live_secret_key_set_at", new Date().toISOString());
+    changedFields.push("liveSecretKey");
   }
 
   await logPaymentSettingsAudit("YooKassa settings updated", userId, {
     changedFields,
-    secretKeyChanged: Boolean(secretKey),
+    testSecretKeyChanged: Boolean(testSecretKey),
+    liveSecretKeyChanged: Boolean(liveSecretKey),
     secretKeyValueLogged: false,
   });
 
@@ -171,56 +277,72 @@ export async function saveYooKassaAdminSettings(
 
 export async function getYooKassaRuntimeSettings(): Promise<YooKassaRuntimeSettings> {
   const settings = await getAppSettings([...SETTING_KEYS]);
-  const storedShopId = settings.yookassa_shop_id?.trim() || "";
-  const encryptedSecret = settings.yookassa_secret_key_encrypted?.trim() || "";
-  const hasDatabaseSettings = Boolean(storedShopId || encryptedSecret);
+  const testMode = parseBoolean(settings.yookassa_test_mode, false);
+  const mode = testMode ? "test" : "live";
+  const legacyShopId = settings.yookassa_shop_id?.trim() || "";
+  const legacySecret = settings.yookassa_secret_key_encrypted?.trim() || "";
+  const dbTestShopId = settings.yookassa_test_shop_id?.trim() || "";
+  const dbLiveShopId = settings.yookassa_live_shop_id?.trim() || "";
+  const dbTestEncryptedSecret =
+    settings.yookassa_test_secret_key_encrypted?.trim() || "";
+  const dbLiveEncryptedSecret =
+    settings.yookassa_live_secret_key_encrypted?.trim() || "";
 
-  if (hasDatabaseSettings) {
-    let secretKey = "";
-    if (encryptedSecret && env.appEncryptionKey.trim()) {
-      secretKey = decryptSecret(encryptedSecret, env.appEncryptionKey);
-    }
+  const testShopId =
+    dbTestShopId ||
+    env.yookassaTestShopId.trim() ||
+    (testMode ? legacyShopId : "");
+  const liveShopId =
+    dbLiveShopId ||
+    env.yookassaLiveShopId.trim() ||
+    env.yookassaShopId.trim() ||
+    (!testMode ? legacyShopId : "");
+  const encryptedTestSecret =
+    dbTestEncryptedSecret || (testMode ? legacySecret : "");
+  const encryptedLiveSecret =
+    dbLiveEncryptedSecret || (!testMode ? legacySecret : "");
+  const testSecretKey =
+    decryptStoredSecret(encryptedTestSecret) || env.yookassaTestSecretKey.trim();
+  const liveSecretKey =
+    decryptStoredSecret(encryptedLiveSecret) ||
+    env.yookassaLiveSecretKey.trim() ||
+    env.yookassaSecretKey.trim();
 
-    const runtime = {
-      enabled: parseBoolean(settings.yookassa_enabled, false),
-      testMode: parseBoolean(settings.yookassa_test_mode, false),
-      shopId: storedShopId,
-      secretKey,
-      returnUrl:
-        settings.yookassa_return_url?.trim() ||
-        env.yookassaReturnUrl ||
-        DEFAULT_RETURN_URL,
-      webhookUrl:
-        settings.yookassa_webhook_url?.trim() ||
-        env.yookassaWebhookUrl ||
-        DEFAULT_WEBHOOK_URL,
-      confirmationType: normalizeConfirmationType(
-        settings.yookassa_confirmation_type
-      ),
-      capture: parseBoolean(settings.yookassa_capture, true),
-      source: "database" as const,
-    };
-
-    return {
-      ...runtime,
-      isConfigured: Boolean(runtime.enabled && runtime.shopId && runtime.secretKey),
-    };
-  }
-
-  const shopId = env.yookassaShopId.trim();
-  const secretKey = env.yookassaSecretKey.trim();
+  const shopId = mode === "test" ? testShopId : liveShopId;
+  const secretKey = mode === "test" ? testSecretKey : liveSecretKey;
+  const hasDatabaseSettings = Boolean(
+    dbTestShopId ||
+      dbLiveShopId ||
+      dbTestEncryptedSecret ||
+      dbLiveEncryptedSecret ||
+      legacyShopId ||
+      legacySecret
+  );
+  const enabled = hasDatabaseSettings
+    ? parseBoolean(settings.yookassa_enabled, false)
+    : Boolean(shopId && secretKey);
 
   return {
-    enabled: Boolean(shopId && secretKey),
-    testMode: false,
+    enabled,
+    testMode,
+    mode,
     shopId,
     secretKey,
-    returnUrl: env.yookassaReturnUrl || DEFAULT_RETURN_URL,
-    webhookUrl: env.yookassaWebhookUrl || DEFAULT_WEBHOOK_URL,
-    confirmationType: "redirect",
-    capture: true,
-    source: shopId || secretKey ? "env" : "none",
-    isConfigured: Boolean(shopId && secretKey),
+    secretKeyConfigured: Boolean(secretKey),
+    returnUrl:
+      settings.yookassa_return_url?.trim() ||
+      env.yookassaReturnUrl ||
+      DEFAULT_RETURN_URL,
+    webhookUrl:
+      settings.yookassa_webhook_url?.trim() ||
+      env.yookassaWebhookUrl ||
+      DEFAULT_WEBHOOK_URL,
+    confirmationType: normalizeConfirmationType(
+      settings.yookassa_confirmation_type
+    ),
+    capture: parseBoolean(settings.yookassa_capture, true),
+    source: hasDatabaseSettings ? "database" : shopId || secretKey ? "env" : "none",
+    isConfigured: Boolean(enabled && shopId && secretKey),
   };
 }
 
@@ -230,7 +352,7 @@ export async function testYooKassaConnection(userId: number | null) {
   if (!runtime.shopId || !runtime.secretKey) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "YooKassa не настроена: укажите Shop ID и Secret Key.",
+      message: `YooKassa (${runtime.mode}) не настроена: укажите Shop ID и Secret Key.`,
     });
   }
 
@@ -246,8 +368,22 @@ export async function testYooKassaConnection(userId: number | null) {
     },
   });
 
+  const message = response.ok
+    ? "Подключение к YooKassa успешно проверено."
+    : `YooKassa вернула ошибку подключения: HTTP ${response.status}.`;
+
+  await setAppSetting("yookassa_last_check_mode", runtime.mode);
+  await setAppSetting("yookassa_last_check_shop_id", runtime.shopId);
+  await setAppSetting("yookassa_last_check_ok", response.ok ? "true" : "false");
+  await setAppSetting("yookassa_last_check_status", String(response.status));
+  await setAppSetting("yookassa_last_check_at", new Date().toISOString());
+  await setAppSetting("yookassa_last_check_message", message);
+
   await logPaymentSettingsAudit("YooKassa connection tested", userId, {
     source: runtime.source,
+    mode: runtime.mode,
+    shopId: runtime.shopId,
+    secretKeyConfigured: runtime.secretKeyConfigured,
     ok: response.ok,
     status: response.status,
   });
@@ -255,15 +391,18 @@ export async function testYooKassaConnection(userId: number | null) {
   if (!response.ok) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: `YooKassa вернула ошибку подключения: HTTP ${response.status}.`,
+      message,
     });
   }
 
   return {
     success: true,
     source: runtime.source,
+    mode: runtime.mode,
+    shopId: runtime.shopId,
+    secretKeyConfigured: runtime.secretKeyConfigured,
     status: response.status,
-    message: "Подключение к YooKassa успешно проверено.",
+    message,
   };
 }
 

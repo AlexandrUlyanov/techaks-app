@@ -2,6 +2,7 @@ import { trpc } from "@/providers/trpc";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
+  CreditCard,
   ExternalLink,
   Loader2,
   MessageSquarePlus,
@@ -143,6 +144,31 @@ function getOrderSourceLabel(value: string | null | undefined) {
   }
 }
 
+function InfoRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl bg-gray-50 px-4 py-3">
+      <span className="text-xs font-black uppercase tracking-[0.14em] text-gray-400">
+        {label}
+      </span>
+      <span
+        className={`max-w-[220px] break-all text-right font-semibold text-[#15171A] ${
+          mono ? "font-mono text-xs" : ""
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export default function AdminOrderDetails() {
   const ability = useAbility();
   const { id } = useParams<{ id: string }>();
@@ -234,6 +260,18 @@ export default function AdminOrderDetails() {
         utils.ecommerce.listOrders.invalidate(),
       ]);
     },
+  });
+  const refreshYooKassaPayment = trpc.ecommerce.refreshYooKassaPayment.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+      ]);
+      toast.success(
+        `YooKassa payment обновлён: ${result.status || "статус не задан"}`
+      );
+    },
+    onError: err => toast.error(err.message || "Ошибка проверки payment YooKassa"),
   });
 
   const formatPrice = (value: number | null | undefined) =>
@@ -388,6 +426,12 @@ export default function AdminOrderDetails() {
   const isStatusManagedByMoysklad = Boolean(
     moyskladOrderId?.trim() || moyskladOrderHref?.trim()
   );
+  const yookassaDiagnostics = order as typeof order & {
+    paymentProviderStatus?: string | null;
+    paymentTest?: boolean | null;
+    paymentCancellationParty?: string | null;
+    paymentCancellationReason?: string | null;
+  };
 
   const itemTotal = order.items.reduce(
     (acc: number, item: OrderItem) =>
@@ -855,6 +899,60 @@ export default function AdminOrderDetails() {
               </div>
             </div>
           </AdminSection>
+
+          {order.paymentMethod === "yookassa" || order.paymentId ? (
+            <AdminSection
+              title="YooKassa"
+              description="Диагностика payment из YooKassa. Secret Key здесь не отображается."
+              actions={
+                order.paymentId ? (
+                  <button
+                    type="button"
+                    onClick={() => refreshYooKassaPayment.mutate({ id: orderId })}
+                    disabled={refreshYooKassaPayment.isPending}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
+                  >
+                    {refreshYooKassaPayment.isPending ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <CreditCard size={16} />
+                    )}
+                    Проверить payment
+                  </button>
+                ) : null
+              }
+            >
+              <div className="space-y-3 text-sm">
+                <InfoRow label="payment_id" value={order.paymentId || "Не задан"} mono />
+                <InfoRow
+                  label="test"
+                  value={
+                    typeof yookassaDiagnostics.paymentTest === "boolean"
+                      ? yookassaDiagnostics.paymentTest
+                        ? "true"
+                        : "false"
+                      : "Не известно"
+                  }
+                />
+                <InfoRow
+                  label="status"
+                  value={
+                    yookassaDiagnostics.paymentProviderStatus ||
+                    order.paymentStatus ||
+                    "Не задан"
+                  }
+                />
+                <InfoRow
+                  label="cancellation_details.party"
+                  value={yookassaDiagnostics.paymentCancellationParty || "—"}
+                />
+                <InfoRow
+                  label="cancellation_details.reason"
+                  value={yookassaDiagnostics.paymentCancellationReason || "—"}
+                />
+              </div>
+            </AdminSection>
+          ) : null}
 
           <AdminSection
             title="Внутренний комментарий"

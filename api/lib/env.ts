@@ -41,6 +41,10 @@ export const env = {
   appEncryptionKey: optional("APP_ENCRYPTION_KEY"),
   yookassaShopId: optional("YOOKASSA_SHOP_ID"),
   yookassaSecretKey: optional("YOOKASSA_SECRET_KEY"),
+  yookassaTestShopId: optional("YOOKASSA_TEST_SHOP_ID"),
+  yookassaTestSecretKey: optional("YOOKASSA_TEST_SECRET_KEY"),
+  yookassaLiveShopId: optional("YOOKASSA_LIVE_SHOP_ID"),
+  yookassaLiveSecretKey: optional("YOOKASSA_LIVE_SECRET_KEY"),
   yookassaReturnUrl:
     optional("YOOKASSA_RETURN_URL") || "https://techaks.ru/payment/result",
   yookassaWebhookUrl:
