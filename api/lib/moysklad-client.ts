@@ -3,6 +3,7 @@ import { getAppSetting } from "./app-settings";
 import { env } from "./env";
 
 const MOYSKLAD_BASE_URL = "https://api.moysklad.ru/api/remap/1.2";
+const DEFAULT_TIMEOUT_MS = 90_000;
 
 export class MoyskladApiError extends Error {
   status: number | null;
@@ -29,8 +30,8 @@ export class MoyskladApiError extends Error {
   }
 }
 
-function isRetriableStatus(status: number | null) {
-  return status === 429 || (status !== null && status >= 500);
+function isRetriableStatus(status: number | null, hasResponse: boolean) {
+  return !hasResponse || status === 429 || (status !== null && status >= 500);
 }
 
 function getRequestId(headers?: Record<string, unknown>) {
@@ -67,7 +68,7 @@ export async function getMoyskladClient() {
       "Accept-Encoding": "gzip",
       "Content-Type": "application/json",
     },
-    timeout: 30_000,
+    timeout: DEFAULT_TIMEOUT_MS,
   });
 
   return new MoyskladClient(instance);
@@ -120,6 +121,7 @@ function toMoyskladApiError(error: unknown, endpoint: string) {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError;
     const status = axiosError.response?.status ?? null;
+    const hasResponse = Boolean(axiosError.response);
     const body = axiosError.response?.data ?? null;
     const requestId = getRequestId(axiosError.response?.headers as Record<string, unknown>);
     const message =
@@ -141,7 +143,7 @@ function toMoyskladApiError(error: unknown, endpoint: string) {
       endpoint,
       requestId,
       body,
-      retriable: isRetriableStatus(status),
+      retriable: isRetriableStatus(status, hasResponse),
     });
   }
 

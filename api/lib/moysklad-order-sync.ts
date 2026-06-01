@@ -857,6 +857,12 @@ function getRetryDelayMs(attempts: number, error: unknown) {
   if (error instanceof MoyskladApiError && error.retriable) {
     return Math.min(60 * 60_000, nextAttempt * 2 * 60_000);
   }
+  if (
+    error instanceof Error &&
+    /timeout|etimedout|econnreset|socket hang up|network/i.test(error.message)
+  ) {
+    return Math.min(60 * 60_000, nextAttempt * 2 * 60_000);
+  }
   return 0;
 }
 
