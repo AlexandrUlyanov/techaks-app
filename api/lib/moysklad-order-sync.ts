@@ -910,6 +910,7 @@ async function completeJob(jobId: number) {
     .set({
       status: JOB_STATUS_SUCCESS,
       lockedAt: null,
+      lastError: null,
       updatedAt: new Date(),
     })
     .where(eq(moyskladSyncJobs.id, jobId));
