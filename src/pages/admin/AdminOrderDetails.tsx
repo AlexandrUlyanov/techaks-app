@@ -106,6 +106,139 @@ function getPaymentStatusLabel(value: string | null | undefined) {
   }
 }
 
+function getPaymentMethodLabel(value: string | null | undefined) {
+  switch (value) {
+    case "cash":
+      return "Наличными";
+    case "card":
+      return "Банковской картой";
+    case "sbp":
+      return "СБП";
+    case "yookassa":
+      return "Онлайн-оплата YooKassa";
+    default:
+      return value || "Не задан";
+  }
+}
+
+function getOrderHistoryActionLabel(actionType?: string | null) {
+  switch (actionType) {
+    case "status_changed":
+      return "Статус заказа изменён";
+    case "status_changed_from_moysklad":
+      return "Статус обновлён из МойСклад";
+    case "payment_updated":
+      return "Оплата обновлена";
+    case "order_created":
+      return "Заказ создан";
+    case "one_click_order_created":
+      return "Заказ в один клик создан";
+    case "order_created_from_reservation":
+      return "Заказ создан из резерва";
+    case "order_details_updated":
+      return "Данные заказа обновлены";
+    case "delivery_updated":
+      return "Доставка обновлена";
+    case "delivery_update_skipped_not_required":
+      return "Доставка не требуется";
+    case "delivery_update_skipped_legacy":
+      return "Доставка не обновлена";
+    case "order_item_quantity_updated":
+      return "Количество товара изменено";
+    case "order_item_removed":
+      return "Товар удалён из заказа";
+    case "bulk_status_changed":
+      return "Статус изменён массово";
+    case "comment_added":
+      return "Комментарий добавлен";
+    case "customer_comment_added":
+      return "Сообщение клиента";
+    case "customer_comment_skipped_legacy":
+      return "Сообщение клиента не сохранено";
+    case "comment_skipped_legacy":
+      return "Комментарий не сохранён";
+    case "customer_conversation_read":
+      return "Клиент прочитал сообщения";
+    case "manager_conversation_read":
+      return "Менеджер прочитал сообщения";
+    default:
+      return actionType || "Событие заказа";
+  }
+}
+
+function getYooKassaPaymentStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "pending":
+      return "Ожидает оплаты";
+    case "waiting_for_capture":
+      return "Ожидает подтверждения";
+    case "succeeded":
+      return "Оплачен";
+    case "canceled":
+      return "Отменён";
+    default:
+      return value || "Не задан";
+  }
+}
+
+function getYooKassaCancellationPartyLabel(value: string | null | undefined) {
+  switch (value) {
+    case "merchant":
+      return "Магазин";
+    case "yoo_money":
+      return "YooKassa";
+    case "payment_network":
+      return "Платёжная система";
+    default:
+      return value || "—";
+  }
+}
+
+function getYooKassaCancellationReasonLabel(value: string | null | undefined) {
+  switch (value) {
+    case "3d_secure_failed":
+      return "Не пройдена 3-D Secure проверка";
+    case "call_issuer":
+      return "Нужно обратиться в банк";
+    case "canceled_by_merchant":
+      return "Отменено магазином";
+    case "card_expired":
+      return "Срок действия карты истёк";
+    case "country_forbidden":
+      return "Страна карты не поддерживается";
+    case "expired_on_capture":
+      return "Истёк срок подтверждения платежа";
+    case "expired_on_confirmation":
+      return "Истёк срок подтверждения оплаты";
+    case "fraud_suspected":
+      return "Платёж отклонён системой безопасности";
+    case "general_decline":
+      return "Платёж отклонён";
+    case "identification_required":
+      return "Требуется идентификация";
+    case "insufficient_funds":
+      return "Недостаточно средств";
+    case "internal_timeout":
+      return "Внутренняя ошибка по таймауту";
+    case "invalid_card_number":
+      return "Некорректный номер карты";
+    case "invalid_csc":
+      return "Некорректный код CVC/CVV";
+    case "issuer_unavailable":
+      return "Банк недоступен";
+    case "payment_method_limit_exceeded":
+      return "Превышен лимит способа оплаты";
+    case "payment_method_restricted":
+      return "Способ оплаты ограничен";
+    case "permission_revoked":
+      return "Разрешение на оплату отозвано";
+    case "unsupported_mobile_operator":
+      return "Оператор не поддерживается";
+    default:
+      return value || "—";
+  }
+}
+
 function getDeliveryStatusLabel(value: string | null | undefined) {
   switch (value) {
     case "not_required":
@@ -267,11 +400,9 @@ export default function AdminOrderDetails() {
         utils.ecommerce.getOrderById.invalidate({ id: orderId }),
         utils.ecommerce.getOrderHistory.invalidate({ orderId }),
       ]);
-      toast.success(
-        `YooKassa payment обновлён: ${result.status || "статус не задан"}`
-      );
+      toast.success(`Платёж YooKassa обновлён: ${getYooKassaPaymentStatusLabel(result.status)}`);
     },
-    onError: err => toast.error(err.message || "Ошибка проверки payment YooKassa"),
+    onError: err => toast.error(err.message || "Ошибка проверки платежа YooKassa"),
   });
 
   const formatPrice = (value: number | null | undefined) =>
@@ -561,7 +692,7 @@ export default function AdminOrderDetails() {
         <AdminStatCard
           label="Оплата"
           value={getPaymentStatusLabel(order.paymentStatus)}
-          hint={`Оплачено: ${formatPrice(order.paidAmount)}`}
+          hint={`${getPaymentMethodLabel(order.paymentMethod)} · оплачено: ${formatPrice(order.paidAmount)}`}
           icon={Wallet}
         />
         <AdminStatCard
@@ -917,38 +1048,40 @@ export default function AdminOrderDetails() {
                     ) : (
                       <CreditCard size={16} />
                     )}
-                    Проверить payment
+                    Проверить платёж
                   </button>
                 ) : null
               }
             >
               <div className="space-y-3 text-sm">
-                <InfoRow label="payment_id" value={order.paymentId || "Не задан"} mono />
+                <InfoRow label="ID платежа YooKassa" value={order.paymentId || "Не задан"} mono />
                 <InfoRow
-                  label="test"
+                  label="Тестовый платёж"
                   value={
                     typeof yookassaDiagnostics.paymentTest === "boolean"
                       ? yookassaDiagnostics.paymentTest
-                        ? "true"
-                        : "false"
-                      : "Не известно"
+                        ? "Да"
+                        : "Нет"
+                      : "Неизвестно"
                   }
                 />
                 <InfoRow
-                  label="status"
-                  value={
-                    yookassaDiagnostics.paymentProviderStatus ||
-                    order.paymentStatus ||
-                    "Не задан"
-                  }
+                  label="Статус YooKassa"
+                  value={getYooKassaPaymentStatusLabel(
+                    yookassaDiagnostics.paymentProviderStatus || order.paymentStatus
+                  )}
                 />
                 <InfoRow
-                  label="cancellation_details.party"
-                  value={yookassaDiagnostics.paymentCancellationParty || "—"}
+                  label="Кто отменил"
+                  value={getYooKassaCancellationPartyLabel(
+                    yookassaDiagnostics.paymentCancellationParty
+                  )}
                 />
                 <InfoRow
-                  label="cancellation_details.reason"
-                  value={yookassaDiagnostics.paymentCancellationReason || "—"}
+                  label="Причина отмены"
+                  value={getYooKassaCancellationReasonLabel(
+                    yookassaDiagnostics.paymentCancellationReason
+                  )}
                 />
               </div>
             </AdminSection>
@@ -1008,7 +1141,7 @@ export default function AdminOrderDetails() {
                     className="rounded-2xl border border-gray-100 bg-gray-50 p-3"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-700">
-                      {row.actionType}
+                      {getOrderHistoryActionLabel(row.actionType)}
                     </p>
                     <p className="mt-1 text-[11px] text-gray-500">
                       {formatDateTime(row.createdAt)}

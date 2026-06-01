@@ -29,14 +29,14 @@ const ORDER_STATUS_OPTIONS = [
   { value: "", label: "Все статусы" },
   { value: "pending", label: "Новый" },
   { value: "waiting_call", label: "Ждёт звонка" },
-  { value: "confirmed", label: "Подтвержден" },
+  { value: "confirmed", label: "Подтверждён" },
   { value: "processing", label: "В обработке" },
   { value: "assembling", label: "Собирается" },
   { value: "awaiting_dispatch", label: "Ожидает отправки" },
   { value: "in_delivery", label: "Доставляется" },
   { value: "delivered", label: "Доставлен" },
   { value: "completed", label: "Выполнен" },
-  { value: "cancelled", label: "Отменен" },
+  { value: "cancelled", label: "Отменён" },
   { value: "problem", label: "Проблемный" },
 ];
 
@@ -80,9 +80,34 @@ const QUICK_TABS: Array<{ key: QuickTabKey; label: string }> = [
   { key: "needs_response", label: "Требуют ответа" },
   { key: "unread_messages", label: "Новые сообщения" },
   { key: "completed", label: "Выполненные" },
-  { key: "cancelled", label: "Отмененные" },
+  { key: "cancelled", label: "Отменённые" },
   { key: "problem", label: "Проблемные" },
 ];
+
+function getDeliveryStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "not_required":
+      return "Не требуется";
+    case "unknown":
+      return "Не задано";
+    case "awaiting_processing":
+      return "Ожидает обработки";
+    case "prepared":
+      return "Подготовлен";
+    case "handed_to_delivery":
+      return "Передан в доставку";
+    case "in_delivery":
+      return "В пути";
+    case "delivered":
+      return "Доставлен";
+    case "return_in_transit":
+      return "Возврат в пути";
+    case "delivery_error":
+      return "Ошибка доставки";
+    default:
+      return value || "Не задано";
+  }
+}
 
 function OrderStatusPill({ status }: { status: string }) {
   const getStatusInfo = (value: string) => {
@@ -98,7 +123,7 @@ function OrderStatusPill({ status }: { status: string }) {
         };
       case "confirmed":
         return {
-          label: "Подтвержден",
+          label: "Подтверждён",
           color: "bg-cyan-100 text-cyan-700",
           icon: CheckCircle2,
         };
@@ -129,7 +154,7 @@ function OrderStatusPill({ status }: { status: string }) {
           icon: CheckCircle2,
         };
       case "cancelled":
-        return { label: "Отменен", color: "bg-red-100 text-red-700", icon: XCircle };
+        return { label: "Отменён", color: "bg-red-100 text-red-700", icon: XCircle };
       case "processing":
         return {
           label: "В обработке",
@@ -565,7 +590,7 @@ export default function AdminLeads() {
               <option value="awaiting_dispatch">Ожидает отправки</option>
               <option value="in_delivery">Доставляется</option>
               <option value="completed">Выполнен</option>
-              <option value="cancelled">Отменен</option>
+              <option value="cancelled">Отменён</option>
               <option value="problem">Проблемный</option>
             </select>
             <button
@@ -742,7 +767,7 @@ export default function AdminLeads() {
                           <>
                             <Truck size={14} />
                             {order.deliveryStatus
-                              ? `Доставка · ${order.deliveryStatus}`
+                              ? `Доставка · ${getDeliveryStatusLabel(order.deliveryStatus)}`
                               : "Доставка · Не задано"}
                           </>
                         ) : (
@@ -792,7 +817,7 @@ export default function AdminLeads() {
                       className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:opacity-50"
                     >
                       <option value="pending">Новый</option>
-                      <option value="confirmed">Подтвержден</option>
+                      <option value="confirmed">Подтверждён</option>
                       <option value="processing">В обработке</option>
                       <option value="assembling">Собирается</option>
                       <option value="awaiting_dispatch">Ожидает отправки</option>
@@ -801,7 +826,7 @@ export default function AdminLeads() {
                       <option value="delivered">Доставлен</option>
                       <option value="completed">Выполнен</option>
                       <option value="problem">Проблемный</option>
-                      <option value="cancelled">Отменен</option>
+                      <option value="cancelled">Отменён</option>
                     </select>
 
                     {isStatusManagedByMoysklad ? (

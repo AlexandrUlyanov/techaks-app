@@ -45,11 +45,11 @@ type AccountOrder = {
 const orderStatusLabels: Record<string, string> = {
   pending: "Новый",
   waiting_call: "Ждёт звонка",
-  confirmed: "Подтвержден",
+  confirmed: "Подтверждён",
   awaiting_payment: "Ожидает оплаты",
   paid: "Оплачен",
   processing: "В обработке",
-  confirmed_by_customer: "Подтвержден клиентом",
+  confirmed_by_customer: "Подтверждён клиентом",
   ready_for_pickup: "Готов к выдаче",
   assembling: "Собирается",
   assembled: "Собран",
@@ -58,7 +58,7 @@ const orderStatusLabels: Record<string, string> = {
   in_delivery: "В пути",
   delivered: "Доставлен",
   completed: "Выполнен",
-  cancelled: "Отменен",
+  cancelled: "Отменён",
   return_requested: "Возврат",
   problem: "Проблемный",
 };
@@ -118,6 +118,8 @@ function getPaymentTypeLabel(type?: string | null) {
   if (!type) return "Не указан";
   if (type === "cash") return "Наличными";
   if (type === "card") return "Картой";
+  if (type === "sbp") return "СБП";
+  if (type === "yookassa") return "Онлайн-оплата YooKassa";
   return type;
 }
 
@@ -126,6 +128,54 @@ function getDeliveryTypeLabel(type?: string | null) {
   if (type === "pickup") return "Самовывоз";
   if (type === "delivery") return "Доставка";
   return type;
+}
+
+function getOrderHistoryActionLabel(actionType?: string | null) {
+  switch (actionType) {
+    case "status_changed":
+      return "Статус заказа изменён";
+    case "status_changed_from_moysklad":
+      return "Статус обновлён из МойСклад";
+    case "payment_updated":
+      return "Оплата обновлена";
+    case "order_created":
+      return "Заказ создан";
+    case "one_click_order_created":
+      return "Заказ в один клик создан";
+    case "order_created_from_reservation":
+      return "Заказ создан из резерва";
+    case "customer_comment_added":
+      return "Ваше сообщение сохранено";
+    case "comment_added":
+      return "Добавлен комментарий";
+    case "delivery_updated":
+      return "Доставка обновлена";
+    case "delivery_update_skipped_not_required":
+      return "Доставка не требуется";
+    case "delivery_update_skipped_legacy":
+      return "Доставка не обновлена";
+    case "order_details_updated":
+      return "Данные заказа обновлены";
+    case "order_item_quantity_updated":
+      return "Количество товара изменено";
+    case "order_item_removed":
+      return "Товар удалён из заказа";
+    case "bulk_status_changed":
+      return "Статус изменён массово";
+    case "customer_review_created":
+      return "Отзыв отправлен";
+    case "customer_review_updated":
+      return "Отзыв обновлён";
+    case "customer_comment_skipped_legacy":
+      return "Сообщение клиента не сохранено";
+    case "comment_skipped_legacy":
+      return "Комментарий не сохранён";
+    case "customer_conversation_read":
+    case "manager_conversation_read":
+      return "Сообщения прочитаны";
+    default:
+      return actionType || "Событие заказа";
+  }
 }
 
 function AccountOrderCard({
@@ -601,13 +651,7 @@ function AccountOrderCard({
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="font-semibold">
-                              {entry.actionType === "status_changed"
-                                ? "Статус заказа изменен"
-                                : entry.actionType === "customer_comment_added"
-                                ? "Ваше сообщение сохранено"
-                                : entry.actionType === "comment_added"
-                                ? "Добавлен комментарий"
-                                : entry.actionType}
+                              {getOrderHistoryActionLabel(entry.actionType)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {formatDateTime(entry.createdAt)}
