@@ -10,6 +10,12 @@ import {
   saveSiteProfileSettings,
 } from "../lib/site-profile-settings";
 import { enqueueSearchReindexJob, rebuildSearchDocumentsForPages } from "../lib/search";
+import {
+  getYooKassaAdminSettings,
+  saveYooKassaAdminSettings,
+  testYooKassaConnection,
+  yookassaSettingsInputSchema,
+} from "../lib/payment-settings";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -288,6 +294,23 @@ export const settingsRouter = createRouter({
     requireAbility(ctx, "configure", "Settings");
     await setAppSetting("moysklad_webhook_secret", "");
     return { success: true };
+  }),
+
+  getYooKassaSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "manage_payment_settings", "Settings");
+    return getYooKassaAdminSettings();
+  }),
+
+  saveYooKassaSettings: protectedProcedure
+    .input(yookassaSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage_payment_settings", "Settings");
+      return saveYooKassaAdminSettings(input, ctx.user?.id ?? null);
+    }),
+
+  testYooKassaConnection: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage_payment_settings", "Settings");
+    return testYooKassaConnection(ctx.user?.id ?? null);
   }),
 
   getAuthSettings: protectedProcedure.query(async ({ ctx }) => {

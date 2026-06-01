@@ -10,8 +10,11 @@ import {
   UserCog,
   Bot,
   Cable,
+  CreditCard,
+  ArrowRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
@@ -21,13 +24,14 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 
-type SettingsTab = "profile" | "access" | "ai" | "integrations" | "site";
+type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
 
 const TABS: Array<{ key: SettingsTab; label: string; icon: typeof UserCog }> = [
   { key: "profile", label: "Профиль", icon: UserCog },
   { key: "access", label: "Доступ", icon: ShieldCheck },
   { key: "ai", label: "ИИ", icon: Bot },
   { key: "integrations", label: "Интеграции", icon: Cable },
+  { key: "payment", label: "Оплата", icon: CreditCard },
   { key: "site", label: "Сайт", icon: Wrench },
 ];
 
@@ -837,6 +841,40 @@ export default function AdminSettings() {
               </div>
             </div>
           </AdminSection>
+        </div>
+      ) : null}
+
+      {activeTab === "payment" ? (
+        <div className="space-y-6">
+          <Can I="manage_payment_settings" a="Settings">
+            <AdminSection
+              title="Оплата"
+              description="Платежные провайдеры и безопасные ключи. Доступ к этому разделу есть только у администраторов с правом управления платежными настройками."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Link
+                  to="/admin/settings/payment/yookassa"
+                  className="group rounded-2xl bg-[#F6F7F8] p-5 transition-colors hover:bg-[#E8FAFC]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-black text-[#15171A]">
+                        <CreditCard size={18} className="text-[#05C3D4]" />
+                        YooKassa
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-gray-500">
+                        Shop ID, Secret Key, режим оплаты, return URL и webhook.
+                      </p>
+                    </div>
+                    <ArrowRight
+                      size={18}
+                      className="text-[#05C3D4] transition-transform group-hover:translate-x-1"
+                    />
+                  </div>
+                </Link>
+              </div>
+            </AdminSection>
+          </Can>
         </div>
       ) : null}
 

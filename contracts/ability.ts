@@ -18,6 +18,7 @@ export type Actions =
   | "delete"
   | "sync"
   | "configure"
+  | "manage_payment_settings"
   | "publish"
   | "rollback";
 
@@ -65,6 +66,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
       "Sync",
     ]);
     can("configure", "Settings");
+    can("manage_payment_settings", "Settings");
     can(["read", "update", "publish", "rollback"], "DesignSystem");
     can("manage", "Search");
     can("read", "User");

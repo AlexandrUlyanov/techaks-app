@@ -38,4 +38,11 @@ export const env = {
   moyskladDefaultCounterpartyHref: optional("MOYSKLAD_DEFAULT_COUNTERPARTY_HREF"),
   moyskladReserveOnOrder:
     optional("MOYSKLAD_RESERVE_ON_ORDER").toLowerCase() === "true",
+  appEncryptionKey: optional("APP_ENCRYPTION_KEY"),
+  yookassaShopId: optional("YOOKASSA_SHOP_ID"),
+  yookassaSecretKey: optional("YOOKASSA_SECRET_KEY"),
+  yookassaReturnUrl:
+    optional("YOOKASSA_RETURN_URL") || "https://techaks.ru/payment/result",
+  yookassaWebhookUrl:
+    optional("YOOKASSA_WEBHOOK_URL") || "https://techaks.ru/api/yookassa/webhook",
 };

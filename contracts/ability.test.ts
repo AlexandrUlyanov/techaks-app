@@ -15,6 +15,7 @@ describe("defineAbilityFor", () => {
     expect(ability.can("manage", "Product")).toBe(true);
     expect(ability.can("sync", "Sync")).toBe(true);
     expect(ability.can("configure", "Settings")).toBe(true);
+    expect(ability.can("manage_payment_settings", "Settings")).toBe(true);
   });
 
   it("merchandiser should be able to manage merchandising", () => {

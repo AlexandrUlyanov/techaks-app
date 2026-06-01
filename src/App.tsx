@@ -54,6 +54,9 @@ const AdminMerchandisingQuality = lazy(
   () => import("@/pages/admin/merchandising/AdminMerchandisingQuality")
 );
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminYooKassaSettings = lazy(
+  () => import("@/pages/admin/AdminYooKassaSettings")
+);
 const AdminDesignSystem = lazy(() => import("@/pages/admin/AdminDesignSystem"));
 const AdminSearchPage = lazy(() => import("@/pages/admin/search/AdminSearchPage"));
 const AdminSearchSettingsPage = lazy(
@@ -170,6 +173,10 @@ export default function App() {
                 </Route>
 
                 <Route path="settings" element={<AdminSettings />} />
+                <Route
+                  path="settings/payment/yookassa"
+                  element={<AdminYooKassaSettings />}
+                />
               </Route>
             </Route>
           </Routes>
