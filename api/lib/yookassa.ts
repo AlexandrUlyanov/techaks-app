@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { orders, syncLogs, webhookEvents } from "@db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../queries/connection";
+import { enqueueMoyskladSyncJob } from "./moysklad-order-sync";
 import { getOrderDbCapabilities } from "./order-compat";
 import { getYooKassaRuntimeSettings } from "./payment-settings";
 
@@ -109,6 +110,29 @@ async function logYooKassaPayment(
     message,
     details: details ?? null,
   });
+}
+
+async function enqueueMoyskladPaymentSync(orderId: number, payment: YooKassaPaymentObject) {
+  if (!(payment.status === "succeeded" || payment.paid)) return;
+  try {
+    await enqueueMoyskladSyncJob({
+      entityType: "payment",
+      entityId: orderId,
+      action: "payment",
+      payloadSnapshot: {
+        provider: "yookassa",
+        paymentId: payment.id ?? null,
+        status: payment.status ?? null,
+        test: typeof payment.test === "boolean" ? payment.test : null,
+      },
+    });
+  } catch (error) {
+    await logYooKassaPayment("error", "MoySklad payment sync enqueue failed", {
+      orderId,
+      paymentId: payment.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function requestYooKassa<T>(
@@ -243,6 +267,8 @@ export async function createYooKassaPaymentForOrder(
       })
       .where(eq(orders.id, input.orderId));
 
+    await enqueueMoyskladPaymentSync(input.orderId, payment);
+
     await logYooKassaPayment("success", "YooKassa payment created", {
       orderId: input.orderId,
       orderNumber: input.orderNumber,
@@ -338,6 +364,8 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  await enqueueMoyskladPaymentSync(order.id, payment);
 
   await logYooKassaPayment("success", "YooKassa payment refreshed", {
     orderId: order.id,
@@ -502,6 +530,8 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  await enqueueMoyskladPaymentSync(order.id, verifiedPayment);
 
   await db
     .update(webhookEvents)

@@ -3283,6 +3283,20 @@ export const ecommerceRouter = createRouter({
           console.error("payment_success email failed", err);
         });
       }
+      if (input.paymentStatus === "paid") {
+        await enqueueMoyskladSyncJob({
+          entityType: "payment",
+          entityId: input.id,
+          action: "payment",
+          payloadSnapshot: {
+            source: "admin",
+            paymentStatus: input.paymentStatus,
+            paymentMethod: input.paymentMethod || existing[0]?.paymentMethod || existing[0]?.paymentType,
+          },
+        }).catch(err => {
+          console.error("moysklad payment sync enqueue failed", err);
+        });
+      }
       return { success: true };
     }),
 

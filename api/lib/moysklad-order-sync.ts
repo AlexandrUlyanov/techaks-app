@@ -88,6 +88,14 @@ type LoadedOrder = {
   moyskladOrderId: string | null;
   moyskladOrderHref: string | null;
   moyskladExternalCode: string | null;
+  moyskladPaymentInId: string | null;
+  moyskladPaymentInHref: string | null;
+  moyskladPaymentExternalCode: string | null;
+  totalPrice: number;
+  paidAmount: number;
+  paidAt: Date | null;
+  paymentMethod: string | null;
+  paymentId: string | null;
   items: Array<{
     productId: number;
     variantId: number | null;
@@ -165,6 +173,10 @@ function parseJsonRecord(value: string | null | undefined): Record<string, strin
 
 function getOrderExternalCode(orderId: number) {
   return `techaks-order-${orderId}`;
+}
+
+function getPaymentExternalCode(orderId: number) {
+  return `techaks-payment-${orderId}`;
 }
 
 function buildProductHref(msId: string) {
@@ -507,6 +519,26 @@ async function markOrderSyncState(input: {
     .where(eq(orders.id, input.orderId));
 }
 
+async function markPaymentSyncState(input: {
+  orderId: number;
+  moyskladPaymentInId?: string | null;
+  moyskladPaymentInHref?: string | null;
+  moyskladPaymentExternalCode?: string | null;
+  lastError?: string | null;
+}) {
+  const db = getDb();
+  await db
+    .update(orders)
+    .set({
+      moyskladPaymentInId: input.moyskladPaymentInId,
+      moyskladPaymentInHref: input.moyskladPaymentInHref,
+      moyskladPaymentExternalCode: input.moyskladPaymentExternalCode,
+      moyskladLastError: input.lastError ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, input.orderId));
+}
+
 async function loadOrderForSync(db: ReturnType<typeof getDb>, orderId: number): Promise<LoadedOrder> {
   const [order] = await db
     .select({
@@ -529,6 +561,14 @@ async function loadOrderForSync(db: ReturnType<typeof getDb>, orderId: number): 
       moyskladOrderId: orders.moyskladOrderId,
       moyskladOrderHref: orders.moyskladOrderHref,
       moyskladExternalCode: orders.moyskladExternalCode,
+      moyskladPaymentInId: orders.moyskladPaymentInId,
+      moyskladPaymentInHref: orders.moyskladPaymentInHref,
+      moyskladPaymentExternalCode: orders.moyskladPaymentExternalCode,
+      totalPrice: orders.totalPrice,
+      paidAmount: orders.paidAmount,
+      paidAt: orders.paidAt,
+      paymentMethod: orders.paymentMethod,
+      paymentId: orders.paymentId,
     })
     .from(orders)
     .leftJoin(users, eq(orders.userId, users.id))
@@ -738,6 +778,73 @@ async function findExistingCustomerOrderByExternalCode(externalCode: string) {
     : null;
 }
 
+async function findExistingPaymentInByExternalCode(externalCode: string) {
+  const client = await getMoyskladClient();
+  const data = await client.get<{
+    rows?: Array<{ id?: string; meta?: { href?: string } }>;
+  }>("/entity/paymentin", {
+    filter: `externalCode=${externalCode}`,
+    limit: 1,
+  });
+
+  const row = data.rows?.[0];
+  return row?.id && row.meta?.href
+    ? {
+        id: row.id,
+        href: row.meta.href,
+      }
+    : null;
+}
+
+function buildPaymentInPayload(args: {
+  order: LoadedOrder;
+  settings: OrderSyncSettings;
+  counterpartyHref: string;
+  orderHref: string;
+  externalCode: string;
+}) {
+  const { order, settings, counterpartyHref, orderHref, externalCode } = args;
+  const amount = Math.max(0, Number(order.paidAmount || order.totalPrice || 0));
+  if (amount <= 0) {
+    throw new Error(`У заказа #${order.id} нет суммы оплаты для МойСклад.`);
+  }
+
+  const orderNumber = order.orderNumber?.trim() || `TA-${order.id}`;
+  const paymentLabel = order.paymentMethod || order.paymentType || "yookassa";
+  const yookassaSuffix = order.paymentId ? `, YooKassa payment ${order.paymentId}` : "";
+
+  return {
+    name: `Оплата ${orderNumber}`,
+    externalCode,
+    organization: {
+      meta: {
+        href: settings.organizationHref,
+        type: "organization",
+        mediaType: "application/json",
+      },
+    },
+    agent: {
+      meta: {
+        href: counterpartyHref,
+        type: "counterparty",
+        mediaType: "application/json",
+      },
+    },
+    sum: amount * 100,
+    moment: toMoyskladMoment(order.paidAt || new Date()),
+    paymentPurpose: `Оплата заказа ${orderNumber} через ${paymentLabel}${yookassaSuffix}`,
+    operations: [
+      {
+        meta: {
+          href: orderHref,
+          type: "customerorder",
+          mediaType: "application/json",
+        },
+      },
+    ],
+  };
+}
+
 async function syncOrderToMoysklad(orderId: number, action: JobAction) {
   const db = getDb();
   const settings = await getMoyskladOrderSyncSettings();
@@ -847,6 +954,86 @@ async function syncOrderToMoysklad(orderId: number, action: JobAction) {
   });
 
   return { created: true, updated: false };
+}
+
+async function syncOrderPaymentToMoysklad(orderId: number) {
+  const db = getDb();
+  const settings = await getMoyskladOrderSyncSettings();
+  if (!settings.enabled) {
+    await markPaymentSyncState({
+      orderId,
+      lastError: "Синхронизация заказов с МойСклад выключена в настройках.",
+    });
+    return { skipped: true };
+  }
+
+  if (!settings.organizationHref || !settings.storeHref) {
+    throw new Error("Не настроены organization/store для синхронизации оплаты с МойСклад.");
+  }
+
+  let order = await loadOrderForSync(db, orderId);
+  if (order.paymentStatus !== "paid") {
+    return { skipped: true, reason: "payment_not_paid" };
+  }
+
+  const paymentExternalCode =
+    order.moyskladPaymentExternalCode?.trim() || getPaymentExternalCode(order.id);
+
+  if (order.moyskladPaymentInId && order.moyskladPaymentInHref) {
+    return { created: false, existing: true };
+  }
+
+  const existingPayment = await findExistingPaymentInByExternalCode(paymentExternalCode);
+  if (existingPayment) {
+    await markPaymentSyncState({
+      orderId,
+      moyskladPaymentInId: existingPayment.id,
+      moyskladPaymentInHref: existingPayment.href,
+      moyskladPaymentExternalCode: paymentExternalCode,
+      lastError: null,
+    });
+    return { created: false, existing: true };
+  }
+
+  let orderHref = order.moyskladOrderHref?.trim() || null;
+  if (!orderHref) {
+    await syncOrderToMoysklad(orderId, "create");
+    order = await loadOrderForSync(db, orderId);
+    orderHref = order.moyskladOrderHref?.trim() || null;
+  }
+
+  if (!orderHref) {
+    throw new Error(`Заказ #${orderId} не синхронизирован с МойСклад, оплату создать нельзя.`);
+  }
+
+  const counterpartyHref = await ensureCounterparty(order, settings);
+  const client = await getMoyskladClient();
+  const payload = buildPaymentInPayload({
+    order,
+    settings,
+    counterpartyHref,
+    orderHref,
+    externalCode: paymentExternalCode,
+  });
+
+  const created = await client.post<{ id?: string; meta?: { href?: string } }>(
+    "/entity/paymentin",
+    payload
+  );
+
+  if (!created.id || !created.meta?.href) {
+    throw new Error("МойСклад не вернул id/href созданного paymentin.");
+  }
+
+  await markPaymentSyncState({
+    orderId,
+    moyskladPaymentInId: created.id,
+    moyskladPaymentInHref: created.meta.href,
+    moyskladPaymentExternalCode: paymentExternalCode,
+    lastError: null,
+  });
+
+  return { created: true, existing: false };
 }
 
 function getRetryDelayMs(attempts: number, error: unknown) {
@@ -1070,6 +1257,13 @@ export async function processMoyskladOrderSyncJobs(limit = 5) {
     try {
       if (job.entityType === "webhook" && job.action === "webhook_process") {
         await processWebhookEvent(job.entityId);
+        await completeJob(job.id);
+        success += 1;
+        continue;
+      }
+
+      if (job.entityType === "payment" && job.action === "payment") {
+        await syncOrderPaymentToMoysklad(job.entityId);
         await completeJob(job.id);
         success += 1;
         continue;

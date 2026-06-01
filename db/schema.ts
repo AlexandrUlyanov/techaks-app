@@ -339,6 +339,9 @@ export const orders = mysqlTable("orders", {
   moyskladOrderId: text("moysklad_order_id"),
   moyskladOrderHref: text("moysklad_order_href"),
   moyskladExternalCode: text("moysklad_external_code"),
+  moyskladPaymentInId: text("moysklad_payment_in_id"),
+  moyskladPaymentInHref: text("moysklad_payment_in_href"),
+  moyskladPaymentExternalCode: text("moysklad_payment_external_code"),
   moyskladSyncStatus: varchar("moysklad_sync_status", { length: 20 })
     .notNull()
     .default("pending"),
