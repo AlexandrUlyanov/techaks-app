@@ -117,6 +117,16 @@ app.get("/robots.txt", c => {
   });
 });
 
+app.get("/yandex_0c5c892438bce9a8.html", c => {
+  const body = `<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    </head>
+    <body>Verification: 0c5c892438bce9a8</body>
+</html>`;
+  return c.html(body);
+});
+
 app.get("/sitemap.xml", c => {
   const now = new Date().toISOString();
   const body = `<?xml version="1.0" encoding="UTF-8"?>
