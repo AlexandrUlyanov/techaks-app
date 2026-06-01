@@ -10,7 +10,6 @@ import {
   LogOut,
   MapPin,
   MessageSquare,
-  MessageCircle,
   Package,
   Receipt,
   RotateCcw,
@@ -422,10 +421,12 @@ function AccountOrderCard({
   const canDownloadReceipt = Boolean(receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl);
   const receiptActionHref = receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl;
   const orderNumberLabel = order.orderNumber || `#${order.id}`;
-  const supportPrefill = encodeURIComponent(
-    `Здравствуйте! У меня вопрос по заказу ${orderNumberLabel}.`
-  );
-  const supportTelegramHref = `https://t.me/tech_aks?text=${supportPrefill}`;
+  const openOrderConversation = () => {
+    const target = document.getElementById(`order-conversation-${order.id}`);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
   const actions = resolveOrderActions({
     orderStatus: detailsAny?.status ?? order.status,
     paymentStatus: detailsAny?.paymentStatus ?? order.paymentStatus,
@@ -623,11 +624,9 @@ function AccountOrderCard({
                     </Button>
                   ) : null}
                   {actions.showSupport ? (
-                    <Button asChild type="button" variant="outline" className="w-full sm:w-auto">
-                    <a href={supportTelegramHref} target="_blank" rel="noreferrer">
-                      <MessageCircle size={16} className="mr-2" />
+                    <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={openOrderConversation}>
+                      <MessageSquare size={16} className="mr-2" />
                       Написать по заказу
-                    </a>
                     </Button>
                   ) : null}
                   {actions.showReview ? (
@@ -733,11 +732,9 @@ function AccountOrderCard({
                       : "Чек временно недоступен"}
                   </Button>
                   {!canDownloadReceipt && (
-                    <Button asChild type="button" variant="outline">
-                      <a href={supportTelegramHref} target="_blank" rel="noreferrer">
+                    <Button type="button" variant="outline" onClick={openOrderConversation}>
                         <ExternalLink size={16} className="mr-2" />
-                        Запросить чек в поддержке
-                      </a>
+                        Запросить чек
                     </Button>
                   )}
                 </div>
@@ -823,7 +820,7 @@ function AccountOrderCard({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl bg-muted/35 p-5">
+                  <div id={`order-conversation-${order.id}`} className="rounded-2xl bg-muted/35 p-5">
                     <h3 className="text-sm font-black uppercase tracking-wider">
                       Доставка и оплата
                     </h3>
@@ -1207,15 +1204,9 @@ export default function AccountPage() {
                   <span>Позвонить нам</span>
                   <ChevronRight size={16} />
                 </a>
-                <a
-                  href="https://t.me/tech_aks"
-                  target="_blank"
-                  className="flex items-center justify-between rounded-2xl bg-background px-4 py-3 text-sm font-bold transition-colors hover:text-[#05C3D4]"
-                  rel="noreferrer"
-                >
-                  <span>Написать в Telegram</span>
-                  <ChevronRight size={16} />
-                </a>
+                <div className="rounded-2xl bg-background px-4 py-3 text-sm text-muted-foreground">
+                  Для вопросов по заказу используйте внутреннюю переписку в карточке заказа.
+                </div>
               </div>
             </div>
           </div>
