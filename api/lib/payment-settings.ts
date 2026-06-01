@@ -275,10 +275,12 @@ export async function saveYooKassaAdminSettings(
   return getYooKassaAdminSettings();
 }
 
-export async function getYooKassaRuntimeSettings(): Promise<YooKassaRuntimeSettings> {
+export async function getYooKassaRuntimeSettings(
+  modeOverride?: "test" | "live"
+): Promise<YooKassaRuntimeSettings> {
   const settings = await getAppSettings([...SETTING_KEYS]);
   const testMode = parseBoolean(settings.yookassa_test_mode, false);
-  const mode = testMode ? "test" : "live";
+  const mode = modeOverride ?? (testMode ? "test" : "live");
   const legacyShopId = settings.yookassa_shop_id?.trim() || "";
   const legacySecret = settings.yookassa_secret_key_encrypted?.trim() || "";
   const dbTestShopId = settings.yookassa_test_shop_id?.trim() || "";
@@ -324,7 +326,7 @@ export async function getYooKassaRuntimeSettings(): Promise<YooKassaRuntimeSetti
 
   return {
     enabled,
-    testMode,
+    testMode: mode === "test",
     mode,
     shopId,
     secretKey,

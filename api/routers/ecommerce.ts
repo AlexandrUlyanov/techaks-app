@@ -1680,7 +1680,8 @@ export const ecommerceRouter = createRouter({
     .input(z.object({ orderId: z.number().int().positive() }))
     .query(async ({ input }) => {
       const db = getDb();
-      const rows = await db
+      const loadOrder = () =>
+        db
         .select({
           id: orders.id,
           orderNumber: orders.orderNumber,
@@ -1697,12 +1698,24 @@ export const ecommerceRouter = createRouter({
         .where(eq(orders.id, input.orderId))
         .limit(1);
 
-      const order = rows[0];
+      let rows = await loadOrder();
+
+      let order = rows[0];
       if (!order || order.paymentMethod !== "yookassa") {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Платёж не найден.",
         });
+      }
+
+      if (order.paymentId && order.paymentStatus === "awaiting_payment") {
+        try {
+          await refreshYooKassaPaymentForOrder(order.id);
+          rows = await loadOrder();
+          order = rows[0] ?? order;
+        } catch (error) {
+          console.warn("[yookassa] payment result refresh failed", error);
+        }
       }
 
       return order;

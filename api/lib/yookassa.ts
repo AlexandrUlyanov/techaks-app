@@ -117,9 +117,10 @@ async function requestYooKassa<T>(
     method?: "GET" | "POST";
     body?: unknown;
     idempotenceKey?: string;
+    mode?: "test" | "live";
   } = {}
 ) {
-  const runtime = await getYooKassaRuntimeSettings();
+  const runtime = await getYooKassaRuntimeSettings(options.mode);
   if (!runtime.isConfigured) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -283,9 +284,13 @@ export async function createYooKassaPaymentForOrder(
   }
 }
 
-export async function fetchYooKassaPayment(paymentId: string) {
+export async function fetchYooKassaPayment(
+  paymentId: string,
+  mode?: "test" | "live"
+) {
   return requestYooKassa<YooKassaPaymentObject>(
-    `/payments/${encodeURIComponent(paymentId)}`
+    `/payments/${encodeURIComponent(paymentId)}`,
+    { mode }
   );
 }
 
@@ -296,6 +301,7 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
       id: orders.id,
       totalPrice: orders.totalPrice,
       paymentId: orders.paymentId,
+      paymentTest: orders.paymentTest,
     })
     .from(orders)
     .where(eq(orders.id, orderId))
@@ -309,7 +315,14 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
     });
   }
 
-  const payment = await fetchYooKassaPayment(order.paymentId);
+  const payment = await fetchYooKassaPayment(
+    order.paymentId,
+    typeof order.paymentTest === "boolean"
+      ? order.paymentTest
+        ? "test"
+        : "live"
+      : undefined
+  );
   const mapped = mapPaymentStatus(payment, payment.status || "payment.checked");
   const paymentMetadataPatch = await buildAvailablePaymentMetadataPatch(payment);
   await db
@@ -410,17 +423,13 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
       },
     });
 
-  const verifiedPayment =
-    event.startsWith("payment.")
-      ? await fetchYooKassaPayment(paymentId)
-      : object;
-
-  const metadata = verifiedPayment.metadata ?? object.metadata ?? {};
+  const metadata = object.metadata ?? {};
   const orderIdFromMetadata = Number(metadata.orderId || 0);
   const orderRows = await db
     .select({
       id: orders.id,
       totalPrice: orders.totalPrice,
+      paymentTest: orders.paymentTest,
     })
     .from(orders)
     .where(
@@ -442,6 +451,39 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
       })
       .where(and(eq(webhookEvents.provider, "yookassa"), eq(webhookEvents.eventKey, eventKey)));
     return { ok: false, event, paymentId, orderId: null };
+  }
+
+  let verifiedPayment: YooKassaPaymentObject = object;
+  if (event.startsWith("payment.")) {
+    const paymentMode =
+      typeof order.paymentTest === "boolean"
+        ? order.paymentTest
+          ? "test"
+          : "live"
+        : typeof object.test === "boolean"
+          ? object.test
+            ? "test"
+            : "live"
+          : undefined;
+
+    try {
+      verifiedPayment = await fetchYooKassaPayment(paymentId, paymentMode);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "YooKassa payment fetch failed";
+      await logYooKassaPayment(
+        "error",
+        "YooKassa payment fetch failed, using webhook payload",
+        {
+          event,
+          paymentId,
+          orderId: order.id,
+          paymentMode,
+          error: message,
+        }
+      );
+      verifiedPayment = object;
+    }
   }
 
   const mapped = mapPaymentStatus(verifiedPayment, event);
