@@ -40,6 +40,13 @@ type CreateYooKassaPaymentInput = {
   orderId: number;
   orderNumber: string | null;
   totalPrice: number;
+  customerPhone: string;
+  customerEmail?: string | null;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
 };
 
 function buildCredentials(shopId: string, secretKey: string) {
@@ -48,6 +55,19 @@ function buildCredentials(shopId: string, secretKey: string) {
 
 function formatRubAmount(value: number) {
   return (Math.max(0, value) || 0).toFixed(2);
+}
+
+function normalizeReceiptPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("8")) {
+    return `7${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+function normalizeReceiptDescription(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.slice(0, 128) || "Товар";
 }
 
 function toReturnUrl(baseUrl: string, orderId: number, orderNumber: string | null) {
@@ -150,6 +170,23 @@ export async function createYooKassaPaymentForOrder(
       orderNumber: input.orderNumber || "",
       source: "techaks",
       testMode: runtime.testMode ? "true" : "false",
+    },
+    receipt: {
+      customer: {
+        phone: normalizeReceiptPhone(input.customerPhone),
+        ...(input.customerEmail ? { email: input.customerEmail } : {}),
+      },
+      items: input.items.map(item => ({
+        description: normalizeReceiptDescription(item.name),
+        quantity: String(item.quantity),
+        amount: {
+          value: formatRubAmount(item.price),
+          currency: "RUB",
+        },
+        vat_code: 1,
+        payment_mode: "full_payment",
+        payment_subject: "commodity",
+      })),
     },
   };
 

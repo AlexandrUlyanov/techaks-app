@@ -1660,6 +1660,13 @@ export const ecommerceRouter = createRouter({
               orderId,
               orderNumber,
               totalPrice: trustedTotal,
+              customerPhone: normalizedPhone,
+              customerEmail: contactEmail,
+              items: purchasableItems.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+              })),
             })
           : null;
 
