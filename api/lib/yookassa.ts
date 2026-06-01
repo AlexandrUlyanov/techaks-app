@@ -1,0 +1,364 @@
+import { TRPCError } from "@trpc/server";
+import { orders, syncLogs, webhookEvents } from "@db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import { getDb } from "../queries/connection";
+import { getYooKassaRuntimeSettings } from "./payment-settings";
+
+type YooKassaConfirmationType = "embedded" | "redirect";
+
+type YooKassaConfirmation = {
+  type?: YooKassaConfirmationType;
+  confirmation_url?: string;
+  confirmation_token?: string;
+};
+
+type YooKassaPaymentObject = {
+  id?: string;
+  status?: string;
+  paid?: boolean;
+  amount?: {
+    value?: string;
+    currency?: string;
+  };
+  cancellation_details?: {
+    reason?: string;
+    party?: string;
+  };
+  confirmation?: YooKassaConfirmation;
+  metadata?: Record<string, unknown>;
+};
+
+type YooKassaWebhookPayload = {
+  type?: string;
+  event?: string;
+  object?: YooKassaPaymentObject & {
+    payment_id?: string;
+  };
+};
+
+type CreateYooKassaPaymentInput = {
+  orderId: number;
+  orderNumber: string | null;
+  totalPrice: number;
+};
+
+function buildCredentials(shopId: string, secretKey: string) {
+  return Buffer.from(`${shopId}:${secretKey}`, "utf8").toString("base64");
+}
+
+function formatRubAmount(value: number) {
+  return (Math.max(0, value) || 0).toFixed(2);
+}
+
+function toReturnUrl(baseUrl: string, orderId: number, orderNumber: string | null) {
+  const url = new URL(baseUrl);
+  url.searchParams.set("orderId", String(orderId));
+  if (orderNumber) {
+    url.searchParams.set("order", orderNumber);
+  }
+  return url.toString();
+}
+
+async function logYooKassaPayment(
+  status: "success" | "error" | "info",
+  message: string,
+  details?: Record<string, unknown>
+) {
+  await getDb().insert(syncLogs).values({
+    type: "yookassa",
+    status,
+    message,
+    details: details ?? null,
+  });
+}
+
+async function requestYooKassa<T>(
+  path: string,
+  options: {
+    method?: "GET" | "POST";
+    body?: unknown;
+    idempotenceKey?: string;
+  } = {}
+) {
+  const runtime = await getYooKassaRuntimeSettings();
+  if (!runtime.isConfigured) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "YooKassa не настроена или выключена.",
+    });
+  }
+
+  const response = await fetch(`https://api.yookassa.ru/v3${path}`, {
+    method: options.method ?? "GET",
+    headers: {
+      Authorization: `Basic ${buildCredentials(runtime.shopId, runtime.secretKey)}`,
+      "Content-Type": "application/json",
+      ...(options.idempotenceKey
+        ? { "Idempotence-Key": options.idempotenceKey }
+        : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  const data = (await response.json().catch(() => null)) as T | null;
+
+  if (!response.ok) {
+    const description =
+      data && typeof data === "object" && "description" in data
+        ? String((data as { description?: unknown }).description)
+        : `HTTP ${response.status}`;
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `YooKassa вернула ошибку: ${description}`,
+    });
+  }
+
+  return data as T;
+}
+
+export async function createYooKassaPaymentForOrder(
+  input: CreateYooKassaPaymentInput
+) {
+  const runtime = await getYooKassaRuntimeSettings();
+  if (!runtime.isConfigured) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "YooKassa не настроена или выключена.",
+    });
+  }
+
+  const body = {
+    amount: {
+      value: formatRubAmount(input.totalPrice),
+      currency: "RUB",
+    },
+    capture: runtime.capture,
+    confirmation:
+      runtime.confirmationType === "embedded"
+        ? { type: "embedded" }
+        : {
+            type: "redirect",
+            return_url: toReturnUrl(
+              runtime.returnUrl,
+              input.orderId,
+              input.orderNumber
+            ),
+          },
+    description: `Заказ ${input.orderNumber || `#${input.orderId}`} в ТЕХАКС`,
+    metadata: {
+      orderId: String(input.orderId),
+      orderNumber: input.orderNumber || "",
+      source: "techaks",
+      testMode: runtime.testMode ? "true" : "false",
+    },
+  };
+
+  try {
+    const payment = await requestYooKassa<YooKassaPaymentObject>("/payments", {
+      method: "POST",
+      body,
+      idempotenceKey: `techaks-order-${input.orderId}`,
+    });
+
+    if (!payment?.id) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "YooKassa не вернула ID платежа.",
+      });
+    }
+
+    await getDb()
+      .update(orders)
+      .set({
+        paymentMethod: "yookassa",
+        paymentId: payment.id,
+        paymentStatus:
+          payment.status === "succeeded" ? "paid" : "awaiting_payment",
+        paidAt: payment.status === "succeeded" ? new Date() : null,
+        paidAmount: payment.status === "succeeded" ? input.totalPrice : 0,
+        paymentError: null,
+        status: payment.status === "succeeded" ? "processing" : "awaiting_payment",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, input.orderId));
+
+    await logYooKassaPayment("success", "YooKassa payment created", {
+      orderId: input.orderId,
+      orderNumber: input.orderNumber,
+      paymentId: payment.id,
+      paymentStatus: payment.status,
+      confirmationType: runtime.confirmationType,
+    });
+
+    return {
+      id: payment.id,
+      status: payment.status || "pending",
+      confirmationUrl: payment.confirmation?.confirmation_url || null,
+      confirmationToken: payment.confirmation?.confirmation_token || null,
+      confirmationType: runtime.confirmationType,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Не удалось создать платёж YooKassa";
+
+    await getDb()
+      .update(orders)
+      .set({
+        paymentMethod: "yookassa",
+        paymentStatus: "payment_error",
+        paymentError: message,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, input.orderId));
+
+    await logYooKassaPayment("error", "YooKassa payment create failed", {
+      orderId: input.orderId,
+      orderNumber: input.orderNumber,
+      error: message,
+    });
+
+    throw error;
+  }
+}
+
+async function fetchYooKassaPayment(paymentId: string) {
+  return requestYooKassa<YooKassaPaymentObject>(
+    `/payments/${encodeURIComponent(paymentId)}`
+  );
+}
+
+function mapPaymentStatus(payment: YooKassaPaymentObject, event: string) {
+  if (event === "refund.succeeded") {
+    return {
+      paymentStatus: "refund",
+      paidAmount: 0,
+      paidAt: null,
+      orderStatus: null,
+      error: null,
+    };
+  }
+
+  if (payment.status === "succeeded" || payment.paid || event === "payment.succeeded") {
+    return {
+      paymentStatus: "paid",
+      paidAmount: null,
+      paidAt: new Date(),
+      orderStatus: "processing",
+      error: null,
+    };
+  }
+
+  if (payment.status === "canceled" || event === "payment.canceled") {
+    const details = payment.cancellation_details;
+    const reason = [details?.party, details?.reason].filter(Boolean).join(": ");
+    return {
+      paymentStatus: "payment_error",
+      paidAmount: 0,
+      paidAt: null,
+      orderStatus: null,
+      error: reason || "Платёж отменён в YooKassa.",
+    };
+  }
+
+  return {
+    paymentStatus: "awaiting_payment",
+    paidAmount: 0,
+    paidAt: null,
+    orderStatus: null,
+    error: null,
+  };
+}
+
+export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
+  const db = getDb();
+  const event = payload.event || payload.type || "unknown";
+  const object = payload.object ?? {};
+  const paymentId = object.id || object.payment_id || "";
+
+  if (!paymentId) {
+    throw new Error("YooKassa webhook payload does not contain payment id");
+  }
+
+  const eventKey = `${event}:${paymentId}`;
+  await db
+    .insert(webhookEvents)
+    .values({
+      provider: "yookassa",
+      eventType: event,
+      eventKey,
+      payloadJson: payload,
+      status: "new",
+      attempts: 0,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        eventType: event,
+      },
+    });
+
+  const verifiedPayment =
+    event.startsWith("payment.")
+      ? await fetchYooKassaPayment(paymentId)
+      : object;
+
+  const metadata = verifiedPayment.metadata ?? object.metadata ?? {};
+  const orderIdFromMetadata = Number(metadata.orderId || 0);
+  const orderRows = await db
+    .select({
+      id: orders.id,
+      totalPrice: orders.totalPrice,
+    })
+    .from(orders)
+    .where(
+      orderIdFromMetadata > 0
+        ? and(eq(orders.id, orderIdFromMetadata), eq(orders.paymentId, paymentId))
+        : eq(orders.paymentId, paymentId)
+    )
+    .limit(1);
+
+  const order = orderRows[0];
+  if (!order) {
+    await db
+      .update(webhookEvents)
+      .set({
+        status: "failed",
+        attempts: sql`${webhookEvents.attempts} + 1`,
+        lastError: "Order not found for YooKassa payment",
+        processedAt: new Date(),
+      })
+      .where(and(eq(webhookEvents.provider, "yookassa"), eq(webhookEvents.eventKey, eventKey)));
+    return { ok: false, event, paymentId, orderId: null };
+  }
+
+  const mapped = mapPaymentStatus(verifiedPayment, event);
+  await db
+    .update(orders)
+    .set({
+      paymentStatus: mapped.paymentStatus,
+      paidAmount:
+        mapped.paidAmount === null ? order.totalPrice : mapped.paidAmount,
+      paidAt: mapped.paidAt,
+      paymentError: mapped.error,
+      ...(mapped.orderStatus ? { status: mapped.orderStatus } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, order.id));
+
+  await db
+    .update(webhookEvents)
+    .set({
+      status: "processed",
+      processedAt: new Date(),
+      lastError: null,
+    })
+    .where(and(eq(webhookEvents.provider, "yookassa"), eq(webhookEvents.eventKey, eventKey)));
+
+  await logYooKassaPayment("success", "YooKassa webhook processed", {
+    event,
+    paymentId,
+    orderId: order.id,
+    paymentStatus: mapped.paymentStatus,
+  });
+
+  return { ok: true, event, paymentId, orderId: order.id };
+}

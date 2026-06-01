@@ -45,6 +45,7 @@ import {
   mapLegacyOrderItemRow,
   rowsFromExecute,
 } from "../lib/order-compat";
+import { createYooKassaPaymentForOrder } from "../lib/yookassa";
 
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
@@ -1410,7 +1411,7 @@ export const ecommerceRouter = createRouter({
         ),
         deliveryType: z.enum(["pickup", "delivery"]),
         address: z.string().optional().nullable(),
-        paymentType: z.enum(["cash", "card", "sbp"]),
+        paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
       })
     )
@@ -1530,6 +1531,8 @@ export const ecommerceRouter = createRouter({
             input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
           paymentType: input.paymentType,
           paymentMethod: input.paymentType,
+          paymentStatus:
+            input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
           status: "pending",
         });
       } else {
@@ -1551,7 +1554,7 @@ export const ecommerceRouter = createRouter({
             ${input.deliveryType},
             ${input.address},
             ${input.paymentType},
-            ${"unpaid"},
+            ${input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid"},
             NOW()
           )
         `);
@@ -1614,7 +1617,8 @@ export const ecommerceRouter = createRouter({
             orderDate: new Date(),
             orderStatus: "pending",
             paymentMethod: input.paymentType,
-            paymentStatus: "unpaid",
+            paymentStatus:
+              input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
             deliveryMethod: input.deliveryType,
             deliveryAddress:
               input.deliveryType === "delivery"
@@ -1650,7 +1654,48 @@ export const ecommerceRouter = createRouter({
         },
       });
 
-      return { success: true, orderId };
+      const payment =
+        input.paymentType === "yookassa"
+          ? await createYooKassaPaymentForOrder({
+              orderId,
+              orderNumber,
+              totalPrice: trustedTotal,
+            })
+          : null;
+
+      return { success: true, orderId, payment };
+    }),
+
+  getPaymentResult: publicQuery
+    .input(z.object({ orderId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          totalPrice: orders.totalPrice,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          paymentMethod: orders.paymentMethod,
+          paymentId: orders.paymentId,
+          paymentError: orders.paymentError,
+          paidAt: orders.paidAt,
+          createdAt: orders.createdAt,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      const order = rows[0];
+      if (!order || order.paymentMethod !== "yookassa") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Платёж не найден.",
+        });
+      }
+
+      return order;
     }),
 
   // User orders for Account section

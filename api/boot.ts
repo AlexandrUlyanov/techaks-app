@@ -29,6 +29,7 @@ import {
   getSyncSchedulerSlot,
   setSyncSchedulerLastFullSyncKey,
 } from "./lib/sync-runtime-settings";
+import { handleYooKassaWebhook } from "./lib/yookassa";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -479,6 +480,31 @@ app.post("/api/moysklad/webhook/orders", async c => {
   } catch (error) {
     console.error("[moysklad-order-webhook] ingest failed:", error);
     return c.body(null, 204);
+  }
+});
+
+app.post("/api/yookassa/webhook", async c => {
+  try {
+    const payload = await c.req.json().catch(() => null);
+    if (!payload || typeof payload !== "object") {
+      return c.json({ ok: false, error: "Invalid payload" }, 400);
+    }
+
+    const result = await handleYooKassaWebhook(payload as any);
+    return c.json(result);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "YooKassa webhook failed";
+    try {
+      await getDb().insert(schema.syncLogs).values({
+        type: "yookassa",
+        status: "error",
+        message: `YooKassa webhook failed: ${message}`,
+      });
+    } catch {
+      // no-op
+    }
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 

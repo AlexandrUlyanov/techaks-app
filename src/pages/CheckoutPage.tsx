@@ -48,6 +48,7 @@ export default function CheckoutPage() {
   const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
+  const { data: yookassaStatus } = trpc.settings.getPublicYooKassaStatus.useQuery();
 
   useEffect(() => {
     setMounted(true);
@@ -72,12 +73,29 @@ export default function CheckoutPage() {
     "pickup"
   );
   const [address, setAddress] = useState("");
-  const [paymentType, setPaymentType] = useState<"cash" | "card" | "sbp">(
+  const [paymentType, setPaymentType] = useState<"cash" | "card" | "sbp" | "yookassa">(
     "cash"
   );
 
   const placeOrder = trpc.ecommerce.placeOrder.useMutation({
     onSuccess: data => {
+      if (data.payment?.confirmationUrl) {
+        clearCart();
+        toast.success("Заказ создан. Переходим к безопасной оплате YooKassa.");
+        window.location.href = data.payment.confirmationUrl;
+        return;
+      }
+
+      if (data.payment?.confirmationToken) {
+        clearCart();
+        toast.success(
+          "Заказ создан. Платёж YooKassa подготовлен, но embedded-форма ещё не подключена."
+        );
+        setOrderId(data.orderId);
+        setIsSuccess(true);
+        return;
+      }
+
       setOrderId(data.orderId);
       setIsSuccess(true);
       clearCart();
@@ -444,6 +462,17 @@ export default function CheckoutPage() {
                       label: "СБП (Система быстрых платежей)",
                       icon: ShieldCheck,
                     },
+                    ...(yookassaStatus?.enabled
+                      ? [
+                          {
+                            id: "yookassa",
+                            label: yookassaStatus.testMode
+                              ? "Онлайн-оплата YooKassa (тест)"
+                              : "Онлайн-оплата YooKassa",
+                            icon: CreditCard,
+                          },
+                        ]
+                      : []),
                   ].map(p => (
                     <button
                       key={p.id}
@@ -505,7 +534,13 @@ export default function CheckoutPage() {
                   disabled={placeOrder.isPending}
                   className="w-full h-16 text-lg tracking-[0.2em] glow-cyan"
                 >
-                  {placeOrder.isPending ? "ОФОРМЛЕНИЕ..." : "ПОДТВЕРДИТЬ ЗАКАЗ"}
+                  {placeOrder.isPending
+                    ? paymentType === "yookassa"
+                      ? "СОЗДАЁМ ОПЛАТУ..."
+                      : "ОФОРМЛЕНИЕ..."
+                    : paymentType === "yookassa"
+                      ? "ПЕРЕЙТИ К ОПЛАТЕ"
+                      : "ПОДТВЕРДИТЬ ЗАКАЗ"}
                 </Button>
 
                 <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-widest mt-4">

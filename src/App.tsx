@@ -22,6 +22,7 @@ const PromotionDetailPage = lazy(() => import("@/pages/PromotionDetailPage"));
 const BlogPage = lazy(() => import("@/pages/BlogPage"));
 const BlogPostPage = lazy(() => import("@/pages/BlogPostPage"));
 const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
+const PaymentResultPage = lazy(() => import("@/pages/PaymentResultPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
@@ -89,7 +90,11 @@ export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
-  const shouldNoindex = isAdmin || ["/checkout", "/account", "/search", "/login"].includes(location.pathname);
+  const shouldNoindex =
+    isAdmin ||
+    ["/checkout", "/payment/result", "/account", "/search", "/login"].includes(
+      location.pathname
+    );
 
   useSeo({ noindex: shouldNoindex, canonicalPath: location.pathname });
 
@@ -121,6 +126,7 @@ export default function App() {
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/payment/result" element={<PaymentResultPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/search" element={<SearchPage />} />

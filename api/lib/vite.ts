@@ -28,6 +28,7 @@ export function serveStaticFiles(app: App) {
   app.get("/blog", sendIndex);
   app.get("/blog/*", sendIndex);
   app.get("/checkout", sendIndex);
+  app.get("/payment/result", sendIndex);
   app.get("/account", sendIndex);
   app.get("/login", sendIndex);
   app.get("/search", sendIndex);

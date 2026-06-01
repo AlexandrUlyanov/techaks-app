@@ -12,6 +12,7 @@ import {
 import { enqueueSearchReindexJob, rebuildSearchDocumentsForPages } from "../lib/search";
 import {
   getYooKassaAdminSettings,
+  getYooKassaRuntimeSettings,
   saveYooKassaAdminSettings,
   testYooKassaConnection,
   yookassaSettingsInputSchema,
@@ -299,6 +300,15 @@ export const settingsRouter = createRouter({
   getYooKassaSettings: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "manage_payment_settings", "Settings");
     return getYooKassaAdminSettings();
+  }),
+
+  getPublicYooKassaStatus: publicQuery.query(async () => {
+    const settings = await getYooKassaRuntimeSettings();
+    return {
+      enabled: settings.isConfigured,
+      confirmationType: settings.confirmationType,
+      testMode: settings.testMode,
+    };
   }),
 
   saveYooKassaSettings: protectedProcedure
