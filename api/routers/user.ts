@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
+import { signToken } from "../lib/auth";
 import {
   authSessions,
   orderComments,
@@ -8,6 +10,7 @@ import {
   orders,
   passwordResetTokens,
   pushSubscriptions,
+  syncLogs,
   users,
 } from "@db/schema";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
@@ -75,6 +78,70 @@ export const userRouter = createRouter({
       const db = getDb();
       await db.update(users).set({ status: input.status }).where(eq(users.id, input.id));
       return { success: true };
+    }),
+
+  impersonate: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.id === ctx.user?.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Вы уже авторизованы под этим пользователем.",
+        });
+      }
+
+      const db = getDb();
+      const [targetUser] = await db
+        .select({
+          id: users.id,
+          phone: users.phone,
+          fullName: users.fullName,
+          email: users.email,
+          role: users.role,
+          status: users.status,
+        })
+        .from(users)
+        .where(eq(users.id, input.id))
+        .limit(1);
+
+      if (!targetUser) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Пользователь не найден." });
+      }
+
+      if (targetUser.status !== "active") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Нельзя войти под заблокированным пользователем.",
+        });
+      }
+
+      if (targetUser.role === "super_admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Нельзя авторизоваться под другим супер-администратором.",
+        });
+      }
+
+      const token = await signToken({
+        id: targetUser.id,
+        role: targetUser.role,
+        status: targetUser.status,
+      });
+
+      await db.insert(syncLogs).values({
+        type: "user_impersonation",
+        status: "success",
+        message: "Администратор авторизовался под пользователем",
+        details: {
+          actorUserId: ctx.user!.id,
+          actorEmail: ctx.user!.email,
+          targetUserId: targetUser.id,
+          targetEmail: targetUser.email,
+          targetRole: targetUser.role,
+        },
+      });
+
+      return { success: true, user: targetUser, token };
     }),
 
   deleteUser: adminProcedure

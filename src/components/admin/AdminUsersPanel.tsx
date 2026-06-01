@@ -1,5 +1,5 @@
 import { trpc } from "@/providers/trpc";
-import { Loader2, Trash2, UserCog } from "lucide-react";
+import { LogIn, Loader2, Trash2, UserCog } from "lucide-react";
 import { useAbility } from "@/providers/AbilityProvider";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -17,6 +17,9 @@ export default function AdminUsersPanel() {
   const utils = trpc.useUtils();
   const ability = useAbility();
   const token = useAuth(state => state.token);
+  const currentUser = useAuth(state => state.user);
+  const setToken = useAuth(state => state.setToken);
+  const setUser = useAuth(state => state.setUser);
   const { data: users, isLoading, error } = trpc.user.getAll.useQuery(undefined, {
     enabled: Boolean(token) && ability.can("read", "User"),
   });
@@ -46,6 +49,24 @@ export default function AdminUsersPanel() {
     },
     onError: err => {
       alert("Ошибка: " + err.message);
+    },
+  });
+
+  const impersonateMutation = trpc.user.impersonate.useMutation({
+    onSuccess: async data => {
+      if (token) {
+        sessionStorage.setItem("techaks-admin-return-token", token);
+      }
+      setToken(data.token);
+      setUser(data.user);
+      await Promise.all([
+        utils.auth.me.invalidate(),
+        utils.user.getAll.invalidate(),
+      ]);
+      window.location.href = data.user.role === "customer" ? "/account" : "/admin";
+    },
+    onError: err => {
+      alert("Ошибка авторизации от пользователя: " + err.message);
     },
   });
 
@@ -155,23 +176,48 @@ export default function AdminUsersPanel() {
                 </td>
                 {ability.can("manage", "all") && (
                   <td className="px-6 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Удалить пользователя ${user.email}? Его сессии и токены будут удалены, а связанные заказы останутся без user_id.`
-                          )
-                        ) {
-                          deleteUserMutation.mutate({ id: user.id });
-                        }
-                      }}
-                      disabled={deleteUserMutation.isPending}
-                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold uppercase tracking-wider text-red-700 transition hover:bg-red-100 disabled:opacity-50"
-                    >
-                      <Trash2 size={14} />
-                      Удалить
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      {user.id !== currentUser?.id && user.status === "active" && user.role !== "super_admin" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Авторизоваться как ${user.email}? Текущая админская сессия будет временно заменена.`
+                              )
+                            ) {
+                              impersonateMutation.mutate({ id: user.id });
+                            }
+                          }}
+                          disabled={impersonateMutation.isPending}
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#05C3D4]/25 bg-[#E8FAFC] px-3 text-xs font-bold uppercase tracking-wider text-[#047987] transition hover:bg-[#DDF7FA] disabled:opacity-50"
+                        >
+                          {impersonateMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <LogIn size={14} />
+                          )}
+                          Войти как
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Удалить пользователя ${user.email}? Его сессии и токены будут удалены, а связанные заказы останутся без user_id.`
+                            )
+                          ) {
+                            deleteUserMutation.mutate({ id: user.id });
+                          }
+                        }}
+                        disabled={deleteUserMutation.isPending}
+                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-bold uppercase tracking-wider text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        Удалить
+                      </button>
+                    </div>
                   </td>
                 )}
               </tr>
