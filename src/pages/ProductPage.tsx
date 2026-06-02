@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
-import { useSeo } from "@/lib/seo";
+import { buildCanonical, useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
 import {
