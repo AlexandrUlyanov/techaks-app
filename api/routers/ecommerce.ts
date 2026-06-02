@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants, categories, productReviews, syncRuns, moyskladSyncJobs } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
@@ -1286,6 +1286,364 @@ export const ecommerceRouter = createRouter({
 
       return rows;
     }),
+
+  getAdminDashboardOverview: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "AdminPanel");
+    const db = getDb();
+
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const canReadProducts = ctx.ability.can("read", "Product");
+    const canReadCategories = ctx.ability.can("read", "Category");
+    const canReadStores = ctx.ability.can("read", "Store");
+    const canReadOrders = ctx.ability.can("read", "Order");
+    const canReadReservations = ctx.ability.can("read", "Reservation");
+    const canReadReviews = ctx.ability.can("read", "Review");
+    const canReadSync = ctx.ability.can("read", "Sync");
+
+    let catalog: {
+      totalProducts: number;
+      activeProducts: number;
+      manuallyHiddenProducts: number;
+      autoBlockedProducts: number;
+      categoriesCount: number;
+      storesCount: number;
+    } | null = null;
+
+    let recentProducts: Array<{
+      id: number;
+      name: string;
+      price: number;
+      image: string;
+      createdAt: Date | null;
+      isActive: boolean;
+      isAutoBlocked: boolean;
+    }> = [];
+
+    if (canReadProducts || canReadCategories || canReadStores) {
+      const [catalogSummary] = await db
+        .select({
+          totalProducts: sql<number>`count(*)`,
+          activeProducts: sql<number>`sum(case when ${products.isActive} = 1 then 1 else 0 end)`,
+          manuallyHiddenProducts: sql<number>`sum(case when ${products.isActive} = 0 and ${products.isAutoBlocked} = 0 then 1 else 0 end)`,
+          autoBlockedProducts: sql<number>`sum(case when ${products.isAutoBlocked} = 1 then 1 else 0 end)`,
+        })
+        .from(products);
+
+      const [categoriesRow] = canReadCategories
+        ? await db.select({ count: sql<number>`count(*)` }).from(categories)
+        : [{ count: 0 } as { count: number }];
+
+      const [storesRow] = canReadStores
+        ? await db.select({ count: sql<number>`count(*)` }).from(stores)
+        : [{ count: 0 } as { count: number }];
+
+      catalog = {
+        totalProducts: Number(catalogSummary?.totalProducts ?? 0),
+        activeProducts: Number(catalogSummary?.activeProducts ?? 0),
+        manuallyHiddenProducts: Number(catalogSummary?.manuallyHiddenProducts ?? 0),
+        autoBlockedProducts: Number(catalogSummary?.autoBlockedProducts ?? 0),
+        categoriesCount: Number(categoriesRow?.count ?? 0),
+        storesCount: Number(storesRow?.count ?? 0),
+      };
+
+      if (canReadProducts) {
+        recentProducts = await db
+          .select({
+            id: products.id,
+            name: products.name,
+            price: products.price,
+            image: products.image,
+            createdAt: products.createdAt,
+            isActive: products.isActive,
+            isAutoBlocked: products.isAutoBlocked,
+          })
+          .from(products)
+          .orderBy(desc(products.createdAt))
+          .limit(6);
+      }
+    }
+
+    let ordersSummary: {
+      ordersToday: number;
+      orders7d: number;
+      paidRevenueToday: number;
+      paidRevenue7d: number;
+      newOrders: number;
+      processingOrders: number;
+      problemOrders: number;
+      awaitingPaymentOrders: number;
+      unreadCustomerMessages: number;
+      needsResponseOrders: number;
+    } | null = null;
+
+    let recentOrders: Array<{
+      id: number;
+      orderNumber: string | null;
+      status: string;
+      paymentStatus: string;
+      totalPrice: number;
+      customerName: string | null;
+      customerPhone: string | null;
+      createdAt: Date | null;
+    }> = [];
+
+    if (canReadOrders) {
+      const [summary] = await db
+        .select({
+          ordersToday: sql<number>`sum(case when ${orders.createdAt} >= ${startOfToday} then 1 else 0 end)`,
+          orders7d: sql<number>`sum(case when ${orders.createdAt} >= ${sevenDaysAgo} then 1 else 0 end)`,
+          paidRevenueToday: sql<number>`coalesce(sum(case when ${orders.paymentStatus} = 'paid' and coalesce(${orders.paidAt}, ${orders.createdAt}) >= ${startOfToday} then case when ${orders.paidAmount} > 0 then ${orders.paidAmount} else ${orders.totalPrice} end else 0 end), 0)`,
+          paidRevenue7d: sql<number>`coalesce(sum(case when ${orders.paymentStatus} = 'paid' and coalesce(${orders.paidAt}, ${orders.createdAt}) >= ${sevenDaysAgo} then case when ${orders.paidAmount} > 0 then ${orders.paidAmount} else ${orders.totalPrice} end else 0 end), 0)`,
+          newOrders: sql<number>`sum(case when ${orders.status} in ('pending', 'new') then 1 else 0 end)`,
+          processingOrders: sql<number>`sum(case when ${orders.status} = 'processing' then 1 else 0 end)`,
+          problemOrders: sql<number>`sum(case when ${orders.status} = 'problem' or ${orders.isProblem} = 1 then 1 else 0 end)`,
+          awaitingPaymentOrders: sql<number>`sum(case when ${orders.paymentStatus} = 'awaiting_payment' then 1 else 0 end)`,
+        })
+        .from(orders);
+
+      const unreadRows = rowsFromExecute<{ count: number }>(
+        await db.execute(sql`
+          SELECT count(*) AS count
+          FROM orders o
+          WHERE EXISTS (
+            SELECT 1
+            FROM order_comments client
+            WHERE client.order_id = o.id
+              AND client.comment_type = 'client'
+          )
+            AND (
+              (
+                SELECT MAX(client.created_at)
+                FROM order_comments client
+                WHERE client.order_id = o.id
+                  AND client.comment_type = 'client'
+              ) > COALESCE(
+                (
+                  SELECT MAX(history.created_at)
+                  FROM order_history history
+                  WHERE history.order_id = o.id
+                    AND history.action_type = 'manager_conversation_read'
+                ),
+                TIMESTAMP('1970-01-01 00:00:00')
+              )
+            )
+        `)
+      );
+
+      const needsResponseRows = rowsFromExecute<{ count: number }>(
+        await db.execute(sql`
+          SELECT count(*) AS count
+          FROM orders o
+          WHERE EXISTS (
+            SELECT 1
+            FROM order_comments client
+            WHERE client.order_id = o.id
+              AND client.comment_type = 'client'
+          )
+            AND (
+              (
+                SELECT MAX(client.created_at)
+                FROM order_comments client
+                WHERE client.order_id = o.id
+                  AND client.comment_type = 'client'
+              ) > COALESCE(
+                (
+                  SELECT MAX(manager.created_at)
+                  FROM order_comments manager
+                  WHERE manager.order_id = o.id
+                    AND manager.comment_type = 'manager'
+                ),
+                TIMESTAMP('1970-01-01 00:00:00')
+              )
+            )
+        `)
+      );
+
+      recentOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          status: orders.status,
+          paymentStatus: orders.paymentStatus,
+          totalPrice: orders.totalPrice,
+          customerName: sql<string | null>`coalesce(${orders.customerName}, ${users.fullName})`,
+          customerPhone: sql<string | null>`coalesce(${orders.customerPhone}, ${users.phone})`,
+          createdAt: orders.createdAt,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .orderBy(desc(orders.createdAt))
+        .limit(6);
+
+      ordersSummary = {
+        ordersToday: Number(summary?.ordersToday ?? 0),
+        orders7d: Number(summary?.orders7d ?? 0),
+        paidRevenueToday: Number(summary?.paidRevenueToday ?? 0),
+        paidRevenue7d: Number(summary?.paidRevenue7d ?? 0),
+        newOrders: Number(summary?.newOrders ?? 0),
+        processingOrders: Number(summary?.processingOrders ?? 0),
+        problemOrders: Number(summary?.problemOrders ?? 0),
+        awaitingPaymentOrders: Number(summary?.awaitingPaymentOrders ?? 0),
+        unreadCustomerMessages: Number(unreadRows[0]?.count ?? 0),
+        needsResponseOrders: Number(needsResponseRows[0]?.count ?? 0),
+      };
+    }
+
+    let reservationsSummary: {
+      activeCount: number;
+      expiringTodayCount: number;
+      expiredCount: number;
+      converted7dCount: number;
+    } | null = null;
+
+    if (canReadReservations) {
+      await expireDueReservations(db);
+      const [summary] = await db
+        .select({
+          activeCount: sql<number>`sum(case when ${productReservations.status} = 'active' then 1 else 0 end)`,
+          expiringTodayCount: sql<number>`sum(case when ${productReservations.status} = 'active' and ${productReservations.reservedUntil} >= ${now} and ${productReservations.reservedUntil} < ${startOfTomorrow} then 1 else 0 end)`,
+          expiredCount: sql<number>`sum(case when ${productReservations.status} = 'expired' then 1 else 0 end)`,
+          converted7dCount: sql<number>`sum(case when ${productReservations.status} = 'converted_to_order' and ${productReservations.updatedAt} >= ${sevenDaysAgo} then 1 else 0 end)`,
+        })
+        .from(productReservations);
+
+      reservationsSummary = {
+        activeCount: Number(summary?.activeCount ?? 0),
+        expiringTodayCount: Number(summary?.expiringTodayCount ?? 0),
+        expiredCount: Number(summary?.expiredCount ?? 0),
+        converted7dCount: Number(summary?.converted7dCount ?? 0),
+      };
+    }
+
+    let reviewsSummary: {
+      pendingCount: number;
+      totalCount: number;
+      publishedCount: number;
+      avgPublishedRating: number;
+      reminderCandidates: number;
+    } | null = null;
+
+    if (canReadReviews) {
+      const [summary] = await db
+        .select({
+          total: sql<number>`count(*)`,
+          pending: sql<number>`sum(case when ${productReviews.status} = 'pending_moderation' then 1 else 0 end)`,
+          published: sql<number>`sum(case when ${productReviews.status} = 'published' then 1 else 0 end)`,
+          avgPublishedRating: sql<number>`coalesce(avg(case when ${productReviews.status} = 'published' then ${productReviews.rating} end), 0)`,
+        })
+        .from(productReviews);
+
+      const [reminderCandidates] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(productReviewRequests)
+        .where(
+          and(
+            eq(productReviewRequests.requestStatus, "pending"),
+            sql`${productReviewRequests.initialSentAt} IS NOT NULL`,
+            sql`(${productReviewRequests.reminderSentAt} IS NULL OR ${productReviewRequests.reminderSentAt} < date_sub(now(), interval 5 day))`
+          )
+        );
+
+      reviewsSummary = {
+        pendingCount: Number(summary?.pending ?? 0),
+        totalCount: Number(summary?.total ?? 0),
+        publishedCount: Number(summary?.published ?? 0),
+        avgPublishedRating: Math.round(Number(summary?.avgPublishedRating ?? 0) * 10) / 10,
+        reminderCandidates: Number(reminderCandidates?.count ?? 0),
+      };
+    }
+
+    let syncSummary: {
+      pendingJobs: number;
+      processingJobs: number;
+      failedJobs: number;
+      successJobs: number;
+      ordersNeedingSync: number;
+      latestFullRun: {
+        id: number;
+        status: string;
+        phase: string | null;
+        message: string | null;
+        startedAt: Date | null;
+        finishedAt: Date | null;
+      } | null;
+    } | null = null;
+
+    if (canReadSync) {
+      const [jobCounts] = await db
+        .select({
+          pending: sql<number>`sum(case when ${moyskladSyncJobs.status} = 'pending' then 1 else 0 end)`,
+          processing: sql<number>`sum(case when ${moyskladSyncJobs.status} = 'processing' then 1 else 0 end)`,
+          error: sql<number>`sum(case when ${moyskladSyncJobs.status} = 'error' then 1 else 0 end)`,
+          success: sql<number>`sum(case when ${moyskladSyncJobs.status} = 'success' then 1 else 0 end)`,
+        })
+        .from(moyskladSyncJobs);
+
+      const [ordersNeedingSyncRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(orders)
+        .where(inArray(orders.moyskladSyncStatus, ["pending", "error", "processing"]));
+
+      const [latestRun] = await db
+        .select({
+          id: syncRuns.id,
+          status: syncRuns.status,
+          phase: syncRuns.phase,
+          message: syncRuns.message,
+          startedAt: syncRuns.startedAt,
+          finishedAt: syncRuns.finishedAt,
+        })
+        .from(syncRuns)
+        .where(eq(syncRuns.runType, "full"))
+        .orderBy(desc(syncRuns.startedAt))
+        .limit(1);
+
+      syncSummary = {
+        pendingJobs: Number(jobCounts?.pending ?? 0),
+        processingJobs: Number(jobCounts?.processing ?? 0),
+        failedJobs: Number(jobCounts?.error ?? 0),
+        successJobs: Number(jobCounts?.success ?? 0),
+        ordersNeedingSync: Number(ordersNeedingSyncRow?.count ?? 0),
+        latestFullRun: latestRun
+          ? {
+              id: latestRun.id,
+              status: latestRun.status,
+              phase: latestRun.phase,
+              message: latestRun.message,
+              startedAt: latestRun.startedAt,
+              finishedAt: latestRun.finishedAt,
+            }
+          : null,
+      };
+    }
+
+    return {
+      generatedAt: now,
+      permissions: {
+        canReadProducts,
+        canReadCategories,
+        canReadStores,
+        canReadOrders,
+        canReadReservations,
+        canReadReviews,
+        canReadSync,
+      },
+      catalog,
+      orders: ordersSummary,
+      reservations: reservationsSummary,
+      reviews: reviewsSummary,
+      sync: syncSummary,
+      recentOrders,
+      recentProducts,
+    };
+  }),
 
   getProductReservationSummary: protectedProcedure
     .input(z.object({ productId: z.number() }))
