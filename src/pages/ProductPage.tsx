@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { useCart } from "@/hooks/use-cart";
 import { toast } from "sonner";
-import { buildCanonical, useSeo } from "@/lib/seo";
+import { useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -222,6 +222,42 @@ export default function ProductPage() {
       `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`
     : "Карточка товара интернет-магазина ТЕХАКС.";
   const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
+  const relatedProducts = merchandisingRelated.slice(0, 4);
+  const descriptionForSeo = (product.description || "").trim().slice(0, 220);
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+
+  const isManufacturerSpec = (key: string) =>
+    ["производитель", "бренд"].includes(key.trim().toLowerCase());
+  const normalizedDescription = (product.description || "").trim();
+  const isInStock = hasVariants
+    ? selectedVariantAvailableQty > 0
+    : Boolean(product.inStock);
+  const manufacturer = productManufacturer ?? null;
+  const hasManufacturer = Boolean(manufacturer);
+  const merchandisingBadges = normalizeMerchandisingBadges(
+    (product as { merchandisingBadges?: unknown }).merchandisingBadges
+  ).slice(0, 4);
+  const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
+  const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
+    "отзыв",
+    "отзыва",
+    "отзывов",
+  ]);
+  const hasOldPrice =
+    typeof product.oldPrice === "number" && product.oldPrice > product.price;
+  const hasVariantPriceRange =
+    hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
+  const displayedPrice = selectedVariant?.price ?? product.price;
+  const displayedStockCount = hasVariants
+    ? selectedVariantAvailableQty
+    : selectedVariant?.stock ?? availableStores.length;
+  const displayedArticle =
+    selectedVariant?.article ||
+    (product as { article?: string | null; externalCode?: string | null }).article ||
+    (product as { article?: string | null; externalCode?: string | null }).externalCode ||
+    null;
   const productJsonLd = useMemo(() => {
     if (!product) return null;
 
@@ -266,13 +302,13 @@ export default function ProductPage() {
 
     return [
       buildBreadcrumbStructuredData([
-        { name: "Главная", url: "https://techaks.ru/" },
-        { name: "Каталог", url: "https://techaks.ru/catalog" },
+        { name: "Главная", path: "/" },
+        { name: "Каталог", path: "/catalog" },
         ...breadcrumbs.map(item => ({
           name: item.name,
-          url: buildCanonical(`/catalog?cat=${item.slug}`),
+          path: `/catalog?cat=${item.slug}`,
         })),
-        { name: product.name, url: buildCanonical(seoCanonicalPath) },
+        { name: product.name, path: seoCanonicalPath },
       ]),
       buildOrganizationStructuredData({
         name: "ТЕХАКС",
@@ -379,43 +415,6 @@ export default function ProductPage() {
       </div>
     );
   }
-
-  const relatedProducts = merchandisingRelated.slice(0, 4);
-  const descriptionForSeo = (product.description || "").trim().slice(0, 220);
-
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("ru-RU").format(price) + " ₽";
-
-  const isManufacturerSpec = (key: string) =>
-    ["производитель", "бренд"].includes(key.trim().toLowerCase());
-  const normalizedDescription = (product.description || "").trim();
-  const isInStock = hasVariants
-    ? selectedVariantAvailableQty > 0
-    : Boolean(product.inStock);
-  const manufacturer = productManufacturer ?? null;
-  const hasManufacturer = Boolean(manufacturer);
-  const merchandisingBadges = normalizeMerchandisingBadges(
-    (product as { merchandisingBadges?: unknown }).merchandisingBadges
-  ).slice(0, 4);
-  const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
-  const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
-    "отзыв",
-    "отзыва",
-    "отзывов",
-  ]);
-  const hasOldPrice =
-    typeof product.oldPrice === "number" && product.oldPrice > product.price;
-  const hasVariantPriceRange =
-    hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
-  const displayedPrice = selectedVariant?.price ?? product.price;
-  const displayedStockCount = hasVariants
-    ? selectedVariantAvailableQty
-    : selectedVariant?.stock ?? availableStores.length;
-  const displayedArticle =
-    selectedVariant?.article ||
-    (product as { article?: string | null; externalCode?: string | null }).article ||
-    (product as { article?: string | null; externalCode?: string | null }).externalCode ||
-    null;
   const productSpecs =
     product.specs && typeof product.specs === "object"
       ? (product.specs as Record<string, unknown>)

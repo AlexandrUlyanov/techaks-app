@@ -26,8 +26,8 @@ export default function BlogPage() {
     type: "website",
     structuredData: [
       buildBreadcrumbStructuredData([
-        { name: "Главная", url: "https://techaks.ru/" },
-        { name: "Блог", url: "https://techaks.ru/blog" },
+        { name: "Главная", path: "/" },
+        { name: "Блог", path: "/blog" },
       ]),
       {
         "@context": "https://schema.org",

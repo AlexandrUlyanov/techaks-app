@@ -21,8 +21,8 @@ export default function StoresPage() {
     canonicalPath: "/stores",
     structuredData: [
       buildBreadcrumbStructuredData([
-        { name: "Главная", url: "https://techaks.ru/" },
-        { name: "Магазины", url: "https://techaks.ru/stores" },
+        { name: "Главная", path: "/" },
+        { name: "Магазины", path: "/stores" },
       ]),
       buildOrganizationStructuredData({
         name: "ТЕХАКС",

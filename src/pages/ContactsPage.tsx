@@ -21,8 +21,8 @@ export default function ContactsPage() {
     canonicalPath: "/contacts",
     structuredData: [
       buildBreadcrumbStructuredData([
-        { name: "Главная", url: "https://techaks.ru/" },
-        { name: "Контакты", url: "https://techaks.ru/contacts" },
+        { name: "Главная", path: "/" },
+        { name: "Контакты", path: "/contacts" },
       ]),
       buildOrganizationStructuredData({
         name: "ТЕХАКС",

@@ -38,9 +38,9 @@ export default function BlogPostPage() {
 
     return [
       buildBreadcrumbStructuredData([
-        { name: "Главная", url: "https://techaks.ru/" },
-        { name: "Блог", url: "https://techaks.ru/blog" },
-        { name: post.title, url: `https://techaks.ru/blog/${post.slug}` },
+        { name: "Главная", path: "/" },
+        { name: "Блог", path: "/blog" },
+        { name: post.title, path: `/blog/${post.slug}` },
       ]),
       buildOrganizationStructuredData({
         name: "ТЕХАКС",
