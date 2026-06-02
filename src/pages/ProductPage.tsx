@@ -262,6 +262,32 @@ export default function ProductPage() {
       | { article?: string | null; externalCode?: string | null }
       | undefined)?.externalCode ||
     null;
+  const productImages = useMemo(() => {
+    if (!product) return [];
+
+    return resolveProductImageCollection(
+      product.image,
+      (product as { imageVariants?: unknown }).imageVariants,
+      (product as { images?: unknown }).images
+    );
+  }, [product]);
+  const selectedVariantImage = useMemo(() => {
+    if (!selectedVariant?.image && !selectedVariant?.imageVariants) return null;
+
+    return resolveProductImageCollection(
+      selectedVariant?.image || product?.image,
+      selectedVariant?.imageVariants,
+      []
+    )[0] ?? null;
+  }, [product?.image, selectedVariant?.image, selectedVariant?.imageVariants]);
+  const displayedImages = useMemo(() => {
+    if (!selectedVariantImage) return productImages;
+
+    return [
+      selectedVariantImage,
+      ...productImages.filter(image => image.original !== selectedVariantImage.original),
+    ];
+  }, [productImages, selectedVariantImage]);
   const productJsonLd = useMemo(() => {
     if (!product) return null;
 
@@ -330,33 +356,6 @@ export default function ProductPage() {
     noindex: !product,
     structuredData: seoStructuredData,
   });
-
-  const productImages = useMemo(() => {
-    if (!product) return [];
-
-    return resolveProductImageCollection(
-      product.image,
-      (product as { imageVariants?: unknown }).imageVariants,
-      (product as { images?: unknown }).images
-    );
-  }, [product]);
-  const selectedVariantImage = useMemo(() => {
-    if (!selectedVariant?.image && !selectedVariant?.imageVariants) return null;
-
-    return resolveProductImageCollection(
-      selectedVariant?.image || product?.image,
-      selectedVariant?.imageVariants,
-      []
-    )[0] ?? null;
-  }, [product?.image, selectedVariant?.image, selectedVariant?.imageVariants]);
-  const displayedImages = useMemo(() => {
-    if (!selectedVariantImage) return productImages;
-
-    return [
-      selectedVariantImage,
-      ...productImages.filter(image => image.original !== selectedVariantImage.original),
-    ];
-  }, [productImages, selectedVariantImage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
