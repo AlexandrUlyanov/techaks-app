@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Package,
   Receipt,
-  RotateCcw,
   Send,
   Settings,
   ShoppingBag,
@@ -268,7 +267,7 @@ function resolveOrderActions(params: {
     showPay: needsPayment && !isCancelled,
     showReceipt: hasReceipt && (isPaid || isCancelled || isCompleted),
     showReceiptPending: isPaid && !hasReceipt,
-    showRepeat: isPaid || isCancelled || isCompleted,
+    showRepeat: false,
     showSupport: true,
     showReview: isCompleted,
   };
@@ -394,9 +393,6 @@ function AccountOrderCard({
   ]);
 
   const detailsAny = details as Record<string, any> | undefined;
-  const paymentTone = getPaymentStatusTone(
-    detailsAny?.paymentStatus ?? order.paymentStatus
-  );
   const receiptMeta = extractReceiptMeta(detailsAny?.paymentRawResponseJson);
   const canDownloadReceipt = Boolean(receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl);
   const receiptActionHref = receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl;
@@ -515,29 +511,7 @@ function AccountOrderCard({
 
           {!detailsLoading && !feedLoading && !detailsError && !feedError && details && (
             <div className="space-y-8 pt-8">
-              <div className="rounded-[1.75rem] bg-muted/35 p-5 md:p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2">
-                    <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${paymentTone.className}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${paymentTone.dot}`} />
-                      {paymentTone.title}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{paymentTone.subtitle}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Статус заказа: <span className="font-semibold text-foreground">{getOrderStatusLabel(detailsAny?.status ?? order.status)}</span>
-                    </p>
-                  </div>
-                  <div className="space-y-1 text-left md:text-right">
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">К оплате</p>
-                    <p className="text-2xl font-black leading-none tracking-tight text-[#05C3D4]">
-                      {formatPrice(Number(detailsAny?.totalPrice ?? order.totalPrice ?? 0))}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {getDeliveryTypeLabel(detailsAny?.deliveryType ?? order.deliveryType)} · {getPaymentTypeLabel(detailsAny?.paymentType ?? order.paymentType)}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                   {actions.showReceipt ? (
                     <Button
                       type="button"
@@ -558,12 +532,6 @@ function AccountOrderCard({
                       Чек формируется
                     </Button>
                   ) : null}
-                  {actions.showRepeat ? (
-                    <Button type="button" variant="outline" className="w-full rounded-full sm:w-auto">
-                      <RotateCcw size={16} className="mr-2" />
-                      Повторить заказ
-                    </Button>
-                  ) : null}
                   {actions.showSupport ? (
                     <Button type="button" variant="ghost" className="w-full rounded-full sm:w-auto" onClick={openOrderConversation}>
                       <MessageSquare size={16} className="mr-2" />
@@ -576,7 +544,6 @@ function AccountOrderCard({
                       Оставить отзыв
                     </Button>
                   ) : null}
-                </div>
               </div>
 
               {compatibilityWarnings.length > 0 && (
@@ -737,13 +704,6 @@ function AccountOrderCard({
                         <div className="break-all font-semibold">{detailsAny?.paymentId || "—"}</div>
                       </div>
                     </div>
-                    <div className="mt-4 rounded-2xl bg-background/90 px-4 py-3 text-sm text-muted-foreground">
-                      {canDownloadReceipt
-                        ? "Чек доступен для скачивания."
-                        : receiptMeta.receiptStatus === "pending"
-                        ? "Чек пока формируется. Обычно он появляется через несколько минут после оплаты."
-                        : "Чек временно недоступен."}
-                    </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -766,7 +726,7 @@ function AccountOrderCard({
                   </section>
 
                   <section className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Доставка и оплата</h3>
+                    <h3 className="text-lg font-black tracking-tight">Получение заказа</h3>
                     <div className="mt-4 space-y-4 text-sm">
                       <div className="flex items-start gap-3">
                         <Truck size={16} className="mt-0.5 text-[#05C3D4]" />
@@ -779,13 +739,6 @@ function AccountOrderCard({
                           {details.deliveryTrackNumber ? (
                             <div className="text-muted-foreground">Трек-номер: {details.deliveryTrackNumber}</div>
                           ) : null}
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <CreditCard size={16} className="mt-0.5 text-[#05C3D4]" />
-                        <div>
-                          <div className="font-semibold">{getPaymentTypeLabel(details.paymentType)}</div>
-                          <div className="text-muted-foreground">{getPaymentStatusLabel(details.paymentStatus)}</div>
                         </div>
                       </div>
                       {details.customerComment ? (
