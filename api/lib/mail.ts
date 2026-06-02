@@ -269,7 +269,7 @@ function mapPaymentMethod(value?: string | null) {
     cash: "Наличными",
     card: "Банковской картой",
     sbp: "СБП",
-    yookassa: "Онлайн-оплата YooKassa",
+    yookassa: "Онлайн-оплата",
   };
   return map[normalizeString(value)] || normalizeString(value) || "Не указан";
 }

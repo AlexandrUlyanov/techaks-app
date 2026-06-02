@@ -190,7 +190,7 @@ function getPaymentTypeLabel(type?: string | null) {
   if (type === "cash") return "Наличными";
   if (type === "card") return "Картой";
   if (type === "sbp") return "СБП";
-  if (type === "yookassa") return "Онлайн-оплата YooKassa";
+  if (type === "yookassa") return "Онлайн-оплата";
   return type;
 }
 

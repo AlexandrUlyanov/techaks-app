@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Truck,
   Building2,
-  ShieldCheck,
   ShoppingCart,
   Minus,
   Plus,
@@ -86,7 +85,7 @@ export default function CheckoutPage() {
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
   const [address, setAddress] = useState("");
-  const [paymentType, setPaymentType] = useState<"cash" | "card" | "sbp" | "yookassa">(
+  const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
     "cash"
   );
   const { data: pickupStores = [], isFetching: pickupStoresLoading } =
@@ -573,18 +572,13 @@ export default function CheckoutPage() {
                       label: "Картой в магазине / курьеру",
                       icon: CreditCard,
                     },
-                    {
-                      id: "sbp",
-                      label: "СБП (Система быстрых платежей)",
-                      icon: ShieldCheck,
-                    },
                     ...(yookassaStatus?.enabled
                       ? [
                           {
                             id: "yookassa",
                             label: yookassaStatus.testMode
-                              ? "Онлайн-оплата YooKassa (тест)"
-                              : "Онлайн-оплата YooKassa",
+                              ? "Онлайн-оплата (тест)"
+                              : "Онлайн-оплата",
                             icon: CreditCard,
                           },
                         ]

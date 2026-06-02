@@ -115,7 +115,7 @@ function getPaymentMethodLabel(value: string | null | undefined) {
     case "sbp":
       return "СБП";
     case "yookassa":
-      return "Онлайн-оплата YooKassa";
+      return "Онлайн-оплата";
     default:
       return value || "Не задан";
   }
