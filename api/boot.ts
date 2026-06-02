@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { getDb } from "./queries/connection";
 import * as schema from "@db/schema";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladFullSyncWatchdog } from "./lib/moysklad-full-sync-watchdog";
