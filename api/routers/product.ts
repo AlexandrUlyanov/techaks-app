@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
@@ -11,7 +12,7 @@ import {
   manufacturers,
 } from "@db/schema";
 import * as schema from "@db/schema";
-import { and, eq, asc, desc, inArray, like, or, sql } from "drizzle-orm";
+import { and, eq, asc, desc, inArray, like, ne, or, sql } from "drizzle-orm";
 import {
   applyCategorySpecStandardization,
   applyCategorySpecValueStandardization,
@@ -136,6 +137,97 @@ function collectAncestorCategoryIds(
   }
 
   return ids;
+}
+
+function normalizeCategoryPayload(
+  data: {
+    parentId?: number | null;
+    slug: string;
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+    sortOrder: number;
+  }
+) {
+  return {
+    parentId: data.parentId ?? null,
+    slug: data.slug.trim(),
+    name: data.name.trim(),
+    description: data.description?.trim() ? data.description.trim() : null,
+    icon: data.icon?.trim() ? data.icon.trim() : null,
+    sortOrder: data.sortOrder,
+  };
+}
+
+async function validateCategoryMutationInput(input: {
+  id?: number;
+  data: ReturnType<typeof normalizeCategoryPayload>;
+}) {
+  const db = getDb();
+
+  if (!input.data.slug) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Slug категории обязателен.",
+    });
+  }
+
+  if (!input.data.name) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Название категории обязательно.",
+    });
+  }
+
+  const duplicateSlug = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      input.id
+        ? and(eq(categories.slug, input.data.slug), ne(categories.id, input.id))
+        : eq(categories.slug, input.data.slug)
+    )
+    .limit(1);
+
+  if (duplicateSlug[0]) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Категория с таким slug уже существует.",
+    });
+  }
+
+  if (input.data.parentId === undefined || input.data.parentId === null) {
+    return;
+  }
+
+  const allCategories = await db.select().from(categories);
+  const parentCategory = allCategories.find(category => category.id === input.data.parentId);
+
+  if (!parentCategory) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Выбранная родительская категория не найдена.",
+    });
+  }
+
+  if (!input.id) {
+    return;
+  }
+
+  if (input.data.parentId === input.id) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Категория не может быть родителем самой себя.",
+    });
+  }
+
+  const descendantIds = collectDescendantCategoryIds(allCategories, input.id);
+  if (descendantIds.includes(input.data.parentId)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Нельзя переместить категорию внутрь её собственной ветки.",
+    });
+  }
 }
 
 async function buildPublicProductSpecs(
@@ -1071,14 +1163,19 @@ export const productRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Category");
       const db = getDb();
+      const payload = normalizeCategoryPayload(input.data);
+      await validateCategoryMutationInput({
+        id: input.id,
+        data: payload,
+      });
       let categoryId = input.id ?? 0;
       if (input.id) {
         await db
           .update(categories)
-          .set(input.data)
+          .set(payload)
           .where(eq(categories.id, input.id));
       } else {
-        const result = await db.insert(categories).values(input.data);
+        const result = await db.insert(categories).values(payload);
         categoryId = result[0].insertId;
       }
       await enqueueSearchReindexJob({
@@ -1088,5 +1185,134 @@ export const productRouter = createRouter({
       });
       await rebuildSearchDocumentsForCategories([categoryId]);
       return { success: true, id: categoryId };
+    }),
+
+  deleteCategory: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "delete", "Category");
+      const db = getDb();
+
+      const [category] = await db
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!category) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Категория не найдена.",
+        });
+      }
+
+      const [childRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(categories)
+        .where(eq(categories.parentId, input.id));
+
+      if (Number(childRow?.count ?? 0) > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Нельзя удалить категорию, пока в ней есть подкатегории. Сначала перенесите или удалите дочерние разделы.",
+        });
+      }
+
+      const [productRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(eq(products.categoryId, input.id));
+
+      if (Number(productRow?.count ?? 0) > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Нельзя удалить категорию, к которой привязаны товары. Сначала перенесите товары в другой раздел.",
+        });
+      }
+
+      await db.delete(categories).where(eq(categories.id, input.id));
+      await enqueueSearchReindexJob({
+        entityType: "category",
+        entityId: input.id,
+        reason: "category_deleted",
+      });
+      await processSearchReindexJobs(10);
+
+      return { success: true };
+    }),
+
+  reorderCategory: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        direction: z.enum(["up", "down"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
+      const db = getDb();
+
+      const allCategories = await db
+        .select()
+        .from(categories)
+        .orderBy(asc(categories.sortOrder), asc(categories.id));
+
+      const current = allCategories.find(category => category.id === input.id);
+      if (!current) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Категория не найдена.",
+        });
+      }
+
+      const siblings = allCategories
+        .filter(category => (category.parentId ?? null) === (current.parentId ?? null))
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ru"));
+
+      const currentIndex = siblings.findIndex(category => category.id === current.id);
+      if (currentIndex < 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Не удалось определить позицию категории среди соседних разделов.",
+        });
+      }
+
+      const targetIndex =
+        input.direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= siblings.length) {
+        return { success: true, changed: false };
+      }
+
+      const target = siblings[targetIndex];
+      if (!target) {
+        return { success: true, changed: false };
+      }
+
+      await db.transaction(async tx => {
+        await tx
+          .update(categories)
+          .set({ sortOrder: target.sortOrder })
+          .where(eq(categories.id, current.id));
+
+        await tx
+          .update(categories)
+          .set({ sortOrder: current.sortOrder })
+          .where(eq(categories.id, target.id));
+      });
+
+      const reindexIds = [current.id, target.id];
+      for (const categoryId of reindexIds) {
+        await enqueueSearchReindexJob({
+          entityType: "category",
+          entityId: categoryId,
+          reason: "category_reordered",
+        });
+      }
+      await rebuildSearchDocumentsForCategories(reindexIds);
+
+      return { success: true, changed: true };
     }),
 });
