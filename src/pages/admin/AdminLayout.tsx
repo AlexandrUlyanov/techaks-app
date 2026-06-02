@@ -12,6 +12,7 @@ import {
   Star,
   Gift,
   FileText,
+  History,
   Search,
   RefreshCw,
   FolderTree,
@@ -104,6 +105,9 @@ export default function AdminLayout() {
           : []),
         ...(ability.can("read", "DesignSystem")
           ? [{ name: "Дизайн-система", href: "/admin/design-system", icon: Palette }]
+          : []),
+        ...(ability.can("configure", "Settings")
+          ? [{ name: "Журнал", href: "/admin/audit", icon: History }]
           : []),
         { name: "Настройки", href: "/admin/settings", icon: Settings },
       ],

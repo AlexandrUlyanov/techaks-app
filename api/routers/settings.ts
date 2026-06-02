@@ -17,6 +17,7 @@ import {
   testYooKassaConnection,
   yookassaSettingsInputSchema,
 } from "../lib/payment-settings";
+import { listAdminAuditLogs, writeAdminAuditLog } from "../lib/admin-audit";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -73,6 +74,22 @@ const siteProfileSettingsSchema = z.object({
 });
 
 export const settingsRouter = createRouter({
+  getAdminAuditLogs: protectedProcedure
+    .input(
+      z
+        .object({
+          search: z.string().trim().optional(),
+          entityType: z.string().trim().optional(),
+          action: z.string().trim().optional(),
+          limit: z.number().int().min(1).max(250).optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      return listAdminAuditLogs(input);
+    }),
+
   getPublicSiteProfile: publicQuery.query(async () => {
     return getPublicSiteProfile();
   }),
@@ -86,6 +103,7 @@ export const settingsRouter = createRouter({
     .input(siteProfileSettingsSchema)
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getSiteProfileSettings();
       await saveSiteProfileSettings(input);
       await enqueueSearchReindexJob({
         entityType: "page",
@@ -93,6 +111,14 @@ export const settingsRouter = createRouter({
         reason: "site_profile_updated",
       });
       await rebuildSearchDocumentsForPages();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.site_profile.update",
+        entityType: "settings",
+        entityLabel: "Профиль сайта",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
@@ -158,8 +184,20 @@ export const settingsRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings([
+        "maintenance_mode",
+        "maintenance_reopen_date",
+      ]);
       await setAppSetting("maintenance_mode", input.isEnabled ? "true" : "false");
       await setAppSetting("maintenance_reopen_date", input.reopenDate);
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.maintenance.update",
+        entityType: "settings",
+        entityLabel: "Режим техобслуживания",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
@@ -180,10 +218,19 @@ export const settingsRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings(["reservation_duration_minutes"]);
       await setAppSetting(
         "reservation_duration_minutes",
         String(input.durationMinutes)
       );
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.reservations.update",
+        entityType: "settings",
+        entityLabel: "Настройки резервов",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
@@ -198,6 +245,12 @@ export const settingsRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings([
+        "gemini_api_key",
+        "gemini_model",
+        "ai_proxy_base_url",
+        "ai_proxy_token",
+      ]);
       if (input.apiKey) {
         await setAppSetting("gemini_api_key", input.apiKey);
       }
@@ -207,6 +260,14 @@ export const settingsRouter = createRouter({
         await setAppSetting("ai_proxy_token", input.proxyToken);
       }
 
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.ai.update",
+        entityType: "settings",
+        entityLabel: "AI и Gemini",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
@@ -219,6 +280,10 @@ export const settingsRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings([
+        "manufacturer_logo_provider",
+        "manufacturer_logo_logo_dev_token",
+      ]);
       await setAppSetting("manufacturer_logo_provider", input.provider);
       if (input.logoDevToken) {
         await setAppSetting(
@@ -226,24 +291,59 @@ export const settingsRouter = createRouter({
           input.logoDevToken
         );
       }
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.logo_provider.update",
+        entityType: "settings",
+        entityLabel: "Логотипы брендов",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
   clearManufacturerLogoToken: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
+    const before = await getAppSettings(["manufacturer_logo_logo_dev_token"]);
     await setAppSetting("manufacturer_logo_logo_dev_token", "");
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.logo_provider.clear_token",
+      entityType: "settings",
+      entityLabel: "Логотипы брендов",
+      before,
+      after: { manufacturer_logo_logo_dev_token: "" },
+    });
     return { success: true };
   }),
 
   clearGeminiApiKey: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
+    const before = await getAppSettings(["gemini_api_key"]);
     await setAppSetting("gemini_api_key", "");
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.ai.clear_api_key",
+      entityType: "settings",
+      entityLabel: "AI и Gemini",
+      before,
+      after: { gemini_api_key: "" },
+    });
     return { success: true };
   }),
 
   clearAiProxyToken: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
+    const before = await getAppSettings(["ai_proxy_token"]);
     await setAppSetting("ai_proxy_token", "");
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.ai.clear_proxy_token",
+      entityType: "settings",
+      entityLabel: "AI и Gemini",
+      before,
+      after: { ai_proxy_token: "" },
+    });
     return { success: true };
   }),
 
@@ -276,24 +376,54 @@ export const settingsRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings([
+        "moysklad_token",
+        "moysklad_webhook_secret",
+      ]);
       if (input.token) {
         await setAppSetting("moysklad_token", input.token);
       }
       if (input.webhookSecret) {
         await setAppSetting("moysklad_webhook_secret", input.webhookSecret);
       }
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.moysklad.update",
+        entityType: "settings",
+        entityLabel: "Интеграция МойСклад",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 
   clearMoySkladToken: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
+    const before = await getAppSettings(["moysklad_token"]);
     await setAppSetting("moysklad_token", "");
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.moysklad.clear_token",
+      entityType: "settings",
+      entityLabel: "Интеграция МойСклад",
+      before,
+      after: { moysklad_token: "" },
+    });
     return { success: true };
   }),
 
   clearMoySkladWebhookSecret: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
+    const before = await getAppSettings(["moysklad_webhook_secret"]);
     await setAppSetting("moysklad_webhook_secret", "");
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.moysklad.clear_webhook_secret",
+      entityType: "settings",
+      entityLabel: "Интеграция МойСклад",
+      before,
+      after: { moysklad_webhook_secret: "" },
+    });
     return { success: true };
   }),
 
@@ -315,12 +445,34 @@ export const settingsRouter = createRouter({
     .input(yookassaSettingsInputSchema)
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "manage_payment_settings", "Settings");
-      return saveYooKassaAdminSettings(input, ctx.user?.id ?? null);
+      const before = await getYooKassaAdminSettings();
+      const result = await saveYooKassaAdminSettings(input, ctx.user?.id ?? null);
+      const after = await getYooKassaAdminSettings();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.yookassa.update",
+        entityType: "settings",
+        entityLabel: "YooKassa",
+        before,
+        after,
+        meta: {
+          requestedMode: input.testMode ? "test" : "live",
+        },
+      });
+      return result;
     }),
 
   testYooKassaConnection: protectedProcedure.mutation(async ({ ctx }) => {
     requireAbility(ctx, "manage_payment_settings", "Settings");
-    return testYooKassaConnection(ctx.user?.id ?? null);
+    const result = await testYooKassaConnection(ctx.user?.id ?? null);
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.yookassa.test_connection",
+      entityType: "settings",
+      entityLabel: "YooKassa",
+      meta: result,
+    });
+    return result;
   }),
 
   getAuthSettings: protectedProcedure.query(async ({ ctx }) => {
@@ -372,6 +524,16 @@ export const settingsRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings([
+        "vapid_public_key",
+        "vapid_private_key",
+        "vapid_subject",
+        "smtp_host",
+        "smtp_port",
+        "smtp_user",
+        "smtp_pass",
+        "smtp_from",
+      ]);
       
       if (input.vapidPublicKey !== undefined) await setAppSetting("vapid_public_key", input.vapidPublicKey);
       if (input.vapidPrivateKey) await setAppSetting("vapid_private_key", input.vapidPrivateKey);
@@ -383,6 +545,14 @@ export const settingsRouter = createRouter({
       if (input.smtpPass) await setAppSetting("smtp_pass", input.smtpPass);
       if (input.smtpFrom !== undefined) await setAppSetting("smtp_from", input.smtpFrom);
 
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.auth.update",
+        entityType: "settings",
+        entityLabel: "Авторизация и уведомления",
+        before,
+        after: input,
+      });
       return { success: true };
     }),
 

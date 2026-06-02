@@ -3,6 +3,7 @@ import { createRouter, publicQuery, protectedProcedure, requireAbility } from ".
 import { getDb } from "../queries/connection";
 import { banners } from "@db/schema";
 import { asc, eq } from "drizzle-orm";
+import { writeAdminAuditLog } from "../lib/admin-audit";
 
 const bannerSchema = z.object({
   slug: z.string().min(1),
@@ -53,13 +54,41 @@ export const bannerRouter = createRouter({
       requireAbility(ctx, "manage", "Banner");
       const db = getDb();
       if (input.id) {
+        const [previousBanner] = await db
+          .select()
+          .from(banners)
+          .where(eq(banners.id, input.id))
+          .limit(1);
         await db
           .update(banners)
           .set(input.data)
           .where(eq(banners.id, input.id));
+        await writeAdminAuditLog({
+          ctx,
+          action: "banner.update",
+          entityType: "banner",
+          entityId: input.id,
+          entityLabel: input.data.title,
+          before: previousBanner,
+          after: {
+            id: input.id,
+            ...input.data,
+          },
+        });
         return { success: true, id: input.id };
       } else {
         const result = await db.insert(banners).values(input.data);
+        await writeAdminAuditLog({
+          ctx,
+          action: "banner.create",
+          entityType: "banner",
+          entityId: result[0].insertId,
+          entityLabel: input.data.title,
+          after: {
+            id: result[0].insertId,
+            ...input.data,
+          },
+        });
         return { success: true, id: result[0].insertId };
       }
     }),
@@ -69,7 +98,22 @@ export const bannerRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "delete", "Banner");
       const db = getDb();
+      const [previousBanner] = await db
+        .select()
+        .from(banners)
+        .where(eq(banners.id, input.id))
+        .limit(1);
       await db.delete(banners).where(eq(banners.id, input.id));
+      if (previousBanner) {
+        await writeAdminAuditLog({
+          ctx,
+          action: "banner.delete",
+          entityType: "banner",
+          entityId: previousBanner.id,
+          entityLabel: previousBanner.title,
+          before: previousBanner,
+        });
+      }
       return { success: true };
     }),
 });

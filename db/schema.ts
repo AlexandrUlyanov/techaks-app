@@ -545,6 +545,38 @@ export const syncLogs = mysqlTable("sync_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const adminAuditLogs = mysqlTable("admin_audit_logs", {
+  id: serial("id").primaryKey(),
+  actorUserId: int("actor_user_id"),
+  actorEmail: varchar("actor_email", { length: 255 }),
+  actorRole: varchar("actor_role", { length: 80 }),
+  action: varchar("action", { length: 120 }).notNull(),
+  entityType: varchar("entity_type", { length: 80 }).notNull(),
+  entityId: int("entity_id"),
+  entityLabel: varchar("entity_label", { length: 255 }),
+  beforeJson: json("before_json"),
+  afterJson: json("after_json"),
+  metaJson: json("meta_json"),
+  ip: varchar("ip", { length: 128 }),
+  userAgent: varchar("user_agent", { length: 512 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  entityIdx: index("admin_audit_logs_entity_idx").on(
+    table.entityType,
+    table.entityId,
+    table.createdAt
+  ),
+  actorIdx: index("admin_audit_logs_actor_idx").on(
+    table.actorUserId,
+    table.createdAt
+  ),
+  actionIdx: index("admin_audit_logs_action_idx").on(
+    table.action,
+    table.createdAt
+  ),
+  createdIdx: index("admin_audit_logs_created_idx").on(table.createdAt),
+}));
+
 export const syncProfiles = mysqlTable("sync_profiles", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),

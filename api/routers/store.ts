@@ -3,6 +3,7 @@ import { createRouter, publicQuery, protectedProcedure, requireAbility } from ".
 import { getDb } from "../queries/connection";
 import { stores } from "@db/schema";
 import { asc, eq } from "drizzle-orm";
+import { writeAdminAuditLog } from "../lib/admin-audit";
 
 const storeSchema = z.object({
   msId: z.string().nullable().optional(),
@@ -34,10 +35,38 @@ export const storeRouter = createRouter({
       requireAbility(ctx, "manage", "Store");
       const db = getDb();
       if (input.id) {
+        const [previousStore] = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.id, input.id))
+          .limit(1);
         await db.update(stores).set(input.data).where(eq(stores.id, input.id));
+        await writeAdminAuditLog({
+          ctx,
+          action: "store.update",
+          entityType: "store",
+          entityId: input.id,
+          entityLabel: input.data.name,
+          before: previousStore,
+          after: {
+            id: input.id,
+            ...input.data,
+          },
+        });
         return { success: true, id: input.id };
       } else {
         const result = await db.insert(stores).values(input.data);
+        await writeAdminAuditLog({
+          ctx,
+          action: "store.create",
+          entityType: "store",
+          entityId: result[0].insertId,
+          entityLabel: input.data.name,
+          after: {
+            id: result[0].insertId,
+            ...input.data,
+          },
+        });
         return { success: true, id: result[0].insertId };
       }
     }),
@@ -47,7 +76,22 @@ export const storeRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       requireAbility(ctx, "delete", "Store");
       const db = getDb();
+      const [previousStore] = await db
+        .select()
+        .from(stores)
+        .where(eq(stores.id, input.id))
+        .limit(1);
       await db.delete(stores).where(eq(stores.id, input.id));
+      if (previousStore) {
+        await writeAdminAuditLog({
+          ctx,
+          action: "store.delete",
+          entityType: "store",
+          entityId: previousStore.id,
+          entityLabel: previousStore.name,
+          before: previousStore,
+        });
+      }
       return { success: true };
     }),
 });

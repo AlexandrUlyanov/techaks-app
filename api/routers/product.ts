@@ -52,6 +52,7 @@ import {
   rebuildSearchDocumentsForProducts,
 } from "../lib/search";
 import { getProductVariants } from "../lib/product-variants";
+import { writeAdminAuditLog } from "../lib/admin-audit";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -1168,6 +1169,13 @@ export const productRouter = createRouter({
         id: input.id,
         data: payload,
       });
+      const [previousCategory] = input.id
+        ? await db
+            .select()
+            .from(categories)
+            .where(eq(categories.id, input.id))
+            .limit(1)
+        : [null];
       let categoryId = input.id ?? 0;
       if (input.id) {
         await db
@@ -1184,6 +1192,18 @@ export const productRouter = createRouter({
         reason: input.id ? "category_updated" : "category_created",
       });
       await rebuildSearchDocumentsForCategories([categoryId]);
+      await writeAdminAuditLog({
+        ctx,
+        action: input.id ? "category.update" : "category.create",
+        entityType: "category",
+        entityId: categoryId,
+        entityLabel: payload.name,
+        before: previousCategory,
+        after: {
+          id: categoryId,
+          ...payload,
+        },
+      });
       return { success: true, id: categoryId };
     }),
 
@@ -1239,6 +1259,14 @@ export const productRouter = createRouter({
         reason: "category_deleted",
       });
       await processSearchReindexJobs(10);
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.delete",
+        entityType: "category",
+        entityId: category.id,
+        entityLabel: category.name,
+        before: category,
+      });
 
       return { success: true };
     }),
@@ -1291,6 +1319,21 @@ export const productRouter = createRouter({
         return { success: true, changed: false };
       }
 
+      const beforeState = {
+        current: {
+          id: current.id,
+          name: current.name,
+          parentId: current.parentId,
+          sortOrder: current.sortOrder,
+        },
+        target: {
+          id: target.id,
+          name: target.name,
+          parentId: target.parentId,
+          sortOrder: target.sortOrder,
+        },
+      };
+
       await db.transaction(async tx => {
         await tx
           .update(categories)
@@ -1312,6 +1355,29 @@ export const productRouter = createRouter({
         });
       }
       await rebuildSearchDocumentsForCategories(reindexIds);
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.reorder",
+        entityType: "category",
+        entityId: current.id,
+        entityLabel: current.name,
+        before: beforeState,
+        after: {
+          current: {
+            ...beforeState.current,
+            sortOrder: target.sortOrder,
+          },
+          target: {
+            ...beforeState.target,
+            sortOrder: current.sortOrder,
+          },
+        },
+        meta: {
+          direction: input.direction,
+          siblingCategoryId: target.id,
+          siblingCategoryName: target.name,
+        },
+      });
 
       return { success: true, changed: true };
     }),
