@@ -67,9 +67,6 @@ export default function AdminSettings() {
       secondaryPhone: "",
       email: "",
       workingHours: "",
-      whatsappUrl: "",
-      telegramUrl: "",
-      telegramHandle: "",
       shortAddress: "",
       fullAddress: "",
     },
@@ -1044,33 +1041,6 @@ export default function AdminSettings() {
                         onChange={e => updateContactField("workingHours", e.target.value)}
                         className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
                         placeholder="Ежедневно 9:00–21:00"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Telegram handle</label>
-                      <input
-                        value={siteProfileForm.contacts.telegramHandle}
-                        onChange={e => updateContactField("telegramHandle", e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                        placeholder="@tech_aks"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Telegram URL</label>
-                      <input
-                        value={siteProfileForm.contacts.telegramUrl}
-                        onChange={e => updateContactField("telegramUrl", e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                        placeholder="https://t.me/tech_aks"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">WhatsApp URL</label>
-                      <input
-                        value={siteProfileForm.contacts.whatsappUrl}
-                        onChange={e => updateContactField("whatsappUrl", e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                        placeholder="https://wa.me/79273642888"
                       />
                     </div>
                   </div>

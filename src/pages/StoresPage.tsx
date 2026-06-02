@@ -1,12 +1,37 @@
 import { MapPin } from "lucide-react";
 import StoreCard from "@/components/StoreCard";
 import { trpc } from "@/providers/trpc";
+import { useSeo } from "@/lib/seo";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+  buildStoreStructuredData,
+} from "@/lib/seo-structured";
 
 export default function StoresPage() {
   const { data: stores = [] } = trpc.store.getAll.useQuery();
 
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
+
+  useSeo({
+    title: "Магазины ТЕХАКС в Пензе — адреса, телефоны и режим работы",
+    description:
+      "Адреса магазинов ТЕХАКС в Пензе, часы работы, телефоны, самовывоз и схема проезда.",
+    canonicalPath: "/stores",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: "Магазины", url: "https://techaks.ru/stores" },
+      ]),
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+      }),
+      ...stores.map(store => buildStoreStructuredData(store)),
+    ],
+  });
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">

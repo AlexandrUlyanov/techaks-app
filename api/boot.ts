@@ -96,19 +96,21 @@ app.use(
 app.get("/robots.txt", c => {
   const body = [
     "User-agent: *",
-    "Disallow: /*?sort=",
-    "Disallow: /*?view=",
-    "Disallow: /*?limit=",
-    "Disallow: /*?price=",
-    "Disallow: /*?color=",
+    "Disallow: /*sort=",
+    "Disallow: /*layout=",
+    "Disallow: /*show=",
+    "Disallow: /*limit=",
+    "Disallow: /*filter=",
+    "Disallow: /*price=",
+    "Disallow: /*color=",
     "Disallow: /*?utm_",
-    "Disallow: /cart/",
-    "Disallow: /checkout/",
-    "Disallow: /account/",
-    "Disallow: /login/",
-    "Disallow: /search/",
+    "Disallow: /cart",
+    "Disallow: /checkout",
+    "Disallow: /account",
+    "Disallow: /login",
+    "Disallow: /search",
     "",
-    "Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid",
+    "Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&layout&sort&show&limit",
     `Sitemap: ${SEO_HOST}/sitemap.xml`,
     "",
   ].join("\n");
@@ -133,8 +135,10 @@ app.get("/sitemap.xml", c => {
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap><loc>${SEO_HOST}/sitemap-categories.xml</loc><lastmod>${now}</lastmod></sitemap>
+  <sitemap><loc>${SEO_HOST}/sitemap-brands.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-products-1.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-pages.xml</loc><lastmod>${now}</lastmod></sitemap>
+  <sitemap><loc>${SEO_HOST}/sitemap-blog.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-images.xml</loc><lastmod>${now}</lastmod></sitemap>
 </sitemapindex>`;
   return c.body(body, 200, {
@@ -144,7 +148,19 @@ app.get("/sitemap.xml", c => {
 });
 
 app.get("/sitemap-pages.xml", c => {
-  const staticPages = ["/", "/catalog", "/stores", "/contacts", "/promotions", "/blog"];
+  const staticPages = [
+    "/",
+    "/catalog",
+    "/catalog?view=brands",
+    "/stores",
+    "/contacts",
+    "/promotions",
+    "/blog",
+    "/offer",
+    "/privacy-policy",
+    "/payment-delivery",
+    "/returns",
+  ];
   const rows = staticPages
     .map(path => `<url><loc>${SEO_HOST}${path}</loc><changefreq>daily</changefreq><priority>${path === "/" ? "1.0" : "0.8"}</priority></url>`)
     .join("");
@@ -158,19 +174,91 @@ app.get("/sitemap-pages.xml", c => {
 
 app.get("/sitemap-categories.xml", async c => {
   const db = getDb();
+  const stockQuery = db
+    .select({
+      productId: schema.productStocks.productId,
+      totalStock: sql<number>`SUM(${schema.productStocks.quantity})`.as("totalStock"),
+    })
+    .from(schema.productStocks)
+    .groupBy(schema.productStocks.productId)
+    .as("stock");
+
   const categories = await db
     .select({
+      id: schema.categories.id,
+      parentId: schema.categories.parentId,
       slug: schema.categories.slug,
     })
     .from(schema.categories)
     .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.id));
 
+  const visibleProductRows = await db
+    .select({
+      categoryId: schema.products.categoryId,
+      count: sql<number>`count(*)`.as("count"),
+    })
+    .from(schema.products)
+    .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
+    .where(
+      sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
+    )
+    .groupBy(schema.products.categoryId);
+
+  const visibleCounts = new Map<number, number>();
+  for (const row of visibleProductRows) {
+    visibleCounts.set(row.categoryId, Number(row.count));
+  }
+
+  const categoriesById = new Map(categories.map(category => [category.id, category] as const));
+  const eligibleCategoryIds = new Set<number>();
+
+  for (const [categoryId, count] of visibleCounts.entries()) {
+    if (count <= 0) continue;
+    let currentId: number | null | undefined = categoryId;
+    while (currentId) {
+      if (eligibleCategoryIds.has(currentId)) break;
+      eligibleCategoryIds.add(currentId);
+      currentId = categoriesById.get(currentId)?.parentId;
+    }
+  }
+
   const rows = categories
+    .filter(category => eligibleCategoryIds.has(category.id))
     .map(category => `<url><loc>${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`)
     .join("");
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SEO_HOST}/catalog</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  ${rows}
+</urlset>`;
+  return c.body(body, 200, {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "public, max-age=1800",
+  });
+});
+
+app.get("/sitemap-brands.xml", async c => {
+  const db = getDb();
+  const brands = await db
+    .select({
+      slug: schema.manufacturers.slug,
+    })
+    .from(schema.manufacturers)
+    .where(
+      and(
+        eq(schema.manufacturers.isVisible, true),
+        sql`${schema.manufacturers.productCount} > 0`
+      )
+    )
+    .orderBy(asc(schema.manufacturers.sortOrder), asc(schema.manufacturers.name));
+
+  const rows = brands
+    .map(brand => `<url><loc>${SEO_HOST}/catalog?view=brands&amp;brand=${encodeURIComponent(brand.slug)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`)
+    .join("");
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SEO_HOST}/catalog?view=brands</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   ${rows}
 </urlset>`;
   return c.body(body, 200, {
@@ -237,6 +325,36 @@ app.get("/sitemap-images.xml", async c => {
         ? product.image
         : `${SEO_HOST}${product.image}`;
       return `<url><loc>${SEO_HOST}/product/${encodeURIComponent(product.slug)}</loc><image:image xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"><image:loc>${xmlEscape(imageUrl)}</image:loc><image:title>${xmlEscape(product.name)}</image:title></image:image></url>`;
+    })
+    .join("");
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows}</urlset>`;
+  return c.body(body, 200, {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "public, max-age=1800",
+  });
+});
+
+app.get("/sitemap-blog.xml", async c => {
+  const db = getDb();
+  const posts = await db
+    .select({
+      slug: schema.posts.slug,
+      updatedAt: schema.posts.updatedAt,
+      publishedAt: schema.posts.publishedAt,
+      createdAt: schema.posts.createdAt,
+    })
+    .from(schema.posts)
+    .where(
+      sql`(${schema.posts.status} = 'published' OR (${schema.posts.status} = 'scheduled' AND ${schema.posts.publishedAt} <= NOW()))`
+    )
+    .orderBy(asc(schema.posts.createdAt));
+
+  const rows = posts
+    .map(post => {
+      const lastmod = toIsoDate(post.updatedAt ?? post.publishedAt ?? post.createdAt);
+      return `<url><loc>${SEO_HOST}/blog/${encodeURIComponent(post.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority></url>`;
     })
     .join("");
 

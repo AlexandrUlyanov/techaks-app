@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSeo } from "@/lib/seo";
+import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
 
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
@@ -349,10 +350,89 @@ export default function CatalogPage() {
       ? `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
       : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
 
+  const seoCanonicalPath = (() => {
+    if (catalogView === "brands" && activeBrand) {
+      return `/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`;
+    }
+
+    if (activeCategory !== "all") {
+      return `/catalog?cat=${encodeURIComponent(activeCategory)}`;
+    }
+
+    if (catalogView === "brands") {
+      return "/catalog?view=brands";
+    }
+
+    return "/catalog";
+  })();
+
+  const shouldNoindexCatalog =
+    selectedFilters.length > 0 ||
+    sortBy !== "default" ||
+    viewMode !== "grid" ||
+    forceProductsView;
+
+  const seoStructuredData = useMemo(() => {
+    const breadcrumbItems =
+      catalogView === "brands"
+        ? [
+            { name: "Каталог", path: "/catalog" },
+            ...(activeBrand
+              ? [
+                  { name: "Производители", path: "/catalog?view=brands" },
+                  { name: currentManufacturer?.name || "Производитель", path: seoCanonicalPath },
+                ]
+              : [{ name: "Производители", path: "/catalog?view=brands" }]),
+          ]
+        : [
+            { name: "Каталог", path: "/catalog" },
+            ...breadcrumbs.map(breadcrumb => ({
+              name: String(breadcrumb.name),
+              path: `/catalog?cat=${breadcrumb.slug}`,
+            })),
+          ];
+
+    const baseCollection: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: headerTitle,
+      description: seoDescription,
+      url: `https://techaks.ru${seoCanonicalPath}`,
+    };
+
+    if (visibleProducts.length > 0) {
+      baseCollection.mainEntity = {
+        "@type": "ItemList",
+        itemListElement: visibleProducts.slice(0, 12).map((product, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `https://techaks.ru/product/${product.slug}`,
+          name: product.name,
+        })),
+      };
+    }
+
+    return [
+      buildBreadcrumbStructuredData(breadcrumbItems),
+      baseCollection,
+    ];
+  }, [
+    activeBrand,
+    breadcrumbs,
+    catalogView,
+    currentManufacturer?.name,
+    headerTitle,
+    seoCanonicalPath,
+    seoDescription,
+    visibleProducts,
+  ]);
+
   useSeo({
     title: seoTitle,
     description: seoDescription,
-    canonicalPath: "/catalog",
+    canonicalPath: seoCanonicalPath,
+    noindex: shouldNoindexCatalog,
+    structuredData: seoStructuredData,
   });
 
   return (

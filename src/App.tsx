@@ -57,6 +57,7 @@ const AdminMerchandisingQuality = lazy(
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminAuditLog = lazy(() => import("@/pages/admin/AdminAuditLog"));
 const AdminFeeds = lazy(() => import("@/pages/admin/AdminFeeds"));
+const AdminSeoDashboard = lazy(() => import("@/pages/admin/AdminSeoDashboard"));
 const AdminYooKassaSettings = lazy(
   () => import("@/pages/admin/AdminYooKassaSettings")
 );
@@ -171,6 +172,7 @@ export default function App() {
                 <Route path="design-system" element={<AdminDesignSystem />} />
                 <Route path="audit" element={<AdminAuditLog />} />
                 <Route path="feeds" element={<AdminFeeds />} />
+                <Route path="seo" element={<AdminSeoDashboard />} />
                 <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
                 <Route path="sync" element={<SyncLayout />}>

@@ -22,6 +22,7 @@ import {
   Blocks,
   Palette,
   Rss,
+  Globe,
 } from "lucide-react";
 import { useAbility } from "@/providers/AbilityProvider";
 
@@ -112,6 +113,9 @@ export default function AdminLayout() {
           : []),
         ...(ability.can("read", "Settings")
           ? [{ name: "Фиды", href: "/admin/feeds", icon: Rss }]
+          : []),
+        ...(ability.can("read", "Settings")
+          ? [{ name: "SEO", href: "/admin/seo", icon: Globe }]
           : []),
         { name: "Настройки", href: "/admin/settings", icon: Settings },
       ],

@@ -9,6 +9,10 @@ import { toast } from "sonner";
 import { buildCanonical, useSeo } from "@/lib/seo";
 import { formatRussianCount } from "@/lib/russian-plurals";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+} from "@/lib/seo-structured";
 import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
@@ -218,12 +222,73 @@ export default function ProductPage() {
       `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`
     : "Карточка товара интернет-магазина ТЕХАКС.";
   const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
+  const productJsonLd = useMemo(() => {
+    if (!product) return null;
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      image: productImages.map(image =>
+        buildCanonical(getProductLightboxImageSrc(image))
+      ),
+      description:
+        descriptionForSeo ||
+        `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
+      sku: displayedArticle || product.slug.toUpperCase(),
+      brand: {
+        "@type": "Brand",
+        name: productManufacturer?.title || "ТЕХАКС",
+      },
+      offers: {
+        "@type": "Offer",
+        url: buildCanonical(seoCanonicalPath),
+        priceCurrency: "RUB",
+        price: String(displayedPrice),
+        availability: isInStock
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      },
+    };
+  }, [
+    descriptionForSeo,
+    displayedArticle,
+    displayedPrice,
+    isInStock,
+    product,
+    productImages,
+    productManufacturer?.title,
+    seoCanonicalPath,
+  ]);
+
+  const seoStructuredData = useMemo(() => {
+    if (!product) return null;
+
+    return [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: "Каталог", url: "https://techaks.ru/catalog" },
+        ...breadcrumbs.map(item => ({
+          name: item.name,
+          url: buildCanonical(`/catalog?cat=${item.slug}`),
+        })),
+        { name: product.name, url: buildCanonical(seoCanonicalPath) },
+      ]),
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+      }),
+      productJsonLd,
+    ];
+  }, [breadcrumbs, product, productJsonLd, seoCanonicalPath]);
 
   useSeo({
     title: seoTitle,
     description: seoDescription,
     canonicalPath: seoCanonicalPath,
     noindex: !product,
+    structuredData: seoStructuredData,
   });
 
   const productImages = useMemo(() => {
@@ -316,7 +381,6 @@ export default function ProductPage() {
   }
 
   const relatedProducts = merchandisingRelated.slice(0, 4);
-  const canonicalPath = `/product/${product.slug}`;
   const descriptionForSeo = (product.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
@@ -409,30 +473,6 @@ export default function ProductPage() {
     ...(product.badge ? [product.badge] : []),
   ];
 
-  const productJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    image: productImages.map(image => buildCanonical(getProductLightboxImageSrc(image))),
-    description:
-      descriptionForSeo ||
-      `${product.name}. Купить в интернет-магазине ТЕХАКС.`,
-    sku: displayedArticle || product.slug.toUpperCase(),
-    brand: {
-      "@type": "Brand",
-      name: productManufacturer?.title || "ТЕХАКС",
-    },
-    offers: {
-      "@type": "Offer",
-      url: buildCanonical(canonicalPath),
-      priceCurrency: "RUB",
-      price: String(displayedPrice),
-      availability: isInStock
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-    },
-  };
-
   const handleAddToCart = ({
     redirectToCheckout = true,
   }: { redirectToCheckout?: boolean } = {}) => {
@@ -514,10 +554,6 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-background pb-36 text-foreground md:pb-0">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
       <ProductBreadcrumbsCompact
         rootTo="/catalog"
         rootLabel="Каталог"

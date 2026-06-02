@@ -8,6 +8,10 @@ import { trpc } from "@/providers/trpc";
 import Hero from "@/components/Hero";
 import { CategoryIcon } from "@/lib/category-icons";
 import { useSeo } from "@/lib/seo";
+import {
+  buildOrganizationStructuredData,
+  buildBreadcrumbStructuredData,
+} from "@/lib/seo-structured";
 import HomeSectionHeading from "@/components/home/HomeSectionHeading";
 import {
   Carousel,
@@ -47,6 +51,28 @@ export default function HomePage() {
     description:
       "Техника и аксессуары: смартфоны, наушники, зарядные устройства, кабели, чехлы и гаджеты. Актуальные цены, наличие и доставка.",
     canonicalPath: "/",
+    structuredData: [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://techaks.ru/search?q={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
+      },
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "/images/logo-light.svg",
+        email: "tech.aks@yandex.ru",
+        phone: "+7 (927) 364-28-88",
+        address: "Пенза",
+      }),
+      buildBreadcrumbStructuredData([{ name: "Главная", path: "/" }]),
+    ],
   });
 
   const { data: homepageData } = trpc.home.getPageData.useQuery(

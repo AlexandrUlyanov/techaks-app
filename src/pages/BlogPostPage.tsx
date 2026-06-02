@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
 import { useSeo } from "@/lib/seo";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+} from "@/lib/seo-structured";
 
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -32,28 +36,40 @@ export default function BlogPostPage() {
   const structuredData = useMemo(() => {
     if (!post) return null;
 
-    return {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      headline: post.metaTitle || post.title,
-      description: post.metaDescription || post.excerpt,
-      image: [post.ogImage || post.image],
-      datePublished: new Date(post.publishedAt || post.createdAt).toISOString(),
-      dateModified: new Date(post.updatedAt || post.createdAt).toISOString(),
-      author: {
-        "@type": "Person",
-        name: post.authorName || "Редакция ТЕХАКС",
-      },
-      publisher: {
-        "@type": "Organization",
+    return [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: "Блог", url: "https://techaks.ru/blog" },
+        { name: post.title, url: `https://techaks.ru/blog/${post.slug}` },
+      ]),
+      buildOrganizationStructuredData({
         name: "ТЕХАКС",
-        logo: {
-          "@type": "ImageObject",
-          url: "https://techaks.ru/images/logo-light.svg",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+      }),
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: post.metaTitle || post.title,
+        description: post.metaDescription || post.excerpt,
+        image: [post.ogImage || post.image],
+        datePublished: new Date(post.publishedAt || post.createdAt).toISOString(),
+        dateModified: new Date(post.updatedAt || post.createdAt).toISOString(),
+        author: {
+          "@type": "Person",
+          name: post.authorName || "Редакция ТЕХАКС",
         },
+        publisher: {
+          "@type": "Organization",
+          name: "ТЕХАКС",
+          logo: {
+            "@type": "ImageObject",
+            url: "https://techaks.ru/images/logo-light.svg",
+          },
+        },
+        mainEntityOfPage: `https://techaks.ru/blog/${post.slug}`,
       },
-      mainEntityOfPage: `https://techaks.ru/blog/${post.slug}`,
-    };
+    ];
   }, [post]);
 
   useSeo({

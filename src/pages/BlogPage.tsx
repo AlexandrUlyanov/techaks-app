@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Loader2, Calendar, ArrowRight, BookOpen, Sparkles } from "lucide-react";
 import { useSeo } from "@/lib/seo";
+import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
 
 export default function BlogPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -23,6 +24,26 @@ export default function BlogPage() {
       "Полезные статьи ТЕХАКС: как выбрать аксессуары, чем отличаются модели, что подойдёт для смартфона, авто и дома.",
     canonicalPath: "/blog",
     type: "website",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: "Блог", url: "https://techaks.ru/blog" },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Блог ТЕХАКС",
+        description:
+          "Полезные статьи ТЕХАКС: как выбрать аксессуары, чем отличаются модели, что подойдёт для смартфона, авто и дома.",
+        url: "https://techaks.ru/blog",
+        mainEntity: posts.slice(0, 12).map((post, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `https://techaks.ru/blog/${post.slug}`,
+          name: post.title,
+        })),
+      },
+    ],
   });
 
   return (

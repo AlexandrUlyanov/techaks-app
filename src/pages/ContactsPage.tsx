@@ -1,12 +1,40 @@
-import { Phone, Mail, MapPin, Send } from "lucide-react";
+import { Phone, Mail, MapPin } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
 import { trpc } from "@/providers/trpc";
+import { useSeo } from "@/lib/seo";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+  buildStoreStructuredData,
+} from "@/lib/seo-structured";
 
 export default function ContactsPage() {
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const legalFormLabel =
     siteProfile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН";
+
+  useSeo({
+    title: "Контакты ТЕХАКС — телефоны, адреса магазинов и режим работы",
+    description:
+      "Контакты интернет-магазина ТЕХАКС: телефоны, e-mail, адреса магазинов в Пензе, реквизиты продавца и форма обратной связи.",
+    canonicalPath: "/contacts",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: "Контакты", url: "https://techaks.ru/contacts" },
+      ]),
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+        email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+        phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+        address: siteProfile?.contacts.fullAddress || siteProfile?.seller.legalAddress,
+      }),
+      ...stores.map(store => buildStoreStructuredData(store)),
+    ],
+  });
 
   return (
     <div className="min-h-screen pb-16 md:pb-0 bg-background text-foreground">
@@ -69,26 +97,6 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              {/* Telegram */}
-              <div className="flex items-start gap-6 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#0088cc]/20 bg-[#0088cc]/10 text-[#0088cc] transition-all duration-300 group-hover:bg-[#0088cc] group-hover:text-white">
-                  <Send size={24} />
-                </div>
-                <div>
-                  <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Telegram
-                  </span>
-                  <a
-                    href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xl font-bold text-foreground transition-colors hover:text-[#0088cc] md:text-2xl"
-                  >
-                    {siteProfile?.contacts.telegramHandle || "@tech_aks"}
-                  </a>
-                </div>
-              </div>
-
               {/* Addresses */}
               <div className="space-y-8 border-t border-border pt-12">
                 <div className="flex items-start gap-6">
@@ -146,30 +154,6 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              {/* Messengers */}
-              <div className="border-t border-border pt-12">
-                <h3 className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-                  Быстрые сообщения
-                </h3>
-                <div className="flex flex-wrap gap-4">
-                  <a
-                    href={siteProfile?.contacts.telegramUrl || "https://t.me/tech_aks"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl border border-border bg-[var(--tech-color-surface)] px-8 py-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-all active:scale-95 hover:border-[#0088cc] hover:bg-[#0088cc] hover:text-white"
-                  >
-                    Telegram
-                  </a>
-                  <a
-                    href={siteProfile?.contacts.whatsappUrl || "https://wa.me/79273642888"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl border border-border bg-[var(--tech-color-surface)] px-8 py-4 text-[10px] font-black uppercase tracking-widest text-foreground transition-all active:scale-95 hover:border-[#25d366] hover:bg-[#25d366] hover:text-white"
-                  >
-                    WhatsApp
-                  </a>
-                </div>
-              </div>
             </div>
 
             {/* Right - Form */}

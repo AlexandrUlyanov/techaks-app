@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { and, eq, isNull, not, or, sql } from "drizzle-orm";
 import { createRouter, protectedProcedure, publicQuery, requireAbility } from "../middleware";
 import { getAppSettings, setAppSetting } from "../lib/app-settings";
 import { env } from "../lib/env";
@@ -25,6 +26,10 @@ import {
   saveYandexYmlFeedSettings,
   yandexYmlFeedSettingsInputSchema,
 } from "../lib/feeds";
+import { getDb } from "../queries/connection";
+import * as schema from "@db/schema";
+import { buildPublicProductVisibilityCondition } from "../lib/product-visibility";
+import { getManufacturerNameFromProductSpecs } from "../lib/manufacturers";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -33,9 +38,6 @@ const siteProfileSettingsSchema = z.object({
     secondaryPhone: z.string().trim().max(80).default(""),
     email: z.string().trim().email(),
     workingHours: z.string().trim().min(2).max(120),
-    whatsappUrl: z.string().trim().max(255).default(""),
-    telegramUrl: z.string().trim().max(255).default(""),
-    telegramHandle: z.string().trim().max(120).default(""),
     shortAddress: z.string().trim().min(2).max(255),
     fullAddress: z.string().trim().min(2).max(500),
   }),
@@ -79,6 +81,8 @@ const siteProfileSettingsSchema = z.object({
     requisitesFooter: z.string().trim().min(2).max(500),
   }),
 });
+
+const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 
 export const settingsRouter = createRouter({
   getAdminAuditLogs: protectedProcedure
@@ -442,6 +446,278 @@ export const settingsRouter = createRouter({
   getFeedCatalog: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
     return getFeedCatalogOverview();
+  }),
+
+  getSeoHealth: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    const db = getDb();
+
+    const [
+      totalProductsRow,
+      visibleProductsRow,
+      manualHiddenProductsRow,
+      autoBlockedProductsRow,
+      zeroPriceProductsRow,
+      noDescriptionProductsRow,
+      noImageProductsRow,
+      noArticleProductsRow,
+      noBarcodeProductsRow,
+      totalCategoriesRow,
+      categoryNoDescriptionRow,
+      totalStoresRow,
+      storesMissingMapRow,
+      storesMissingPhoneRow,
+      storesMissingHoursRow,
+      storesMissingImageRow,
+      totalPostsRow,
+      publishedPostsRow,
+      postsMissingMetaTitleRow,
+      postsMissingMetaDescriptionRow,
+      postsMissingImageRow,
+    ] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(schema.products),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(publicProductVisibilityCondition),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(eq(schema.products.isActive, false)),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(eq(schema.products.isAutoBlocked, true)),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(sql`${schema.products.price} <= 0`),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(or(isNull(schema.products.description), eq(schema.products.description, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(or(isNull(schema.products.image), eq(schema.products.image, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(or(isNull(schema.products.article), eq(schema.products.article, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.products)
+        .where(or(isNull(schema.products.barcode), eq(schema.products.barcode, ""))),
+      db.select({ count: sql<number>`count(*)` }).from(schema.categories),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.categories)
+        .where(or(isNull(schema.categories.description), eq(schema.categories.description, ""))),
+      db.select({ count: sql<number>`count(*)` }).from(schema.stores),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.stores)
+        .where(or(isNull(schema.stores.mapUrl), eq(schema.stores.mapUrl, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.stores)
+        .where(or(isNull(schema.stores.phone), eq(schema.stores.phone, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.stores)
+        .where(or(isNull(schema.stores.hours), eq(schema.stores.hours, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.stores)
+        .where(or(isNull(schema.stores.image), eq(schema.stores.image, ""))),
+      db.select({ count: sql<number>`count(*)` }).from(schema.posts),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.posts)
+        .where(
+          or(
+            eq(schema.posts.status, "published"),
+            and(eq(schema.posts.status, "scheduled"), sql`${schema.posts.publishedAt} <= NOW()`)
+          )
+        ),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.posts)
+        .where(or(isNull(schema.posts.metaTitle), eq(schema.posts.metaTitle, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.posts)
+        .where(or(isNull(schema.posts.metaDescription), eq(schema.posts.metaDescription, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.posts)
+        .where(or(isNull(schema.posts.image), eq(schema.posts.image, ""))),
+    ]);
+
+    const categoryRows = await db.select().from(schema.categories);
+    const childCounts = new Map<number, number>();
+    for (const category of categoryRows) {
+      if (!category.parentId) continue;
+      childCounts.set(category.parentId, (childCounts.get(category.parentId) ?? 0) + 1);
+    }
+
+    const visibleProductCategoryRows = await db
+      .select({
+        categoryId: schema.products.categoryId,
+        count: sql<number>`count(*)`,
+      })
+      .from(schema.products)
+      .where(publicProductVisibilityCondition)
+      .groupBy(schema.products.categoryId);
+    const visibleProductCountByCategoryId = new Map(
+      visibleProductCategoryRows.map(row => [row.categoryId, Number(row.count)] as const)
+    );
+
+    const emptyLeafCategories = categoryRows.filter(category => {
+      const hasChildren = (childCounts.get(category.id) ?? 0) > 0;
+      if (hasChildren) return false;
+      return (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0;
+    });
+
+    const productRows = await db
+      .select({
+        id: schema.products.id,
+        slug: schema.products.slug,
+        name: schema.products.name,
+        article: schema.products.article,
+        barcode: schema.products.barcode,
+        image: schema.products.image,
+        description: schema.products.description,
+        specs: schema.products.specs,
+        price: schema.products.price,
+        isActive: schema.products.isActive,
+        isAutoBlocked: schema.products.isAutoBlocked,
+      })
+      .from(schema.products)
+      .orderBy(schema.products.id)
+      .limit(500);
+
+    const productsMissingBrand = productRows.filter(
+      product => !getManufacturerNameFromProductSpecs(product.specs)
+    ).length;
+
+    const sampleProducts = productRows
+      .filter(product => {
+        const flags = [
+          !product.description,
+          !product.image,
+          !product.article,
+          !product.barcode,
+          !getManufacturerNameFromProductSpecs(product.specs),
+          product.price <= 0,
+        ];
+        return flags.some(Boolean);
+      })
+      .slice(0, 12)
+      .map(product => ({
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        issues: [
+          !product.description ? "Нет описания" : null,
+          !product.image ? "Нет изображения" : null,
+          !product.article ? "Нет артикула" : null,
+          !product.barcode ? "Нет штрихкода" : null,
+          !getManufacturerNameFromProductSpecs(product.specs) ? "Не определён бренд" : null,
+          product.price <= 0 ? "Нулевая цена" : null,
+        ].filter((item): item is string => Boolean(item)),
+      }));
+
+    const sampleCategories = categoryRows
+      .filter(category => !category.description || (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0)
+      .slice(0, 10)
+      .map(category => ({
+        id: category.id,
+        slug: category.slug,
+        name: category.name,
+        issues: [
+          !category.description ? "Нет описания" : null,
+          (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0 &&
+          (childCounts.get(category.id) ?? 0) === 0
+            ? "Пустая конечная категория"
+            : null,
+        ].filter((item): item is string => Boolean(item)),
+      }));
+
+    const samplePosts = await db
+      .select({
+        id: schema.posts.id,
+        slug: schema.posts.slug,
+        title: schema.posts.title,
+        metaTitle: schema.posts.metaTitle,
+        metaDescription: schema.posts.metaDescription,
+        image: schema.posts.image,
+      })
+      .from(schema.posts)
+      .where(
+        or(
+          isNull(schema.posts.metaTitle),
+          eq(schema.posts.metaTitle, ""),
+          isNull(schema.posts.metaDescription),
+          eq(schema.posts.metaDescription, ""),
+          isNull(schema.posts.image),
+          eq(schema.posts.image, "")
+        )
+      )
+      .limit(10);
+
+    const feedSettings = await getYandexYmlFeedSettings();
+
+    return {
+      generatedAt: new Date().toISOString(),
+      feed: {
+        enabled: feedSettings.enabled,
+        baseUrl: feedSettings.baseUrl,
+      },
+      products: {
+        total: Number(totalProductsRow[0]?.count ?? 0),
+        visible: Number(visibleProductsRow[0]?.count ?? 0),
+        manuallyHidden: Number(manualHiddenProductsRow[0]?.count ?? 0),
+        autoBlocked: Number(autoBlockedProductsRow[0]?.count ?? 0),
+        zeroPrice: Number(zeroPriceProductsRow[0]?.count ?? 0),
+        withoutDescription: Number(noDescriptionProductsRow[0]?.count ?? 0),
+        withoutImage: Number(noImageProductsRow[0]?.count ?? 0),
+        withoutArticle: Number(noArticleProductsRow[0]?.count ?? 0),
+        withoutBarcode: Number(noBarcodeProductsRow[0]?.count ?? 0),
+        withoutBrand: productsMissingBrand,
+        samples: sampleProducts,
+      },
+      categories: {
+        total: Number(totalCategoriesRow[0]?.count ?? 0),
+        withoutDescription: Number(categoryNoDescriptionRow[0]?.count ?? 0),
+        emptyLeafCount: emptyLeafCategories.length,
+        samples: sampleCategories,
+      },
+      blog: {
+        total: Number(totalPostsRow[0]?.count ?? 0),
+        published: Number(publishedPostsRow[0]?.count ?? 0),
+        withoutMetaTitle: Number(postsMissingMetaTitleRow[0]?.count ?? 0),
+        withoutMetaDescription: Number(postsMissingMetaDescriptionRow[0]?.count ?? 0),
+        withoutImage: Number(postsMissingImageRow[0]?.count ?? 0),
+        samples: samplePosts.map(post => ({
+          id: post.id,
+          slug: post.slug,
+          title: post.title,
+          issues: [
+            !post.metaTitle ? "Нет meta title" : null,
+            !post.metaDescription ? "Нет meta description" : null,
+            !post.image ? "Нет изображения" : null,
+          ].filter((item): item is string => Boolean(item)),
+        })),
+      },
+      stores: {
+        total: Number(totalStoresRow[0]?.count ?? 0),
+        withoutMapUrl: Number(storesMissingMapRow[0]?.count ?? 0),
+        withoutPhone: Number(storesMissingPhoneRow[0]?.count ?? 0),
+        withoutHours: Number(storesMissingHoursRow[0]?.count ?? 0),
+        withoutImage: Number(storesMissingImageRow[0]?.count ?? 0),
+      },
+    };
   }),
 
   getYandexYmlFeedSettings: protectedProcedure.query(async ({ ctx }) => {

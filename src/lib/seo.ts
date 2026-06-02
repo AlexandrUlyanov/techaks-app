@@ -13,7 +13,10 @@ type SeoInput = {
   noindex?: boolean;
   image?: string;
   type?: "website" | "article";
-  structuredData?: Record<string, unknown> | null;
+  structuredData?:
+    | Record<string, unknown>
+    | Array<Record<string, unknown>>
+    | null;
 };
 
 function ensureMeta(name: string) {

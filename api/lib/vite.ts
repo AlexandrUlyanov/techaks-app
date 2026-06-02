@@ -3,15 +3,17 @@ import type { HttpBindings } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import fs from "fs";
 import path from "path";
+import { renderSeoAwareIndex } from "./seo-head";
 
 type App = Hono<{ Bindings: HttpBindings }>;
 
 export function serveStaticFiles(app: App) {
   const distPath = path.resolve(import.meta.dirname, "../dist/public");
-  const sendIndex = (c: Context) => {
+  const sendIndex = async (c: Context) => {
     const indexPath = path.resolve(distPath, "index.html");
     const content = fs.readFileSync(indexPath, "utf-8");
-    return c.html(content);
+    const html = await renderSeoAwareIndex(content, c.req.url);
+    return c.html(html);
   };
 
   app.get("/admin/*", sendIndex);

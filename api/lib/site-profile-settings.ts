@@ -6,9 +6,6 @@ export type SiteContactSettings = {
   secondaryPhone: string;
   email: string;
   workingHours: string;
-  whatsappUrl: string;
-  telegramUrl: string;
-  telegramHandle: string;
   shortAddress: string;
   fullAddress: string;
 };
@@ -102,9 +99,6 @@ export const defaultSiteProfileSettings: SiteProfileSettings = {
     secondaryPhone: "+7 (927) 364-28-88 (доб.3)",
     email: "tech.aks@yandex.ru",
     workingHours: "Ежедневно 9:00–21:00",
-    whatsappUrl: "https://wa.me/79273642888",
-    telegramUrl: "https://t.me/tech_aks",
-    telegramHandle: "@tech_aks",
     shortAddress: "Пенза",
     fullAddress: "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12",
   },
@@ -162,9 +156,6 @@ const settingsKeyMap = {
   "contacts.secondaryPhone": "site_contact_phone_secondary",
   "contacts.email": "site_contact_email",
   "contacts.workingHours": "site_contact_working_hours",
-  "contacts.whatsappUrl": "site_contact_whatsapp",
-  "contacts.telegramUrl": "site_contact_telegram",
-  "contacts.telegramHandle": "site_contact_telegram_handle",
   "contacts.shortAddress": "site_contact_address_short",
   "contacts.fullAddress": "site_contact_address_full",
   "seller.legalForm": "seller_legal_form",
@@ -231,18 +222,6 @@ export async function getSiteProfileSettings(): Promise<SiteProfileSettings> {
       workingHours: normalizeText(
         values[settingsKeyMap["contacts.workingHours"]],
         defaultSiteProfileSettings.contacts.workingHours
-      ),
-      whatsappUrl: normalizeText(
-        values[settingsKeyMap["contacts.whatsappUrl"]],
-        defaultSiteProfileSettings.contacts.whatsappUrl
-      ),
-      telegramUrl: normalizeText(
-        values[settingsKeyMap["contacts.telegramUrl"]],
-        defaultSiteProfileSettings.contacts.telegramUrl
-      ),
-      telegramHandle: normalizeText(
-        values[settingsKeyMap["contacts.telegramHandle"]],
-        defaultSiteProfileSettings.contacts.telegramHandle
       ),
       shortAddress: normalizeText(
         values[settingsKeyMap["contacts.shortAddress"]],
@@ -395,9 +374,6 @@ export async function saveSiteProfileSettings(input: SiteProfileSettings) {
     setAppSetting(settingsKeyMap["contacts.secondaryPhone"], input.contacts.secondaryPhone.trim()),
     setAppSetting(settingsKeyMap["contacts.email"], input.contacts.email.trim()),
     setAppSetting(settingsKeyMap["contacts.workingHours"], input.contacts.workingHours.trim()),
-    setAppSetting(settingsKeyMap["contacts.whatsappUrl"], input.contacts.whatsappUrl.trim()),
-    setAppSetting(settingsKeyMap["contacts.telegramUrl"], input.contacts.telegramUrl.trim()),
-    setAppSetting(settingsKeyMap["contacts.telegramHandle"], input.contacts.telegramHandle.trim()),
     setAppSetting(settingsKeyMap["contacts.shortAddress"], input.contacts.shortAddress.trim()),
     setAppSetting(settingsKeyMap["contacts.fullAddress"], input.contacts.fullAddress.trim()),
     setAppSetting(settingsKeyMap["seller.legalForm"], input.seller.legalForm.trim()),

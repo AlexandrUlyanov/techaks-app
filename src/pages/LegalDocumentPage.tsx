@@ -3,6 +3,10 @@ import { useLocation } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+} from "@/lib/seo-structured";
+import {
   buildSellerRequisitesLines,
   getSellerRegistrationLabel,
 } from "@/lib/site-profile-formatters";
@@ -62,6 +66,27 @@ export default function LegalDocumentPage() {
     title: `${title} — ТЕХАКС`,
     description: `${title} интернет-магазина ТЕХАКС.`,
     canonicalPath: location.pathname,
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: "https://techaks.ru/" },
+        { name: title, url: `https://techaks.ru${location.pathname}` },
+      ]),
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+        email: profile?.contacts.email,
+        phone: profile?.contacts.primaryPhoneDisplay,
+        address: profile?.seller.legalAddress,
+      }),
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: title,
+        description: `${title} интернет-магазина ТЕХАКС.`,
+        url: `https://techaks.ru${location.pathname}`,
+      },
+    ],
   });
 
   const sections = useMemo(
