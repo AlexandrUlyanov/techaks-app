@@ -8,6 +8,27 @@ function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
 }
 
+function getPaymentStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "unpaid":
+      return "Не оплачен";
+    case "awaiting_payment":
+      return "Ожидает оплаты";
+    case "paid":
+      return "Оплачен";
+    case "partially_paid":
+      return "Частично оплачен";
+    case "payment_error":
+      return "Ошибка оплаты";
+    case "refund":
+      return "Возврат";
+    case "partial_refund":
+      return "Частичный возврат";
+    default:
+      return value || "Не задан";
+  }
+}
+
 function getState(paymentStatus?: string | null) {
   if (paymentStatus === "paid") {
     return {
@@ -96,7 +117,7 @@ export default function PaymentResultPage() {
                   {order.orderNumber || `#${order.id}`}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  Статус оплаты: {order.paymentStatus}
+                  Статус оплаты: {getPaymentStatusLabel(order.paymentStatus)}
                 </div>
               </div>
               <div className="text-2xl font-black text-[#05C3D4]">
