@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Truck,
   Building2,
+  ShieldCheck,
   ShoppingCart,
   Minus,
   Plus,
