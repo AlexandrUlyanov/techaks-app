@@ -239,8 +239,8 @@ export default function ProductPage() {
   const merchandisingBadges = normalizeMerchandisingBadges(
     (product as { merchandisingBadges?: unknown } | undefined)?.merchandisingBadges
   ).slice(0, 4);
-  const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
-  const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
+  const hasPublishedReviews = (product?.reviewCount ?? 0) > 0 && Number(product?.rating ?? 0) > 0;
+  const reviewCountLabel = formatRussianCount(product?.reviewCount ?? 0, [
     "отзыв",
     "отзыва",
     "отзывов",
@@ -255,8 +255,12 @@ export default function ProductPage() {
     : selectedVariant?.stock ?? availableStores.length;
   const displayedArticle =
     selectedVariant?.article ||
-    (product as { article?: string | null; externalCode?: string | null }).article ||
-    (product as { article?: string | null; externalCode?: string | null }).externalCode ||
+    (product as
+      | { article?: string | null; externalCode?: string | null }
+      | undefined)?.article ||
+    (product as
+      | { article?: string | null; externalCode?: string | null }
+      | undefined)?.externalCode ||
     null;
   const productJsonLd = useMemo(() => {
     if (!product) return null;
