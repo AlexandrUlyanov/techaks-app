@@ -30,6 +30,7 @@ import {
   setSyncSchedulerLastFullSyncKey,
 } from "./lib/sync-runtime-settings";
 import { handleYooKassaWebhook } from "./lib/yookassa";
+import { buildYandexYmlFeed } from "./lib/feeds";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -245,6 +246,23 @@ app.get("/sitemap-images.xml", async c => {
     "Content-Type": "application/xml; charset=utf-8",
     "Cache-Control": "public, max-age=1800",
   });
+});
+
+app.get("/feeds/yandex-business.yml", async c => {
+  try {
+    const { xml } = await buildYandexYmlFeed();
+    return c.body(xml, 200, {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=300",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Yandex YML feed disabled") {
+      return c.text("Feed disabled", 404);
+    }
+
+    console.error("Yandex YML feed generation error:", error);
+    return c.text("Feed generation failed", 500);
+  }
 });
 
 // File Upload Endpoint

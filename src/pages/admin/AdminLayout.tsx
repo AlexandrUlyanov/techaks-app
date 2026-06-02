@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Blocks,
   Palette,
+  Rss,
 } from "lucide-react";
 import { useAbility } from "@/providers/AbilityProvider";
 
@@ -108,6 +109,9 @@ export default function AdminLayout() {
           : []),
         ...(ability.can("configure", "Settings")
           ? [{ name: "Журнал", href: "/admin/audit", icon: History }]
+          : []),
+        ...(ability.can("read", "Settings")
+          ? [{ name: "Фиды", href: "/admin/feeds", icon: Rss }]
           : []),
         { name: "Настройки", href: "/admin/settings", icon: Settings },
       ],

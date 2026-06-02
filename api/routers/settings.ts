@@ -18,6 +18,13 @@ import {
   yookassaSettingsInputSchema,
 } from "../lib/payment-settings";
 import { listAdminAuditLogs, writeAdminAuditLog } from "../lib/admin-audit";
+import {
+  buildYandexYmlFeed,
+  getFeedCatalogOverview,
+  getYandexYmlFeedSettings,
+  saveYandexYmlFeedSettings,
+  yandexYmlFeedSettingsInputSchema,
+} from "../lib/feeds";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -430,6 +437,39 @@ export const settingsRouter = createRouter({
   getYooKassaSettings: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "manage_payment_settings", "Settings");
     return getYooKassaAdminSettings();
+  }),
+
+  getFeedCatalog: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return getFeedCatalogOverview();
+  }),
+
+  getYandexYmlFeedSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return getYandexYmlFeedSettings();
+  }),
+
+  saveYandexYmlFeedSettings: protectedProcedure
+    .input(yandexYmlFeedSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getYandexYmlFeedSettings();
+      const result = await saveYandexYmlFeedSettings(input);
+      const after = await getYandexYmlFeedSettings();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.feed.yandex_yml.update",
+        entityType: "settings",
+        entityLabel: "Yandex YML feed",
+        before,
+        after,
+      });
+      return result;
+    }),
+
+  previewYandexYmlFeed: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return buildYandexYmlFeed({ ignoreEnabled: true, previewOnly: true });
   }),
 
   getPublicYooKassaStatus: publicQuery.query(async () => {

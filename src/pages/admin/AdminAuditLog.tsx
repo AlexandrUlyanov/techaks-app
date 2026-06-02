@@ -36,6 +36,7 @@ function formatActionLabel(action: string) {
     "settings.moysklad.clear_webhook_secret": "Очистка секрета вебхука МойСклад",
     "settings.yookassa.update": "Изменение настроек YooKassa",
     "settings.yookassa.test_connection": "Проверка подключения YooKassa",
+    "settings.feed.yandex_yml.update": "Изменение настроек Yandex YML",
     "settings.auth.update": "Изменение настроек авторизации и почты",
   };
 
