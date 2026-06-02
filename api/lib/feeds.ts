@@ -200,10 +200,12 @@ function normalizeImageCollection(
 
   if (imageVariants && typeof imageVariants === "object" && !Array.isArray(imageVariants)) {
     const variantObject = imageVariants as Record<string, unknown>;
-    tryPush(variantObject.original);
-    tryPush(variantObject.medium);
-    tryPush(variantObject.card);
-    tryPush(variantObject.thumb);
+    tryPush(
+      variantObject.original ||
+        variantObject.medium ||
+        variantObject.card ||
+        variantObject.thumb
+    );
   }
 
   if (Array.isArray(gallery)) {
@@ -215,10 +217,7 @@ function normalizeImageCollection(
 
       if (item && typeof item === "object" && !Array.isArray(item)) {
         const record = item as Record<string, unknown>;
-        tryPush(record.original);
-        tryPush(record.medium);
-        tryPush(record.card);
-        tryPush(record.thumb);
+        tryPush(record.original || record.medium || record.card || record.thumb);
       }
     }
   }
@@ -617,24 +616,15 @@ export async function buildYandexYmlFeed(options?: {
 
   stats.totalOffers = offers.length;
 
-  const categoryById = new Map(
-    categoryRows.map(category => [category.id, category] as const)
-  );
-  const includedCategoryIds = new Set<number>();
-
-  for (const offer of offers) {
-    let currentId: number | null = offer.categoryId;
-    while (currentId) {
-      if (includedCategoryIds.has(currentId)) break;
-      includedCategoryIds.add(currentId);
-      currentId = categoryById.get(currentId)?.parentId ?? null;
-    }
-  }
+  const includedCategoryIds = new Set<number>(offers.map(offer => offer.categoryId));
 
   const categoriesXml = categoryRows
     .filter(category => includedCategoryIds.has(category.id))
     .map(category => {
-      const parentAttribute = category.parentId ? ` parentId="${category.parentId}"` : "";
+      const parentAttribute =
+        category.parentId && includedCategoryIds.has(category.parentId)
+          ? ` parentId="${category.parentId}"`
+          : "";
       return `    <category id="${category.id}"${parentAttribute}>${xmlEscape(
         category.name
       )}</category>`;
