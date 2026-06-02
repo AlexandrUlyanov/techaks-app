@@ -25,6 +25,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCartAvailability } from "@/hooks/use-cart-availability";
 import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 
+type CheckoutPickupStore = {
+  storeId: number;
+  storeName: string;
+  storeAddress: string;
+  storePhone?: string | null;
+  storeHours?: string | null;
+  rawStockQty: number;
+  activeReservedQty: number;
+  availableQty: number;
+  hasConflict: boolean;
+};
+
 export default function CheckoutPage() {
   useSeo({
     title: "Оформление заказа — ТЕХАКС",
@@ -72,10 +84,43 @@ export default function CheckoutPage() {
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">(
     "pickup"
   );
+  const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
   const [address, setAddress] = useState("");
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "sbp" | "yookassa">(
     "cash"
   );
+  const { data: pickupStores = [], isFetching: pickupStoresLoading } =
+    trpc.ecommerce.getCheckoutPickupStores.useQuery(
+      {
+        items: items.map(item => ({
+          productId: item.id,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        })),
+      },
+      {
+        enabled: items.length > 0,
+        refetchOnWindowFocus: false,
+      }
+    );
+
+  const typedPickupStores = pickupStores as CheckoutPickupStore[];
+
+  useEffect(() => {
+    if (typedPickupStores.length === 0) {
+      setPickupStoreId(null);
+      return;
+    }
+
+    if (
+      pickupStoreId &&
+      typedPickupStores.some(store => store.storeId === pickupStoreId)
+    ) {
+      return;
+    }
+
+    setPickupStoreId(typedPickupStores[0]?.storeId ?? null);
+  }, [pickupStoreId, typedPickupStores]);
 
   const placeOrder = trpc.ecommerce.placeOrder.useMutation({
     onSuccess: data => {
@@ -126,6 +171,10 @@ export default function CheckoutPage() {
       toast.error("Пожалуйста, укажите адрес доставки");
       return;
     }
+    if (deliveryType === "pickup" && !pickupStoreId) {
+      toast.error("Пожалуйста, выберите магазин для самовывоза");
+      return;
+    }
     if (cartAvailability.isFetching) {
       toast.message("Подождите, проверяем актуальность товаров в корзине");
       return;
@@ -144,6 +193,7 @@ export default function CheckoutPage() {
         price: i.price,
       })),
       deliveryType,
+      storeId: deliveryType === "pickup" ? pickupStoreId : null,
       address:
         deliveryType === "delivery"
           ? normalizedAddress
@@ -394,7 +444,10 @@ export default function CheckoutPage() {
                           Самовывоз
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground mt-1">
-                          Пенза, пр. Строителей 50А
+                          {pickupStoreId
+                            ? typedPickupStores.find(store => store.storeId === pickupStoreId)?.storeAddress ||
+                              "Выберите магазин"
+                            : "Выберите магазин"}
                         </p>
                       </div>
                     </button>
@@ -420,6 +473,69 @@ export default function CheckoutPage() {
                       </div>
                     </button>
                   </div>
+
+                  {deliveryType === "pickup" && (
+                    <div className="space-y-3 animate-in fade-in zoom-in duration-300">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
+                          Магазин для самовывоза
+                        </Label>
+                        {pickupStoresLoading ? (
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Обновляем остатки...
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {typedPickupStores.length === 0 ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                          Для текущей корзины сейчас нет магазина, где все товары доступны для самовывоза. Выберите доставку или измените состав заказа.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {typedPickupStores.map(store => {
+                            const isActive = pickupStoreId === store.storeId;
+                            return (
+                              <button
+                                key={store.storeId}
+                                type="button"
+                                onClick={() => setPickupStoreId(store.storeId)}
+                                className={`rounded-2xl border px-5 py-4 text-left transition-all ${
+                                  isActive
+                                    ? "border-[#05C3D4] bg-[#05C3D4]/5"
+                                    : "border-border bg-background hover:border-muted-foreground/30"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="space-y-1">
+                                    <div className="font-bold text-sm text-foreground">
+                                      {store.storeName}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {store.storeAddress}
+                                    </div>
+                                    {store.storeHours ? (
+                                      <div className="text-[11px] font-medium text-muted-foreground">
+                                        {store.storeHours}
+                                      </div>
+                                    ) : null}
+                                    {store.storePhone ? (
+                                      <div className="text-[11px] font-medium text-muted-foreground">
+                                        {store.storePhone}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  {isActive ? (
+                                    <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#05C3D4]" />
+                                  ) : null}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {deliveryType === "delivery" && (
                     <div className="space-y-2 animate-in fade-in zoom-in duration-300">
@@ -531,7 +647,10 @@ export default function CheckoutPage() {
 
                 <Button
                   onClick={handlePlaceOrder}
-                  disabled={placeOrder.isPending}
+                  disabled={
+                    placeOrder.isPending ||
+                    (deliveryType === "pickup" && typedPickupStores.length === 0)
+                  }
                   className="w-full h-16 text-lg tracking-[0.2em] glow-cyan"
                 >
                   {placeOrder.isPending

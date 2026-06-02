@@ -17,6 +17,7 @@ import {
   DEFAULT_RESERVATION_DURATION_MINUTES,
   expireDueReservations,
   findExistingActiveReservation,
+  getAvailableStock,
   getProductReservationSummary,
   getProductStoreAvailability,
   getReservationDurationMinutes,
@@ -791,6 +792,42 @@ async function resolveOrCreateCustomerUser(
   };
 }
 
+async function getCheckoutPickupStoresForItems(
+  db: ReturnType<typeof getDb>,
+  items: Array<{ productId: number; variantId?: number | null; quantity: number }>
+) {
+  if (items.length === 0) return [];
+
+  const normalizedItems = items.map(item => ({
+    productId: item.productId,
+    variantId: item.variantId ?? null,
+    quantity: Math.max(1, Number(item.quantity ?? 1)),
+  }));
+
+  const perItemAvailability = await Promise.all(
+    normalizedItems.map(item =>
+      getProductStoreAvailability(db, item.productId, item.variantId ?? null)
+    )
+  );
+
+  const candidateStoreIds = perItemAvailability.reduce<number[]>((acc, rows, index) => {
+    const validStoreIds = rows
+      .filter(row => Number(row.availableQty ?? 0) >= normalizedItems[index]!.quantity)
+      .map(row => Number(row.storeId));
+
+    if (index === 0) return validStoreIds;
+    return acc.filter(storeId => validStoreIds.includes(storeId));
+  }, []);
+
+  if (candidateStoreIds.length === 0) return [];
+
+  const firstAvailability = perItemAvailability[0] ?? [];
+  return candidateStoreIds
+    .map(storeId => firstAvailability.find(row => Number(row.storeId) === storeId))
+    .filter((row): row is NonNullable<typeof row> => Boolean(row))
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, "ru"));
+}
+
 async function createSingleItemOrder(
   db: ReturnType<typeof getDb>,
   input: {
@@ -1395,6 +1432,45 @@ export const ecommerceRouter = createRouter({
       };
     }),
 
+  getCheckoutPickupStores: publicQuery
+    .input(
+      z.object({
+        items: z.array(
+          z.object({
+            productId: z.number(),
+            variantId: z.number().optional().nullable(),
+            quantity: z.number().int().min(1),
+          })
+        ),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      if (input.items.length === 0) return [];
+
+      const { purchasableItems, removedProductIds } = await resolvePurchasableCartItems(
+        db,
+        input.items.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        }))
+      );
+
+      if (purchasableItems.length !== input.items.length || removedProductIds.length > 0) {
+        return [];
+      }
+
+      return await getCheckoutPickupStoresForItems(
+        db,
+        purchasableItems.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        }))
+      );
+    }),
+
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
     .input(
@@ -1413,6 +1489,7 @@ export const ecommerceRouter = createRouter({
           })
         ),
         deliveryType: z.enum(["pickup", "delivery"]),
+        storeId: z.number().int().positive().optional().nullable(),
         address: z.string().optional().nullable(),
         paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
@@ -1449,6 +1526,43 @@ export const ecommerceRouter = createRouter({
           code: "BAD_REQUEST",
           message: "Некоторые товары стали недоступны и были удалены из корзины.",
         });
+      }
+
+      let pickupStore:
+        | {
+            id: number;
+            name: string;
+            address: string;
+            phone: string | null;
+            hours: string | null;
+          }
+        | null = null;
+
+      if (input.deliveryType === "pickup") {
+        if (!input.storeId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Выберите магазин для самовывоза.",
+          });
+        }
+
+        pickupStore = await assertStoreExists(db, input.storeId);
+
+        for (const item of purchasableItems) {
+          const stock = await getAvailableStock(
+            db,
+            item.productId,
+            input.storeId,
+            item.variantId ?? null
+          );
+
+          if (stock.availableQty < item.quantity) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `В магазине «${pickupStore.name}» не хватает товара «${item.name}». Выберите другой магазин или доставку.`,
+            });
+          }
+        }
       }
 
       const trustedTotal = purchasableItems.reduce(
@@ -1515,96 +1629,151 @@ export const ecommerceRouter = createRouter({
         userId = newUser[0].insertId;
       }
 
-      // 2. Create order
-      let newOrder;
-      if (canUseModernOrderInsertSchema(capabilities)) {
-        newOrder = await db.insert(orders).values({
-          userId,
-          orderNumber,
-          customerName: normalizedFullName,
-          customerPhone: normalizedPhone,
-          customerEmail: contactEmail,
-          source: "site",
-          totalPrice: trustedTotal,
-          subtotal: trustedTotal,
-          paidAmount: 0,
-          deliveryType: input.deliveryType,
-          address: input.address,
-          deliveryStatus:
-            input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
-          paymentType: input.paymentType,
-          paymentMethod: input.paymentType,
-          paymentStatus:
-            input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
-          status: "pending",
-        });
-      } else {
-        // Fallback for partially migrated DBs (legacy orders schema with fewer columns).
-        const legacyInsertResult = await db.execute(sql`
-          INSERT INTO orders (
-            user_id,
-            status,
-            total_price,
-            delivery_type,
-            address,
-            payment_type,
-            payment_status,
-            created_at
-          ) VALUES (
-            ${userId},
-            ${"pending"},
-            ${trustedTotal},
-            ${input.deliveryType},
-            ${input.address},
-            ${input.paymentType},
-            ${input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid"},
-            NOW()
-          )
-        `);
-        const fallbackOrderId = Number(
-          (legacyInsertResult as any)?.[0]?.insertId ??
-          (legacyInsertResult as any)?.insertId ??
-          0
-        );
-        if (!fallbackOrderId) {
-          throw new Error("Не удалось получить ID созданного заказа");
-        }
-        newOrder = [{ insertId: fallbackOrderId }];
-      }
-      const orderId = newOrder[0].insertId;
+      const orderAddress =
+        input.deliveryType === "pickup"
+          ? pickupStore
+            ? `${pickupStore.name}, ${pickupStore.address}`
+            : "Самовывоз из магазина"
+          : input.address;
 
-      // 3. Create order items
-      for (const item of purchasableItems) {
+      const reservationDurationMinutes =
+        input.deliveryType === "pickup"
+          ? await getReservationDurationMinutes()
+          : DEFAULT_RESERVATION_DURATION_MINUTES;
+
+      const orderId = await db.transaction(async tx => {
+        if (input.deliveryType === "pickup" && input.storeId) {
+          await expireDueReservations(tx);
+          for (const item of purchasableItems) {
+            const stock = await getAvailableStock(
+              tx,
+              item.productId,
+              input.storeId,
+              item.variantId ?? null
+            );
+
+            if (stock.availableQty < item.quantity) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `Товар «${item.name}» уже недоступен в выбранном магазине.`,
+              });
+            }
+          }
+        }
+
+        let newOrder;
         if (canUseModernOrderInsertSchema(capabilities)) {
-          await db.insert(orderItems).values({
-            orderId,
-            productId: item.productId,
-            variantId: item.variantId ?? null,
-            variantName: item.variantName ?? null,
-            article: item.article ?? null,
-            sku: item.article ?? null,
-            productName: item.name,
-            image: item.image,
-            total: item.price * item.quantity,
-            quantity: item.quantity,
-            price: item.price,
+          newOrder = await tx.insert(orders).values({
+            userId,
+            storeId: input.deliveryType === "pickup" ? input.storeId ?? null : null,
+            orderNumber,
+            customerName: normalizedFullName,
+            customerPhone: normalizedPhone,
+            customerEmail: contactEmail,
+            source: "site",
+            totalPrice: trustedTotal,
+            subtotal: trustedTotal,
+            paidAmount: 0,
+            deliveryType: input.deliveryType,
+            address: orderAddress,
+            deliveryStatus:
+              input.deliveryType === "pickup" ? "not_required" : "awaiting_processing",
+            paymentType: input.paymentType,
+            paymentMethod: input.paymentType,
+            paymentStatus:
+              input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
+            status: "pending",
           });
         } else {
-          await db.execute(sql`
-            INSERT INTO order_items (
-              order_id,
-              product_id,
-              quantity,
-              price
+          const legacyInsertResult = await tx.execute(sql`
+            INSERT INTO orders (
+              user_id,
+              status,
+              total_price,
+              delivery_type,
+              address,
+              payment_type,
+              payment_status,
+              created_at
             ) VALUES (
-              ${orderId},
-              ${item.productId},
-            ${item.quantity},
-            ${item.price}
-          )
-        `);
+              ${userId},
+              ${"pending"},
+              ${trustedTotal},
+              ${input.deliveryType},
+              ${orderAddress},
+              ${input.paymentType},
+              ${input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid"},
+              NOW()
+            )
+          `);
+          const fallbackOrderId = Number(
+            (legacyInsertResult as any)?.[0]?.insertId ??
+            (legacyInsertResult as any)?.insertId ??
+            0
+          );
+          if (!fallbackOrderId) {
+            throw new Error("Не удалось получить ID созданного заказа");
+          }
+          newOrder = [{ insertId: fallbackOrderId }];
         }
-      }
+
+        const createdOrderId = Number(newOrder[0].insertId);
+
+        for (const item of purchasableItems) {
+          if (canUseModernOrderInsertSchema(capabilities)) {
+            await tx.insert(orderItems).values({
+              orderId: createdOrderId,
+              productId: item.productId,
+              variantId: item.variantId ?? null,
+              variantName: item.variantName ?? null,
+              article: item.article ?? null,
+              sku: item.article ?? null,
+              productName: item.name,
+              image: item.image,
+              total: item.price * item.quantity,
+              quantity: item.quantity,
+              price: item.price,
+            });
+          } else {
+            await tx.execute(sql`
+              INSERT INTO order_items (
+                order_id,
+                product_id,
+                quantity,
+                price
+              ) VALUES (
+                ${createdOrderId},
+                ${item.productId},
+                ${item.quantity},
+                ${item.price}
+              )
+            `);
+          }
+        }
+
+        if (input.deliveryType === "pickup" && input.storeId) {
+          const now = new Date();
+          const reservedUntil = getReservationExpiryDate(reservationDurationMinutes, now);
+          for (const item of purchasableItems) {
+            await tx.insert(productReservations).values({
+              productId: item.productId,
+              variantId: item.variantId ?? null,
+              storeId: input.storeId,
+              userId,
+              phone: normalizedPhone,
+              customerName: normalizedFullName,
+              quantity: item.quantity,
+              status: RESERVATION_STATUS_ACTIVE,
+              reservedUntil,
+              source: "checkout",
+              comment: `Заказ ${orderNumber}`,
+              updatedAt: now,
+            });
+          }
+        }
+
+        return createdOrderId;
+      });
 
       // 4. (Optional) Trigger Telegram Notification to Admin
       // This will be added in a separate utility
@@ -1623,10 +1792,7 @@ export const ecommerceRouter = createRouter({
             paymentStatus:
               input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
             deliveryMethod: input.deliveryType,
-            deliveryAddress:
-              input.deliveryType === "delivery"
-                ? input.address
-                : "Самовывоз из магазина",
+            deliveryAddress: orderAddress,
             subtotal: trustedTotal,
             totalAmount: trustedTotal,
             orderUrl: ACCOUNT_ORDERS_URL,

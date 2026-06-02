@@ -78,6 +78,8 @@ type LoadedOrder = {
   paymentStatus: string;
   source: string;
   storeId: number | null;
+  storeMsId: string | null;
+  storeName: string | null;
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -185,6 +187,10 @@ function buildProductHref(msId: string) {
 
 function buildVariantHref(msId: string) {
   return `https://api.moysklad.ru/api/remap/1.2/entity/variant/${msId}`;
+}
+
+function buildStoreHref(msId: string) {
+  return `https://api.moysklad.ru/api/remap/1.2/entity/store/${msId}`;
 }
 
 function toMoyskladApiPath(href: string) {
@@ -551,6 +557,8 @@ async function loadOrderForSync(db: ReturnType<typeof getDb>, orderId: number): 
       paymentStatus: orders.paymentStatus,
       source: orders.source,
       storeId: orders.storeId,
+      storeMsId: stores.msId,
+      storeName: stores.name,
       customerName: sql<string | null>`coalesce(${orders.customerName}, ${users.fullName})`,
       customerPhone: sql<string | null>`coalesce(${orders.customerPhone}, ${users.phone})`,
       customerEmail: sql<string | null>`coalesce(${orders.customerEmail}, ${users.email})`,
@@ -572,6 +580,7 @@ async function loadOrderForSync(db: ReturnType<typeof getDb>, orderId: number): 
     })
     .from(orders)
     .leftJoin(users, eq(orders.userId, users.id))
+    .leftJoin(stores, eq(orders.storeId, stores.id))
     .where(eq(orders.id, orderId))
     .limit(1);
 
@@ -692,6 +701,15 @@ function buildCustomerOrderPositions(order: LoadedOrder, reserveOnOrder: boolean
   });
 }
 
+function resolveOrderStoreHref(order: LoadedOrder, settings: OrderSyncSettings) {
+  const orderStoreMsId = order.storeMsId?.trim();
+  if (orderStoreMsId) {
+    return buildStoreHref(orderStoreMsId);
+  }
+
+  return settings.storeHref?.trim() || null;
+}
+
 function buildCustomerOrderPayload(args: {
   order: LoadedOrder;
   settings: OrderSyncSettings;
@@ -702,6 +720,14 @@ function buildCustomerOrderPayload(args: {
   const { order, settings, counterpartyHref, stateHref, onlyStatus } = args;
   const humanOrderNumber =
     order.orderNumber?.trim() || `TA-${order.id}`;
+  const orderStoreHref = resolveOrderStoreHref(order, settings);
+  if (!orderStoreHref) {
+    throw new Error(
+      order.storeId
+        ? `Для магазина «${order.storeName || `#${order.storeId}`}» не привязан склад МойСклад.`
+        : "Не настроен склад МойСклад для синхронизации заказа."
+    );
+  }
   const payload: Record<string, unknown> = {
     name: humanOrderNumber,
     organization: {
@@ -720,7 +746,7 @@ function buildCustomerOrderPayload(args: {
     },
     store: {
       meta: {
-        href: settings.storeHref,
+        href: orderStoreHref,
         type: "store",
         mediaType: "application/json",
       },
@@ -858,10 +884,20 @@ async function syncOrderToMoysklad(orderId: number, action: JobAction) {
   }
 
   if (!settings.organizationHref || !settings.storeHref) {
-    throw new Error("Не настроены organization/store для синхронизации заказов с МойСклад.");
+    const order = await loadOrderForSync(db, orderId);
+    if (!settings.organizationHref || !resolveOrderStoreHref(order, settings)) {
+      throw new Error("Не настроены organization/store для синхронизации заказов с МойСклад.");
+    }
   }
 
   const order = await loadOrderForSync(db, orderId);
+  if (!resolveOrderStoreHref(order, settings)) {
+    throw new Error(
+      order.storeId
+        ? `Для магазина «${order.storeName || `#${order.storeId}`}» не привязан склад МойСклад.`
+        : "Не настроен склад МойСклад для синхронизации заказа."
+    );
+  }
   const externalCode = order.moyskladExternalCode?.trim() || getOrderExternalCode(order.id);
   const mappedStateHref = settings.statusMapping[order.status] ?? null;
 
@@ -967,8 +1003,8 @@ async function syncOrderPaymentToMoysklad(orderId: number) {
     return { skipped: true };
   }
 
-  if (!settings.organizationHref || !settings.storeHref) {
-    throw new Error("Не настроены organization/store для синхронизации оплаты с МойСклад.");
+  if (!settings.organizationHref) {
+    throw new Error("Не настроена организация для синхронизации оплаты с МойСклад.");
   }
 
   let order = await loadOrderForSync(db, orderId);
