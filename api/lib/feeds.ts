@@ -485,7 +485,9 @@ export async function buildYandexYmlFeed(options?: {
       args.image,
       args.imageVariants,
       args.images
-    ).map(imageUrl => resolveAbsoluteUrl(imageUrl, settings.shopUrl));
+    )
+      .map(imageUrl => resolveAbsoluteUrl(imageUrl, settings.shopUrl))
+      .slice(0, 1);
 
     if (pictures.length === 0) {
       picturesMissingCount += 1;
