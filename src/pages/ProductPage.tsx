@@ -223,21 +223,21 @@ export default function ProductPage() {
     : "Карточка товара интернет-магазина ТЕХАКС.";
   const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
   const relatedProducts = merchandisingRelated.slice(0, 4);
-  const descriptionForSeo = (product.description || "").trim().slice(0, 220);
+  const descriptionForSeo = (product?.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
 
   const isManufacturerSpec = (key: string) =>
     ["производитель", "бренд"].includes(key.trim().toLowerCase());
-  const normalizedDescription = (product.description || "").trim();
+  const normalizedDescription = (product?.description || "").trim();
   const isInStock = hasVariants
     ? selectedVariantAvailableQty > 0
-    : Boolean(product.inStock);
+    : Boolean(product?.inStock);
   const manufacturer = productManufacturer ?? null;
   const hasManufacturer = Boolean(manufacturer);
   const merchandisingBadges = normalizeMerchandisingBadges(
-    (product as { merchandisingBadges?: unknown }).merchandisingBadges
+    (product as { merchandisingBadges?: unknown } | undefined)?.merchandisingBadges
   ).slice(0, 4);
   const hasPublishedReviews = (product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
   const reviewCountLabel = formatRussianCount(product.reviewCount ?? 0, [
@@ -246,10 +246,10 @@ export default function ProductPage() {
     "отзывов",
   ]);
   const hasOldPrice =
-    typeof product.oldPrice === "number" && product.oldPrice > product.price;
+    typeof product?.oldPrice === "number" && product.oldPrice > (product?.price ?? 0);
   const hasVariantPriceRange =
     hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
-  const displayedPrice = selectedVariant?.price ?? product.price;
+  const displayedPrice = selectedVariant?.price ?? product?.price ?? 0;
   const displayedStockCount = hasVariants
     ? selectedVariantAvailableQty
     : selectedVariant?.stock ?? availableStores.length;
