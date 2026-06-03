@@ -139,10 +139,10 @@ const DesktopCatalog = () => {
       />
       <div
         className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
-        style={{ height: "640px" }}
+        style={{ height: "min(calc(100vh - 80px), 860px)" }}
       >
         <div className="container-main flex h-full p-0">
-          <div className="w-[300px] border-r border-border bg-muted/20 overflow-y-auto custom-scrollbar">
+          <div className="w-[300px] border-r border-border bg-muted/20 overflow-hidden">
             <div className="py-4">
               {menu.catalogCategories.map(cat => (
                 <div
@@ -201,9 +201,12 @@ const DesktopCatalog = () => {
               )}
             </div>
             {groupsWithChildren.length > 0 ? (
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6 xl:grid-cols-3">
+              <div className="columns-2 xl:columns-3 [column-gap:2.5rem]">
                 {groupsWithChildren.map((group: CategoryGroup) => (
-                  <div key={group.id} className="space-y-2.5">
+                  <div
+                    key={group.id}
+                    className="mb-6 break-inside-avoid space-y-2.5"
+                  >
                     <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                       <Link to={group.href || "#"} onClick={menu.close}>
                         {group.title}
