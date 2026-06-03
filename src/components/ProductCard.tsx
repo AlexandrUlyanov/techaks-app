@@ -171,13 +171,13 @@ export default function ProductCard({
 
   if (variant === "list") {
     return (
-      <div className="group overflow-hidden rounded-[28px] border border-transparent bg-white transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-[2px] hover:border-[#05C3D4]/30 hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_2%,white)]">
+      <div className="group overflow-hidden rounded-[28px] border border-transparent bg-white ring-1 ring-transparent transition-[border-color,ring-color] duration-200 ease-out hover:border-[#05C3D4]/20 hover:ring-[#05C3D4]/18">
         <Link
           to={`/product/${product.slug}`}
           onClick={handleNavigate}
           className="grid grid-cols-[112px_1fr] gap-4 p-3 sm:grid-cols-[148px_1fr] sm:p-4"
         >
-          <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 transition-colors duration-200 group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,white)] sm:h-[132px]">
+          <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
             {topBadges.length > 0 && (
               <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
                 {topBadges.map(itemBadge => (
@@ -251,9 +251,9 @@ export default function ProductCard({
   }
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-transparent bg-white transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-[2px] hover:border-[#05C3D4]/30 hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_2%,white)]">
+    <div className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-transparent bg-white ring-1 ring-transparent transition-[border-color,ring-color] duration-200 ease-out hover:border-[#05C3D4]/20 hover:ring-[#05C3D4]/18">
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
-        <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 transition-colors duration-200 group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,white)] sm:h-[210px]">
+        <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
           {topBadges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
               {topBadges.map(itemBadge => (
