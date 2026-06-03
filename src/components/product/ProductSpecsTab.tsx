@@ -173,7 +173,7 @@ export default function ProductSpecsTab({
           return (
             <section
               key={group.title}
-              className="space-y-4 rounded-[1.75rem] bg-[var(--tech-color-surface-muted)]/35 p-5 md:p-6"
+              className="space-y-5 rounded-[1.9rem] bg-[var(--tech-color-surface-muted)]/28 px-5 py-5 md:px-6 md:py-6"
             >
               <div className="flex items-center gap-4">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
@@ -189,22 +189,28 @@ export default function ProductSpecsTab({
                 </div>
               </div>
 
-              <dl className="space-y-2.5">
-                {visibleItems.map(([key, value], index) => (
+              <dl className="space-y-0">
+                {visibleItems.map(([key, value], index) => {
+                  const isLast = index === visibleItems.length - 1;
+
+                  return (
                   <div
                     key={`${group.title}-${key}`}
                     className={cn(
-                      "grid items-start gap-2 rounded-[22px] bg-[var(--tech-color-surface-muted)]/70 px-4 py-[15px] transition-colors duration-200 md:grid-cols-[minmax(180px,220px)_minmax(36px,1fr)_minmax(260px,1.3fr)] md:gap-4 md:px-5",
-                      "hover:bg-[rgba(5,195,212,0.07)] dark:hover:bg-[rgba(5,195,212,0.1)]"
+                      "grid items-start gap-2 rounded-[20px] px-4 py-4 transition-colors duration-200 md:grid-cols-[minmax(180px,220px)_minmax(44px,1fr)_minmax(260px,1.3fr)] md:gap-4 md:px-5",
+                      "hover:bg-white/50 dark:hover:bg-white/[0.03]",
+                      !isLast && "border-b border-[var(--tech-color-border)]/55"
                     )}
                   >
-                    <dt className="pt-0.5 text-sm font-medium text-muted-foreground">{key}</dt>
-                    <span className="hidden translate-y-[-1px] border-b border-dotted border-[var(--tech-color-border)]/75 md:block" />
-                    <dd className="text-[15px] font-semibold leading-7 text-foreground md:text-right">
+                    <dt className="pt-0.5 text-sm font-medium text-muted-foreground">
+                      {key}
+                    </dt>
+                    <span className="hidden translate-y-[12px] border-b border-dotted border-[var(--tech-color-border)]/75 md:block" />
+                    <dd className="text-[15px] font-semibold leading-7 text-foreground md:text-left">
                       {String(value)}
                     </dd>
                   </div>
-                ))}
+                )})}
               </dl>
             </section>
           );

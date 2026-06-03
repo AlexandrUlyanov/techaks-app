@@ -56,14 +56,18 @@ export default function ProductServices({
       >
         Услуги и получение
       </h2>
-      <div className={compactMobile ? "mt-0 space-y-2 md:mt-4" : "mt-4 space-y-2.5"}>
+      <div
+        className={`${
+          compactMobile ? "mt-0 md:mt-4" : "mt-4"
+        } divide-y divide-[var(--tech-color-border)]/70`}
+      >
         {rowsToRender.map(row => {
           const Icon = row.icon;
           const isPickupAction = row.key === "pickup" && Boolean(onPickupClick);
-          const rowClassName = `flex w-full items-start justify-between gap-4 rounded-[22px] px-4 py-4 text-left transition-colors duration-200 ${
+          const rowClassName = `flex w-full appearance-none items-start justify-between gap-4 rounded-[20px] px-3 py-3.5 text-left transition-colors duration-200 ${
             isPickupAction
-              ? "cursor-pointer hover:bg-[rgba(5,195,212,0.07)] dark:hover:bg-[rgba(5,195,212,0.09)]"
-              : "bg-transparent"
+              ? "cursor-pointer border-0 bg-transparent hover:bg-[rgba(5,195,212,0.06)] dark:hover:bg-[rgba(5,195,212,0.08)]"
+              : "border-0 bg-transparent"
           }`;
 
           const content = (
@@ -104,7 +108,7 @@ export default function ProductServices({
                 key={row.key}
                 type="button"
                 onClick={onPickupClick}
-                className={rowClassName}
+                className={`mt-1 ${rowClassName}`}
               >
                 {content}
               </button>
@@ -114,7 +118,7 @@ export default function ProductServices({
           return (
             <div
               key={row.key}
-              className={rowClassName}
+              className={`mt-1 ${rowClassName}`}
             >
               {content}
             </div>
