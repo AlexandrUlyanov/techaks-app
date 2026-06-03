@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Lock, Mail, Phone, User as UserIcon } from "lucide-react";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 interface AuthModalProps {
   onSuccess?: () => void;
@@ -21,6 +22,7 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
   const [registerPhone, setRegisterPhone] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
+  const [registerConsentChecked, setRegisterConsentChecked] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [showReset, setShowReset] = useState(false);
   const { setUser, setToken } = useAuth();
@@ -75,6 +77,10 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
     }
     if (registerPassword.length < 6) {
       toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+    if (!registerConsentChecked) {
+      toast.error("Подтвердите согласие на обработку персональных данных");
       return;
     }
     registerMutation.mutate({
@@ -250,6 +256,11 @@ export default function AuthModal({ onSuccess }: AuthModalProps) {
               />
             </div>
           </div>
+          <PersonalDataConsent
+            checked={registerConsentChecked}
+            onCheckedChange={setRegisterConsentChecked}
+            withOffer
+          />
           <Button
             disabled={registerMutation.isPending}
             className="w-full h-14 tracking-widest uppercase text-xs"
