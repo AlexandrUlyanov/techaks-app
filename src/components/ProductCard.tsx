@@ -195,7 +195,7 @@ export default function ProductCard({
               srcSet={productImage.srcSet}
               sizes={productImage.sizes}
               alt={product.name}
-              className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[0.985]"
+              className="h-full w-full object-contain"
               loading={productImage.loading}
               fetchPriority={productImage.fetchPriority}
               decoding={productImage.decoding}
@@ -209,7 +209,7 @@ export default function ProductCard({
                 {!isInStock ? "Нет в наличии" : "В наличии"}
               </span>
             </div>
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-[#20262E] transition-colors duration-200 group-hover:text-[var(--tech-color-primary)] sm:text-base">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-[#20262E] sm:text-base">
               {product.name}
             </h3>
             {hasRating && (
@@ -271,7 +271,7 @@ export default function ProductCard({
             srcSet={productImage.srcSet}
             sizes={productImage.sizes}
             alt={product.name}
-            className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[0.985]"
+            className="h-full w-full object-contain"
             loading={productImage.loading}
             fetchPriority={productImage.fetchPriority}
             decoding={productImage.decoding}
@@ -280,7 +280,7 @@ export default function ProductCard({
         </div>
 
         <div className="flex flex-1 flex-col px-3 pb-2 pt-3 sm:px-4">
-          <h3 className="min-h-[2.7rem] line-clamp-2 text-center text-[15px] font-medium leading-snug text-[#20262E] transition-colors duration-200 group-hover:text-[var(--tech-color-primary)]">
+          <h3 className="min-h-[2.7rem] line-clamp-2 text-center text-[15px] font-medium leading-snug text-[#20262E]">
             {product.name}
           </h3>
           {hasRating && (
