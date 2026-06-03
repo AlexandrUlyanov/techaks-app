@@ -260,7 +260,7 @@ export default function HomeSecondarySections({
 
           <div className="mt-16 text-center">
             <a
-              href="https://yandex.ru/maps/org/techaks/"
+              href="https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-8 py-4 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-card hover:border-[#05C3D4] transition-all"
