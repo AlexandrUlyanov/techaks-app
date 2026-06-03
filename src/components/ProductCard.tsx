@@ -195,7 +195,7 @@ export default function ProductCard({
               srcSet={productImage.srcSet}
               sizes={productImage.sizes}
               alt={product.name}
-              className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+              className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[0.985]"
               loading={productImage.loading}
               fetchPriority={productImage.fetchPriority}
               decoding={productImage.decoding}
@@ -271,7 +271,7 @@ export default function ProductCard({
             srcSet={productImage.srcSet}
             sizes={productImage.sizes}
             alt={product.name}
-            className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[0.985]"
             loading={productImage.loading}
             fetchPriority={productImage.fetchPriority}
             decoding={productImage.decoding}
