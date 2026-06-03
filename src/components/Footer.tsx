@@ -135,18 +135,40 @@ export default function Footer() {
           <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em]">
             © 2026 ТЕХАКС — ТЕХНИКА И АКСЕССУАРЫ
           </span>
-          <div className="flex items-center gap-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center">
             <Link
               to="/privacy-policy"
-              className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider transition-colors"
+              className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
             >
-              Политика
+              Политика обработки персональных данных
             </Link>
+            <span className="text-white/15">·</span>
             <Link
               to="/offer"
-              className="text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-wider transition-colors"
+              className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
             >
               Оферта
+            </Link>
+            <span className="text-white/15">·</span>
+            <Link
+              to="/returns"
+              className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
+            >
+              Возврат
+            </Link>
+            <span className="text-white/15">·</span>
+            <Link
+              to="/payment-delivery"
+              className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
+            >
+              Оплата
+            </Link>
+            <span className="text-white/15">·</span>
+            <Link
+              to="/payment-delivery"
+              className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
+            >
+              Доставка
             </Link>
           </div>
         </div>

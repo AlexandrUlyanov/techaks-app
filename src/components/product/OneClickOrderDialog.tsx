@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ConfirmReserveIcon, OneClickIcon } from "./ProductActionIcons";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 type OrderSuccessPayload = {
   orderId: number;
@@ -36,6 +37,7 @@ export default function OneClickOrderDialog({
   const { user } = useAuth();
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [successState, setSuccessState] = useState<OrderSuccessPayload | null>(null);
 
@@ -58,6 +60,7 @@ export default function OneClickOrderDialog({
       setSuccessState(null);
       setPhone("");
       setCustomerName("");
+      setConsentChecked(false);
       return;
     }
 
@@ -95,6 +98,11 @@ export default function OneClickOrderDialog({
             onSubmit={event => {
               event.preventDefault();
               setFieldError(null);
+              if (!consentChecked) {
+                setFieldError("Подтвердите согласие на обработку персональных данных.");
+                toast.error("Подтвердите согласие на обработку персональных данных.");
+                return;
+              }
               createOneClickOrder.mutate({
                 productId: product.id,
                 variantId: product.variantId ?? null,
@@ -163,7 +171,13 @@ export default function OneClickOrderDialog({
                   className="h-12 w-full rounded-2xl border border-border px-4 text-sm outline-none transition focus:border-[#05C3D4]"
                 />
               </label>
-            ) : null}
+              ) : null}
+
+              <PersonalDataConsent
+                checked={consentChecked}
+                onCheckedChange={setConsentChecked}
+                withOffer
+              />
 
             {fieldError ? (
               <p className="text-sm text-red-600">{fieldError}</p>

@@ -13,6 +13,7 @@ import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ConfirmReserveIcon, ReserveStoreIcon } from "./ProductActionIcons";
 import type { ProductStoreAvailability } from "./StoreAvailabilityItem";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 type ReservationSuccessPayload = {
   id: number;
@@ -46,6 +47,7 @@ export default function ReservationConfirmDialog({
   const { user, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [allowPhoneEdit, setAllowPhoneEdit] = useState(false);
   const [successState, setSuccessState] = useState<ReservationSuccessPayload | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export default function ReservationConfirmDialog({
       setFieldError(null);
       setPhone("");
       setCustomerName("");
+      setConsentChecked(false);
       setAllowPhoneEdit(false);
       return;
     }
@@ -145,6 +148,11 @@ export default function ReservationConfirmDialog({
               event.preventDefault();
               if (!store) return;
               setFieldError(null);
+              if (!consentChecked) {
+                setFieldError("Подтвердите согласие на обработку персональных данных.");
+                toast.error("Подтвердите согласие на обработку персональных данных.");
+                return;
+              }
               createReservation.mutate({
                 productId: product.id,
                 variantId: product.variantId ?? null,
@@ -233,6 +241,12 @@ export default function ReservationConfirmDialog({
                   />
                 </label>
               ) : null}
+
+              <PersonalDataConsent
+                checked={consentChecked}
+                onCheckedChange={setConsentChecked}
+                withOffer
+              />
 
               {fieldError ? (
                 <p className="text-sm text-red-600" id="reservation-phone-error">

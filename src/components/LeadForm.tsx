@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 interface LeadFormProps {
   title?: string;
@@ -25,7 +25,7 @@ export default function LeadForm({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
+  const [consentChecked, setConsentChecked] = useState(false);
 
   const createLead = trpc.lead.create.useMutation({
     onSuccess: () => {
@@ -33,6 +33,7 @@ export default function LeadForm({
       setName("");
       setPhone("");
       setMessage("");
+      setConsentChecked(false);
     },
     onError: error => {
       toast.error(error.message || "Произошла ошибка. Попробуйте позже.");
@@ -45,13 +46,21 @@ export default function LeadForm({
       toast.error("Пожалуйста, заполните имя и телефон");
       return;
     }
+    if (!consentChecked) {
+      toast.error("Подтвердите согласие на обработку персональных данных");
+      return;
+    }
     createLead.mutate({
       name: name.trim(),
       phone: phone.trim(),
       message: message.trim() || undefined,
       type,
       source,
-      metadata,
+      metadata: {
+        ...(metadata && typeof metadata === "object" ? metadata : {}),
+        consentToPersonalData: true,
+        consentAt: new Date().toISOString(),
+      },
     });
   };
 
@@ -104,6 +113,11 @@ export default function LeadForm({
           rows={3}
           className={`${inputClass} py-4 h-auto resize-none`}
         />
+        <PersonalDataConsent
+          checked={consentChecked}
+          onCheckedChange={setConsentChecked}
+          dark={dark}
+        />
         <button
           type="submit"
           disabled={createLead.isPending}
@@ -116,19 +130,6 @@ export default function LeadForm({
           {createLead.isPending ? "ОБРАБОТКА..." : buttonText.toUpperCase()}
         </button>
       </form>
-
-      <p
-        className={`mt-6 text-[10px] font-bold text-center uppercase tracking-widest ${dark ? "text-white/20" : "text-black/30"}`}
-      >
-        Нажимая кнопку, вы соглашаетесь с{" "}
-        <Link
-          to="/privacy-policy"
-          className={dark ? "text-white/50 hover:text-[#05C3D4]" : "text-black/50 hover:text-[#05C3D4]"}
-        >
-          политикой обработки данных
-        </Link>
-        {siteProfile?.seller.shortName ? ` ${siteProfile.seller.shortName}` : ""}
-      </p>
     </div>
   );
 }

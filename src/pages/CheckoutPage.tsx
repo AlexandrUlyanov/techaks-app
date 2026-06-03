@@ -24,6 +24,7 @@ import { useSeo } from "@/lib/seo";
 import { useAuth } from "@/hooks/use-auth";
 import { useCartAvailability } from "@/hooks/use-cart-availability";
 import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 type CheckoutPickupStore = {
   storeId: number;
@@ -89,6 +90,7 @@ export default function CheckoutPage() {
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
     "cash"
   );
+  const [personalDataConsent, setPersonalDataConsent] = useState(false);
   const { data: pickupStores = [], isFetching: pickupStoresLoading } =
     trpc.ecommerce.getCheckoutPickupStores.useQuery(
       {
@@ -173,6 +175,10 @@ export default function CheckoutPage() {
     }
     if (deliveryType === "pickup" && !pickupStoreId) {
       toast.error("Пожалуйста, выберите магазин для самовывоза");
+      return;
+    }
+    if (!personalDataConsent) {
+      toast.error("Подтвердите согласие на обработку персональных данных");
       return;
     }
     if (cartAvailability.isFetching) {
@@ -657,15 +663,12 @@ export default function CheckoutPage() {
                       : "ПОДТВЕРДИТЬ ЗАКАЗ"}
                 </Button>
 
-                <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-widest mt-4">
-                  Нажимая кнопку, вы подтверждаете согласие с условиями{" "}
-                  <Link to="/offer" className="text-[#05C3D4] hover:underline">
-                    оферты
-                  </Link>
-                  {siteProfile?.seller.shortName
-                    ? ` ${siteProfile.seller.shortName}`
-                    : ""}
-                </p>
+                <PersonalDataConsent
+                  checked={personalDataConsent}
+                  onCheckedChange={setPersonalDataConsent}
+                  withOffer
+                  className="mt-4"
+                />
               </div>
             </div>
 

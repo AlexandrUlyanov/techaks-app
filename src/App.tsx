@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StickyBottomBar from "@/components/StickyBottomBar";
 import ScrollToTop from "@/components/ScrollToTop";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 import DesignThemeBridge from "@/design-system/DesignThemeBridge";
 import HomePage from "@/pages/HomePage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
@@ -196,6 +197,7 @@ export default function App() {
       </main>
       {!isAdmin && !isCheckout && <Footer />}
       {!isAdmin && !isCheckout && <StickyBottomBar />}
+      {!isAdmin && <CookieConsentBanner />}
       <Toaster position="top-center" richColors />
     </div>
   );
