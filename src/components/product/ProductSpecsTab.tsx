@@ -94,10 +94,12 @@ export default function ProductSpecsTab({
           {visibleFlatItems.map(({ groupTitle, item: [key, value] }, index) => (
             <div
               key={`${groupTitle}-${key}-${index}`}
-              className="border-b border-border py-3 last:border-b-0"
+              className="rounded-[20px] bg-[var(--tech-color-surface-muted)]/65 px-4 py-3.5"
             >
-              <div className="text-[13px] font-medium text-muted-foreground">{key}</div>
-              <div className="mt-1 text-[15px] font-semibold leading-7 text-foreground">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {key}
+              </div>
+              <div className="mt-1.5 text-[15px] font-semibold leading-7 text-foreground">
                 {String(value)}
               </div>
             </div>
@@ -171,7 +173,7 @@ export default function ProductSpecsTab({
           return (
             <section
               key={group.title}
-              className="rounded-[1.375rem] bg-muted/60 p-5 md:p-[22px]"
+              className="space-y-4 rounded-[1.75rem] bg-[var(--tech-color-surface-muted)]/35 p-5 md:p-6"
             >
               <div className="flex items-center gap-4">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
@@ -187,18 +189,18 @@ export default function ProductSpecsTab({
                 </div>
               </div>
 
-              <dl className="mt-5 space-y-0">
+              <dl className="space-y-2.5">
                 {visibleItems.map(([key, value], index) => (
                   <div
                     key={`${group.title}-${key}`}
                     className={cn(
-                      "grid gap-2 rounded-xl py-[14px] transition-[background,padding-left] duration-200 ease-out md:grid-cols-[minmax(180px,280px)_1fr] md:gap-6",
-                      index > 0 ? "border-t border-border/80" : "",
-                      "hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.055),transparent)] hover:pl-2.5 dark:hover:bg-[linear-gradient(90deg,rgba(5,195,212,0.08),transparent)]"
+                      "grid items-start gap-2 rounded-[22px] bg-[var(--tech-color-surface-muted)]/70 px-4 py-[15px] transition-colors duration-200 md:grid-cols-[minmax(180px,220px)_minmax(36px,1fr)_minmax(260px,1.3fr)] md:gap-4 md:px-5",
+                      "hover:bg-[rgba(5,195,212,0.07)] dark:hover:bg-[rgba(5,195,212,0.1)]"
                     )}
                   >
-                    <dt className="text-sm font-medium text-muted-foreground">{key}</dt>
-                    <dd className="text-[15px] font-semibold leading-7 text-foreground">
+                    <dt className="pt-0.5 text-sm font-medium text-muted-foreground">{key}</dt>
+                    <span className="hidden translate-y-[-1px] border-b border-dotted border-[var(--tech-color-border)]/75 md:block" />
+                    <dd className="text-[15px] font-semibold leading-7 text-foreground md:text-right">
                       {String(value)}
                     </dd>
                   </div>

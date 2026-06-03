@@ -56,13 +56,15 @@ export default function ProductServices({
       >
         Услуги и получение
       </h2>
-      <div className={compactMobile ? "mt-0 md:mt-4" : "mt-4"}>
-        {rowsToRender.map((row, index) => {
+      <div className={compactMobile ? "mt-0 space-y-2 md:mt-4" : "mt-4 space-y-2.5"}>
+        {rowsToRender.map(row => {
           const Icon = row.icon;
           const isPickupAction = row.key === "pickup" && Boolean(onPickupClick);
-          const rowClassName = `flex w-full items-start justify-between gap-4 py-4 text-left transition ${
-            index > 0 ? "border-t border-[var(--tech-color-border)]/55" : ""
-          } ${isPickupAction ? "cursor-pointer rounded-[18px] px-4 hover:bg-[rgba(5,195,212,0.07)]" : ""}`;
+          const rowClassName = `flex w-full items-start justify-between gap-4 rounded-[22px] px-4 py-4 text-left transition-colors duration-200 ${
+            isPickupAction
+              ? "cursor-pointer hover:bg-[rgba(5,195,212,0.07)] dark:hover:bg-[rgba(5,195,212,0.09)]"
+              : "bg-transparent"
+          }`;
 
           const content = (
             <>
