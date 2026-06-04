@@ -43,6 +43,8 @@
   - `begin_checkout`
   - `reserve_item`
   - `purchase`
+  - `lead_submit`
+  - `order_message`
 
 ### Какие цели использовать
 
@@ -51,6 +53,8 @@
 - `begin_checkout`
 - `reserve_item`
 - `payment_success`
+- `lead_submit`
+- `order_message`
 
 ## 3. Как проверять
 
@@ -61,6 +65,8 @@
 3. Перейти в checkout.
 4. Сделать резерв товара.
 5. Провести тестовую оплату YooKassa.
+6. Отправить лид-форму.
+7. Отправить сообщение по заказу из личного кабинета.
 
 Ожидаемое поведение:
 - события уходят в `dataLayer`;

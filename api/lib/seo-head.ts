@@ -51,6 +51,13 @@ function normalizeDescription(value: string | null | undefined, fallback: string
   return normalized.slice(0, 320);
 }
 
+function guessAddressLocality(address?: string | null) {
+  const normalized = address?.toLowerCase() ?? "";
+  if (normalized.includes("пенз")) return "Пенза";
+  if (normalized.includes("зареч")) return "Заречный";
+  return undefined;
+}
+
 function buildBreadcrumbStructuredData(items: BreadcrumbItem[]) {
   return {
     "@context": "https://schema.org",
@@ -77,10 +84,23 @@ function buildOrganizationStructuredData(input: {
     logo: `${SEO_HOST}/images/logo-light.svg`,
     email: input.email || undefined,
     telephone: input.phone || undefined,
+    contactPoint:
+      input.email || input.phone
+        ? {
+            "@type": "ContactPoint",
+            contactType: "customer support",
+            telephone: input.phone || undefined,
+            email: input.email || undefined,
+            availableLanguage: ["ru"],
+            areaServed: ["RU", "Пенза"],
+          }
+        : undefined,
+    areaServed: ["RU", "Пенза"],
     address: input.address
       ? {
           "@type": "PostalAddress",
           streetAddress: input.address,
+          addressLocality: guessAddressLocality(input.address),
           addressCountry: "RU",
         }
       : undefined,
@@ -99,10 +119,12 @@ function buildStoreStructuredData(store: typeof schema.stores.$inferSelect) {
       ? {
           "@type": "PostalAddress",
           streetAddress: store.address,
+          addressLocality: guessAddressLocality(store.address),
           addressCountry: "RU",
         }
       : undefined,
     openingHours: store.hours || undefined,
+    areaServed: ["RU", "Пенза"],
   };
 }
 
@@ -385,6 +407,37 @@ async function buildProductSeoData(url: URL) {
     });
   }
 
+  const storeAvailability = await db
+    .select({
+      id: schema.stores.id,
+      name: schema.stores.name,
+      address: schema.stores.address,
+      phone: schema.stores.phone,
+      hours: schema.stores.hours,
+      image: schema.stores.image,
+      mapUrl: schema.stores.mapUrl,
+      qty: sql<number>`SUM(${schema.productStocks.quantity})`,
+    })
+    .from(schema.productStocks)
+    .innerJoin(schema.stores, eq(schema.productStocks.storeId, schema.stores.id))
+    .where(
+      and(
+        eq(schema.productStocks.productId, product.id),
+        sql`${schema.productStocks.quantity} > 0`
+      )
+    )
+    .groupBy(
+      schema.stores.id,
+      schema.stores.name,
+      schema.stores.address,
+      schema.stores.phone,
+      schema.stores.hours,
+      schema.stores.image,
+      schema.stores.mapUrl
+    )
+    .orderBy(desc(sql`SUM(${schema.productStocks.quantity})`))
+    .limit(3);
+
   const categoryRows = await db
     .select()
     .from(schema.categories)
@@ -416,7 +469,7 @@ async function buildProductSeoData(url: URL) {
   const manufacturerName = getManufacturerNameFromProductSpecs(product.specs) || SITE_NAME;
   const description = normalizeDescription(
     product.description,
-    `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`
+    `${product.name}: цена, характеристики, фото, наличие, самовывоз в Пензе и доставка по России. Купить в интернет-магазине ТЕХАКС.`
   );
 
   const image = product.image || DEFAULT_IMAGE;
@@ -446,6 +499,35 @@ async function buildProductSeoData(url: URL) {
           priceCurrency: "RUB",
           price: String(product.price),
           availability: "https://schema.org/InStock",
+          itemCondition: "https://schema.org/NewCondition",
+          seller: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            url: SEO_HOST,
+          },
+          availableAtOrFrom:
+            storeAvailability.length > 0
+              ? storeAvailability.map(store => ({
+                  "@type": "Store",
+                  name: store.name,
+                  telephone: store.phone || undefined,
+                  openingHours: store.hours || undefined,
+                  address: {
+                    "@type": "PostalAddress",
+                    streetAddress: store.address,
+                    addressLocality: guessAddressLocality(store.address),
+                    addressCountry: "RU",
+                  },
+                }))
+              : undefined,
+          hasMerchantReturnPolicy: {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "RU",
+            returnPolicyCategory:
+              "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: 14,
+            url: `${SEO_HOST}/returns`,
+          },
         },
       },
     ],

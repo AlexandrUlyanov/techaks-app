@@ -2,6 +2,7 @@ import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
 import PersonalDataConsent from "@/components/PersonalDataConsent";
+import { trackLeadSubmit } from "@/lib/yandex-metrika";
 
 interface LeadFormProps {
   title?: string;
@@ -29,6 +30,10 @@ export default function LeadForm({
 
   const createLead = trpc.lead.create.useMutation({
     onSuccess: () => {
+      trackLeadSubmit({
+        formType: type,
+        source,
+      });
       toast.success("Спасибо! Мы свяжемся с вами в ближайшее время.");
       setName("");
       setPhone("");

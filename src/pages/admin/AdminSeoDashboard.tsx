@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import {
   AlertTriangle,
   ArrowRight,
+  BadgeCheck,
   CheckCircle2,
   ExternalLink,
   FileSearch,
@@ -10,6 +11,7 @@ import {
   ImageIcon,
   Loader2,
   Package,
+  ShieldCheck,
   RefreshCw,
   Rss,
   ScrollText,
@@ -168,6 +170,230 @@ export default function AdminSeoDashboard() {
               icon={Rss}
               tone={data.feed.enabled ? "accent" : "default"}
             />
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <AdminSection
+              title="Яндекс Вебмастер"
+              description="Технические точки контроля для индексации, региона и загрузки sitemap в Яндексе. Внешнюю настройку делаем в Вебмастере, но все ключевые URL держим под рукой прямо здесь."
+              actions={
+                <a
+                  href="/robots.txt"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                >
+                  robots.txt
+                  <ExternalLink size={16} />
+                </a>
+              }
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard
+                  label="Главное зеркало"
+                  value="techaks.ru"
+                  hint="HTTPS без www"
+                  icon={Globe}
+                  tone="accent"
+                />
+                <AdminStatCard
+                  label="Регион"
+                  value="Пенза"
+                  hint="Проверьте закрепление в Вебмастере"
+                  icon={Store}
+                  tone={data.commercial.hasPenzaMention ? "success" : "warning"}
+                />
+                <AdminStatCard
+                  label="Sitemap"
+                  value="Готов"
+                  hint="/sitemap.xml доступен"
+                  icon={Rss}
+                  tone="success"
+                />
+                <AdminStatCard
+                  label="Верификация"
+                  value="Есть"
+                  hint="HTML-файл Яндекса загружен"
+                  icon={BadgeCheck}
+                  tone="success"
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Что проверить в Вебмастере
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                    <li>• главное зеркало: <span className="font-semibold text-[var(--tech-color-text-main)]">https://techaks.ru</span></li>
+                    <li>• регион сайта: <span className="font-semibold text-[var(--tech-color-text-main)]">Пенза</span></li>
+                    <li>• загружен <span className="font-semibold text-[var(--tech-color-text-main)]">/sitemap.xml</span></li>
+                    <li>• нет конфликтов canonical и excluded-потока по категориям</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Полезные ссылки
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 text-sm">
+                    {[
+                      ["/sitemap.xml", "Sitemap index"],
+                      ["/sitemap-products.xml", "Товары"],
+                      ["/sitemap-brands.xml", "Бренды"],
+                      ["/sitemap-promotions.xml", "Акции"],
+                      ["/contacts", "Контакты"],
+                    ].map(([href, label]) => (
+                      <a
+                        key={href}
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 font-medium text-[var(--tech-color-primary)] transition hover:opacity-80"
+                      >
+                        <ExternalLink size={14} />
+                        {label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Бренды"
+              description="Брендовые страницы тоже должны быть самостоятельными SEO-посадочными: с описанием, meta-полями и логотипом."
+              actions={
+                <Link
+                  to="/admin/settings"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                >
+                  Каталог брендов
+                  <ArrowRight size={16} />
+                </Link>
+              }
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard label="Всего брендов" value={data.manufacturers.total} icon={BadgeCheck} />
+                <AdminStatCard label="Публичных" value={data.manufacturers.visible} icon={CheckCircle2} tone="success" />
+                <AdminStatCard label="Без описания" value={data.manufacturers.withoutDescription} icon={ScrollText} tone={data.manufacturers.withoutDescription > 0 ? "warning" : "default"} />
+                <AdminStatCard label="Без логотипа" value={data.manufacturers.withoutLogo} icon={ImageIcon} tone={data.manufacturers.withoutLogo > 0 ? "warning" : "default"} />
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {data.manufacturers.samples.length > 0 ? (
+                  data.manufacturers.samples.map(item => (
+                    <SampleCard
+                      key={item.id}
+                      title={item.name}
+                      subtitle={`/catalog?view=brands&brand=${item.slug}`}
+                      issues={item.issues}
+                      to="/admin/settings"
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-2xl bg-emerald-50 px-4 py-4 text-sm text-emerald-700">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <CheckCircle2 size={16} />
+                      У брендовых страниц базовые SEO-поля заполнены.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Коммерческие и региональные сигналы"
+              description="Яндексу важно видеть, что магазин реальный: контакты, документы, магазины, самовывоз и регион присутствия."
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    to="/admin/settings"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                  >
+                    Настройки сайта
+                    <ArrowRight size={16} />
+                  </Link>
+                  <a
+                    href="/contacts"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                  >
+                    Контакты
+                    <ExternalLink size={16} />
+                  </a>
+                </div>
+              }
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard
+                  label="Контактные сигналы"
+                  value={data.commercial.contactIssues.length === 0 ? "OK" : data.commercial.contactIssues.length}
+                  hint={data.commercial.contactIssues.length === 0 ? "Телефон, e-mail, адрес и часы есть" : "Есть пробелы в контактах"}
+                  icon={ShieldCheck}
+                  tone={data.commercial.contactIssues.length === 0 ? "success" : "warning"}
+                />
+                <AdminStatCard
+                  label="Юрдокументы готовы"
+                  value={`${data.commercial.legalDocumentsReady}/4`}
+                  hint="Оферта, ПДн, оплата/доставка, возврат"
+                  icon={ScrollText}
+                  tone={data.commercial.legalDocumentsMissing === 0 ? "success" : "warning"}
+                />
+                <AdminStatCard
+                  label="Готовых магазинов"
+                  value={data.commercial.storesReady}
+                  hint={`Всего магазинов: ${data.stores.total}`}
+                  icon={Store}
+                  tone={data.commercial.storesReady === data.stores.total ? "success" : "warning"}
+                />
+                <AdminStatCard
+                  label="Региональность"
+                  value={data.commercial.hasPenzaMention ? "Пенза есть" : "Проверьте"}
+                  hint="Контакты и магазины явно привязаны к региону"
+                  icon={Globe}
+                  tone={data.commercial.hasPenzaMention ? "accent" : "warning"}
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Контакты и витрина
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {data.commercial.contactIssues.length === 0 ? (
+                      <IssueBadge issue="Контакты заполнены" />
+                    ) : (
+                      data.commercial.contactIssues.map(issue => (
+                        <IssueBadge key={issue} issue={issue} />
+                      ))
+                    )}
+                    {data.stores.withoutMapUrl > 0 ? <IssueBadge issue={`Без карты: ${data.stores.withoutMapUrl}`} /> : null}
+                    {data.stores.withoutPhone > 0 ? <IssueBadge issue={`Без телефона: ${data.stores.withoutPhone}`} /> : null}
+                    {data.stores.withoutHours > 0 ? <IssueBadge issue={`Без часов: ${data.stores.withoutHours}`} /> : null}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Юридические и платежные страницы
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {data.commercial.legalIssues.length === 0 ? (
+                      <IssueBadge issue="Документы заполнены" />
+                    ) : (
+                      data.commercial.legalIssues.flatMap(item =>
+                        item.issues.map(issue => (
+                          <IssueBadge key={`${item.key}-${issue}`} issue={`${item.key}: ${issue}`} />
+                        ))
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            </AdminSection>
           </div>
 
           <AdminSection
@@ -338,6 +564,37 @@ export default function AdminSeoDashboard() {
               <AdminStatCard label="Без карты" value={data.stores.withoutMapUrl} icon={Globe} tone={data.stores.withoutMapUrl > 0 ? "warning" : "default"} />
               <AdminStatCard label="Без телефона" value={data.stores.withoutPhone} icon={Store} tone={data.stores.withoutPhone > 0 ? "warning" : "default"} />
               <AdminStatCard label="Без часов работы" value={data.stores.withoutHours} icon={Store} tone={data.stores.withoutHours > 0 ? "warning" : "default"} />
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Яндекс Метрика и наблюдаемость"
+            description="Проверяем, что цели для ecommerce и форм заведены, а Метрика живёт только после consent."
+          >
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <AdminStatCard
+                label="Consent flow"
+                value={data.metrika.enabledViaConsent ? "Включён" : "Проверьте"}
+                hint="Счётчик грузится только после согласия"
+                icon={ShieldCheck}
+                tone={data.metrika.enabledViaConsent ? "success" : "warning"}
+              />
+              <AdminStatCard
+                label="Ecommerce goals"
+                value={`${Object.values(data.metrika.goals).filter(Boolean).length}/7`}
+                hint="view_item, cart, checkout, reserve, purchase, lead, message"
+                icon={Rss}
+                tone="accent"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {Object.entries(data.metrika.goals).map(([key, enabled]) => (
+                <IssueBadge
+                  key={key}
+                  issue={`${enabled ? "OK" : "Проверьте"}: ${key}`}
+                />
+              ))}
             </div>
           </AdminSection>
         </>

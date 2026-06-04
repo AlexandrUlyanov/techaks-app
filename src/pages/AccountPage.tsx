@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useSeo } from "@/lib/seo";
+import { trackOrderMessage } from "@/lib/yandex-metrika";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
@@ -317,6 +318,9 @@ function AccountOrderCard({
       if (result?.warning) {
         toast.warning(result.warning);
       } else {
+        trackOrderMessage({
+          orderId: String(order.id),
+        });
         toast.success("Сообщение отправлено");
       }
     },

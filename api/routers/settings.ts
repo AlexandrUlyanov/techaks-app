@@ -467,6 +467,12 @@ export const settingsRouter = createRouter({
       noImageProductsRow,
       noArticleProductsRow,
       noBarcodeProductsRow,
+      totalManufacturersRow,
+      visibleManufacturersRow,
+      manufacturersMissingDescriptionRow,
+      manufacturersMissingMetaTitleRow,
+      manufacturersMissingMetaDescriptionRow,
+      manufacturersMissingLogoRow,
       totalCategoriesRow,
       categoryNoDescriptionRow,
       categoryNoMetaTitleRow,
@@ -515,6 +521,32 @@ export const settingsRouter = createRouter({
         .select({ count: sql<number>`count(*)` })
         .from(schema.products)
         .where(or(isNull(schema.products.barcode), eq(schema.products.barcode, ""))),
+      db.select({ count: sql<number>`count(*)` }).from(schema.manufacturers),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.manufacturers)
+        .where(eq(schema.manufacturers.isVisible, true)),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.manufacturers)
+        .where(or(isNull(schema.manufacturers.description), eq(schema.manufacturers.description, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.manufacturers)
+        .where(or(isNull(schema.manufacturers.metaTitle), eq(schema.manufacturers.metaTitle, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.manufacturers)
+        .where(
+          or(
+            isNull(schema.manufacturers.metaDescription),
+            eq(schema.manufacturers.metaDescription, "")
+          )
+        ),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.manufacturers)
+        .where(or(isNull(schema.manufacturers.logoUrl), eq(schema.manufacturers.logoUrl, ""))),
       db.select({ count: sql<number>`count(*)` }).from(schema.categories),
       db
         .select({ count: sql<number>`count(*)` })
@@ -698,12 +730,125 @@ export const settingsRouter = createRouter({
       .limit(10);
 
     const feedSettings = await getYandexYmlFeedSettings();
+    const profile = await getPublicSiteProfile();
+    const storeRows = await db.select().from(schema.stores).orderBy(asc(schema.stores.sortOrder));
+    const manufacturerRows = await db
+      .select({
+        id: schema.manufacturers.id,
+        slug: schema.manufacturers.slug,
+        name: schema.manufacturers.name,
+        description: schema.manufacturers.description,
+        metaTitle: schema.manufacturers.metaTitle,
+        metaDescription: schema.manufacturers.metaDescription,
+        logoUrl: schema.manufacturers.logoUrl,
+        isVisible: schema.manufacturers.isVisible,
+        productCount: schema.manufacturers.productCount,
+      })
+      .from(schema.manufacturers)
+      .orderBy(desc(schema.manufacturers.productCount), asc(schema.manufacturers.name))
+      .limit(200);
+    const sampleManufacturers = manufacturerRows
+      .filter(item => {
+        const flags = [
+          !item.description,
+          !item.metaTitle,
+          !item.metaDescription,
+          !item.logoUrl,
+        ];
+        return flags.some(Boolean);
+      })
+      .slice(0, 10)
+      .map(item => ({
+        id: item.id,
+        slug: item.slug,
+        name: item.name,
+        issues: [
+          !item.description ? "Нет описания бренда" : null,
+          !item.metaTitle ? "Нет SEO title" : null,
+          !item.metaDescription ? "Нет SEO description" : null,
+          !item.logoUrl ? "Нет логотипа" : null,
+        ].filter((value): value is string => Boolean(value)),
+      }));
+
+    const legalTexts = profile.legalTexts;
+    const legalDocuments = [
+      {
+        key: "offer",
+        title: legalTexts.offerTitle,
+        content: legalTexts.offerContent,
+        path: "/offer",
+      },
+      {
+        key: "privacy",
+        title: legalTexts.privacyPolicyTitle,
+        content: legalTexts.privacyPolicyContent,
+        path: "/privacy-policy",
+      },
+      {
+        key: "payment-delivery",
+        title: legalTexts.paymentDeliveryTitle,
+        content: legalTexts.paymentDeliveryContent,
+        path: "/payment-delivery",
+      },
+      {
+        key: "returns",
+        title: legalTexts.returnsPolicyTitle,
+        content: legalTexts.returnsPolicyContent,
+        path: "/returns",
+      },
+    ];
+    const legalIssues = legalDocuments
+      .filter(doc => !doc.title?.trim() || !doc.content?.trim())
+      .map(doc => ({
+        key: doc.key,
+        path: doc.path,
+        issues: [
+          !doc.title?.trim() ? "Нет заголовка" : null,
+          !doc.content?.trim() ? "Нет текста документа" : null,
+        ].filter((value): value is string => Boolean(value)),
+      }));
+    const contactIssues = [
+      !profile.contacts.primaryPhoneDisplay?.trim() ? "Нет основного телефона" : null,
+      !profile.contacts.email?.trim() ? "Нет e-mail" : null,
+      !profile.contacts.workingHours?.trim() ? "Нет часов работы" : null,
+      !profile.contacts.shortAddress?.trim() ? "Нет короткого адреса" : null,
+      !profile.contacts.fullAddress?.trim() ? "Нет полного адреса" : null,
+    ].filter((value): value is string => Boolean(value));
+    const regionMentionsText = [
+      profile.contacts.shortAddress,
+      profile.contacts.fullAddress,
+      ...storeRows.map(store => `${store.name} ${store.address}`),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const hasPenzaMention =
+      regionMentionsText.includes("пенз") || regionMentionsText.includes("зареч");
+    const readyStores = storeRows.filter(
+      store =>
+        Boolean(store.phone?.trim()) &&
+        Boolean(store.hours?.trim()) &&
+        Boolean(store.mapUrl?.trim()) &&
+        Boolean(store.image?.trim())
+    ).length;
 
     return {
       generatedAt: new Date().toISOString(),
       feed: {
         enabled: feedSettings.enabled,
         baseUrl: feedSettings.baseUrl,
+      },
+      metrika: {
+        enabledViaConsent: true,
+        goals: {
+          viewItem: true,
+          addToCart: true,
+          beginCheckout: true,
+          reserveItem: true,
+          purchase: true,
+          leadSubmit: true,
+          orderMessage: true,
+        },
       },
       products: {
         total: Number(totalProductsRow[0]?.count ?? 0),
@@ -717,6 +862,17 @@ export const settingsRouter = createRouter({
         withoutBarcode: Number(noBarcodeProductsRow[0]?.count ?? 0),
         withoutBrand: productsMissingBrand,
         samples: sampleProducts,
+      },
+      manufacturers: {
+        total: Number(totalManufacturersRow[0]?.count ?? 0),
+        visible: Number(visibleManufacturersRow[0]?.count ?? 0),
+        withoutDescription: Number(manufacturersMissingDescriptionRow[0]?.count ?? 0),
+        withoutMetaTitle: Number(manufacturersMissingMetaTitleRow[0]?.count ?? 0),
+        withoutMetaDescription: Number(
+          manufacturersMissingMetaDescriptionRow[0]?.count ?? 0
+        ),
+        withoutLogo: Number(manufacturersMissingLogoRow[0]?.count ?? 0),
+        samples: sampleManufacturers,
       },
       categories: {
         total: Number(totalCategoriesRow[0]?.count ?? 0),
@@ -750,6 +906,14 @@ export const settingsRouter = createRouter({
         withoutPhone: Number(storesMissingPhoneRow[0]?.count ?? 0),
         withoutHours: Number(storesMissingHoursRow[0]?.count ?? 0),
         withoutImage: Number(storesMissingImageRow[0]?.count ?? 0),
+      },
+      commercial: {
+        hasPenzaMention,
+        contactIssues,
+        legalDocumentsMissing: legalIssues.length,
+        legalIssues,
+        legalDocumentsReady: legalDocuments.length - legalIssues.length,
+        storesReady: readyStores,
       },
     };
   }),

@@ -186,3 +186,32 @@ export function trackPurchase(input: {
     revenue: input.revenue,
   });
 }
+
+export function trackLeadSubmit(input: {
+  formType: string;
+  source?: string | null;
+}) {
+  pushEvent("generate_lead", {
+    lead: {
+      form_type: input.formType,
+      source: input.source || undefined,
+    },
+  });
+  reachYandexGoal("lead_submit", {
+    form_type: input.formType,
+    source: input.source || undefined,
+  });
+}
+
+export function trackOrderMessage(input: {
+  orderId: string;
+}) {
+  pushEvent("order_message", {
+    message: {
+      order_id: input.orderId,
+    },
+  });
+  reachYandexGoal("order_message", {
+    order_id: input.orderId,
+  });
+}
