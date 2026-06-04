@@ -493,6 +493,32 @@ export const productRouter = createRouter({
       };
     }),
 
+  getByIds: protectedProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(20) }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Product");
+      if (input.ids.length === 0) return [];
+      const db = getDb();
+      const rows = await db
+        .select(productSelectFields)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(
+          schema.productMerchandising,
+          eq(schema.productMerchandising.productId, products.id)
+        )
+        .where(inArray(products.id, input.ids));
+      const withBadges = await attachVisibleMerchandisingBadges(rows);
+      const byId = new Map(withBadges.map(row => [row.id, row]));
+      return input.ids
+        .map(id => byId.get(id))
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .map(row => ({
+          ...row,
+          siteStatus: getAdminProductPublicationStatus(row),
+        }));
+    }),
+
   getBySlug: publicQuery
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {

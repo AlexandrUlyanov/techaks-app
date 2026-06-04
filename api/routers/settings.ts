@@ -31,6 +31,11 @@ import {
   vkFeedSettingsInputSchema,
   yandexYmlFeedSettingsInputSchema,
 } from "../lib/feeds";
+import {
+  getHomepageHeroAdminSettings,
+  homepageHeroAdminSettingsSchema,
+  saveHomepageHeroAdminSettings,
+} from "../lib/homepage-hero";
 import { getDb } from "../queries/connection";
 import * as schema from "@db/schema";
 import { buildPublicProductVisibilityCondition } from "../lib/product-visibility";
@@ -113,15 +118,11 @@ export const settingsRouter = createRouter({
   }),
 
   getHomepageHeroSettings: publicQuery.query(async () => {
-    const settings = await getAppSettings(["homepage_hero_variant"]);
-    const storedVariant = settings.homepage_hero_variant?.trim();
-    const variant = homepageHeroVariantSchema.safeParse(storedVariant).success
-      ? (storedVariant as z.infer<typeof homepageHeroVariantSchema>)
-      : "classic";
+    const settings = await getHomepageHeroAdminSettings();
 
     return {
-      variant,
-      isDefault: !storedVariant,
+      variant: settings.variant,
+      isDefault: settings.variant === "classic",
       options: [
         {
           value: "classic" as const,
@@ -131,12 +132,17 @@ export const settingsRouter = createRouter({
         },
         {
           value: "interactive" as const,
-          label: "Интерактивный hero",
+          label: "Промо-hero с товарами",
           description:
-            "Альтернативная версия hero с более активной анимацией и визуальными эффектами для экспериментов с первым экраном.",
+            "Управляемый hero-конструктор: слева торговое предложение, справа живые карточки товаров. Подходит для ручного и автоматического наполнения.",
         },
       ],
     };
+  }),
+
+  getHomepageHeroAdminSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    return getHomepageHeroAdminSettings();
   }),
 
   saveHomepageHeroSettings: protectedProcedure
@@ -156,6 +162,23 @@ export const settingsRouter = createRouter({
         entityLabel: "Hero главной страницы",
         before,
         after: input,
+      });
+      return { success: true };
+    }),
+
+  saveHomepageHeroAdminSettings: protectedProcedure
+    .input(homepageHeroAdminSettingsSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getHomepageHeroAdminSettings();
+      const result = await saveHomepageHeroAdminSettings(input);
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.homepage_hero_content.update",
+        entityType: "settings",
+        entityLabel: "Контент hero главной страницы",
+        before,
+        after: result,
       });
       return { success: true };
     }),

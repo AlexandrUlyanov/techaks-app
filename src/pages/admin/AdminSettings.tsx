@@ -47,9 +47,33 @@ export default function AdminSettings() {
     undefined,
     { enabled: activeTab === "site" }
   );
+  const { data: homepageHeroAdminSettings } =
+    trpc.settings.getHomepageHeroAdminSettings.useQuery(undefined, {
+      enabled: activeTab === "site",
+    });
   const { data: homepageSnapshotStatus } = trpc.home.getSnapshotStatus.useQuery(
     undefined,
     { enabled: activeTab === "site" }
+  );
+  const [heroProductSearch, setHeroProductSearch] = useState("");
+  const { data: heroProductSearchResults } = trpc.product.getPaginated.useQuery(
+    {
+      page: 1,
+      limit: 8,
+      search: heroProductSearch.trim() || undefined,
+      visibility: "site_active",
+    },
+    {
+      enabled: activeTab === "site",
+      staleTime: 30_000,
+    }
+  );
+  const { data: homepageHeroSelectedProducts } = trpc.product.getByIds.useQuery(
+    { ids: homepageHeroManualProductIds },
+    {
+      enabled: activeTab === "site" && homepageHeroManualProductIds.length > 0,
+      staleTime: 30_000,
+    }
   );
 
   const [apiKey, setApiKey] = useState("");
@@ -67,6 +91,30 @@ export default function AdminSettings() {
   const [homepageHeroVariant, setHomepageHeroVariant] = useState<
     "classic" | "interactive"
   >("classic");
+  const [homepageHeroMode, setHomepageHeroMode] = useState<"manual" | "automatic">(
+    "automatic"
+  );
+  const [homepageHeroAutoSource, setHomepageHeroAutoSource] = useState<
+    "recommended" | "latest" | "fallback"
+  >("recommended");
+  const [homepageHeroItemsLimit, setHomepageHeroItemsLimit] = useState(4);
+  const [homepageHeroEyebrow, setHomepageHeroEyebrow] = useState("");
+  const [homepageHeroTitle, setHomepageHeroTitle] = useState("");
+  const [homepageHeroSubtitle, setHomepageHeroSubtitle] = useState("");
+  const [homepageHeroDescription, setHomepageHeroDescription] = useState("");
+  const [homepageHeroPrimaryLabel, setHomepageHeroPrimaryLabel] = useState("");
+  const [homepageHeroPrimaryHref, setHomepageHeroPrimaryHref] = useState("");
+  const [homepageHeroSecondaryLabel, setHomepageHeroSecondaryLabel] = useState("");
+  const [homepageHeroSecondaryHref, setHomepageHeroSecondaryHref] = useState("");
+  const [homepageHeroBenefits, setHomepageHeroBenefits] = useState<string[]>([
+    "",
+    "",
+    "",
+    "",
+  ]);
+  const [homepageHeroManualProductIds, setHomepageHeroManualProductIds] = useState<
+    number[]
+  >([]);
   const [siteProfileForm, setSiteProfileForm] = useState({
     contacts: {
       primaryPhone: "",
@@ -151,6 +199,26 @@ export default function AdminSettings() {
     setHomepageHeroVariant(homepageHeroSettings.variant);
   }, [homepageHeroSettings]);
 
+  useEffect(() => {
+    if (!homepageHeroAdminSettings) return;
+    setHomepageHeroVariant(homepageHeroAdminSettings.variant);
+    setHomepageHeroMode(homepageHeroAdminSettings.mode);
+    setHomepageHeroAutoSource(homepageHeroAdminSettings.autoSource);
+    setHomepageHeroItemsLimit(homepageHeroAdminSettings.itemsLimit);
+    setHomepageHeroEyebrow(homepageHeroAdminSettings.eyebrow);
+    setHomepageHeroTitle(homepageHeroAdminSettings.title);
+    setHomepageHeroSubtitle(homepageHeroAdminSettings.subtitle);
+    setHomepageHeroDescription(homepageHeroAdminSettings.description);
+    setHomepageHeroPrimaryLabel(homepageHeroAdminSettings.primaryCtaLabel);
+    setHomepageHeroPrimaryHref(homepageHeroAdminSettings.primaryCtaHref);
+    setHomepageHeroSecondaryLabel(homepageHeroAdminSettings.secondaryCtaLabel);
+    setHomepageHeroSecondaryHref(homepageHeroAdminSettings.secondaryCtaHref);
+    setHomepageHeroBenefits(
+      [...homepageHeroAdminSettings.benefits, "", "", "", ""].slice(0, 4)
+    );
+    setHomepageHeroManualProductIds(homepageHeroAdminSettings.manualProductIds);
+  }, [homepageHeroAdminSettings]);
+
   const saveMaintenanceMutation = trpc.settings.saveMaintenanceSettings.useMutation({
     onSuccess: () => {
       utils.settings.getMaintenanceStatus.invalidate();
@@ -219,9 +287,12 @@ export default function AdminSettings() {
     },
   });
   const saveHomepageHeroMutation =
-    trpc.settings.saveHomepageHeroSettings.useMutation({
+    trpc.settings.saveHomepageHeroAdminSettings.useMutation({
       onSuccess: () => {
+        utils.settings.getHomepageHeroAdminSettings.invalidate();
         utils.settings.getHomepageHeroSettings.invalidate();
+        utils.home.getPageData.invalidate();
+        utils.home.getSnapshotStatus.invalidate();
         alert("Версия hero главной страницы сохранена.");
       },
     });
@@ -348,6 +419,36 @@ export default function AdminSettings() {
       ...prev,
       documents: { ...prev.documents, [key]: value },
     }));
+  };
+
+  const updateHeroBenefit = (index: number, value: string) => {
+    setHomepageHeroBenefits(prev =>
+      prev.map((item, itemIndex) => (itemIndex === index ? value : item))
+    );
+  };
+
+  const addHeroManualProduct = (productId: number) => {
+    setHomepageHeroManualProductIds(prev =>
+      prev.includes(productId) ? prev : [...prev, productId].slice(0, 6)
+    );
+  };
+
+  const removeHeroManualProduct = (productId: number) => {
+    setHomepageHeroManualProductIds(prev =>
+      prev.filter(item => item !== productId)
+    );
+  };
+
+  const moveHeroManualProduct = (productId: number, direction: -1 | 1) => {
+    setHomepageHeroManualProductIds(prev => {
+      const index = prev.indexOf(productId);
+      if (index < 0) return prev;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
   };
 
   return (
@@ -898,13 +999,28 @@ export default function AdminSettings() {
         <div className="space-y-6">
           <AdminSection
             title="Hero главной страницы"
-            description="Текущая версия первого экрана сохранена как безопасный базовый вариант. Здесь можно переключать hero и в любой момент возвращаться к тому виду, который сейчас используется на сайте."
+            description="Здесь хранится безопасный классический hero и новый промо-режим: слева торговое предложение, справа живые карточки товаров. Контент и логика наполнения редактируются отдельно от классической версии."
             tone="accent"
             actions={
               <button
                 onClick={() =>
                   saveHomepageHeroMutation.mutate({
                     variant: homepageHeroVariant,
+                    mode: homepageHeroMode,
+                    autoSource: homepageHeroAutoSource,
+                    itemsLimit: homepageHeroItemsLimit,
+                    eyebrow: homepageHeroEyebrow,
+                    title: homepageHeroTitle,
+                    subtitle: homepageHeroSubtitle,
+                    description: homepageHeroDescription,
+                    primaryCtaLabel: homepageHeroPrimaryLabel,
+                    primaryCtaHref: homepageHeroPrimaryHref,
+                    secondaryCtaLabel: homepageHeroSecondaryLabel,
+                    secondaryCtaHref: homepageHeroSecondaryHref,
+                    benefits: homepageHeroBenefits
+                      .map(item => item.trim())
+                      .filter(Boolean),
+                    manualProductIds: homepageHeroManualProductIds,
                   })
                 }
                 disabled={
@@ -960,10 +1076,269 @@ export default function AdminSettings() {
                 })}
               </div>
 
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">
+                        Режим наполнения
+                      </label>
+                      <select
+                        value={homepageHeroMode}
+                        onChange={e =>
+                          setHomepageHeroMode(e.target.value as "manual" | "automatic")
+                        }
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      >
+                        <option value="automatic">Автоматически</option>
+                        <option value="manual">Вручную</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">
+                        Количество карточек
+                      </label>
+                      <input
+                        type="number"
+                        min={2}
+                        max={6}
+                        value={homepageHeroItemsLimit}
+                        onChange={e =>
+                          setHomepageHeroItemsLimit(
+                            Math.min(6, Math.max(2, Number(e.target.value) || 4))
+                          )
+                        }
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-[#15171A]">Eyebrow</label>
+                      <input
+                        value={homepageHeroEyebrow}
+                        onChange={e => setHomepageHeroEyebrow(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-[#15171A]">Заголовок</label>
+                      <textarea
+                        rows={3}
+                        value={homepageHeroTitle}
+                        onChange={e => setHomepageHeroTitle(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-[#15171A]">Подзаголовок</label>
+                      <textarea
+                        rows={2}
+                        value={homepageHeroSubtitle}
+                        onChange={e => setHomepageHeroSubtitle(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-bold text-[#15171A]">Описание</label>
+                      <textarea
+                        rows={4}
+                        value={homepageHeroDescription}
+                        onChange={e => setHomepageHeroDescription(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Основная кнопка</label>
+                      <input
+                        value={homepageHeroPrimaryLabel}
+                        onChange={e => setHomepageHeroPrimaryLabel(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Ссылка основной кнопки</label>
+                      <input
+                        value={homepageHeroPrimaryHref}
+                        onChange={e => setHomepageHeroPrimaryHref(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Вторичная кнопка</label>
+                      <input
+                        value={homepageHeroSecondaryLabel}
+                        onChange={e => setHomepageHeroSecondaryLabel(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#15171A]">Ссылка вторичной кнопки</label>
+                      <input
+                        value={homepageHeroSecondaryHref}
+                        onChange={e => setHomepageHeroSecondaryHref(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-bold text-[#15171A]">Плашки преимуществ</label>
+                      <p className="mt-1 text-xs text-gray-500">
+                        До четырёх коротких преимуществ под hero-блоком.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {homepageHeroBenefits.map((benefit, index) => (
+                        <input
+                          key={index}
+                          value={benefit}
+                          onChange={e => updateHeroBenefit(index, e.target.value)}
+                          placeholder={`Преимущество ${index + 1}`}
+                          className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#15171A]">
+                      Источник товаров
+                    </label>
+                    <select
+                      value={homepageHeroAutoSource}
+                      onChange={e =>
+                        setHomepageHeroAutoSource(
+                          e.target.value as "recommended" | "latest" | "fallback"
+                        )
+                      }
+                      disabled={homepageHeroMode === "manual"}
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:bg-gray-50"
+                    >
+                      <option value="recommended">Рекомендованные товары</option>
+                      <option value="latest">Последние опубликованные</option>
+                      <option value="fallback">Fallback-выборка витрины</option>
+                    </select>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm font-black text-[#15171A]">
+                      Ручной список карточек
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      В manual-режиме эти товары идут в правую зону hero в указанном порядке.
+                    </p>
+
+                    <div className="mt-4 space-y-3">
+                      {homepageHeroManualProductIds.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
+                          Пока ничего не выбрано. Можно оставить automatic или подобрать товары вручную ниже.
+                        </div>
+                      ) : (
+                        homepageHeroManualProductIds.map((productId, index) => {
+                          const product = homepageHeroSelectedProducts?.find(
+                            item => item.id === productId
+                          );
+                          return (
+                            <div
+                              key={productId}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
+                                  Карточка {index + 1}
+                                </div>
+                                <div className="mt-1 truncate text-sm font-bold text-[#15171A]">
+                                  {product?.name || `Товар #${productId}`}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => moveHeroManualProduct(productId, -1)}
+                                  disabled={index === 0}
+                                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveHeroManualProduct(productId, 1)}
+                                  disabled={index === homepageHeroManualProductIds.length - 1}
+                                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeHeroManualProduct(productId)}
+                                  className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600"
+                                >
+                                  Убрать
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-bold text-[#15171A]">Подобрать товары</label>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Поиск работает по названию и slug. Добавляем только видимые карточки сайта.
+                      </p>
+                    </div>
+                    <input
+                      value={heroProductSearch}
+                      onChange={e => setHeroProductSearch(e.target.value)}
+                      placeholder="Например: iPhone, HOCO, колонка"
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+                    <div className="space-y-2">
+                      {(heroProductSearchResults?.items ?? []).map(product => (
+                        <div
+                          key={product.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-bold text-[#15171A]">
+                              {product.name}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500">
+                              {product.slug} · {product.categoryName || "Без категории"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addHeroManualProduct(product.id)}
+                            disabled={homepageHeroManualProductIds.includes(product.id)}
+                            className="shrink-0 rounded-xl bg-[#05C3D4] px-3 py-2 text-xs font-black text-black disabled:opacity-40"
+                          >
+                            {homepageHeroManualProductIds.includes(product.id)
+                              ? "Добавлен"
+                              : "Добавить"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 <span className="font-black text-[#15171A]">Сейчас на сайте:</span>{" "}
                 {homepageHeroVariant === "interactive"
-                  ? "интерактивный hero"
+                  ? "динамический промо-hero"
                   : "классический hero (текущая версия)"}.
                 {homepageHeroSettings?.isDefault ? (
                   <span>

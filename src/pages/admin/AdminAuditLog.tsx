@@ -39,6 +39,8 @@ function formatActionLabel(action: string) {
     "settings.feed.yandex_yml.update": "Изменение настроек Yandex YML",
     "settings.feed.vk.update": "Изменение настроек VK-фида",
     "settings.homepage_hero.update": "Изменение hero главной страницы",
+    "settings.homepage_hero_content.update":
+      "Изменение контента hero главной страницы",
     "settings.auth.update": "Изменение настроек авторизации и почты",
   };
 

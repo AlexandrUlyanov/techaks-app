@@ -3,6 +3,7 @@ import { desc, eq, isNull, asc } from "drizzle-orm";
 import { getDb } from "../queries/connection";
 import { getPublicSiteProfile } from "./site-profile-settings";
 import { getAppSettings } from "./app-settings";
+import { buildHomepageHeroStorefrontData } from "./homepage-hero";
 import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 import { getRecommendedProducts } from "./merchandising-score";
 import { listHomepageFallbackProducts } from "./public-products";
@@ -27,6 +28,7 @@ export async function buildHomepageData() {
     weekRecommendations,
     popularRecommendations,
     manufacturerRows,
+    hero,
   ] = await Promise.all([
     getPublicSiteProfile(),
     getAppSettings(["maintenance_mode", "maintenance_reopen_date"]),
@@ -52,6 +54,7 @@ export async function buildHomepageData() {
     getRecommendedProducts({ limit: 10 }),
     getRecommendedProducts({ limit: 8 }),
     getVisibleManufacturerCatalogEntries(18),
+    buildHomepageHeroStorefrontData(),
   ]);
 
   const fallbackProducts = await listHomepageFallbackProducts(12);
@@ -68,6 +71,7 @@ export async function buildHomepageData() {
 
   return {
     siteProfile,
+    hero,
     maintenanceStatus: {
       isEnabled: maintenanceSettings.maintenance_mode === "true",
       reopenDate: maintenanceSettings.maintenance_reopen_date || null,

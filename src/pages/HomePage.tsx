@@ -112,7 +112,7 @@ export default function HomePage() {
 
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
-      <HomeHero />
+      <HomeHero hero={homepageData?.hero ?? null} />
 
       {/* Category Grid */}
       <section className="py-16 bg-card border-t border-border">

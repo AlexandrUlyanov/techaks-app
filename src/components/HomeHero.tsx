@@ -1,16 +1,36 @@
 import Hero from "@/components/Hero";
-import HeroInteractive from "@/components/HeroInteractive";
-import { trpc } from "@/providers/trpc";
+import HeroPromoDynamic from "@/components/HeroPromoDynamic";
 
-export default function HomeHero() {
-  const { data } = trpc.settings.getHomepageHeroSettings.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+type HomeHeroProps = {
+  hero?: {
+    variant: "classic" | "interactive";
+    mode: "manual" | "automatic";
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    description: string;
+    primaryCtaLabel: string;
+    primaryCtaHref: string;
+    secondaryCtaLabel: string;
+    secondaryCtaHref: string;
+    benefits: string[];
+    cards: Array<{
+      id: number;
+      slug: string;
+      name: string;
+      price: number;
+      oldPrice: number | null;
+      image: string;
+      badge: string | null;
+      inStock: boolean;
+      categoryName?: string | null;
+    }>;
+  } | null;
+};
 
-  if (data?.variant === "interactive") {
-    return <HeroInteractive />;
+export default function HomeHero({ hero }: HomeHeroProps) {
+  if (hero?.variant === "interactive" && hero.cards.length > 0) {
+    return <HeroPromoDynamic hero={hero} />;
   }
 
   return <Hero />;

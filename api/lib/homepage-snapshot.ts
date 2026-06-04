@@ -125,6 +125,27 @@ async function writeSnapshotError(message: string) {
 
   const fallbackPayload = {
     siteProfile: defaultPublicSiteProfile,
+    hero: {
+      variant: "classic" as const,
+      mode: "automatic" as const,
+      eyebrow: "ТЕХАКС в Пензе",
+      title: "Техника и аксессуары на каждый день",
+      subtitle:
+        "Полезная электроника, аксессуары и гаджеты без лишней сложности.",
+      description:
+        "Подбираем удобные устройства для дома, работы, автомобиля и повседневной жизни. Показываем только актуальные товары с ценой, фото и наличием.",
+      primaryCtaLabel: "Перейти в каталог",
+      primaryCtaHref: "/catalog",
+      secondaryCtaLabel: "Связаться с нами",
+      secondaryCtaHref: "/contacts",
+      benefits: [],
+      cards: [],
+      diagnostics: {
+        source: "fallback" as const,
+        requestedManualCount: 0,
+        resolvedCardCount: 0,
+      },
+    },
     maintenanceStatus: {
       isEnabled: false,
       reopenDate: null,
