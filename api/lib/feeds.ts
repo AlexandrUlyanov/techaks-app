@@ -12,7 +12,10 @@ import { publicAvailableStockQtySql, publicProductVisibilityCondition } from "./
 import { getSiteProfileSettings } from "./site-profile-settings";
 
 const DEFAULT_SITE_URL = "https://techaks.ru";
+const FEED_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const YANDEX_YML_PUBLIC_PATH = "/feeds/yandex-business.yml";
+export const VK_XML_PUBLIC_PATH = "/feeds/vk.xml";
 
 const yandexYmlFeedSettingKeys = {
   enabled: "feed_yandex_yml_enabled",
@@ -26,7 +29,22 @@ const yandexYmlFeedSettingKeys = {
   salesNotes: "feed_yandex_yml_sales_notes",
 } as const;
 
+const vkFeedSettingKeys = {
+  enabled: "feed_vk_enabled",
+  feedName: "feed_vk_name",
+  companyName: "feed_vk_company_name",
+  shopUrl: "feed_vk_shop_url",
+  utmEnabled: "feed_vk_utm_enabled",
+  utmSource: "feed_vk_utm_source",
+  utmMedium: "feed_vk_utm_medium",
+  utmCampaign: "feed_vk_utm_campaign",
+  onlyInStock: "feed_vk_only_in_stock",
+  includeOutOfStockAsUnavailable: "feed_vk_include_out_of_stock_as_unavailable",
+  maxItems: "feed_vk_max_items",
+} as const;
+
 const allYandexYmlFeedSettingKeys = Object.values(yandexYmlFeedSettingKeys);
+const allVkFeedSettingKeys = Object.values(vkFeedSettingKeys);
 
 export const yandexYmlFeedSettingsInputSchema = z.object({
   enabled: z.boolean().default(false),
@@ -40,13 +58,33 @@ export const yandexYmlFeedSettingsInputSchema = z.object({
   salesNotes: z.string().trim().max(255).default(""),
 });
 
-export type YandexYmlFeedSettingsInput = z.infer<
-  typeof yandexYmlFeedSettingsInputSchema
->;
+export const vkFeedSettingsInputSchema = z.object({
+  enabled: z.boolean().default(false),
+  feedName: z.string().trim().min(2).max(255),
+  companyName: z.string().trim().min(2).max(255),
+  shopUrl: z.string().trim().url(),
+  utmEnabled: z.boolean().default(true),
+  utmSource: z.string().trim().min(1).max(80).default("vk"),
+  utmMedium: z.string().trim().min(1).max(80).default("cpc"),
+  utmCampaign: z.string().trim().min(1).max(120).default("product_feed"),
+  onlyInStock: z.boolean().default(true),
+  includeOutOfStockAsUnavailable: z.boolean().default(false),
+  maxItems: z.number().int().min(1).max(100000).nullable().default(null),
+});
+
+export type YandexYmlFeedSettingsInput = z.infer<typeof yandexYmlFeedSettingsInputSchema>;
+export type VkFeedSettingsInput = z.infer<typeof vkFeedSettingsInputSchema>;
 
 type YandexYmlFeedSettings = YandexYmlFeedSettingsInput & {
   publicUrl: string;
   publicPath: string;
+  baseUrl: string;
+};
+
+type VkFeedSettings = VkFeedSettingsInput & {
+  publicUrl: string;
+  publicPath: string;
+  baseUrl: string;
 };
 
 type FeedStats = {
@@ -55,9 +93,15 @@ type FeedStats = {
   totalOffers: number;
   skippedOutOfStock: number;
   skippedWithoutPrice: number;
+  skippedWithoutPicture: number;
+  skippedWithoutCategory: number;
+  skippedWithoutName: number;
   categoriesIncluded: number;
   warnings: string[];
   productsSource: number;
+  vendorMissingCount: number;
+  picturesMissingCount: number;
+  descriptionsSanitized: number;
 };
 
 type FeedOffer = {
@@ -80,6 +124,101 @@ type FeedOffer = {
   params: Array<{ name: string; value: string }>;
 };
 
+type FeedSourceProduct = {
+  id: number;
+  slug: string;
+  name: string;
+  categoryId: number;
+  price: number;
+  oldPrice: number | null;
+  article: string | null;
+  externalCode: string | null;
+  barcode: string | null;
+  image: string | null;
+  imageVariants: unknown;
+  images: unknown;
+  description: string | null;
+  specs: unknown;
+  availableQty: number;
+};
+
+type FeedSourceVariant = {
+  id: number;
+  productId: number;
+  name: string | null;
+  article: string | null;
+  externalCode: string | null;
+  image: string | null;
+  imageVariants: unknown;
+  price: number;
+  stock: number;
+  attributesJson: unknown;
+  isActive: boolean;
+};
+
+type FeedSourceCategory = {
+  id: number;
+  parentId: number | null;
+  name: string;
+};
+
+type FeedSourceData = {
+  productRows: FeedSourceProduct[];
+  variantRows: FeedSourceVariant[];
+  categoryRows: FeedSourceCategory[];
+  knownManufacturers: Array<{ normalizedName: string; name: string }>;
+};
+
+type FeedBuildOptions = {
+  ignoreEnabled?: boolean;
+  previewOnly?: boolean;
+  skipCache?: boolean;
+};
+
+type FeedBuildResult<TSettings> = {
+  xml: string;
+  stats: FeedStats;
+  generatedAt: string;
+  settings: TSettings;
+  preview: string;
+};
+
+const feedCache = new Map<string, { expiresAt: number; value: unknown }>();
+
+function getFeedCacheKey(name: string, previewOnly?: boolean) {
+  return `${name}:${previewOnly ? "preview" : "full"}`;
+}
+
+function readFeedCache<T>(key: string): T | null {
+  const cached = feedCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    feedCache.delete(key);
+    return null;
+  }
+  return cached.value as T;
+}
+
+function writeFeedCache<T>(key: string, value: T) {
+  feedCache.set(key, {
+    value,
+    expiresAt: Date.now() + FEED_CACHE_TTL_MS,
+  });
+}
+
+export function invalidateFeedCache(scope?: "yandex" | "vk") {
+  if (!scope) {
+    feedCache.clear();
+    return;
+  }
+  const prefix = `${scope}:`;
+  for (const key of feedCache.keys()) {
+    if (key.startsWith(prefix)) {
+      feedCache.delete(key);
+    }
+  }
+}
+
 function normalizeSettingText(value: string | null | undefined, fallback: string) {
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed.length > 0 ? trimmed : fallback;
@@ -88,6 +227,16 @@ function normalizeSettingText(value: string | null | undefined, fallback: string
 function normalizeBooleanSetting(value: string | null | undefined, fallback: boolean) {
   if (typeof value !== "string") return fallback;
   return value.trim().toLowerCase() === "true";
+}
+
+function normalizeNullableNumberSetting(
+  value: string | null | undefined,
+  fallback: number | null
+) {
+  if (typeof value !== "string" || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.trunc(parsed);
 }
 
 function xmlEscape(value: string) {
@@ -101,6 +250,25 @@ function xmlEscape(value: string) {
 
 function cdata(value: string) {
   return `<![CDATA[${value.replaceAll("]]>", "]]]]><![CDATA[>")}]]>`;
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+}
+
+function sanitizeDescription(value: unknown) {
+  const raw = String(value ?? "")
+    .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+  const sanitized = stripHtml(raw).replace(/\s+/g, " ").trim();
+  return {
+    value: sanitized,
+    wasSanitized: raw !== sanitized,
+  };
 }
 
 function normalizeSpecToken(value: string) {
@@ -136,11 +304,13 @@ function resolveAbsoluteUrl(url: string, siteUrl: string) {
   return `${siteUrl.replace(/\/+$/, "")}/${trimmed.replace(/^\/+/, "")}`;
 }
 
-function sanitizeDescription(value: unknown) {
-  return String(value ?? "")
-    .replace(/\u0000/g, "")
-    .replace(/\r\n/g, "\n")
-    .trim();
+function appendUtmParams(url: string, params: Record<string, string>) {
+  const normalizedUrl = new URL(url);
+  for (const [key, value] of Object.entries(params)) {
+    if (!value) continue;
+    normalizedUrl.searchParams.set(key, value);
+  }
+  return normalizedUrl.toString();
 }
 
 function normalizeVariantAttributes(
@@ -225,138 +395,26 @@ function normalizeImageCollection(
   return Array.from(urls);
 }
 
-async function buildDefaultYandexYmlSettings(): Promise<YandexYmlFeedSettings> {
-  const profile = await getSiteProfileSettings();
-  const sellerName =
-    profile.seller.shortName?.trim() ||
-    profile.seller.fullName?.trim() ||
-    "ТЕХАКС";
-
+function createEmptyFeedStats(productsSource: number): FeedStats {
   return {
-    enabled: false,
-    feedName: sellerName,
-    companyName: sellerName,
-    shopUrl: DEFAULT_SITE_URL,
-    currencyId: "RUR",
-    includeOutOfStock: false,
-    pickup: true,
-    delivery: true,
-    salesNotes: "",
-    publicUrl: `${DEFAULT_SITE_URL}${YANDEX_YML_PUBLIC_PATH}`,
-    publicPath: YANDEX_YML_PUBLIC_PATH,
+    productOffers: 0,
+    variantOffers: 0,
+    totalOffers: 0,
+    skippedOutOfStock: 0,
+    skippedWithoutPrice: 0,
+    skippedWithoutPicture: 0,
+    skippedWithoutCategory: 0,
+    skippedWithoutName: 0,
+    categoriesIncluded: 0,
+    warnings: [],
+    productsSource,
+    vendorMissingCount: 0,
+    picturesMissingCount: 0,
+    descriptionsSanitized: 0,
   };
 }
 
-export async function getYandexYmlFeedSettings(): Promise<YandexYmlFeedSettings> {
-  const defaults = await buildDefaultYandexYmlSettings();
-  const values = await getAppSettings([...allYandexYmlFeedSettingKeys]);
-
-  return {
-    enabled: normalizeBooleanSetting(
-      values[yandexYmlFeedSettingKeys.enabled],
-      defaults.enabled
-    ),
-    feedName: normalizeSettingText(
-      values[yandexYmlFeedSettingKeys.feedName],
-      defaults.feedName
-    ),
-    companyName: normalizeSettingText(
-      values[yandexYmlFeedSettingKeys.companyName],
-      defaults.companyName
-    ),
-    shopUrl: normalizeSettingText(
-      values[yandexYmlFeedSettingKeys.shopUrl],
-      defaults.shopUrl
-    ).replace(/\/+$/, ""),
-    currencyId:
-      values[yandexYmlFeedSettingKeys.currencyId]?.trim() === "RUB" ? "RUB" : "RUR",
-    includeOutOfStock: normalizeBooleanSetting(
-      values[yandexYmlFeedSettingKeys.includeOutOfStock],
-      defaults.includeOutOfStock
-    ),
-    pickup: normalizeBooleanSetting(
-      values[yandexYmlFeedSettingKeys.pickup],
-      defaults.pickup
-    ),
-    delivery: normalizeBooleanSetting(
-      values[yandexYmlFeedSettingKeys.delivery],
-      defaults.delivery
-    ),
-    salesNotes: normalizeSettingText(
-      values[yandexYmlFeedSettingKeys.salesNotes],
-      defaults.salesNotes
-    ),
-    publicUrl: `${DEFAULT_SITE_URL}${YANDEX_YML_PUBLIC_PATH}`,
-    publicPath: YANDEX_YML_PUBLIC_PATH,
-  };
-}
-
-export async function saveYandexYmlFeedSettings(
-  input: YandexYmlFeedSettingsInput
-) {
-  const payload = yandexYmlFeedSettingsInputSchema.parse(input);
-
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.enabled,
-    payload.enabled ? "true" : "false"
-  );
-  await setAppSetting(yandexYmlFeedSettingKeys.feedName, payload.feedName);
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.companyName,
-    payload.companyName
-  );
-  await setAppSetting(yandexYmlFeedSettingKeys.shopUrl, payload.shopUrl);
-  await setAppSetting(yandexYmlFeedSettingKeys.currencyId, payload.currencyId);
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.includeOutOfStock,
-    payload.includeOutOfStock ? "true" : "false"
-  );
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.pickup,
-    payload.pickup ? "true" : "false"
-  );
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.delivery,
-    payload.delivery ? "true" : "false"
-  );
-  await setAppSetting(
-    yandexYmlFeedSettingKeys.salesNotes,
-    payload.salesNotes || ""
-  );
-
-  return { success: true };
-}
-
-export async function getFeedCatalogOverview() {
-  const settings = await getYandexYmlFeedSettings();
-  const preview = await buildYandexYmlFeed({ ignoreEnabled: true, previewOnly: true });
-
-  return [
-    {
-      key: "yandex_yml",
-      title: "Yandex YML",
-      description:
-        "YML-фид для загрузки товарного каталога в Яндекс Бизнес / Приоритетное размещение.",
-      enabled: settings.enabled,
-      publicUrl: settings.publicUrl,
-      publicPath: settings.publicPath,
-      offersCount: preview.stats.totalOffers,
-      warningsCount: preview.stats.warnings.length,
-      mode: "xml",
-    },
-  ];
-}
-
-export async function buildYandexYmlFeed(options?: {
-  ignoreEnabled?: boolean;
-  previewOnly?: boolean;
-}) {
-  const settings = await getYandexYmlFeedSettings();
-
-  if (!options?.ignoreEnabled && !settings.enabled) {
-    throw new Error("Yandex YML feed disabled");
-  }
-
+async function loadFeedSourceData(): Promise<FeedSourceData> {
   const db = getDb();
 
   const productRows = await db
@@ -427,29 +485,18 @@ export async function buildYandexYmlFeed(options?: {
     }))
     .filter(item => item.normalizedName);
 
-  const variantsByProductId = new Map<number, typeof variantRows>();
-  for (const variant of variantRows) {
-    const bucket = variantsByProductId.get(variant.productId) ?? [];
-    bucket.push(variant);
-    variantsByProductId.set(variant.productId, bucket);
-  }
-
-  const offers: FeedOffer[] = [];
-  const stats: FeedStats = {
-    productOffers: 0,
-    variantOffers: 0,
-    totalOffers: 0,
-    skippedOutOfStock: 0,
-    skippedWithoutPrice: 0,
-    categoriesIncluded: 0,
-    warnings: [],
-    productsSource: productRows.length,
+  return {
+    productRows,
+    variantRows,
+    categoryRows,
+    knownManufacturers,
   };
+}
 
-  let vendorMissingCount = 0;
-  let picturesMissingCount = 0;
-
-  const resolveVendor = (productName: string, specs: unknown) => {
+function resolveVendorFactory(
+  knownManufacturers: Array<{ normalizedName: string; name: string }>
+) {
+  return (productName: string, specs: unknown) => {
     const specEntries = normalizeProductSpecs(specs);
     const directManufacturer = specEntries.find(entry => {
       const normalized = normalizeSpecToken(entry.name);
@@ -463,164 +510,32 @@ export async function buildYandexYmlFeed(options?: {
     );
     return byTitle?.name || "Без бренда";
   };
+}
 
-  const buildOffer = (args: {
-    id: string;
-    name: string;
-    price: number;
-    oldPrice: number | null;
-    available: boolean;
-    vendorCode: string | null;
-    barcode: string | null;
-    image: string | null;
-    imageVariants: unknown;
-    images: unknown;
-    description: string;
-    categoryId: number;
-    vendor: string;
-    params: Array<{ name: string; value: string }>;
-    url: string;
-  }) => {
-    const pictures = normalizeImageCollection(
-      args.image,
-      args.imageVariants,
-      args.images
-    )
-      .map(imageUrl => resolveAbsoluteUrl(imageUrl, settings.shopUrl))
-      .slice(0, 1);
+function expandCategoryIdsWithParents(
+  directCategoryIds: Set<number>,
+  categoryRows: FeedSourceCategory[]
+) {
+  const byId = new Map(categoryRows.map(category => [category.id, category] as const));
+  const included = new Set<number>();
 
-    if (pictures.length === 0) {
-      picturesMissingCount += 1;
+  for (const categoryId of directCategoryIds) {
+    let currentId: number | null | undefined = categoryId;
+    while (currentId) {
+      if (included.has(currentId)) break;
+      included.add(currentId);
+      currentId = byId.get(currentId)?.parentId ?? null;
     }
-    if (!args.vendor || args.vendor === "Без бренда") {
-      vendorMissingCount += 1;
-    }
-
-    return {
-      id: args.id,
-      url: args.url,
-      price: args.price,
-      oldPrice: args.oldPrice,
-      currencyId: settings.currencyId,
-      categoryId: args.categoryId,
-      pictures,
-      vendor: args.vendor || "Без бренда",
-      name: args.name,
-      description: args.description,
-      vendorCode: args.vendorCode,
-      barcode: args.barcode,
-      available: args.available,
-      pickup: settings.pickup,
-      delivery: settings.delivery,
-      salesNotes: settings.salesNotes || null,
-      params: args.params.slice(0, 12),
-    } satisfies FeedOffer;
-  };
-
-  for (const product of productRows) {
-    const categoryId = Number(product.categoryId);
-    const productPrice = Number(product.price ?? 0);
-    const productOldPrice = product.oldPrice ? Number(product.oldPrice) : null;
-    const availableQty = Number(product.availableQty ?? 0);
-    const productAvailable = availableQty > 0;
-    const vendor = resolveVendor(product.name, product.specs);
-    const baseDescription = sanitizeDescription(product.description);
-    const specParams = normalizeProductSpecs(product.specs);
-    const variants = (variantsByProductId.get(product.id) ?? []).filter(
-      variant => variant.isActive
-    );
-    const activeVariants = variants.filter(variant => Number(variant.price ?? 0) > 0);
-
-    if (activeVariants.length > 0) {
-      for (const variant of activeVariants) {
-        const variantPrice = Number(variant.price ?? 0);
-        const variantAvailable = Number(variant.stock ?? 0) > 0;
-
-        if (variantPrice <= 0) {
-          stats.skippedWithoutPrice += 1;
-          continue;
-        }
-        if (!settings.includeOutOfStock && !variantAvailable) {
-          stats.skippedOutOfStock += 1;
-          continue;
-        }
-
-        const variantAttributes = normalizeVariantAttributes(variant.attributesJson);
-        const variantTitle =
-          variant.name?.trim() && variant.name.trim() !== product.name.trim()
-            ? `${product.name} — ${variant.name.trim()}`
-            : product.name;
-
-        offers.push(
-          buildOffer({
-            id: `variant-${variant.id}`,
-            name: variantTitle,
-            price: variantPrice,
-            oldPrice: productOldPrice && productOldPrice > variantPrice ? productOldPrice : null,
-            available: variantAvailable,
-            vendorCode:
-              variant.article?.trim() ||
-              variant.externalCode?.trim() ||
-              product.article?.trim() ||
-              product.externalCode?.trim() ||
-              product.barcode?.trim() ||
-              null,
-            barcode: product.barcode?.trim() || null,
-            image: variant.image?.trim() || product.image,
-            imageVariants: variant.imageVariants ?? product.imageVariants,
-            images: product.images,
-            description: baseDescription,
-            categoryId,
-            vendor,
-            params: [...variantAttributes, ...specParams],
-            url: `${settings.shopUrl}/product/${encodeURIComponent(product.slug)}?variant=${variant.id}`,
-          })
-        );
-        stats.variantOffers += 1;
-      }
-      continue;
-    }
-
-    if (productPrice <= 0) {
-      stats.skippedWithoutPrice += 1;
-      continue;
-    }
-    if (!settings.includeOutOfStock && !productAvailable) {
-      stats.skippedOutOfStock += 1;
-      continue;
-    }
-
-    offers.push(
-      buildOffer({
-        id: `product-${product.id}`,
-        name: product.name,
-        price: productPrice,
-        oldPrice: productOldPrice && productOldPrice > productPrice ? productOldPrice : null,
-        available: productAvailable,
-        vendorCode:
-          product.article?.trim() ||
-          product.externalCode?.trim() ||
-          product.barcode?.trim() ||
-          null,
-        barcode: product.barcode?.trim() || null,
-        image: product.image,
-        imageVariants: product.imageVariants,
-        images: product.images,
-        description: baseDescription,
-        categoryId,
-        vendor,
-        params: specParams,
-        url: `${settings.shopUrl}/product/${encodeURIComponent(product.slug)}`,
-      })
-    );
-    stats.productOffers += 1;
   }
 
-  stats.totalOffers = offers.length;
+  return included;
+}
 
-  const includedCategoryIds = new Set<number>(offers.map(offer => offer.categoryId));
-
-  const categoriesXml = categoryRows
+function buildCategoryXmlRows(
+  categoryRows: FeedSourceCategory[],
+  includedCategoryIds: Set<number>
+) {
+  return categoryRows
     .filter(category => includedCategoryIds.has(category.id))
     .map(category => {
       const parentAttribute =
@@ -632,17 +547,224 @@ export async function buildYandexYmlFeed(options?: {
       )}</category>`;
     })
     .join("\n");
+}
 
+function collectFeedOffers(
+  source: FeedSourceData,
+  options: {
+    siteUrl: string;
+    currencyId: "RUR" | "RUB";
+    includeOutOfStock: boolean;
+    pictureMode: "single" | "multiple";
+    maxPictures?: number;
+    pickup: boolean;
+    delivery: boolean;
+    salesNotes?: string | null;
+    utm?: {
+      enabled: boolean;
+      source: string;
+      medium: string;
+      campaign: string;
+    };
+    maxItems?: number | null;
+  }
+) {
+  const variantsByProductId = new Map<number, FeedSourceVariant[]>();
+  for (const variant of source.variantRows) {
+    const bucket = variantsByProductId.get(variant.productId) ?? [];
+    bucket.push(variant);
+    variantsByProductId.set(variant.productId, bucket);
+  }
+
+  const stats = createEmptyFeedStats(source.productRows.length);
+  const categoryIds = new Set(source.categoryRows.map(category => category.id));
+  const resolveVendor = resolveVendorFactory(source.knownManufacturers);
+  const offers: FeedOffer[] = [];
+
+  const buildProductUrl = (slug: string, variantId?: number) => {
+    const baseUrl = `${options.siteUrl}/product/${encodeURIComponent(slug)}${
+      variantId ? `?variant=${variantId}` : ""
+    }`;
+    if (!options.utm?.enabled) return baseUrl;
+    return appendUtmParams(baseUrl, {
+      utm_source: options.utm.source,
+      utm_medium: options.utm.medium,
+      utm_campaign: options.utm.campaign,
+    });
+  };
+
+  const normalizePictures = (
+    image: string | null,
+    imageVariants: unknown,
+    gallery: unknown
+  ) => {
+    const limit = options.maxPictures ?? (options.pictureMode === "single" ? 1 : 8);
+    return normalizeImageCollection(image, imageVariants, gallery)
+      .map(imageUrl => resolveAbsoluteUrl(imageUrl, options.siteUrl))
+      .filter(Boolean)
+      .slice(0, options.pictureMode === "single" ? 1 : limit);
+  };
+
+  const pushOffer = (offer: FeedOffer) => {
+    offers.push(offer);
+    stats.totalOffers = offers.length;
+  };
+
+  for (const product of source.productRows) {
+    const categoryId = Number(product.categoryId);
+    const productPrice = Number(product.price ?? 0);
+    const productOldPrice = product.oldPrice ? Number(product.oldPrice) : null;
+    const availableQty = Number(product.availableQty ?? 0);
+    const productAvailable = availableQty > 0;
+    const vendor = resolveVendor(product.name, product.specs);
+    const descriptionMeta = sanitizeDescription(product.description);
+    const specParams = normalizeProductSpecs(product.specs);
+    const variants = (variantsByProductId.get(product.id) ?? []).filter(variant => variant.isActive);
+    const activeVariants = variants.filter(variant => Number(variant.price ?? 0) > 0);
+
+    const appendOffer = (input: {
+      id: string;
+      name: string;
+      price: number;
+      oldPrice: number | null;
+      available: boolean;
+      vendorCode: string | null;
+      barcode: string | null;
+      image: string | null;
+      imageVariants: unknown;
+      images: unknown;
+      description: string;
+      categoryId: number;
+      vendor: string;
+      params: Array<{ name: string; value: string }>;
+      url: string;
+    }) => {
+      if (!input.name.trim()) {
+        stats.skippedWithoutName += 1;
+        return;
+      }
+      if (input.price <= 0) {
+        stats.skippedWithoutPrice += 1;
+        return;
+      }
+      if (!categoryIds.has(input.categoryId)) {
+        stats.skippedWithoutCategory += 1;
+        return;
+      }
+      if (!options.includeOutOfStock && !input.available) {
+        stats.skippedOutOfStock += 1;
+        return;
+      }
+
+      const pictures = normalizePictures(input.image, input.imageVariants, input.images);
+      if (pictures.length === 0) {
+        stats.skippedWithoutPicture += 1;
+        stats.picturesMissingCount += 1;
+        return;
+      }
+      if (!input.vendor || input.vendor === "Без бренда") {
+        stats.vendorMissingCount += 1;
+      }
+      if (descriptionMeta.wasSanitized) {
+        stats.descriptionsSanitized += 1;
+      }
+
+      pushOffer({
+        id: input.id,
+        url: input.url,
+        price: input.price,
+        oldPrice: input.oldPrice,
+        currencyId: options.currencyId,
+        categoryId: input.categoryId,
+        pictures,
+        vendor: input.vendor || "Без бренда",
+        name: input.name.trim(),
+        description: input.description,
+        vendorCode: input.vendorCode,
+        barcode: input.barcode,
+        available: input.available,
+        pickup: options.pickup,
+        delivery: options.delivery,
+        salesNotes: options.salesNotes?.trim() || null,
+        params: input.params.slice(0, 12),
+      });
+    };
+
+    if (activeVariants.length > 0) {
+      for (const variant of activeVariants) {
+        const variantPrice = Number(variant.price ?? 0);
+        const variantAvailable = Number(variant.stock ?? 0) > 0;
+        const variantAttributes = normalizeVariantAttributes(variant.attributesJson);
+        const variantTitle =
+          variant.name?.trim() && variant.name.trim() !== product.name.trim()
+            ? `${product.name} — ${variant.name.trim()}`
+            : product.name;
+
+        appendOffer({
+          id: `variant-${variant.id}`,
+          name: variantTitle,
+          price: variantPrice,
+          oldPrice: productOldPrice && productOldPrice > variantPrice ? productOldPrice : null,
+          available: variantAvailable,
+          vendorCode:
+            variant.article?.trim() ||
+            variant.externalCode?.trim() ||
+            product.article?.trim() ||
+            product.externalCode?.trim() ||
+            product.barcode?.trim() ||
+            null,
+          barcode: product.barcode?.trim() || null,
+          image: variant.image?.trim() || product.image,
+          imageVariants: variant.imageVariants ?? product.imageVariants,
+          images: product.images,
+          description: descriptionMeta.value,
+          categoryId,
+          vendor,
+          params: [...variantAttributes, ...specParams],
+          url: buildProductUrl(product.slug, variant.id),
+        });
+        stats.variantOffers += 1;
+        if (options.maxItems && offers.length >= options.maxItems) break;
+      }
+      if (options.maxItems && offers.length >= options.maxItems) break;
+      continue;
+    }
+
+    appendOffer({
+      id: `product-${product.id}`,
+      name: product.name,
+      price: productPrice,
+      oldPrice: productOldPrice && productOldPrice > productPrice ? productOldPrice : null,
+      available: productAvailable,
+      vendorCode:
+        product.article?.trim() || product.externalCode?.trim() || product.barcode?.trim() || null,
+      barcode: product.barcode?.trim() || null,
+      image: product.image,
+      imageVariants: product.imageVariants,
+      images: product.images,
+      description: descriptionMeta.value,
+      categoryId,
+      vendor,
+      params: specParams,
+      url: buildProductUrl(product.slug),
+    });
+    stats.productOffers += 1;
+    if (options.maxItems && offers.length >= options.maxItems) break;
+  }
+
+  const directCategoryIds = new Set(offers.map(offer => offer.categoryId));
+  const includedCategoryIds = expandCategoryIdsWithParents(directCategoryIds, source.categoryRows);
   stats.categoriesIncluded = includedCategoryIds.size;
+  stats.totalOffers = offers.length;
 
-  if (vendorMissingCount > 0) {
+  if (stats.vendorMissingCount > 0) {
     stats.warnings.push(
-      `У ${vendorMissingCount} офферов бренд не удалось определить точно, используется значение «Без бренда».`
+      `У ${stats.vendorMissingCount} офферов бренд определить не удалось — используется значение «Без бренда».`
     );
   }
-  if (picturesMissingCount > 0) {
+  if (stats.skippedWithoutPicture > 0) {
     stats.warnings.push(
-      `У ${picturesMissingCount} офферов нет изображения. Проверьте карточки товаров перед загрузкой фида в Яндекс.`
+      `${stats.skippedWithoutPicture} позиций пропущено, потому что у товара нет изображения.`
     );
   }
   if (stats.skippedWithoutPrice > 0) {
@@ -650,12 +772,46 @@ export async function buildYandexYmlFeed(options?: {
       `${stats.skippedWithoutPrice} позиций пропущено из-за нулевой или отсутствующей цены.`
     );
   }
-  if (!settings.includeOutOfStock && stats.skippedOutOfStock > 0) {
+  if (stats.skippedWithoutCategory > 0) {
     stats.warnings.push(
-      `${stats.skippedOutOfStock} позиций не попали в фид, потому что выключен экспорт товаров без наличия.`
+      `${stats.skippedWithoutCategory} позиций пропущено, потому что не удалось сопоставить категорию.`
+    );
+  }
+  if (!options.includeOutOfStock && stats.skippedOutOfStock > 0) {
+    stats.warnings.push(
+      `${stats.skippedOutOfStock} позиций не попали в выгрузку, потому что выключен экспорт товаров без наличия.`
+    );
+  }
+  if (stats.skippedWithoutName > 0) {
+    stats.warnings.push(
+      `${stats.skippedWithoutName} позиций пропущено, потому что у товара не заполнено название.`
+    );
+  }
+  if (stats.descriptionsSanitized > 0) {
+    stats.warnings.push(
+      `У ${stats.descriptionsSanitized} офферов описание было очищено от HTML и лишних пробелов.`
+    );
+  }
+  if (options.maxItems && offers.length >= options.maxItems) {
+    stats.warnings.push(
+      `Достигнут лимит выгрузки: ${options.maxItems} офферов. Остальные товары не включены в XML.`
     );
   }
 
+  return {
+    offers,
+    stats,
+    includedCategoryIds,
+  };
+}
+
+function buildFeedPreview(xml: string, previewOnly?: boolean) {
+  return xml.split("\n").slice(0, previewOnly ? 90 : 120).join("\n");
+}
+
+function renderYandexXml(settings: YandexYmlFeedSettings, categoryRowsXml: string, offers: FeedOffer[]) {
+  const generatedAt = new Date();
+  const feedDate = generatedAt.toISOString().slice(0, 19).replace("T", " ");
   const offersXml = offers
     .map(offer => {
       const paramsXml = offer.params
@@ -675,15 +831,11 @@ export async function buildYandexYmlFeed(options?: {
         picturesXml || null,
         `      <name>${xmlEscape(offer.name)}</name>`,
         `      <vendor>${xmlEscape(offer.vendor)}</vendor>`,
-        offer.vendorCode
-          ? `      <vendorCode>${xmlEscape(offer.vendorCode)}</vendorCode>`
-          : null,
+        offer.vendorCode ? `      <vendorCode>${xmlEscape(offer.vendorCode)}</vendorCode>` : null,
         offer.barcode ? `      <barcode>${xmlEscape(offer.barcode)}</barcode>` : null,
         `      <pickup>${offer.pickup ? "true" : "false"}</pickup>`,
         `      <delivery>${offer.delivery ? "true" : "false"}</delivery>`,
-        offer.salesNotes
-          ? `      <sales_notes>${xmlEscape(offer.salesNotes)}</sales_notes>`
-          : null,
+        offer.salesNotes ? `      <sales_notes>${xmlEscape(offer.salesNotes)}</sales_notes>` : null,
         offer.description ? `      <description>${cdata(offer.description)}</description>` : null,
         paramsXml || null,
         `    </offer>`,
@@ -693,9 +845,9 @@ export async function buildYandexYmlFeed(options?: {
     })
     .join("\n");
 
-  const generatedAt = new Date();
-  const feedDate = generatedAt.toISOString().slice(0, 19).replace("T", " ");
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  return {
+    generatedAt: generatedAt.toISOString(),
+    xml: `<?xml version="1.0" encoding="UTF-8"?>
 <yml_catalog date="${feedDate}">
   <shop>
     <name>${xmlEscape(settings.feedName)}</name>
@@ -705,21 +857,373 @@ export async function buildYandexYmlFeed(options?: {
       <currency id="${settings.currencyId}" rate="1"/>
     </currencies>
     <categories>
-${categoriesXml}
+${categoryRowsXml}
     </categories>
     <offers>
 ${offersXml}
     </offers>
   </shop>
-</yml_catalog>`;
+</yml_catalog>`,
+  };
+}
 
-  const previewLines = xml.split("\n").slice(0, options?.previewOnly ? 90 : 120);
+function renderVkXml(settings: VkFeedSettings, categoryRowsXml: string, offers: FeedOffer[]) {
+  const generatedAt = new Date();
+  const feedDate = generatedAt.toISOString().slice(0, 16).replace("T", " ");
+  const offersXml = offers
+    .map(offer => {
+      const picturesXml = offer.pictures
+        .map(picture => `      <picture>${xmlEscape(picture)}</picture>`)
+        .join("\n");
+      return [
+        `    <offer id="${xmlEscape(offer.id)}" available="${offer.available ? "true" : "false"}">`,
+        `      <url>${xmlEscape(offer.url)}</url>`,
+        `      <price>${offer.price.toFixed(2)}</price>`,
+        `      <currencyId>RUB</currencyId>`,
+        `      <categoryId>${offer.categoryId}</categoryId>`,
+        picturesXml || null,
+        `      <name>${xmlEscape(offer.name)}</name>`,
+        offer.description ? `      <description>${cdata(offer.description)}</description>` : null,
+        offer.vendor ? `      <vendor>${xmlEscape(offer.vendor)}</vendor>` : null,
+        `    </offer>`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n");
 
   return {
-    xml,
-    stats,
     generatedAt: generatedAt.toISOString(),
+    xml: `<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="${feedDate}">
+  <shop>
+    <name>${xmlEscape(settings.feedName)}</name>
+    <company>${xmlEscape(settings.companyName)}</company>
+    <url>${xmlEscape(settings.shopUrl)}</url>
+    <currencies>
+      <currency id="RUB" rate="1"/>
+    </currencies>
+    <categories>
+${categoryRowsXml}
+    </categories>
+    <offers>
+${offersXml}
+    </offers>
+  </shop>
+</yml_catalog>`,
+  };
+}
+
+async function buildDefaultYandexYmlSettings(): Promise<YandexYmlFeedSettings> {
+  const profile = await getSiteProfileSettings();
+  const sellerName =
+    profile.seller.shortName?.trim() ||
+    profile.seller.fullName?.trim() ||
+    "ТЕХАКС";
+
+  return {
+    enabled: false,
+    feedName: sellerName,
+    companyName: sellerName,
+    shopUrl: DEFAULT_SITE_URL,
+    currencyId: "RUR",
+    includeOutOfStock: false,
+    pickup: true,
+    delivery: true,
+    salesNotes: "",
+    publicUrl: `${DEFAULT_SITE_URL}${YANDEX_YML_PUBLIC_PATH}`,
+    publicPath: YANDEX_YML_PUBLIC_PATH,
+    baseUrl: DEFAULT_SITE_URL,
+  };
+}
+
+async function buildDefaultVkFeedSettings(): Promise<VkFeedSettings> {
+  const profile = await getSiteProfileSettings();
+  const sellerName =
+    profile.seller.shortName?.trim() ||
+    profile.seller.fullName?.trim() ||
+    "ТЕХАКС";
+
+  return {
+    enabled: false,
+    feedName: sellerName,
+    companyName: sellerName,
+    shopUrl: DEFAULT_SITE_URL,
+    utmEnabled: true,
+    utmSource: "vk",
+    utmMedium: "cpc",
+    utmCampaign: "product_feed",
+    onlyInStock: true,
+    includeOutOfStockAsUnavailable: false,
+    maxItems: null,
+    publicUrl: `${DEFAULT_SITE_URL}${VK_XML_PUBLIC_PATH}`,
+    publicPath: VK_XML_PUBLIC_PATH,
+    baseUrl: DEFAULT_SITE_URL,
+  };
+}
+
+export async function getYandexYmlFeedSettings(): Promise<YandexYmlFeedSettings> {
+  const defaults = await buildDefaultYandexYmlSettings();
+  const values = await getAppSettings([...allYandexYmlFeedSettingKeys]);
+
+  const shopUrl = normalizeSettingText(
+    values[yandexYmlFeedSettingKeys.shopUrl],
+    defaults.shopUrl
+  ).replace(/\/+$/, "");
+
+  return {
+    enabled: normalizeBooleanSetting(values[yandexYmlFeedSettingKeys.enabled], defaults.enabled),
+    feedName: normalizeSettingText(values[yandexYmlFeedSettingKeys.feedName], defaults.feedName),
+    companyName: normalizeSettingText(
+      values[yandexYmlFeedSettingKeys.companyName],
+      defaults.companyName
+    ),
+    shopUrl,
+    currencyId:
+      values[yandexYmlFeedSettingKeys.currencyId]?.trim() === "RUB" ? "RUB" : "RUR",
+    includeOutOfStock: normalizeBooleanSetting(
+      values[yandexYmlFeedSettingKeys.includeOutOfStock],
+      defaults.includeOutOfStock
+    ),
+    pickup: normalizeBooleanSetting(values[yandexYmlFeedSettingKeys.pickup], defaults.pickup),
+    delivery: normalizeBooleanSetting(
+      values[yandexYmlFeedSettingKeys.delivery],
+      defaults.delivery
+    ),
+    salesNotes: normalizeSettingText(
+      values[yandexYmlFeedSettingKeys.salesNotes],
+      defaults.salesNotes
+    ),
+    publicUrl: `${DEFAULT_SITE_URL}${YANDEX_YML_PUBLIC_PATH}`,
+    publicPath: YANDEX_YML_PUBLIC_PATH,
+    baseUrl: shopUrl,
+  };
+}
+
+export async function getVkFeedSettings(): Promise<VkFeedSettings> {
+  const defaults = await buildDefaultVkFeedSettings();
+  const values = await getAppSettings([...allVkFeedSettingKeys]);
+
+  const shopUrl = normalizeSettingText(values[vkFeedSettingKeys.shopUrl], defaults.shopUrl).replace(
+    /\/+$/,
+    ""
+  );
+
+  return {
+    enabled: normalizeBooleanSetting(values[vkFeedSettingKeys.enabled], defaults.enabled),
+    feedName: normalizeSettingText(values[vkFeedSettingKeys.feedName], defaults.feedName),
+    companyName: normalizeSettingText(values[vkFeedSettingKeys.companyName], defaults.companyName),
+    shopUrl,
+    utmEnabled: normalizeBooleanSetting(values[vkFeedSettingKeys.utmEnabled], defaults.utmEnabled),
+    utmSource: normalizeSettingText(values[vkFeedSettingKeys.utmSource], defaults.utmSource),
+    utmMedium: normalizeSettingText(values[vkFeedSettingKeys.utmMedium], defaults.utmMedium),
+    utmCampaign: normalizeSettingText(values[vkFeedSettingKeys.utmCampaign], defaults.utmCampaign),
+    onlyInStock: normalizeBooleanSetting(values[vkFeedSettingKeys.onlyInStock], defaults.onlyInStock),
+    includeOutOfStockAsUnavailable: normalizeBooleanSetting(
+      values[vkFeedSettingKeys.includeOutOfStockAsUnavailable],
+      defaults.includeOutOfStockAsUnavailable
+    ),
+    maxItems: normalizeNullableNumberSetting(values[vkFeedSettingKeys.maxItems], defaults.maxItems),
+    publicUrl: `${DEFAULT_SITE_URL}${VK_XML_PUBLIC_PATH}`,
+    publicPath: VK_XML_PUBLIC_PATH,
+    baseUrl: shopUrl,
+  };
+}
+
+export async function saveYandexYmlFeedSettings(input: YandexYmlFeedSettingsInput) {
+  const payload = yandexYmlFeedSettingsInputSchema.parse(input);
+
+  await setAppSetting(yandexYmlFeedSettingKeys.enabled, payload.enabled ? "true" : "false");
+  await setAppSetting(yandexYmlFeedSettingKeys.feedName, payload.feedName);
+  await setAppSetting(yandexYmlFeedSettingKeys.companyName, payload.companyName);
+  await setAppSetting(yandexYmlFeedSettingKeys.shopUrl, payload.shopUrl);
+  await setAppSetting(yandexYmlFeedSettingKeys.currencyId, payload.currencyId);
+  await setAppSetting(
+    yandexYmlFeedSettingKeys.includeOutOfStock,
+    payload.includeOutOfStock ? "true" : "false"
+  );
+  await setAppSetting(yandexYmlFeedSettingKeys.pickup, payload.pickup ? "true" : "false");
+  await setAppSetting(yandexYmlFeedSettingKeys.delivery, payload.delivery ? "true" : "false");
+  await setAppSetting(yandexYmlFeedSettingKeys.salesNotes, payload.salesNotes || "");
+  invalidateFeedCache("yandex");
+
+  return { success: true };
+}
+
+export async function saveVkFeedSettings(input: VkFeedSettingsInput) {
+  const payload = vkFeedSettingsInputSchema.parse(input);
+
+  await setAppSetting(vkFeedSettingKeys.enabled, payload.enabled ? "true" : "false");
+  await setAppSetting(vkFeedSettingKeys.feedName, payload.feedName);
+  await setAppSetting(vkFeedSettingKeys.companyName, payload.companyName);
+  await setAppSetting(vkFeedSettingKeys.shopUrl, payload.shopUrl);
+  await setAppSetting(vkFeedSettingKeys.utmEnabled, payload.utmEnabled ? "true" : "false");
+  await setAppSetting(vkFeedSettingKeys.utmSource, payload.utmSource);
+  await setAppSetting(vkFeedSettingKeys.utmMedium, payload.utmMedium);
+  await setAppSetting(vkFeedSettingKeys.utmCampaign, payload.utmCampaign);
+  await setAppSetting(vkFeedSettingKeys.onlyInStock, payload.onlyInStock ? "true" : "false");
+  await setAppSetting(
+    vkFeedSettingKeys.includeOutOfStockAsUnavailable,
+    payload.includeOutOfStockAsUnavailable ? "true" : "false"
+  );
+  await setAppSetting(vkFeedSettingKeys.maxItems, payload.maxItems ? String(payload.maxItems) : "");
+  invalidateFeedCache("vk");
+
+  return { success: true };
+}
+
+export async function getFeedCatalogOverview() {
+  const [yandexSettings, vkSettings, yandexPreview, vkPreview] = await Promise.all([
+    getYandexYmlFeedSettings(),
+    getVkFeedSettings(),
+    buildYandexYmlFeed({ ignoreEnabled: true, previewOnly: true, skipCache: true }),
+    buildVkFeed({ ignoreEnabled: true, previewOnly: true, skipCache: true }),
+  ]);
+
+  return [
+    {
+      key: "yandex_yml",
+      title: "Yandex YML",
+      description:
+        "YML-фид для загрузки товарного каталога в Яндекс Бизнес / Приоритетное размещение.",
+      enabled: yandexSettings.enabled,
+      publicUrl: yandexSettings.publicUrl,
+      publicPath: yandexSettings.publicPath,
+      offersCount: yandexPreview.stats.totalOffers,
+      warningsCount: yandexPreview.stats.warnings.length,
+      mode: "xml",
+    },
+    {
+      key: "vk_xml",
+      title: "VK XML",
+      description:
+        "Отдельный канал выгрузки товаров для VK Рекламы и каталога VK со своими UTM и фильтрами.",
+      enabled: vkSettings.enabled,
+      publicUrl: vkSettings.publicUrl,
+      publicPath: vkSettings.publicPath,
+      offersCount: vkPreview.stats.totalOffers,
+      warningsCount: vkPreview.stats.warnings.length,
+      mode: "xml",
+    },
+  ];
+}
+
+export async function buildYandexYmlFeed(
+  options?: FeedBuildOptions
+): Promise<FeedBuildResult<YandexYmlFeedSettings>> {
+  const cacheKey = getFeedCacheKey("yandex", options?.previewOnly);
+  if (!options?.skipCache) {
+    const cached = readFeedCache<FeedBuildResult<YandexYmlFeedSettings>>(cacheKey);
+    if (cached) return cached;
+  }
+
+  const settings = await getYandexYmlFeedSettings();
+  if (!options?.ignoreEnabled && !settings.enabled) {
+    throw new Error("Yandex YML feed disabled");
+  }
+
+  const source = await loadFeedSourceData();
+  const collected = collectFeedOffers(source, {
+    siteUrl: settings.shopUrl,
+    currencyId: settings.currencyId,
+    includeOutOfStock: settings.includeOutOfStock,
+    pictureMode: "single",
+    maxPictures: 1,
+    pickup: settings.pickup,
+    delivery: settings.delivery,
+    salesNotes: settings.salesNotes || null,
+  });
+
+  const categoryRowsXml = buildCategoryXmlRows(source.categoryRows, collected.includedCategoryIds);
+  const rendered = renderYandexXml(settings, categoryRowsXml, collected.offers);
+
+  const result = {
+    xml: rendered.xml,
+    stats: collected.stats,
+    generatedAt: rendered.generatedAt,
     settings,
-    preview: previewLines.join("\n"),
+    preview: buildFeedPreview(rendered.xml, options?.previewOnly),
+  };
+
+  if (!options?.skipCache) {
+    writeFeedCache(cacheKey, result);
+  }
+  return result;
+}
+
+export async function buildVkFeed(
+  options?: FeedBuildOptions
+): Promise<FeedBuildResult<VkFeedSettings>> {
+  const cacheKey = getFeedCacheKey("vk", options?.previewOnly);
+  if (!options?.skipCache) {
+    const cached = readFeedCache<FeedBuildResult<VkFeedSettings>>(cacheKey);
+    if (cached) return cached;
+  }
+
+  const settings = await getVkFeedSettings();
+  if (!options?.ignoreEnabled && !settings.enabled) {
+    throw new Error("VK feed disabled");
+  }
+
+  const source = await loadFeedSourceData();
+  const collected = collectFeedOffers(source, {
+    siteUrl: settings.shopUrl,
+    currencyId: "RUB",
+    includeOutOfStock: settings.onlyInStock
+      ? false
+      : settings.includeOutOfStockAsUnavailable,
+    pictureMode: "multiple",
+    maxPictures: 8,
+    pickup: true,
+    delivery: true,
+    utm: {
+      enabled: settings.utmEnabled,
+      source: settings.utmSource,
+      medium: settings.utmMedium,
+      campaign: settings.utmCampaign,
+    },
+    maxItems: settings.maxItems,
+  });
+
+  if (settings.onlyInStock) {
+    collected.stats.warnings = collected.stats.warnings.filter(
+      warning => !warning.includes("без наличия")
+    );
+  }
+  if (collected.stats.totalOffers < 6) {
+    collected.stats.warnings.push(
+      "Активных офферов меньше 6. Для VK это может быть слишком маленький каталог."
+    );
+  }
+
+  const categoryRowsXml = buildCategoryXmlRows(source.categoryRows, collected.includedCategoryIds);
+  const rendered = renderVkXml(settings, categoryRowsXml, collected.offers);
+
+  const result = {
+    xml: rendered.xml,
+    stats: collected.stats,
+    generatedAt: rendered.generatedAt,
+    settings,
+    preview: buildFeedPreview(rendered.xml, options?.previewOnly),
+  };
+
+  if (!options?.skipCache) {
+    writeFeedCache(cacheKey, result);
+  }
+  return result;
+}
+
+export async function validateVkFeed() {
+  const result = await buildVkFeed({
+    ignoreEnabled: true,
+    previewOnly: true,
+    skipCache: true,
+  });
+  return {
+    enabled: result.settings.enabled,
+    publicUrl: result.settings.publicUrl,
+    stats: result.stats,
+    generatedAt: result.generatedAt,
+    preview: result.preview,
   };
 }

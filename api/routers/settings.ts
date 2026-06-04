@@ -20,10 +20,15 @@ import {
 } from "../lib/payment-settings";
 import { listAdminAuditLogs, writeAdminAuditLog } from "../lib/admin-audit";
 import {
+  buildVkFeed,
   buildYandexYmlFeed,
   getFeedCatalogOverview,
+  getVkFeedSettings,
   getYandexYmlFeedSettings,
+  saveVkFeedSettings,
   saveYandexYmlFeedSettings,
+  validateVkFeed,
+  vkFeedSettingsInputSchema,
   yandexYmlFeedSettingsInputSchema,
 } from "../lib/feeds";
 import { getDb } from "../queries/connection";
@@ -725,6 +730,11 @@ export const settingsRouter = createRouter({
     return getYandexYmlFeedSettings();
   }),
 
+  getVkFeedSettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return getVkFeedSettings();
+  }),
+
   saveYandexYmlFeedSettings: protectedProcedure
     .input(yandexYmlFeedSettingsInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -746,6 +756,34 @@ export const settingsRouter = createRouter({
   previewYandexYmlFeed: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
     return buildYandexYmlFeed({ ignoreEnabled: true, previewOnly: true });
+  }),
+
+  saveVkFeedSettings: protectedProcedure
+    .input(vkFeedSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getVkFeedSettings();
+      const result = await saveVkFeedSettings(input);
+      const after = await getVkFeedSettings();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.feed.vk.update",
+        entityType: "settings",
+        entityLabel: "VK feed",
+        before,
+        after,
+      });
+      return result;
+    }),
+
+  previewVkFeed: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return buildVkFeed({ ignoreEnabled: true, previewOnly: true });
+  }),
+
+  validateVkFeed: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return validateVkFeed();
   }),
 
   getPublicYooKassaStatus: publicQuery.query(async () => {
