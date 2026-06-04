@@ -36,6 +36,7 @@ import {
   homepageHeroAdminSettingsSchema,
   saveHomepageHeroAdminSettings,
 } from "../lib/homepage-hero";
+import { refreshHomepageSnapshot } from "../lib/homepage-snapshot";
 import { getDb } from "../queries/connection";
 import * as schema from "@db/schema";
 import { buildPublicProductVisibilityCondition } from "../lib/product-visibility";
@@ -155,6 +156,7 @@ export const settingsRouter = createRouter({
       requireAbility(ctx, "configure", "Settings");
       const before = await getAppSettings(["homepage_hero_variant"]);
       await setAppSetting("homepage_hero_variant", input.variant);
+      await refreshHomepageSnapshot();
       await writeAdminAuditLog({
         ctx,
         action: "settings.homepage_hero.update",
@@ -172,6 +174,7 @@ export const settingsRouter = createRouter({
       requireAbility(ctx, "configure", "Settings");
       const before = await getHomepageHeroAdminSettings();
       const result = await saveHomepageHeroAdminSettings(input);
+      await refreshHomepageSnapshot();
       await writeAdminAuditLog({
         ctx,
         action: "settings.homepage_hero_content.update",
