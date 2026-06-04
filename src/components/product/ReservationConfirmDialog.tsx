@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ConfirmReserveIcon, ReserveStoreIcon } from "./ProductActionIcons";
 import type { ProductStoreAvailability } from "./StoreAvailabilityItem";
 import PersonalDataConsent from "@/components/PersonalDataConsent";
+import { trackReserveItem } from "@/lib/yandex-metrika";
 
 type ReservationSuccessPayload = {
   id: number;
@@ -65,6 +66,12 @@ export default function ReservationConfirmDialog({
         },
       });
       await utils.product.getStockBySlug.invalidate();
+      trackReserveItem({
+        itemId: String(product.variantId ?? product.id),
+        name: product.variantName ? `${product.name} · ${product.variantName}` : product.name,
+        storeName: result.store.name,
+        variant: product.variantName ?? null,
+      });
       onReserved({
         id: result.id,
         reservedUntil: result.reservedUntil,

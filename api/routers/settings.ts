@@ -469,6 +469,8 @@ export const settingsRouter = createRouter({
       noBarcodeProductsRow,
       totalCategoriesRow,
       categoryNoDescriptionRow,
+      categoryNoMetaTitleRow,
+      categoryNoMetaDescriptionRow,
       totalStoresRow,
       storesMissingMapRow,
       storesMissingPhoneRow,
@@ -518,6 +520,14 @@ export const settingsRouter = createRouter({
         .select({ count: sql<number>`count(*)` })
         .from(schema.categories)
         .where(or(isNull(schema.categories.description), eq(schema.categories.description, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.categories)
+        .where(or(isNull(schema.categories.metaTitle), eq(schema.categories.metaTitle, ""))),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.categories)
+        .where(or(isNull(schema.categories.metaDescription), eq(schema.categories.metaDescription, ""))),
       db.select({ count: sql<number>`count(*)` }).from(schema.stores),
       db
         .select({ count: sql<number>`count(*)` })
@@ -583,6 +593,14 @@ export const settingsRouter = createRouter({
       if (hasChildren) return false;
       return (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0;
     });
+    const duplicateCategoryNamesCount = (() => {
+      const counts = new Map<string, number>();
+      for (const category of categoryRows) {
+        const key = category.name.trim().toLowerCase();
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      return Array.from(counts.values()).filter(value => value > 1).length;
+    })();
 
     const productRows = await db
       .select({
@@ -635,6 +653,12 @@ export const settingsRouter = createRouter({
 
     const sampleCategories = categoryRows
       .filter(category => !category.description || (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0)
+      .filter(category =>
+        !category.description ||
+        !category.metaTitle ||
+        !category.metaDescription ||
+        (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0
+      )
       .slice(0, 10)
       .map(category => ({
         id: category.id,
@@ -642,6 +666,8 @@ export const settingsRouter = createRouter({
         name: category.name,
         issues: [
           !category.description ? "Нет описания" : null,
+          !category.metaTitle ? "Нет SEO title" : null,
+          !category.metaDescription ? "Нет SEO description" : null,
           (visibleProductCountByCategoryId.get(category.id) ?? 0) === 0 &&
           (childCounts.get(category.id) ?? 0) === 0
             ? "Пустая конечная категория"
@@ -695,6 +721,9 @@ export const settingsRouter = createRouter({
       categories: {
         total: Number(totalCategoriesRow[0]?.count ?? 0),
         withoutDescription: Number(categoryNoDescriptionRow[0]?.count ?? 0),
+        withoutMetaTitle: Number(categoryNoMetaTitleRow[0]?.count ?? 0),
+        withoutMetaDescription: Number(categoryNoMetaDescriptionRow[0]?.count ?? 0),
+        duplicateNames: duplicateCategoryNamesCount,
         emptyLeafCount: emptyLeafCategories.length,
         samples: sampleCategories,
       },

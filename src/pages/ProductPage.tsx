@@ -43,6 +43,7 @@ import {
   getProductLightboxImageSrc,
   resolveProductImageCollection,
 } from "@/lib/product-images";
+import { trackViewItem } from "@/lib/yandex-metrika";
 
 const PRODUCT_TAB_KEYS = ["about", "specs", "stock", "delivery", "reviews", "warranty"] as const;
 
@@ -356,6 +357,34 @@ export default function ProductPage() {
     noindex: !product,
     structuredData: seoStructuredData,
   });
+
+  const trackedViewItemKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!product) return;
+
+    const trackingKey = `${product.id}:${selectedVariant?.id ?? 0}`;
+    if (trackedViewItemKeyRef.current === trackingKey) {
+      return;
+    }
+
+    trackedViewItemKeyRef.current = trackingKey;
+    trackViewItem({
+      itemId: String(selectedVariant?.id ?? product.id),
+      name: selectedVariant ? `${product.name} · ${selectedVariant.name}` : product.name,
+      price: selectedVariant?.price ?? product.price,
+      brand: productManufacturer?.title ?? null,
+      category: breadcrumbs.at(-1)?.name ? String(breadcrumbs.at(-1)?.name) : null,
+      variant: selectedVariant?.name ?? null,
+    });
+  }, [
+    breadcrumbs,
+    product,
+    productManufacturer?.title,
+    selectedVariant?.id,
+    selectedVariant?.name,
+    selectedVariant?.price,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

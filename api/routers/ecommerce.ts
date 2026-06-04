@@ -2242,7 +2242,23 @@ export const ecommerceRouter = createRouter({
         }
       }
 
-      return order;
+      const items = await db
+        .select({
+          productId: orderItems.productId,
+          variantId: orderItems.variantId,
+          variantName: orderItems.variantName,
+          productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
+          price: orderItems.price,
+          quantity: orderItems.quantity,
+        })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, order.id));
+
+      return {
+        ...order,
+        items,
+      };
     }),
 
   // User orders for Account section

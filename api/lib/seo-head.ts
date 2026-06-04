@@ -318,14 +318,15 @@ async function buildCatalogSeoData(url: URL) {
     });
   }
 
-  const description =
-    normalizeDescription(
-      currentCategory.description,
-      `${currentCategory.name} в интернет-магазине ТЕХАКС: цены, наличие, самовывоз и доставка по Пензе и России.`
-    );
+  const description = normalizeDescription(
+    currentCategory.metaDescription || currentCategory.description,
+    `${currentCategory.name} в интернет-магазине ТЕХАКС: цены, наличие, самовывоз и доставка по Пензе и России.`
+  );
+  const title =
+    currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в ТЕХАКС`;
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
-    title: `${currentCategory.name} — купить в ТЕХАКС`,
+    title,
     description,
     canonicalUrl: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
     noindex: hasFilters || hasLayout || hasSort || forceProductsView,
@@ -494,6 +495,106 @@ async function buildContactsSeoData() {
   });
 }
 
+async function buildPromotionsSeoData() {
+  const db = getDb();
+  const promos = await db
+    .select({
+      slug: schema.banners.slug,
+      title: schema.banners.title,
+    })
+    .from(schema.banners)
+    .where(eq(schema.banners.active, true))
+    .orderBy(asc(schema.banners.sortOrder), asc(schema.banners.id))
+    .limit(12);
+
+  return buildBasePageData("/promotions", {
+    title: "Акции и спецпредложения ТЕХАКС",
+    description:
+      "Актуальные акции, скидки и спецпредложения ТЕХАКС на технику и аксессуары.",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: SEO_HOST },
+        { name: "Акции", url: `${SEO_HOST}/promotions` },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Акции и спецпредложения ТЕХАКС",
+        description:
+          "Актуальные акции, скидки и спецпредложения ТЕХАКС на технику и аксессуары.",
+        url: `${SEO_HOST}/promotions`,
+        mainEntity: promos.map((promo, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${SEO_HOST}/promotions/${promo.slug}`,
+          name: promo.title,
+        })),
+      },
+    ],
+  });
+}
+
+async function buildPromotionDetailSeoData(url: URL) {
+  const slug = decodeURIComponent(url.pathname.replace(/^\/promotions\//, "").trim());
+  const db = getDb();
+  const [promo] = await db
+    .select()
+    .from(schema.banners)
+    .where(and(eq(schema.banners.slug, slug), eq(schema.banners.active, true)))
+    .limit(1);
+
+  if (!promo) {
+    return buildBasePageData(url.pathname, {
+      title: "Акция не найдена — ТЕХАКС",
+      description: "Запрошенная акция недоступна или уже завершена.",
+      canonicalUrl: `${SEO_HOST}${url.pathname}`,
+      noindex: true,
+    });
+  }
+
+  const description = normalizeDescription(
+    promo.subtitle || promo.content,
+    "Подробности акции и спецпредложения ТЕХАКС."
+  );
+
+  return buildBasePageData(`/promotions/${encodeURIComponent(promo.slug)}`, {
+    title: `${promo.title} — акция ТЕХАКС`,
+    description,
+    canonicalUrl: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}`,
+    image: promo.image || DEFAULT_IMAGE,
+    type: "article",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: SEO_HOST },
+        { name: "Акции", url: `${SEO_HOST}/promotions` },
+        { name: promo.title, url: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}` },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: promo.title,
+        description,
+        image: [toAbsoluteUrl(promo.image || DEFAULT_IMAGE)],
+        datePublished: new Date(promo.createdAt).toISOString(),
+        dateModified: new Date(promo.createdAt).toISOString(),
+        author: {
+          "@type": "Organization",
+          name: SITE_NAME,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: SITE_NAME,
+          logo: {
+            "@type": "ImageObject",
+            url: `${SEO_HOST}/images/logo-light.svg`,
+          },
+        },
+        mainEntityOfPage: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}`,
+      },
+    ],
+  });
+}
+
 async function buildBlogSeoData() {
   const db = getDb();
   const posts = await db
@@ -637,6 +738,8 @@ export async function buildSeoHeadData(url: URL): Promise<SeoHeadData> {
   if (pathname.startsWith("/product/")) return buildProductSeoData(url);
   if (pathname === "/stores") return buildStoresSeoData();
   if (pathname === "/contacts") return buildContactsSeoData();
+  if (pathname === "/promotions") return buildPromotionsSeoData();
+  if (pathname.startsWith("/promotions/")) return buildPromotionDetailSeoData(url);
   if (pathname === "/blog") return buildBlogSeoData();
   if (pathname.startsWith("/blog/")) return buildBlogPostSeoData(url);
   if (["/offer", "/privacy-policy", "/payment-delivery", "/returns"].includes(pathname)) {

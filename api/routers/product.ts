@@ -146,6 +146,8 @@ function normalizeCategoryPayload(
     slug: string;
     name: string;
     description?: string | null;
+    metaTitle?: string | null;
+    metaDescription?: string | null;
     icon?: string | null;
     sortOrder: number;
   }
@@ -155,6 +157,8 @@ function normalizeCategoryPayload(
     slug: data.slug.trim(),
     name: data.name.trim(),
     description: data.description?.trim() ? data.description.trim() : null,
+    metaTitle: data.metaTitle?.trim() ? data.metaTitle.trim() : null,
+    metaDescription: data.metaDescription?.trim() ? data.metaDescription.trim() : null,
     icon: data.icon?.trim() ? data.icon.trim() : null,
     sortOrder: data.sortOrder,
   };
@@ -1156,6 +1160,8 @@ export const productRouter = createRouter({
           slug: z.string(),
           name: z.string(),
           description: z.string().nullable(),
+          metaTitle: z.string().nullable().optional(),
+          metaDescription: z.string().nullable().optional(),
           icon: z.string().nullable(),
           sortOrder: z.number(),
         }),

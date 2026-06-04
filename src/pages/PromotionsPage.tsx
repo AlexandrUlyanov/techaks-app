@@ -1,9 +1,40 @@
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { ArrowRight, Gift, Loader2, Star } from "lucide-react";
+import { useSeo } from "@/lib/seo";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+} from "@/lib/seo-structured";
 
 export default function PromotionsPage() {
   const { data: banners = [], isLoading } = trpc.banner.getActive.useQuery();
+
+  useSeo({
+    title: "Акции и спецпредложения ТЕХАКС",
+    description:
+      "Актуальные акции, скидки и спецпредложения ТЕХАКС на технику и аксессуары.",
+    canonicalPath: "/promotions",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", path: "/" },
+        { name: "Акции", path: "/promotions" },
+      ]),
+      buildOrganizationStructuredData({
+        name: "ТЕХАКС",
+        url: "https://techaks.ru",
+        logo: "https://techaks.ru/images/logo-light.svg",
+      }),
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Акции и спецпредложения ТЕХАКС",
+        description:
+          "Актуальные акции, скидки и спецпредложения ТЕХАКС на технику и аксессуары.",
+        url: "https://techaks.ru/promotions",
+      },
+    ],
+  });
 
   return (
     <div className="min-h-screen pb-20 bg-background text-foreground">

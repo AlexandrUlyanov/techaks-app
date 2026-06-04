@@ -230,6 +230,8 @@ export default function AdminSeoDashboard() {
               <div className="grid gap-4 md:grid-cols-2">
                 <AdminStatCard label="Всего категорий" value={data.categories.total} icon={FolderTree} />
                 <AdminStatCard label="Без описания" value={data.categories.withoutDescription} icon={ScrollText} tone={data.categories.withoutDescription > 0 ? "warning" : "default"} />
+                <AdminStatCard label="Без SEO title" value={data.categories.withoutMetaTitle} icon={Tags} tone={data.categories.withoutMetaTitle > 0 ? "warning" : "default"} />
+                <AdminStatCard label="Без SEO description" value={data.categories.withoutMetaDescription} icon={FileSearch} tone={data.categories.withoutMetaDescription > 0 ? "warning" : "default"} />
               </div>
 
               <div className="mt-5 space-y-3">
@@ -251,6 +253,16 @@ export default function AdminSeoDashboard() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4 text-sm text-[var(--tech-color-text-muted)]">
+                <div className="font-semibold text-[var(--tech-color-text-main)]">Индексная политика категорий</div>
+                <div className="mt-2">
+                  Базовые категории индексируем. Фильтры, сортировки и layout-режимы канонизируются на базовый URL категории и не должны раздувать индекс Яндекса.
+                </div>
+                <div className="mt-3 text-xs">
+                  Повторяющихся названий категорий: <span className="font-bold text-[var(--tech-color-text-main)]">{data.categories.duplicateNames}</span>
+                </div>
               </div>
             </AdminSection>
 

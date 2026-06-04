@@ -9,11 +9,63 @@ import {
 } from "lucide-react";
 import LeadForm from "@/components/LeadForm";
 import ProductBreadcrumbsCompact from "@/components/product/ProductBreadcrumbsCompact";
+import { useSeo } from "@/lib/seo";
+import {
+  buildBreadcrumbStructuredData,
+  buildOrganizationStructuredData,
+} from "@/lib/seo-structured";
 
 export default function PromotionDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: promo, isLoading } = trpc.banner.getBySlug.useQuery({
     slug: slug || "",
+  });
+
+  useSeo({
+    title: promo ? `${promo.title} — акция ТЕХАКС` : "Акция — ТЕХАКС",
+    description:
+      promo?.subtitle?.trim() ||
+      "Подробности акции и спецпредложения ТЕХАКС.",
+    canonicalPath: promo?.slug ? `/promotions/${promo.slug}` : "/promotions",
+    noindex: !promo,
+    image: promo?.image || undefined,
+    structuredData: promo
+      ? [
+          buildBreadcrumbStructuredData([
+            { name: "Главная", path: "/" },
+            { name: "Акции", path: "/promotions" },
+            { name: promo.title, path: `/promotions/${promo.slug}` },
+          ]),
+          buildOrganizationStructuredData({
+            name: "ТЕХАКС",
+            url: "https://techaks.ru",
+            logo: "https://techaks.ru/images/logo-light.svg",
+          }),
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: promo.title,
+            description:
+              promo.subtitle?.trim() || "Подробности акции и спецпредложения ТЕХАКС.",
+            image: [promo.image.startsWith("http") ? promo.image : `https://techaks.ru${promo.image}`],
+            datePublished: new Date(promo.createdAt).toISOString(),
+            dateModified: new Date(promo.createdAt).toISOString(),
+            author: {
+              "@type": "Organization",
+              name: "ТЕХАКС",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "ТЕХАКС",
+              logo: {
+                "@type": "ImageObject",
+                url: "https://techaks.ru/images/logo-light.svg",
+              },
+            },
+            mainEntityOfPage: `https://techaks.ru/promotions/${promo.slug}`,
+          },
+        ]
+      : null,
   });
 
   if (isLoading) {

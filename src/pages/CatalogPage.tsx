@@ -341,13 +341,14 @@ export default function CatalogPage() {
   const seoTitle = currentManufacturer
     ? `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
     : currentCategory && activeCategory !== "all"
-      ? `${currentCategory.name} — купить в интернет-магазине ТЕХАКС`
+      ? currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в интернет-магазине ТЕХАКС`
       : "Каталог товаров — интернет-магазин ТЕХАКС";
 
   const seoDescription = currentManufacturer
     ? `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
     : currentCategory && activeCategory !== "all"
-      ? `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
+      ? currentCategory.metaDescription?.trim() ||
+        `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
       : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
 
   const seoCanonicalPath = (() => {

@@ -30,6 +30,8 @@ export const categories = mysqlTable("categories", {
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 512 }).notNull(),
   description: text("description"),
+  metaTitle: varchar("meta_title", { length: 255 }),
+  metaDescription: text("meta_description"),
   icon: varchar("icon", { length: 50 }),
   sortOrder: int("sort_order").notNull().default(0),
 });

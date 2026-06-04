@@ -38,6 +38,7 @@ const webhookRateState = new Map<string, { count: number; windowStart: number }>
 const WEBHOOK_RATE_LIMIT = 180;
 const WEBHOOK_RATE_WINDOW_MS = 60_000;
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
+const PRODUCT_SITEMAP_CHUNK_SIZE = 5000;
 
 const xmlEscape = (value: string) =>
   value
@@ -136,7 +137,8 @@ app.get("/sitemap.xml", c => {
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap><loc>${SEO_HOST}/sitemap-categories.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-brands.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-products-1.xml</loc><lastmod>${now}</lastmod></sitemap>
+  <sitemap><loc>${SEO_HOST}/sitemap-products.xml</loc><lastmod>${now}</lastmod></sitemap>
+  <sitemap><loc>${SEO_HOST}/sitemap-promotions.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-pages.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-blog.xml</loc><lastmod>${now}</lastmod></sitemap>
   <sitemap><loc>${SEO_HOST}/sitemap-images.xml</loc><lastmod>${now}</lastmod></sitemap>
@@ -267,7 +269,7 @@ app.get("/sitemap-brands.xml", async c => {
   });
 });
 
-app.get("/sitemap-products-1.xml", async c => {
+app.get("/sitemap-products.xml", async c => {
   const db = getDb();
   const stockQuery = db
     .select({
@@ -280,6 +282,47 @@ app.get("/sitemap-products-1.xml", async c => {
     .groupBy(schema.productStocks.productId)
     .as("stock");
 
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(schema.products)
+    .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
+    .where(
+      sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
+    );
+
+  const totalProducts = Number(countRow?.count ?? 0);
+  const chunkCount = Math.max(1, Math.ceil(totalProducts / PRODUCT_SITEMAP_CHUNK_SIZE));
+  const now = new Date().toISOString();
+  const rows = Array.from({ length: chunkCount }, (_, index) => {
+    const chunk = index + 1;
+    return `<sitemap><loc>${SEO_HOST}/sitemap-products-${chunk}.xml</loc><lastmod>${now}</lastmod></sitemap>`;
+  }).join("");
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows}</sitemapindex>`;
+  return c.body(body, 200, {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "public, max-age=1800",
+  });
+});
+
+app.get("/sitemap-products-:chunk.xml", async c => {
+  const db = getDb();
+  const stockQuery = db
+    .select({
+      productId: schema.productStocks.productId,
+      totalStock: sql<number>`SUM(${schema.productStocks.quantity})`.as(
+        "totalStock"
+      ),
+    })
+    .from(schema.productStocks)
+    .groupBy(schema.productStocks.productId)
+    .as("stock");
+
+  const chunk = Number(c.req.param("chunk") || "1");
+  const safeChunk = Number.isFinite(chunk) && chunk > 0 ? Math.floor(chunk) : 1;
+  const offset = (safeChunk - 1) * PRODUCT_SITEMAP_CHUNK_SIZE;
+
   const products = await db
     .select({
       slug: schema.products.slug,
@@ -289,7 +332,10 @@ app.get("/sitemap-products-1.xml", async c => {
     .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
     .where(
       sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
-    );
+    )
+    .orderBy(asc(schema.products.id))
+    .limit(PRODUCT_SITEMAP_CHUNK_SIZE)
+    .offset(offset);
 
   const rows = products
     .map(product => {
@@ -300,6 +346,35 @@ app.get("/sitemap-products-1.xml", async c => {
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows}</urlset>`;
+  return c.body(body, 200, {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "public, max-age=1800",
+  });
+});
+
+app.get("/sitemap-promotions.xml", async c => {
+  const db = getDb();
+  const promos = await db
+    .select({
+      slug: schema.banners.slug,
+      createdAt: schema.banners.createdAt,
+    })
+    .from(schema.banners)
+    .where(and(eq(schema.banners.active, true), sql`${schema.banners.slug} <> ''`))
+    .orderBy(asc(schema.banners.sortOrder), asc(schema.banners.id));
+
+  const rows = promos
+    .map(promo => {
+      const lastmod = toIsoDate(promo.createdAt);
+      return `<url><loc>${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.6</priority></url>`;
+    })
+    .join("");
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SEO_HOST}/promotions</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  ${rows}
+</urlset>`;
   return c.body(body, 200, {
     "Content-Type": "application/xml; charset=utf-8",
     "Cache-Control": "public, max-age=1800",

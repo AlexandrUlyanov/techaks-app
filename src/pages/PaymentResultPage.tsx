@@ -1,8 +1,10 @@
 import { Link, useSearchParams } from "react-router";
+import { useEffect } from "react";
 import { CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
+import { trackPurchase } from "@/lib/yandex-metrika";
 
 function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
@@ -78,6 +80,28 @@ export default function PaymentResultPage() {
   const order = result.data;
   const state = getState(order?.paymentStatus);
   const Icon = state.icon;
+
+  useEffect(() => {
+    if (!order || order.paymentStatus !== "paid") return;
+    if (typeof window === "undefined") return;
+
+    const storageKey = `techaks:purchase:${order.id}:${order.paymentStatus}`;
+    if (window.sessionStorage.getItem(storageKey)) return;
+
+    trackPurchase({
+      orderId: order.orderNumber || String(order.id),
+      revenue: order.totalPrice,
+      items: (order.items || []).map(item => ({
+        itemId: String(item.variantId ?? item.productId),
+        name: item.productName,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variantName ?? null,
+      })),
+    });
+
+    window.sessionStorage.setItem(storageKey, "1");
+  }, [order]);
 
   return (
     <div className="min-h-[70vh] bg-background px-4 py-16 text-foreground">

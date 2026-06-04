@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { trackAddToCart } from "@/lib/yandex-metrika";
 
 export interface CartItem {
   cartKey: string;
@@ -49,6 +50,14 @@ export const useCart = create<CartStore>()(
         } else {
           set({ items: [...currentItems, { ...product, cartKey, quantity: 1 }] });
         }
+
+        trackAddToCart({
+          itemId: String(product.variantId ?? product.id),
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          variant: product.variantName ?? null,
+        });
       },
       removeItem: cartKey => {
         set({

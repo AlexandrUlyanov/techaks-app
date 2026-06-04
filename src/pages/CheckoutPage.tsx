@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCartAvailability } from "@/hooks/use-cart-availability";
 import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product-images";
 import PersonalDataConsent from "@/components/PersonalDataConsent";
+import { trackBeginCheckout } from "@/lib/yandex-metrika";
 
 type CheckoutPickupStore = {
   storeId: number;
@@ -91,6 +92,7 @@ export default function CheckoutPage() {
     "cash"
   );
   const [personalDataConsent, setPersonalDataConsent] = useState(false);
+  const checkoutTrackedSignatureRef = useRef<string | null>(null);
   const { data: pickupStores = [], isFetching: pickupStoresLoading } =
     trpc.ecommerce.getCheckoutPickupStores.useQuery(
       {
@@ -107,6 +109,30 @@ export default function CheckoutPage() {
     );
 
   const typedPickupStores = pickupStores as CheckoutPickupStore[];
+
+  useEffect(() => {
+    if (items.length === 0) {
+      checkoutTrackedSignatureRef.current = null;
+      return;
+    }
+
+    const signature = items
+      .map(item => `${item.cartKey}:${item.quantity}:${item.price}`)
+      .join("|");
+
+    if (checkoutTrackedSignatureRef.current === signature) return;
+    checkoutTrackedSignatureRef.current = signature;
+
+    trackBeginCheckout(
+      items.map(item => ({
+        itemId: String(item.variantId ?? item.id),
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variantName ?? null,
+      }))
+    );
+  }, [items]);
 
   useEffect(() => {
     if (typedPickupStores.length === 0) {

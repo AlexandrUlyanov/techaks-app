@@ -29,6 +29,8 @@ type CategoryRecord = {
   slug: string;
   name: string;
   description: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
   icon: string | null;
   sortOrder: number;
 };
@@ -47,6 +49,8 @@ type CategoryDraft = {
   slug: string;
   name: string;
   description: string;
+  metaTitle: string;
+  metaDescription: string;
   icon: string;
   sortOrder: number;
 };
@@ -56,6 +60,8 @@ const EMPTY_DRAFT: CategoryDraft = {
   slug: "",
   name: "",
   description: "",
+  metaTitle: "",
+  metaDescription: "",
   icon: "",
   sortOrder: 0,
 };
@@ -257,6 +263,8 @@ export default function AdminCategories() {
       slug: category.slug,
       name: category.name,
       description: category.description ?? "",
+      metaTitle: category.metaTitle ?? "",
+      metaDescription: category.metaDescription ?? "",
       icon: category.icon ?? "",
       sortOrder: category.sortOrder,
     });
@@ -278,6 +286,8 @@ export default function AdminCategories() {
         slug: editingCategory.slug.trim(),
         name: editingCategory.name.trim(),
         description: editingCategory.description.trim() || null,
+        metaTitle: editingCategory.metaTitle.trim() || null,
+        metaDescription: editingCategory.metaDescription.trim() || null,
         icon: editingCategory.icon.trim() || null,
         sortOrder: Number(editingCategory.sortOrder) || 0,
       },
@@ -699,6 +709,37 @@ export default function AdminCategories() {
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#05C3D4]"
                 />
               </label>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-sm font-medium text-gray-700">SEO title</span>
+                  <input
+                    value={editingCategory.metaTitle}
+                    onChange={event =>
+                      setEditingCategory(prev =>
+                        prev ? { ...prev, metaTitle: event.target.value } : prev
+                      )
+                    }
+                    placeholder="Если пусто, используем шаблон по категории"
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition-colors focus:border-[#05C3D4]"
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-sm font-medium text-gray-700">SEO description</span>
+                  <textarea
+                    value={editingCategory.metaDescription}
+                    onChange={event =>
+                      setEditingCategory(prev =>
+                        prev ? { ...prev, metaDescription: event.target.value } : prev
+                      )
+                    }
+                    rows={4}
+                    placeholder="Если пусто, используем шаблон и описание категории"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#05C3D4]"
+                  />
+                </label>
+              </div>
 
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-gray-700">Код иконки (опционально)</span>
