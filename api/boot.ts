@@ -306,7 +306,7 @@ app.get("/sitemap-products.xml", async c => {
   });
 });
 
-app.get("/sitemap-products-:chunk.xml", async c => {
+app.get("/sitemap-products-:chunk{[0-9]+}.xml", async c => {
   const db = getDb();
   const stockQuery = db
     .select({
