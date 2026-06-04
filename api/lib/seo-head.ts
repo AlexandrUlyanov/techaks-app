@@ -584,6 +584,31 @@ async function buildContactsSeoData() {
   });
 }
 
+async function buildAboutSeoData() {
+  const [profile, stores] = await Promise.all([
+    getPublicSiteProfile(),
+    getDb().select().from(schema.stores).orderBy(asc(schema.stores.sortOrder)),
+  ]);
+
+  return buildBasePageData("/about", {
+    title: "О компании ТЕХАКС — техника и аксессуары в Пензе",
+    description:
+      "ТЕХАКС — розничная сеть магазинов техники и аксессуаров в Пензе. Официальный партнёр брендов HOCO, Remax, ISA и других производителей. Умная электроника, аудиотехника, аксессуары и техника для дома.",
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: SEO_HOST },
+        { name: "О компании", url: `${SEO_HOST}/about` },
+      ]),
+      buildOrganizationStructuredData({
+        email: profile.contacts.email,
+        phone: profile.contacts.primaryPhoneDisplay,
+        address: profile.contacts.fullAddress || profile.seller.legalAddress,
+      }),
+      ...stores.map(store => buildStoreStructuredData(store)),
+    ],
+  });
+}
+
 async function buildPromotionsSeoData() {
   const db = getDb();
   const promos = await db
@@ -827,6 +852,7 @@ export async function buildSeoHeadData(url: URL): Promise<SeoHeadData> {
   if (pathname.startsWith("/product/")) return buildProductSeoData(url);
   if (pathname === "/stores") return buildStoresSeoData();
   if (pathname === "/contacts") return buildContactsSeoData();
+  if (pathname === "/about") return buildAboutSeoData();
   if (pathname === "/promotions") return buildPromotionsSeoData();
   if (pathname.startsWith("/promotions/")) return buildPromotionDetailSeoData(url);
   if (pathname === "/blog") return buildBlogSeoData();

@@ -48,7 +48,7 @@ const catalogLinks = [
 ];
 
 const infoLinks = [
-  { label: "О компании", href: "/" },
+  { label: "О компании", href: "/about" },
   { label: "Магазины", href: "/stores" },
   { label: "Акции", href: "/promotions" },
   { label: "Блог", href: "/blog" },

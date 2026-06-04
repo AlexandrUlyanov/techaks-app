@@ -156,6 +156,7 @@ app.get("/sitemap-pages.xml", c => {
     "/catalog?view=brands",
     "/stores",
     "/contacts",
+    "/about",
     "/promotions",
     "/blog",
     "/offer",
