@@ -68,14 +68,6 @@ export default function AdminSettings() {
       staleTime: 30_000,
     }
   );
-  const { data: homepageHeroSelectedProducts } = trpc.product.getByIds.useQuery(
-    { ids: homepageHeroManualProductIds },
-    {
-      enabled: activeTab === "site" && homepageHeroManualProductIds.length > 0,
-      staleTime: 30_000,
-    }
-  );
-
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("gemini-2.5-flash");
   const [proxyBaseUrl, setProxyBaseUrl] = useState("");
@@ -115,6 +107,13 @@ export default function AdminSettings() {
   const [homepageHeroManualProductIds, setHomepageHeroManualProductIds] = useState<
     number[]
   >([]);
+  const { data: homepageHeroSelectedProducts } = trpc.product.getByIds.useQuery(
+    { ids: homepageHeroManualProductIds },
+    {
+      enabled: activeTab === "site" && homepageHeroManualProductIds.length > 0,
+      staleTime: 30_000,
+    }
+  );
   const [siteProfileForm, setSiteProfileForm] = useState({
     contacts: {
       primaryPhone: "",
