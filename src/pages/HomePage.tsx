@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
-import Hero from "@/components/Hero";
+import HomeHero from "@/components/HomeHero";
 import { CategoryIcon } from "@/lib/category-icons";
 import { useSeo } from "@/lib/seo";
 import {
@@ -112,8 +112,7 @@ export default function HomePage() {
 
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
-      <Hero />
-      {/* <HeroInteractive /> */}
+      <HomeHero />
 
       {/* Category Grid */}
       <section className="py-16 bg-card border-t border-border">

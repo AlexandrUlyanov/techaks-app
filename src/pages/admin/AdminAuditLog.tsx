@@ -38,6 +38,7 @@ function formatActionLabel(action: string) {
     "settings.yookassa.test_connection": "Проверка подключения YooKassa",
     "settings.feed.yandex_yml.update": "Изменение настроек Yandex YML",
     "settings.feed.vk.update": "Изменение настроек VK-фида",
+    "settings.homepage_hero.update": "Изменение hero главной страницы",
     "settings.auth.update": "Изменение настроек авторизации и почты",
   };
 

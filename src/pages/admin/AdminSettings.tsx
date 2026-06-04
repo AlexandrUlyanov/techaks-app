@@ -43,6 +43,10 @@ export default function AdminSettings() {
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
   const { data: reservationSettings } = trpc.settings.getReservationSettings.useQuery();
   const { data: siteProfileSettings } = trpc.settings.getSiteProfileSettings.useQuery();
+  const { data: homepageHeroSettings } = trpc.settings.getHomepageHeroSettings.useQuery(
+    undefined,
+    { enabled: activeTab === "site" }
+  );
   const { data: homepageSnapshotStatus } = trpc.home.getSnapshotStatus.useQuery(
     undefined,
     { enabled: activeTab === "site" }
@@ -60,6 +64,9 @@ export default function AdminSettings() {
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
+  const [homepageHeroVariant, setHomepageHeroVariant] = useState<
+    "classic" | "interactive"
+  >("classic");
   const [siteProfileForm, setSiteProfileForm] = useState({
     contacts: {
       primaryPhone: "",
@@ -139,6 +146,11 @@ export default function AdminSettings() {
     setSiteProfileForm(siteProfileSettings);
   }, [siteProfileSettings]);
 
+  useEffect(() => {
+    if (!homepageHeroSettings?.variant) return;
+    setHomepageHeroVariant(homepageHeroSettings.variant);
+  }, [homepageHeroSettings]);
+
   const saveMaintenanceMutation = trpc.settings.saveMaintenanceSettings.useMutation({
     onSuccess: () => {
       utils.settings.getMaintenanceStatus.invalidate();
@@ -206,6 +218,13 @@ export default function AdminSettings() {
       );
     },
   });
+  const saveHomepageHeroMutation =
+    trpc.settings.saveHomepageHeroSettings.useMutation({
+      onSuccess: () => {
+        utils.settings.getHomepageHeroSettings.invalidate();
+        alert("Версия hero главной страницы сохранена.");
+      },
+    });
 
   const testMutation = trpc.settings.testGemini.useMutation({
     onSuccess: () => {
@@ -877,6 +896,92 @@ export default function AdminSettings() {
 
       {activeTab === "site" ? (
         <div className="space-y-6">
+          <AdminSection
+            title="Hero главной страницы"
+            description="Текущая версия первого экрана сохранена как безопасный базовый вариант. Здесь можно переключать hero и в любой момент возвращаться к тому виду, который сейчас используется на сайте."
+            tone="accent"
+            actions={
+              <button
+                onClick={() =>
+                  saveHomepageHeroMutation.mutate({
+                    variant: homepageHeroVariant,
+                  })
+                }
+                disabled={
+                  saveHomepageHeroMutation.isPending || !homepageHeroVariant
+                }
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+              >
+                {saveHomepageHeroMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+                Сохранить hero
+              </button>
+            }
+          >
+            <div className="space-y-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                {(homepageHeroSettings?.options ?? []).map(option => {
+                  const isActive = homepageHeroVariant === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setHomepageHeroVariant(option.value)}
+                      className={`rounded-2xl border p-5 text-left transition ${
+                        isActive
+                          ? "border-[#05C3D4] bg-[#EAFBFD]"
+                          : "border-gray-200 bg-white hover:border-[#05C3D4]/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-sm font-black text-[#15171A]">
+                            {option.label}
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-gray-500">
+                            {option.description}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                            isActive
+                              ? "bg-[#05C3D4] text-black"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {isActive ? "Активно" : "Доступно"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                <span className="font-black text-[#15171A]">Сейчас на сайте:</span>{" "}
+                {homepageHeroVariant === "interactive"
+                  ? "интерактивный hero"
+                  : "классический hero (текущая версия)"}.
+                {homepageHeroSettings?.isDefault ? (
+                  <span>
+                    {" "}
+                    Настройка ещё не менялась вручную, поэтому используется сохранённый
+                    базовый вариант.
+                  </span>
+                ) : null}
+              </div>
+
+              {saveHomepageHeroMutation.error ? (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {saveHomepageHeroMutation.error.message}
+                </div>
+              ) : null}
+            </div>
+          </AdminSection>
+
           <AdminSection
             title="Snapshot главной страницы"
             description="Главная теперь может отдаваться из заранее собранного JSON-снимка. Это ускоряет первый ответ, переживает рестарты и даёт понятный ручной контроль."

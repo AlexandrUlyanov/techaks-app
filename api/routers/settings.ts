@@ -87,6 +87,8 @@ const siteProfileSettingsSchema = z.object({
   }),
 });
 
+const homepageHeroVariantSchema = z.enum(["classic", "interactive"]);
+
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 
 export const settingsRouter = createRouter({
@@ -109,6 +111,54 @@ export const settingsRouter = createRouter({
   getPublicSiteProfile: publicQuery.query(async () => {
     return getPublicSiteProfile();
   }),
+
+  getHomepageHeroSettings: publicQuery.query(async () => {
+    const settings = await getAppSettings(["homepage_hero_variant"]);
+    const storedVariant = settings.homepage_hero_variant?.trim();
+    const variant = homepageHeroVariantSchema.safeParse(storedVariant).success
+      ? (storedVariant as z.infer<typeof homepageHeroVariantSchema>)
+      : "classic";
+
+    return {
+      variant,
+      isDefault: !storedVariant,
+      options: [
+        {
+          value: "classic" as const,
+          label: "Классический hero",
+          description:
+            "Текущая версия главного экрана, которая сейчас стоит на сайте. Это безопасный базовый вариант, к нему всегда можно вернуться.",
+        },
+        {
+          value: "interactive" as const,
+          label: "Интерактивный hero",
+          description:
+            "Альтернативная версия hero с более активной анимацией и визуальными эффектами для экспериментов с первым экраном.",
+        },
+      ],
+    };
+  }),
+
+  saveHomepageHeroSettings: protectedProcedure
+    .input(
+      z.object({
+        variant: homepageHeroVariantSchema,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings(["homepage_hero_variant"]);
+      await setAppSetting("homepage_hero_variant", input.variant);
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.homepage_hero.update",
+        entityType: "settings",
+        entityLabel: "Hero главной страницы",
+        before,
+        after: input,
+      });
+      return { success: true };
+    }),
 
   getSiteProfileSettings: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
