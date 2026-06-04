@@ -306,7 +306,7 @@ app.get("/sitemap-products.xml", async c => {
   });
 });
 
-app.get("/sitemap-products-:chunk{[0-9]+}.xml", async c => {
+app.get("/sitemap-products-*", async c => {
   const db = getDb();
   const stockQuery = db
     .select({
@@ -319,7 +319,12 @@ app.get("/sitemap-products-:chunk{[0-9]+}.xml", async c => {
     .groupBy(schema.productStocks.productId)
     .as("stock");
 
-  const chunk = Number(c.req.param("chunk") || "1");
+  const chunkMatch = c.req.path.match(/^\/sitemap-products-(\d+)\.xml$/);
+  if (!chunkMatch) {
+    return c.notFound();
+  }
+
+  const chunk = Number(chunkMatch[1] || "1");
   const safeChunk = Number.isFinite(chunk) && chunk > 0 ? Math.floor(chunk) : 1;
   const offset = (safeChunk - 1) * PRODUCT_SITEMAP_CHUNK_SIZE;
 
