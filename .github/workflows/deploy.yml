@@ -130,5 +130,20 @@ jobs:
 
             # 5. Healthcheck
             echo "Running healthcheck..."
-            sleep 5
-            curl -fsS http://127.0.0.1:3000 >/dev/null
+            HEALTH_OK=0
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+                echo "Healthcheck passed on attempt $i"
+                HEALTH_OK=1
+                break
+              fi
+              echo "Waiting for app startup... attempt $i/30"
+              sleep 2
+            done
+
+            if [ "$HEALTH_OK" -ne 1 ]; then
+              echo "Healthcheck failed after waiting for app startup"
+              pm2 status techaks --no-color || true
+              pm2 logs techaks --lines 80 --nostream || true
+              exit 1
+            fi
