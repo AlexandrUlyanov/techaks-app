@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Phone, Mail, MapPin } from "lucide-react";
+import { useTheme } from "next-themes";
 import { trpc } from "@/providers/trpc";
 
 const catalogLinks = [
@@ -22,6 +24,17 @@ const infoLinks = [
 
 export default function Footer() {
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const yandexBadgeSrc =
+    mounted && resolvedTheme === "dark"
+      ? "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating&theme=dark"
+      : "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating";
 
   return (
     <footer className="bg-[#15171A] text-white border-t border-white/5">
@@ -135,7 +148,17 @@ export default function Footer() {
           <span className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em]">
             © 2026 ТЕХАКС — ТЕХНИКА И АКСЕССУАРЫ
           </span>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center">
+          <div className="flex flex-col items-center gap-4 md:items-end">
+            <iframe
+              src={yandexBadgeSrc}
+              width="150"
+              height="50"
+              frameBorder="0"
+              loading="lazy"
+              title="Рейтинг ТЕХАКС в Яндекс Картах"
+              className="overflow-hidden rounded-xl"
+            />
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center">
             <Link
               to="/privacy-policy"
               className="text-[10px] font-bold text-white/30 hover:text-white/55 uppercase tracking-wider transition-colors"
@@ -170,6 +193,7 @@ export default function Footer() {
             >
               Доставка
             </Link>
+            </div>
           </div>
         </div>
       </div>
