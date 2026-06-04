@@ -3,13 +3,16 @@ import {
   ArrowRight,
   BadgeCheck,
   Cable,
+  CheckCircle2,
   Headphones,
   House,
   MessageCircleMore,
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Store,
   Wallet,
+  Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,21 +36,25 @@ const brandCards = [
     title: "HOCO",
     description:
       "Аксессуары, зарядные устройства, кабели, наушники и гаджеты для повседневного использования.",
+    tone: "from-[#05C3D4]/12 via-[#05C3D4]/4 to-transparent",
   },
   {
     title: "Remax",
     description:
       "Современные аксессуары, аудиотехника, зарядные устройства и полезные устройства для дома и работы.",
+    tone: "from-emerald-400/12 via-emerald-400/4 to-transparent",
   },
   {
     title: "ISA",
     description:
       "Практичная электроника и техника, которую мы отбираем по качеству, надежности и востребованности у покупателей.",
+    tone: "from-sky-400/12 via-sky-400/4 to-transparent",
   },
   {
     title: "Другие бренды",
     description:
-      "Мы расширяем ассортимент за счёт производителей, которые проходят отбор по качеству, сервису и спросу у клиентов.",
+      "Подключаем производителей, которые проходят проверку по качеству, сервису и реальной пользе для покупателя.",
+    tone: "from-violet-400/12 via-violet-400/4 to-transparent",
   },
 ];
 
@@ -88,20 +95,41 @@ const advantages = [
   {
     title: "Широкий ассортимент",
     description:
-      "У нас можно подобрать решение для разных задач: от простого кабеля до умной электроники и техники для дома.",
+      "От кабелей и зарядок до техники для дома и умной электроники — в одном понятном каталоге.",
     icon: Sparkles,
   },
   {
     title: "Гарантия качества",
     description:
-      "Вся продукция сертифицирована и поддерживается официальными сервисными центрами.",
+      "Работаем с официальными поставками и поддерживаем гарантийные сценарии после покупки.",
     icon: ShieldCheck,
   },
   {
     title: "Клиентский сервис",
     description:
-      "Наши консультанты помогут разобраться в характеристиках, сравнить товары и выбрать подходящий вариант.",
+      "Помогаем сравнить модели, подобрать совместимые аксессуары и не переплатить за лишнее.",
     icon: MessageCircleMore,
+  },
+];
+
+const trustSignals = [
+  "Подбор под дом, работу, учебу и дорогу",
+  "Понятная консультация без навязчивости",
+  "Самовывоз и поддержка после покупки",
+];
+
+const workflowSteps = [
+  {
+    title: "Запрос",
+    text: "Понимаем, для чего именно нужен товар: на каждый день, для машины, для учебы или дома.",
+  },
+  {
+    title: "Подбор",
+    text: "Показываем несколько понятных вариантов по бюджету, характеристикам и совместимости.",
+  },
+  {
+    title: "Покупка без лишнего",
+    text: "Помогаем выбрать ровно то, что нужно, без ненужных допродаж и запутанных сценариев.",
   },
 ];
 
@@ -127,6 +155,30 @@ function SectionHeading({
           {description}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function VisualMetric({
+  label,
+  value,
+  widthClass,
+}: {
+  label: string;
+  value: string;
+  widthClass: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-[12px] font-bold text-muted-foreground">
+        <span>{label}</span>
+        <span className="text-foreground/80">{value}</span>
+      </div>
+      <div className="h-2 rounded-full bg-foreground/5">
+        <div
+          className={`h-full rounded-full bg-[linear-gradient(90deg,#05C3D4_0%,rgba(5,195,212,0.32)_100%)] ${widthClass} transition-all duration-700 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-3`}
+        />
+      </div>
     </div>
   );
 }
@@ -159,32 +211,33 @@ export default function AboutPage() {
 
   return (
     <div className="bg-background text-foreground">
-      <section className="relative overflow-hidden border-b border-border/70">
+      <section className="relative overflow-hidden border-b border-border/60">
         <div className="absolute inset-0">
-          <div className="absolute left-[-10rem] top-[-8rem] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.14)_0%,rgba(5,195,212,0.03)_48%,transparent_74%)]" />
-          <div className="absolute right-[-8rem] top-10 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.1)_0%,rgba(5,195,212,0.02)_50%,transparent_76%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,transparent_0%,color-mix(in_srgb,var(--tech-color-primary)_4%,transparent)_100%)]" />
+          <div className="absolute left-[-10rem] top-[-9rem] h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.16)_0%,rgba(5,195,212,0.04)_48%,transparent_74%)]" />
+          <div className="absolute right-[-8rem] top-8 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.12)_0%,rgba(5,195,212,0.02)_55%,transparent_76%)]" />
+          <div className="absolute bottom-0 left-[10%] h-32 w-56 opacity-[0.08] [background-image:radial-gradient(circle,rgba(5,195,212,0.95)_1px,transparent_1px)] [background-size:16px_16px]" />
         </div>
 
         <div className="container-main relative py-20 sm:py-24 lg:py-32">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)] lg:items-end">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] lg:items-center">
             <div className="max-w-4xl">
-              <span className="inline-flex rounded-full border border-[color:color-mix(in_srgb,var(--tech-color-primary)_28%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+              <span className="inline-flex rounded-full border border-[color:color-mix(in_srgb,var(--tech-color-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_9%,transparent)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-[#05C3D4] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2">
                 О компании
               </span>
-              <h1 className="mt-6 text-4xl font-black leading-[0.92] tracking-[-0.06em] text-foreground sm:text-5xl lg:text-[4.4rem]">
+              <h1 className="mt-6 text-4xl font-black leading-[0.92] tracking-[-0.06em] text-foreground sm:text-5xl lg:text-[4.35rem] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-700">
                 ТЕХАКС — техника и аксессуары в Пензе
               </h1>
-              <p className="mt-6 max-w-3xl text-lg font-semibold leading-8 text-foreground/85 sm:text-xl">
+              <p className="mt-6 max-w-3xl text-lg font-semibold leading-8 text-foreground/85 sm:text-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-700">
                 Современные гаджеты, полезная электроника и аксессуары для
                 повседневной жизни — по честным ценам и с гарантией качества.
               </p>
-              <p className="mt-5 max-w-3xl text-[15px] leading-8 text-muted-foreground sm:text-[17px]">
+              <p className="mt-5 max-w-3xl text-[15px] leading-8 text-muted-foreground sm:text-[17px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 motion-safe:duration-700">
                 ТЕХАКС — розничная сеть магазинов техники и аксессуаров в Пензе.
-                Мы помогаем клиентам выбирать удобные, надежные и современные
-                решения для дома, работы, учебы, автомобиля и отдыха.
+                Мы помогаем выбирать удобные и надежные решения для дома,
+                работы, учебы, автомобиля и отдыха — без перегруза, лишних
+                посредников и непонятных сценариев покупки.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-5 motion-safe:duration-700">
                 <Button asChild size="lg">
                   <Link to="/catalog">
                     Перейти в каталог
@@ -197,57 +250,91 @@ export default function AboutPage() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-surface)_84%,transparent)_0%,color-mix(in_srgb,var(--tech-color-surface-muted)_92%,transparent)_100%)] p-6 sm:p-7">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,transparent)] text-[#05C3D4]">
-                  <BadgeCheck size={22} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.28em] text-muted-foreground">
-                    Партнёрский контур
-                  </p>
-                  <p className="mt-1 text-xl font-black tracking-tight text-foreground">
-                    Надёжный выбор без лишнего шума
-                  </p>
-                </div>
-              </div>
+            <div className="relative">
+              <div className="absolute inset-x-10 top-10 h-40 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.18)_0%,rgba(5,195,212,0.02)_60%,transparent_80%)] blur-2xl" />
+              <div className="relative rounded-[2.25rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-surface)_90%,transparent)_0%,color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface-muted))_100%)] p-6 sm:p-7 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-700">
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+                  <div className="rounded-[1.8rem] bg-background/86 p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,transparent)] text-[#05C3D4]">
+                        <BadgeCheck size={22} />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-muted-foreground">
+                          Как мы работаем
+                        </p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-foreground">
+                          Спокойный подбор без перегруза
+                        </p>
+                      </div>
+                    </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                {["HOCO", "Remax", "ISA"].map(brand => (
-                  <div
-                    key={brand}
-                    className="rounded-2xl bg-background/80 px-4 py-4 text-center text-sm font-black uppercase tracking-[0.18em] text-foreground"
-                  >
-                    {brand}
+                    <div className="mt-6 space-y-4">
+                      <VisualMetric label="Под дом и повседневные задачи" value="Фокус" widthClass="w-[88%]" />
+                      <VisualMetric label="Под работу и учебу" value="Подбор" widthClass="w-[72%]" />
+                      <VisualMetric label="Под автомобиль и дорогу" value="Аксессуары" widthClass="w-[64%]" />
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-6 space-y-3">
-                {[
-                  "Подбор техники под конкретную задачу",
-                  "Ассортимент для дома, работы и дороги",
-                  "Официальные поставки и гарантийная поддержка",
-                ].map(item => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl bg-background/60 px-4 py-3"
-                  >
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#05C3D4]" />
-                    <span className="text-sm font-medium leading-6 text-foreground/80">
-                      {item}
-                    </span>
+                  <div className="rounded-[1.8rem] bg-background/72 p-5">
+                    <div className="flex h-full flex-col justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-muted-foreground">
+                          Основной контур
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {["HOCO", "Remax", "ISA"].map(brand => (
+                            <span
+                              key={brand}
+                              className="rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_9%,transparent)] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-[#05C3D4]"
+                            >
+                              {brand}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-6 space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80">
+                          <Store size={15} className="text-[#05C3D4]" />
+                          Самовывоз и магазин
+                        </div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80">
+                          <Zap size={15} className="text-[#05C3D4]" />
+                          Быстрые полезные товары
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {trustSignals.map((item, index) => (
+                    <div
+                      key={item}
+                      className="rounded-[1.5rem] bg-background/70 px-4 py-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3"
+                      style={{ animationDelay: `${index * 120}ms` }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[#05C3D4]">
+                          <CheckCircle2 size={14} />
+                        </span>
+                        <span className="text-sm font-semibold leading-6 text-foreground/80">
+                          {item}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {heroHighlights.map(item => (
+            {heroHighlights.map((item, index) => (
               <div
                 key={item}
-                className="rounded-[1.4rem] border border-border/60 bg-card/70 px-4 py-4 text-sm font-bold text-foreground/80 backdrop-blur-sm"
+                className="rounded-[1.4rem] bg-card/68 px-4 py-4 text-sm font-bold text-foreground/80 backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
+                style={{ animationDelay: `${120 + index * 80}ms` }}
               >
                 {item}
               </div>
@@ -257,61 +344,64 @@ export default function AboutPage() {
       </section>
 
       <section className="py-20 sm:py-24">
-        <div className="container-main grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:items-start">
+        <div className="container-main grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.92fr)] lg:items-start">
           <div>
-            <SectionHeading eyebrow="Кто мы" title="Кто мы" />
+            <SectionHeading
+              eyebrow="Кто мы"
+              title="Магазин, в котором технику выбирают спокойно"
+              description="Мы строим ассортимент и консультацию вокруг реальных сценариев покупки, а не вокруг сложных витрин и навязчивых допродаж."
+            />
             <div className="mt-8 space-y-5 text-[15px] leading-8 text-muted-foreground sm:text-[17px]">
               <p>
                 ТЕХАКС — это магазин для тех, кто хочет покупать технику
-                спокойно, понятно и без переплат.
+                понятно, без переплат и с ощущением, что ему действительно
+                помогают разобраться.
               </p>
               <p>
-                Мы являемся официальным партнёром ведущих брендов, среди которых
-                HOCO, Remax, ISA и другие производители современной электроники и
-                аксессуаров. Благодаря прямому сотрудничеству с поставщиками мы
-                формируем ассортимент качественных товаров без лишних посредников
-                и необоснованных наценок.
+                Мы работаем с официальными поставками и сотрудничаем с брендами
+                HOCO, Remax, ISA и другими производителями современной
+                электроники и аксессуаров. Благодаря прямому взаимодействию с
+                поставщиками мы удерживаем ассортимент практичным, а цены —
+                честными.
               </p>
               <p>
-                Наша задача — не просто продать товар, а помочь клиенту выбрать
-                именно то, что действительно подходит под его задачи, бюджет и
-                образ жизни.
+                Наша задача — помочь подобрать решение под конкретную задачу:
+                дома, в дороге, в автомобиле, на работе или в учебе. Поэтому
+                для нас важны не только характеристики, но и то, насколько товар
+                действительно будет полезен в жизни.
               </p>
             </div>
           </div>
 
-          <div className="rounded-[2rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-surface)_92%,transparent)_0%,color-mix(in_srgb,var(--tech-color-primary)_6%,var(--tech-color-surface))_100%)] p-6 sm:p-8">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                {
-                  title: "Официальные партнёры",
-                  text: "Работаем с брендами напрямую и следим за качеством ассортимента.",
-                },
-                {
-                  title: "Без лишних наценок",
-                  text: "Формируем предложение так, чтобы техника оставалась доступной и честной по цене.",
-                },
-                {
-                  title: "Консультация перед покупкой",
-                  text: "Помогаем сравнить модели и выбрать практичное решение.",
-                },
-                {
-                  title: "После покупки тоже рядом",
-                  text: "Подскажем по гарантии, выдаче, заказу и получению товара.",
-                },
-              ].map(item => (
-                <div
-                  key={item.title}
-                  className="rounded-[1.6rem] bg-background/80 px-5 py-5"
-                >
-                  <p className="text-base font-black tracking-tight text-foreground">
-                    {item.title}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {item.text}
-                  </p>
-                </div>
-              ))}
+          <div className="relative overflow-hidden rounded-[2.2rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--tech-color-primary)_9%,transparent)_0%,color-mix(in_srgb,var(--tech-color-surface)_90%,transparent)_52%,color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface-muted))_100%)] p-6 sm:p-8">
+            <div className="absolute right-[-3rem] top-[-3rem] h-32 w-32 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.16)_0%,rgba(5,195,212,0.02)_62%,transparent_80%)]" />
+            <div className="relative">
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
+                Как выглядит наш подход
+              </p>
+              <div className="mt-6 space-y-4">
+                {workflowSteps.map((step, index) => (
+                  <div
+                    key={step.title}
+                    className="group rounded-[1.6rem] bg-background/76 px-5 py-5 transition-colors duration-200 hover:bg-background/88 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-3"
+                    style={{ animationDelay: `${index * 110}ms` }}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-sm font-black text-[#05C3D4]">
+                        0{index + 1}
+                      </div>
+                      <div>
+                        <p className="text-lg font-black tracking-tight text-foreground">
+                          {step.title}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {step.text}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -326,17 +416,21 @@ export default function AboutPage() {
           />
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {brandCards.map(card => (
+            {brandCards.map((card, index) => (
               <article
                 key={card.title}
-                className="rounded-[1.8rem] bg-[var(--tech-color-surface-muted)] px-6 py-6"
+                className="group relative overflow-hidden rounded-[1.9rem] bg-[var(--tech-color-surface-muted)] px-6 py-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3"
+                style={{ animationDelay: `${index * 90}ms` }}
               >
-                <div className="inline-flex rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.26em] text-[#05C3D4]">
-                  {card.title}
+                <div className={`absolute inset-0 bg-[linear-gradient(180deg,var(--tw-gradient-stops))] ${card.tone} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+                <div className="relative">
+                  <div className="inline-flex rounded-full bg-background/75 px-4 py-2 text-[11px] font-black uppercase tracking-[0.26em] text-[#05C3D4]">
+                    {card.title}
+                  </div>
+                  <p className="mt-5 text-sm leading-7 text-muted-foreground">
+                    {card.description}
+                  </p>
                 </div>
-                <p className="mt-5 text-sm leading-7 text-muted-foreground">
-                  {card.description}
-                </p>
               </article>
             ))}
           </div>
@@ -345,21 +439,45 @@ export default function AboutPage() {
 
       <section className="py-20 sm:py-24">
         <div className="container-main">
-          <SectionHeading
-            eyebrow="Ассортимент"
-            title="Что вы найдёте в ТЕХАКС"
-            description="В наших магазинах собраны товары, которые делают жизнь удобнее, проще и технологичнее."
-          />
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-end">
+            <SectionHeading
+              eyebrow="Ассортимент"
+              title="Что вы найдёте в ТЕХАКС"
+              description="В наших магазинах собраны товары, которые делают жизнь удобнее, проще и технологичнее."
+            />
+
+            <div className="rounded-[2rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-primary)_7%,transparent)_0%,color-mix(in_srgb,var(--tech-color-surface)_92%,transparent)_100%)] px-6 py-6">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+                Что объединяет ассортимент
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {[
+                  "Актуальные гаджеты",
+                  "Полезные аксессуары",
+                  "Техника для ежедневного быта",
+                  "Товары, которые легко выбрать и использовать",
+                ].map(item => (
+                  <div
+                    key={item}
+                    className="rounded-[1.2rem] bg-background/80 px-4 py-3 text-sm font-semibold text-foreground/80"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {categoryCards.map(card => {
+            {categoryCards.map((card, index) => {
               const Icon = card.icon;
               return (
                 <article
                   key={card.title}
-                  className="rounded-[1.8rem] border border-border/70 bg-card/80 px-6 py-6"
+                  className="group rounded-[1.9rem] bg-card/82 px-6 py-6 transition-colors duration-200 hover:bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3"
+                  style={{ animationDelay: `${index * 90}ms` }}
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[#05C3D4]">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[#05C3D4] transition-colors duration-200 group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_14%,transparent)]">
                     <Icon size={24} />
                   </div>
                   <h3 className="mt-5 text-xl font-black tracking-tight text-foreground">
@@ -377,17 +495,22 @@ export default function AboutPage() {
 
       <section className="py-20 sm:py-24">
         <div className="container-main">
-          <SectionHeading eyebrow="Преимущества" title="Почему выбирают ТЕХАКС" />
+          <SectionHeading
+            eyebrow="Преимущества"
+            title="Почему выбирают ТЕХАКС"
+            description="Нам важно, чтобы покупка техники ощущалась понятной, полезной и спокойной на всех этапах — от выбора до получения."
+          />
 
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {advantages.map(item => {
+            {advantages.map((item, index) => {
               const Icon = item.icon;
               return (
                 <article
                   key={item.title}
-                  className="rounded-[1.8rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-surface)_88%,transparent)_0%,color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))_100%)] px-6 py-6"
+                  className="rounded-[1.9rem] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--tech-color-surface)_92%,transparent)_0%,color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))_100%)] px-6 py-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2"
+                  style={{ animationDelay: `${index * 80}ms` }}
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background/80 text-[#05C3D4]">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background/82 text-[#05C3D4]">
                     <Icon size={24} />
                   </div>
                   <h3 className="mt-5 text-xl font-black tracking-tight text-foreground">
@@ -405,7 +528,8 @@ export default function AboutPage() {
 
       <section className="pb-24 pt-8 sm:pb-28">
         <div className="container-main">
-          <div className="relative overflow-hidden rounded-[2.2rem] border border-border/70 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))_0%,var(--tech-color-surface)_54%,color-mix(in_srgb,var(--tech-color-primary)_8%,var(--tech-color-surface-muted))_100%)] px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-14">
+          <div className="relative overflow-hidden rounded-[2.35rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--tech-color-primary)_11%,var(--tech-color-surface))_0%,var(--tech-color-surface)_56%,color-mix(in_srgb,var(--tech-color-primary)_8%,var(--tech-color-surface-muted))_100%)] px-6 py-8 sm:px-10 sm:py-10 lg:px-14 lg:py-14">
+            <div className="absolute left-[-4rem] bottom-[-3rem] h-36 w-36 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.16)_0%,rgba(5,195,212,0.02)_60%,transparent_80%)]" />
             <div className="absolute right-[-4rem] top-[-4rem] h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.18)_0%,rgba(5,195,212,0.03)_55%,transparent_78%)]" />
             <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div className="max-w-3xl">
