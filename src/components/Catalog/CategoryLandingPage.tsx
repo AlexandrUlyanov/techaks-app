@@ -597,7 +597,7 @@ export default function CategoryLandingPage({
 
   const topDescription =
     currentCategory.description?.trim() ||
-    `Найдите нужный раздел: техника для ухода, красоты, здоровья и личного использования.`;
+    `Найдите нужный раздел в категории «${currentCategory.name}»: мы собрали подкатегории, популярные направления и быстрые переходы к товарам.`;
 
   if (loading) {
     return (

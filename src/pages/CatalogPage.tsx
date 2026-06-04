@@ -361,9 +361,9 @@ export default function CatalogPage() {
 
   const seoTitle = currentManufacturer
     ? currentManufacturer.metaTitle?.trim() ||
-      `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
+      `${currentManufacturer.name} — товары бренда в ТЕХАКС`
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в интернет-магазине ТЕХАКС`
+      ? currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в ТЕХАКС`
       : "Каталог товаров — интернет-магазин ТЕХАКС";
 
   const seoDescription = currentManufacturer
