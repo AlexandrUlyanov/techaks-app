@@ -79,6 +79,9 @@ export const manufacturerRouter = createRouter({
         slug: z.string(),
         website: z.string().nullable().optional(),
         logoUrl: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        metaTitle: z.string().nullable().optional(),
+        metaDescription: z.string().nullable().optional(),
         isVisible: z.boolean().default(true),
         sortOrder: z.number().default(0),
       })

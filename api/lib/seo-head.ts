@@ -238,9 +238,16 @@ async function buildCatalogSeoData(url: URL) {
       return buildBasePageData("/catalog", { noindex: true });
     }
 
+    const description = normalizeDescription(
+      manufacturer.metaDescription || manufacturer.description,
+      `Товары бренда ${manufacturer.name} в интернет-магазине ТЕХАКС: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`
+    );
+    const title =
+      manufacturer.metaTitle?.trim() || `${manufacturer.name} — товары бренда в ТЕХАКС`;
+
     return buildBasePageData(`/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`, {
-      title: `${manufacturer.name} — товары бренда в ТЕХАКС`,
-      description: `Товары бренда ${manufacturer.name} в интернет-магазине ТЕХАКС: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`,
+      title,
+      description,
       canonicalUrl: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
       noindex: hasFilters || hasLayout || hasSort || forceProductsView,
       image: manufacturer.logoUrl || DEFAULT_IMAGE,
@@ -258,7 +265,7 @@ async function buildCatalogSeoData(url: URL) {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: `Товары бренда ${manufacturer.name}`,
-          description: `Товары бренда ${manufacturer.name} в интернет-магазине ТЕХАКС: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`,
+          description,
           url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
         },
       ],

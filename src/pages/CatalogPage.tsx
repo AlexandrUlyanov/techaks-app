@@ -43,6 +43,18 @@ import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
 
+function formatProductCount(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return `${count} товар`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${count} товара`;
+  }
+
+  return `${count} товаров`;
+}
+
 export default function CatalogPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -337,17 +349,30 @@ export default function CatalogPage() {
     : activeCategoryName;
   const showProductSection = catalogView === "categories" || Boolean(activeBrand);
   const currentResultCount = sortedProducts.length;
+  const currentIntroText = currentManufacturer
+    ? currentManufacturer.description?.trim() ||
+      currentManufacturer.metaDescription?.trim() ||
+      `Товары бренда ${currentManufacturer.name}: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`
+    : currentCategory && activeCategory !== "all"
+      ? currentCategory.description?.trim() ||
+        currentCategory.metaDescription?.trim() ||
+        `${currentCategory.name}: выбирайте товары по категории, сравнивайте предложения и наличие в интернет-магазине ТЕХАКС.`
+      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
 
   const seoTitle = currentManufacturer
-    ? `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
+    ? currentManufacturer.metaTitle?.trim() ||
+      `${currentManufacturer.name} — купить в интернет-магазине ТЕХАКС`
     : currentCategory && activeCategory !== "all"
       ? currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в интернет-магазине ТЕХАКС`
       : "Каталог товаров — интернет-магазин ТЕХАКС";
 
   const seoDescription = currentManufacturer
-    ? `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
+    ? currentManufacturer.metaDescription?.trim() ||
+      currentManufacturer.description?.trim() ||
+      `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
     : currentCategory && activeCategory !== "all"
       ? currentCategory.metaDescription?.trim() ||
+        currentCategory.description?.trim() ||
         `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
       : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
 
@@ -492,6 +517,14 @@ export default function CatalogPage() {
             />
           ) : (
             <>
+          <div className="space-y-3 px-1">
+            <h1 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
+              {headerTitle}
+            </h1>
+            <p className="max-w-4xl text-sm leading-7 text-muted-foreground md:text-[15px]">
+              {currentIntroText}
+            </p>
+          </div>
           
           {/* Categories Grid */}
           {displayManufacturers.length > 0 && (
@@ -521,7 +554,7 @@ export default function CatalogPage() {
                       {manufacturer.name}
                     </div>
                     <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      {manufacturer.productCount} товаров
+                      {formatProductCount(manufacturer.productCount)}
                     </div>
                   </button>
                 ))}
@@ -652,7 +685,7 @@ export default function CatalogPage() {
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           {currentResultCount > 0
-                            ? `${currentResultCount} ${currentResultCount === 1 ? "товар" : currentResultCount < 5 ? "товара" : "товаров"}`
+                            ? formatProductCount(currentResultCount)
                             : "Товары появятся после следующего обновления"}
                         </div>
                       </div>

@@ -14,6 +14,9 @@ type ManufacturerEdit = {
   slug: string;
   website: string;
   logoUrl: string;
+  description: string;
+  metaTitle: string;
+  metaDescription: string;
   isVisible: boolean;
   sortOrder: number;
 };
@@ -65,6 +68,9 @@ export default function ManufacturerCatalogPanel() {
           slug: manufacturer.slug,
           website: manufacturer.website ?? "",
           logoUrl: manufacturer.logoUrl ?? "",
+          description: manufacturer.description ?? "",
+          metaTitle: manufacturer.metaTitle ?? "",
+          metaDescription: manufacturer.metaDescription ?? "",
           isVisible: manufacturer.isVisible,
           sortOrder: manufacturer.sortOrder,
         };
@@ -106,6 +112,9 @@ export default function ManufacturerCatalogPanel() {
       slug: edit.slug.trim(),
       website: edit.website.trim() || null,
       logoUrl: edit.logoUrl.trim() || null,
+      description: edit.description.trim() || null,
+      metaTitle: edit.metaTitle.trim() || null,
+      metaDescription: edit.metaDescription.trim() || null,
       isVisible: edit.isVisible,
       sortOrder: edit.sortOrder,
     });
@@ -218,7 +227,7 @@ export default function ManufacturerCatalogPanel() {
 
             <div className="mt-5 overflow-hidden rounded-xl border border-gray-200">
               <div className="max-h-[620px] overflow-auto">
-                <table className="w-full min-w-[980px] text-left">
+                <table className="w-full min-w-[1280px] text-left">
                   <thead className="sticky top-0 bg-gray-50">
                     <tr className="border-b border-gray-200">
                       <th className="px-4 py-3 text-xs font-black uppercase text-gray-500">
@@ -232,6 +241,9 @@ export default function ManufacturerCatalogPanel() {
                       </th>
                       <th className="px-4 py-3 text-xs font-black uppercase text-gray-500">
                         Сайт
+                      </th>
+                      <th className="px-4 py-3 text-xs font-black uppercase text-gray-500">
+                        SEO и описание
                       </th>
                       <th className="px-4 py-3 text-xs font-black uppercase text-gray-500">
                         Показ
@@ -248,7 +260,7 @@ export default function ManufacturerCatalogPanel() {
                     {manufacturers.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="px-4 py-10 text-center text-sm text-gray-500"
                         >
                           Пока пусто. Сначала нажми «Собрать производителей».
@@ -320,6 +332,40 @@ export default function ManufacturerCatalogPanel() {
                                 }
                                 placeholder="brand.com"
                                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <textarea
+                                value={edit.description}
+                                onChange={event =>
+                                  patchEdit(manufacturer.id, {
+                                    description: event.target.value,
+                                  })
+                                }
+                                placeholder="Краткое описание бренда для витрины и SEO"
+                                rows={3}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none focus:border-[#05C3D4]"
+                              />
+                              <input
+                                value={edit.metaTitle}
+                                onChange={event =>
+                                  patchEdit(manufacturer.id, {
+                                    metaTitle: event.target.value,
+                                  })
+                                }
+                                placeholder="SEO title"
+                                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none focus:border-[#05C3D4]"
+                              />
+                              <textarea
+                                value={edit.metaDescription}
+                                onChange={event =>
+                                  patchEdit(manufacturer.id, {
+                                    metaDescription: event.target.value,
+                                  })
+                                }
+                                placeholder="SEO description"
+                                rows={3}
+                                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none focus:border-[#05C3D4]"
                               />
                             </td>
                             <td className="px-4 py-3">

@@ -789,6 +789,9 @@ export async function updateManufacturer(input: {
   slug: string;
   website?: string | null;
   logoUrl?: string | null;
+  description?: string | null;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   isVisible: boolean;
   sortOrder?: number;
 }) {
@@ -802,6 +805,9 @@ export async function updateManufacturer(input: {
       slug: input.slug.trim().slice(0, 255),
       website: String(input.website ?? "").trim().slice(0, 255) || null,
       logoUrl: String(input.logoUrl ?? "").trim().slice(0, 512) || null,
+      description: String(input.description ?? "").trim() || null,
+      metaTitle: String(input.metaTitle ?? "").trim().slice(0, 255) || null,
+      metaDescription: String(input.metaDescription ?? "").trim() || null,
       isVisible: input.isVisible,
       sortOrder: input.sortOrder ?? 0,
       updatedAt: new Date(),
