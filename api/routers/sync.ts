@@ -103,11 +103,50 @@ axiosRetry(moyskladApi, {
     return retryCount * 2000; // 2s, 4s, 6s...
   },
   retryCondition: (error) => {
-    return error.response?.status === 429 || error.response?.status === 500;
+    return (
+      error.response?.status === 429 ||
+      error.response?.status === 500 ||
+      axiosRetry.isNetworkOrIdempotentRequestError(error)
+    );
   }
 });
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const FULL_SYNC_PAGE_COOLDOWN_MS = 1200;
+const FULL_SYNC_IMAGE_REQUEST_DELAY_MS = 250;
+
+function isRetryableMoyskladError(error: unknown) {
+  if (!axios.isAxiosError(error)) return false;
+  const status = error.response?.status;
+  if (status === 429 || (typeof status === "number" && status >= 500)) return true;
+  const message = String(error.message || "");
+  return /timeout|etimedout|econnreset|socket hang up|network|aborted/i.test(message);
+}
+
+function getMoyskladRetryDelayMs(error: unknown, retriesLeft: number) {
+  if (!axios.isAxiosError(error)) return 5000;
+
+  const retryAfterHeader = error.response?.headers?.["retry-after"];
+  const retryAfterSeconds = Number(
+    Array.isArray(retryAfterHeader) ? retryAfterHeader[0] : retryAfterHeader
+  );
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  const attemptNumber = Math.max(1, 6 - retriesLeft);
+  return Math.min(30_000, attemptNumber * 5_000);
+}
+
+function classifyMoyskladError(error: unknown) {
+  if (!axios.isAxiosError(error)) return "unknown";
+  if (error.response?.status === 429) return "rate_limit";
+  const message = String(error.message || "");
+  if (/timeout|etimedout|aborted/i.test(message)) return "timeout";
+  if (/econnreset|socket hang up|network/i.test(message)) return "network";
+  if (typeof error.response?.status === "number" && error.response.status >= 500) return "server";
+  return "unknown";
+}
 
 type MsRow = Record<string, unknown>;
 type MsStoreRow = {
@@ -1178,7 +1217,15 @@ export const syncRouter = createRouter({
       const logDetails: SyncLogDetails = {
         steps: [],
         errors: [],
-        stats: { categories: 0, products: 0, stocks: 0 },
+        stats: {
+          categories: 0,
+          products: 0,
+          stocks: 0,
+          moyskladRetries: 0,
+          moysklad429: 0,
+          moyskladTimeouts: 0,
+          moyskladNetworkErrors: 0,
+        },
         logFileUrl: null,
       };
       let currentLogId: number | null = null;
@@ -1197,6 +1244,49 @@ export const syncRouter = createRouter({
           logDetails.logFileUrl = `/logs/${fileName}`;
         } catch (e) {
           console.error("Failed to save log file", e);
+        }
+      };
+
+      const noteMoyskladPressure = (
+        scope: string,
+        error: unknown,
+        retriesLeft: number,
+        waitMs: number
+      ) => {
+        const kind = classifyMoyskladError(error);
+        logDetails.stats.moyskladRetries += 1;
+        if (kind === "rate_limit") logDetails.stats.moysklad429 += 1;
+        if (kind === "timeout") logDetails.stats.moyskladTimeouts += 1;
+        if (kind === "network") logDetails.stats.moyskladNetworkErrors += 1;
+
+        const message = axios.isAxiosError(error)
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "unknown error";
+
+        writeLog(
+          `[MoySklad:${kind}] ${scope} failed, retry in ${Math.round(waitMs / 1000)}s (${retriesLeft} left). ${message}`
+        );
+      };
+
+      const requestMoyskladPage = async (
+        scope: string,
+        url: string,
+        retries = 5
+      ): Promise<AxiosResponse> => {
+        try {
+          return await moyskladApi.get(url, {
+            headers: { Authorization: authHeader },
+          });
+        } catch (error: unknown) {
+          if (retries > 0 && isRetryableMoyskladError(error)) {
+            const waitMs = getMoyskladRetryDelayMs(error, retries);
+            noteMoyskladPressure(scope, error, retries, waitMs);
+            await delay(waitMs);
+            return requestMoyskladPage(scope, url, retries - 1);
+          }
+          throw error;
         }
       };
 
@@ -1506,26 +1596,13 @@ export const syncRouter = createRouter({
         const localProductFolderById = new Map<number, string>();
         const msVariantIdToLocalId = new Map<string, number>();
 
-        const fetchAssortmentWithRetry = async (
-          currentOffset: number,
-          retries = 5
-        ): Promise<AxiosResponse> => {
-          try {
-            return await moyskladApi.get(`/entity/assortment?offset=${currentOffset}&limit=${limit}`, { headers: { Authorization: authHeader } });
-          } catch (err: unknown) {
-            if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
-               writeLog(`[Rate Limit] 429 hitting assortment fetch. Retrying in 5 seconds... (${retries} left)`);
-               await delay(5000);
-               return fetchAssortmentWithRetry(currentOffset, retries - 1);
-            }
-            throw err;
-          }
-        };
-
         while (hasMore) {
           await abortIfStopRequested();
           writeLog(`Fetching assortment offset ${offset}...`);
-          const assortmentRes = await fetchAssortmentWithRetry(offset);
+          const assortmentRes = await requestMoyskladPage(
+            "assortment",
+            `/entity/assortment?offset=${offset}&limit=${limit}`
+          );
           const items = assortmentRes.data.rows;
           await updateRunStatus({
             progress: {
@@ -1539,6 +1616,7 @@ export const syncRouter = createRouter({
           });
           if (items.length < limit) hasMore = false;
           offset += limit;
+          await delay(FULL_SYNC_PAGE_COOLDOWN_MS);
 
           for (const item of items) {
             await abortIfStopRequested();
@@ -1583,6 +1661,7 @@ export const syncRouter = createRouter({
             let imagePaths: ProductImageVariantSet[] = [];
             if (item.images?.meta?.href) {
               try {
+                await delay(FULL_SYNC_IMAGE_REQUEST_DELAY_MS);
                 // Must use moyskladApi to get the 429 retry protection
                 const imagesRes = await moyskladApi.get(item.images.meta.href, { headers: { Authorization: authHeader } });
                 if (imagesRes.data.rows?.length > 0) {
@@ -1722,31 +1801,17 @@ export const syncRouter = createRouter({
           const syncedVariantMsIdsByProduct = new Map<number, Set<string>>();
           const parentProductsWithVariants = new Set<number>();
 
-          const fetchVariantsWithRetry = async (
-            currentOffset: number,
-            retries = 5
-          ): Promise<AxiosResponse> => {
-            try {
-              return await moyskladApi.get(`/entity/variant?offset=${currentOffset}&limit=${limit}`, {
-                headers: { Authorization: authHeader },
-              });
-            } catch (err: unknown) {
-              if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
-                writeLog(`[Rate Limit] 429 hitting variant fetch. Retrying in 5 seconds... (${retries} left)`);
-                await delay(5000);
-                return fetchVariantsWithRetry(currentOffset, retries - 1);
-              }
-              throw err;
-            }
-          };
-
           while (hasMoreVariants) {
             await abortIfStopRequested();
             writeLog(`Fetching variants offset ${variantOffset}...`);
-            const variantRes = await fetchVariantsWithRetry(variantOffset);
+            const variantRes = await requestMoyskladPage(
+              "variants",
+              `/entity/variant?offset=${variantOffset}&limit=${limit}`
+            );
             const variantItems = variantRes.data.rows || [];
             if (variantItems.length < limit) hasMoreVariants = false;
             variantOffset += limit;
+            await delay(FULL_SYNC_PAGE_COOLDOWN_MS);
 
             for (const item of variantItems) {
               await abortIfStopRequested();
@@ -1784,6 +1849,7 @@ export const syncRouter = createRouter({
               let variantImageVariants: ProductImageVariantSet | null = null;
               if (item.images?.meta?.href) {
                 try {
+                  await delay(FULL_SYNC_IMAGE_REQUEST_DELAY_MS);
                   const variantImagesRes = await moyskladApi.get(item.images.meta.href, {
                     headers: { Authorization: authHeader },
                   });
@@ -1938,26 +2004,13 @@ export const syncRouter = createRouter({
           let stockOffset = 0;
           let stockHasMore = true;
 
-          const fetchStockWithRetry = async (
-            currentOffset: number,
-            retries = 5
-          ): Promise<AxiosResponse> => {
-            try {
-              return await moyskladApi.get(`/report/stock/bystore?offset=${currentOffset}&limit=1000`, { headers: { Authorization: authHeader } });
-            } catch (err: unknown) {
-              if (axios.isAxiosError(err) && err.response?.status === 429 && retries > 0) {
-                 writeLog(`[Rate Limit] 429 hitting stock fetch. Retrying in 5 seconds... (${retries} left)`);
-                 await delay(5000);
-                 return fetchStockWithRetry(currentOffset, retries - 1);
-              }
-              throw err;
-            }
-          };
-
           while (stockHasMore) {
             await abortIfStopRequested();
             writeLog(`Fetching stocks offset ${stockOffset}...`);
-            const stockRes = await fetchStockWithRetry(stockOffset);
+            const stockRes = await requestMoyskladPage(
+              "stocks",
+              `/report/stock/bystore?offset=${stockOffset}&limit=1000`
+            );
             const stockItems = stockRes.data.rows;
             writeLog(`Got ${stockItems.length} stock items from API.`);
             await updateRunStatus({
@@ -1972,6 +2025,7 @@ export const syncRouter = createRouter({
             });
             if (stockItems.length < 1000) stockHasMore = false;
             stockOffset += 1000;
+            await delay(FULL_SYNC_PAGE_COOLDOWN_MS);
 
             for (const item of stockItems) {
               await abortIfStopRequested();
@@ -2172,7 +2226,9 @@ export const syncRouter = createRouter({
           await rebuildSearchDocumentsForProducts(productIds);
         }
 
-        writeLog(`Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}`);
+        writeLog(
+          `Sync completed successfully. Categories: ${logDetails.stats.categories}, Products: ${logDetails.stats.products}, Stocks: ${logDetails.stats.stocks}, Retries: ${logDetails.stats.moyskladRetries}, 429: ${logDetails.stats.moysklad429}, Timeouts: ${logDetails.stats.moyskladTimeouts}, Network: ${logDetails.stats.moyskladNetworkErrors}`
+        );
         saveLogFile();
         await updateLog('success', 'Синхронизация успешно завершена');
         await updateRunStatus({
