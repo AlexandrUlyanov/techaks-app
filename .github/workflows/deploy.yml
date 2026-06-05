@@ -67,7 +67,13 @@ jobs:
             # 3. Install dependencies and build only.
             # Production DB changes are intentionally excluded from automatic deploy.
             echo "Installing dependencies..."
-            npm ci
+            if ! npm ci; then
+              echo "Primary npm ci failed. Cleaning npm cache and retrying once..."
+              npm cache clean --force || true
+              rm -rf /root/.npm/_cacache || true
+              rm -rf node_modules || true
+              npm ci
+            fi
 
             echo "Building application..."
             npm run build
