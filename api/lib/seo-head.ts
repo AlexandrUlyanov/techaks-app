@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import * as schema from "@db/schema";
 
@@ -23,6 +23,7 @@ type SeoHeadData = {
   image?: string | null;
   type?: "website" | "article";
   structuredData?: unknown[] | null;
+  bodyHtml?: string | null;
 };
 
 type BreadcrumbItem = {
@@ -49,6 +50,22 @@ function normalizeDescription(value: string | null | undefined, fallback: string
   const normalized = value?.replace(/\s+/g, " ").trim();
   if (!normalized) return fallback;
   return normalized.slice(0, 320);
+}
+
+function stripHtml(value: string | null | undefined) {
+  if (!value) return "";
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateText(value: string | null | undefined, limit = 320) {
+  const normalized = stripHtml(value);
+  if (!normalized) return "";
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, Math.max(0, limit - 1)).trim()}…`;
 }
 
 function guessAddressLocality(address?: string | null) {
@@ -140,8 +157,243 @@ function buildBasePageData(
     type: "website",
     noindex: false,
     structuredData: null,
+    bodyHtml: null,
     ...overrides,
   };
+}
+
+function renderSeoBodyStyles() {
+  return `<style id="__seo-body-style">
+    [data-seo-body] {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 20px 56px;
+      font-family: Manrope, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+    }
+    [data-seo-body] a {
+      color: #0891b2;
+      text-decoration: none;
+    }
+    [data-seo-body] a:hover {
+      text-decoration: underline;
+    }
+    [data-seo-body] nav {
+      margin-bottom: 18px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748b;
+    }
+    [data-seo-body] nav span {
+      margin: 0 8px;
+      color: #94a3b8;
+    }
+    [data-seo-body] .seo-eyebrow {
+      margin-bottom: 14px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #0891b2;
+    }
+    [data-seo-body] h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      color: #0f172a;
+    }
+    [data-seo-body] .seo-lead {
+      max-width: 860px;
+      margin-top: 18px;
+      font-size: 18px;
+      line-height: 1.7;
+      color: #334155;
+    }
+    [data-seo-body] .seo-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 28px;
+    }
+    [data-seo-body] .seo-card {
+      padding: 20px 22px;
+      border-radius: 24px;
+      background: #f8fafc;
+    }
+    [data-seo-body] .seo-card h2,
+    [data-seo-body] .seo-card h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    [data-seo-body] .seo-card p,
+    [data-seo-body] .seo-card li {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #475569;
+    }
+    [data-seo-body] .seo-card ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+    }
+    [data-seo-body] .seo-facts {
+      display: grid;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    [data-seo-body] .seo-fact {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    [data-seo-body] .seo-fact strong {
+      color: #64748b;
+      font-weight: 700;
+    }
+    [data-seo-body] .seo-inline-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+    [data-seo-body] .seo-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: #eef9fb;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    [data-seo-body] .seo-section {
+      margin-top: 34px;
+    }
+    [data-seo-body] .seo-section h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+    [data-seo-body] .seo-section p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.75;
+      color: #475569;
+    }
+    @media (max-width: 720px) {
+      [data-seo-body] {
+        padding: 24px 16px 40px;
+      }
+      [data-seo-body] .seo-lead {
+        font-size: 16px;
+      }
+      [data-seo-body] .seo-fact {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+    }
+  </style>`;
+}
+
+function renderBreadcrumbs(items: BreadcrumbItem[]) {
+  if (items.length === 0) return "";
+  return `<nav aria-label="breadcrumb">${items
+    .map((item, index) => {
+      const link = `<a href="${escapeHtml(item.url)}">${escapeHtml(item.name)}</a>`;
+      return index === 0 ? link : `<span>/</span>${link}`;
+    })
+    .join("")}</nav>`;
+}
+
+function renderInlineLinks(
+  items: Array<{
+    href: string;
+    label: string;
+  }>
+) {
+  if (items.length === 0) return "";
+  return `<div class="seo-inline-links">${items
+    .map(
+      item =>
+        `<a class="seo-pill" href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a>`
+    )
+    .join("")}</div>`;
+}
+
+function renderFacts(
+  items: Array<{
+    label: string;
+    value: string;
+  }>
+) {
+  const rows = items.filter(item => item.value.trim().length > 0);
+  if (rows.length === 0) return "";
+  return `<div class="seo-facts">${rows
+    .map(
+      item =>
+        `<div class="seo-fact"><strong>${escapeHtml(item.label)}</strong><div>${escapeHtml(
+          item.value
+        )}</div></div>`
+    )
+    .join("")}</div>`;
+}
+
+function renderCardList(
+  items: Array<{
+    title: string;
+    text?: string;
+    links?: Array<{ href: string; label: string }>;
+  }>
+) {
+  const rows = items.filter(
+    item => item.title.trim().length > 0 && ((item.text && item.text.trim()) || item.links?.length)
+  );
+  if (rows.length === 0) return "";
+  return `<div class="seo-grid">${rows
+    .map(item => {
+      const text = item.text?.trim()
+        ? `<p>${escapeHtml(item.text.trim())}</p>`
+        : "";
+      const links = item.links?.length
+        ? `<ul>${item.links
+            .map(
+              link =>
+                `<li><a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></li>`
+            )
+            .join("")}</ul>`
+        : "";
+      return `<section class="seo-card"><h3>${escapeHtml(item.title)}</h3>${text}${links}</section>`;
+    })
+    .join("")}</div>`;
+}
+
+function renderSeoBodyShell(input: {
+  breadcrumbs?: BreadcrumbItem[];
+  eyebrow?: string;
+  title: string;
+  description: string;
+  content: string;
+}) {
+  return `
+    <div data-seo-body>
+      ${input.breadcrumbs?.length ? renderBreadcrumbs(input.breadcrumbs) : ""}
+      ${input.eyebrow ? `<div class="seo-eyebrow">${escapeHtml(input.eyebrow)}</div>` : ""}
+      <h1>${escapeHtml(input.title)}</h1>
+      <p class="seo-lead">${escapeHtml(input.description)}</p>
+      ${input.content}
+    </div>
+  `;
 }
 
 function buildServerSeoHeadTags(meta: SeoHeadData) {
@@ -185,11 +437,68 @@ function injectSeoHead(html: string, meta: SeoHeadData) {
     .replace(/<meta\s+name="twitter:[^"]+"[\s\S]*?\/>\s*/gi, "")
     .replace(/<script id="__seo-ldjson"[\s\S]*?<\/script>\s*/gi, "");
 
-  return cleaned.replace("</head>", `${buildServerSeoHeadTags(meta)}\n</head>`);
+  const withHead = cleaned.replace(
+    "</head>",
+    `${buildServerSeoHeadTags(meta)}\n${renderSeoBodyStyles()}\n</head>`
+  );
+
+  if (!meta.bodyHtml?.trim()) return withHead;
+
+  return withHead.replace(
+    /<div id="root"><\/div>/i,
+    `<div id="root">${meta.bodyHtml}</div>`
+  );
 }
 
 async function buildHomeSeoData() {
-  const profile = await getPublicSiteProfile();
+  const db = getDb();
+  const [profile, featuredCategories] = await Promise.all([
+    getPublicSiteProfile(),
+    db
+      .select({
+        slug: schema.categories.slug,
+        name: schema.categories.name,
+        description: schema.categories.description,
+      })
+      .from(schema.categories)
+      .where(isNull(schema.categories.parentId))
+      .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.id))
+      .limit(6),
+  ]);
+
+  const breadcrumbs = [{ name: "Главная", url: SEO_HOST }];
+
+  const bodyHtml = renderSeoBodyShell({
+    breadcrumbs,
+    eyebrow: "ТЕХАКС",
+    title: "Техника и аксессуары в Пензе",
+    description:
+      "Интернет-магазин ТЕХАКС помогает быстро выбрать электронику, аксессуары, товары для дома, автомобиля, работы и повседневной жизни.",
+    content: [
+      renderInlineLinks([
+        { href: `${SEO_HOST}/catalog`, label: "Перейти в каталог" },
+        { href: `${SEO_HOST}/stores`, label: "Магазины ТЕХАКС" },
+        { href: `${SEO_HOST}/contacts`, label: "Контакты и самовывоз" },
+      ]),
+      renderCardList(
+        featuredCategories.map(category => ({
+          title: category.name,
+          text: truncateText(
+            category.description,
+            140
+          ) || "Подборка товаров и аксессуаров в наличии.",
+          links: [
+            {
+              href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+              label: `Открыть раздел «${category.name}»`,
+            },
+          ],
+        }))
+      ),
+      `<section class="seo-section"><h2>Почему ТЕХАКС</h2><p>Мы держим в одном месте актуальные цены, наличие по магазинам, условия самовывоза и доставки, чтобы выбирать технику было проще и спокойнее.</p></section>`,
+    ].join(""),
+  });
+
   return buildBasePageData("/", {
     structuredData: [
       {
@@ -208,8 +517,9 @@ async function buildHomeSeoData() {
         phone: profile.contacts.primaryPhoneDisplay,
         address: profile.contacts.fullAddress || profile.seller.legalAddress,
       }),
-      buildBreadcrumbStructuredData([{ name: "Главная", url: SEO_HOST }]),
+      buildBreadcrumbStructuredData(breadcrumbs),
     ],
+    bodyHtml,
   });
 }
 
@@ -226,6 +536,23 @@ async function buildCatalogSeoData(url: URL) {
 
   if (catalogView === "brands") {
     if (!activeBrand) {
+      const manufacturers = await db
+        .select({
+          slug: schema.manufacturers.slug,
+          name: schema.manufacturers.name,
+          description: schema.manufacturers.description,
+        })
+        .from(schema.manufacturers)
+        .where(eq(schema.manufacturers.isVisible, true))
+        .orderBy(desc(schema.manufacturers.productCount), asc(schema.manufacturers.name))
+        .limit(12);
+
+      const breadcrumbs = [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Каталог", url: `${SEO_HOST}/catalog` },
+        { name: "Производители", url: `${SEO_HOST}/catalog?view=brands` },
+      ];
+
       return buildBasePageData("/catalog?view=brands", {
         title: "Производители — каталог брендов ТЕХАКС",
         description:
@@ -233,11 +560,7 @@ async function buildCatalogSeoData(url: URL) {
         canonicalUrl: `${SEO_HOST}/catalog?view=brands`,
         noindex: hasFilters || hasLayout || hasSort || forceProductsView,
         structuredData: [
-          buildBreadcrumbStructuredData([
-            { name: "Главная", url: SEO_HOST },
-            { name: "Каталог", url: `${SEO_HOST}/catalog` },
-            { name: "Производители", url: `${SEO_HOST}/catalog?view=brands` },
-          ]),
+          buildBreadcrumbStructuredData(breadcrumbs),
           {
             "@context": "https://schema.org",
             "@type": "CollectionPage",
@@ -247,6 +570,27 @@ async function buildCatalogSeoData(url: URL) {
             url: `${SEO_HOST}/catalog?view=brands`,
           },
         ],
+        bodyHtml: renderSeoBodyShell({
+          breadcrumbs,
+          eyebrow: "Каталог брендов",
+          title: "Производители ТЕХАКС",
+          description:
+            "Выбирайте бренды техники и аксессуаров, которые уже представлены на витрине ТЕХАКС с актуальными ценами, наличием и доставкой.",
+          content: renderCardList(
+            manufacturers.map(item => ({
+              title: item.name,
+              text:
+                truncateText(item.description, 150) ||
+                "Товары бренда в каталоге ТЕХАКС.",
+              links: [
+                {
+                  href: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(item.slug)}`,
+                  label: `Открыть бренд ${item.name}`,
+                },
+              ],
+            }))
+          ),
+        }),
       });
     }
 
@@ -266,6 +610,15 @@ async function buildCatalogSeoData(url: URL) {
     );
     const title =
       manufacturer.metaTitle?.trim() || `${manufacturer.name} — товары бренда в ТЕХАКС`;
+    const breadcrumbs = [
+      { name: "Главная", url: SEO_HOST },
+      { name: "Каталог", url: `${SEO_HOST}/catalog` },
+      { name: "Производители", url: `${SEO_HOST}/catalog?view=brands` },
+      {
+        name: manufacturer.name,
+        url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
+      },
+    ];
 
     return buildBasePageData(`/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`, {
       title,
@@ -274,15 +627,7 @@ async function buildCatalogSeoData(url: URL) {
       noindex: hasFilters || hasLayout || hasSort || forceProductsView,
       image: manufacturer.logoUrl || DEFAULT_IMAGE,
       structuredData: [
-        buildBreadcrumbStructuredData([
-          { name: "Главная", url: SEO_HOST },
-          { name: "Каталог", url: `${SEO_HOST}/catalog` },
-          { name: "Производители", url: `${SEO_HOST}/catalog?view=brands` },
-          {
-            name: manufacturer.name,
-            url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
-          },
-        ]),
+        buildBreadcrumbStructuredData(breadcrumbs),
         {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
@@ -291,10 +636,46 @@ async function buildCatalogSeoData(url: URL) {
           url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
         },
       ],
+      bodyHtml: renderSeoBodyShell({
+        breadcrumbs,
+        eyebrow: "Производитель",
+        title: manufacturer.name,
+        description,
+        content: [
+          renderInlineLinks([
+            {
+              href: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
+              label: "Смотреть товары бренда",
+            },
+            { href: `${SEO_HOST}/catalog?view=brands`, label: "Все производители" },
+          ]),
+          manufacturer.description?.trim()
+            ? `<section class="seo-section"><h2>О бренде</h2><p>${escapeHtml(
+                truncateText(manufacturer.description, 800)
+              )}</p></section>`
+            : "",
+        ].join(""),
+      }),
     });
   }
 
   if (!activeCategory || activeCategory === "all") {
+    const categories = await db
+      .select({
+        slug: schema.categories.slug,
+        name: schema.categories.name,
+        description: schema.categories.description,
+      })
+      .from(schema.categories)
+      .where(isNull(schema.categories.parentId))
+      .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.id))
+      .limit(12);
+
+    const breadcrumbs = [
+      { name: "Главная", url: SEO_HOST },
+      { name: "Каталог", url: `${SEO_HOST}/catalog` },
+    ];
+
     return buildBasePageData("/catalog", {
       title: "Каталог товаров ТЕХАКС — техника и аксессуары",
       description:
@@ -302,10 +683,7 @@ async function buildCatalogSeoData(url: URL) {
       canonicalUrl: `${SEO_HOST}/catalog`,
       noindex: hasFilters || hasLayout || hasSort || forceProductsView,
       structuredData: [
-        buildBreadcrumbStructuredData([
-          { name: "Главная", url: SEO_HOST },
-          { name: "Каталог", url: `${SEO_HOST}/catalog` },
-        ]),
+        buildBreadcrumbStructuredData(breadcrumbs),
         {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
@@ -315,6 +693,27 @@ async function buildCatalogSeoData(url: URL) {
           url: `${SEO_HOST}/catalog`,
         },
       ],
+      bodyHtml: renderSeoBodyShell({
+        breadcrumbs,
+        eyebrow: "Каталог",
+        title: "Каталог товаров ТЕХАКС",
+        description:
+          "Смартфоны, аксессуары, гаджеты, техника для дома и полезная электроника с самовывозом в Пензе и доставкой по России.",
+        content: renderCardList(
+          categories.map(category => ({
+            title: category.name,
+            text:
+              truncateText(category.description, 160) ||
+              "Раздел каталога с актуальными товарами и ценами.",
+            links: [
+              {
+                href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+                label: `Перейти в раздел ${category.name}`,
+              },
+            ],
+          }))
+        ),
+      }),
     });
   }
 
@@ -353,6 +752,28 @@ async function buildCatalogSeoData(url: URL) {
   );
   const title =
     currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в ТЕХАКС`;
+  const childCategories = categoryRows
+    .filter(category => category.parentId === currentCategory.id)
+    .slice(0, 16);
+  const content = [
+    childCategories.length > 0
+      ? renderCardList(
+          childCategories.map(category => ({
+            title: category.name,
+            text:
+              truncateText(category.description, 150) ||
+              "Подкатегория с товарами, ценами и наличием.",
+            links: [
+              {
+                href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+                label: `Открыть ${category.name}`,
+              },
+            ],
+          }))
+        )
+      : "",
+    `<section class="seo-section"><h2>Покупка и получение</h2><p>В разделе доступны актуальные цены, наличие по магазинам ТЕХАКС, самовывоз в Пензе и доставка по России.</p></section>`,
+  ].join("");
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
     title,
@@ -369,6 +790,13 @@ async function buildCatalogSeoData(url: URL) {
         url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: breadcrumbItems,
+      eyebrow: "Категория",
+      title: currentCategory.name,
+      description,
+      content,
+    }),
   });
 }
 
@@ -473,6 +901,17 @@ async function buildProductSeoData(url: URL) {
   );
 
   const image = product.image || DEFAULT_IMAGE;
+  const specsEntries = Object.entries(
+    product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+      ? (product.specs as Record<string, unknown>)
+      : {}
+  )
+    .filter(([, value]) => String(value ?? "").trim().length > 0)
+    .slice(0, 8)
+    .map(([key, value]) => ({
+      label: key,
+      value: String(value),
+    }));
 
   return buildBasePageData(`/product/${encodeURIComponent(product.slug)}`, {
     title: `${product.name} — купить в ТЕХАКС`,
@@ -531,6 +970,37 @@ async function buildProductSeoData(url: URL) {
         },
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: breadcrumbItems,
+      eyebrow: "Карточка товара",
+      title: product.name,
+      description,
+      content: [
+        renderFacts([
+          { label: "Цена", value: `${new Intl.NumberFormat("ru-RU").format(product.price)} ₽` },
+          { label: "Бренд", value: manufacturerName },
+          { label: "Артикул", value: product.article || "Уточняется" },
+          {
+            label: "Категория",
+            value: product.categoryName || "Каталог ТЕХАКС",
+          },
+        ]),
+        specsEntries.length > 0
+          ? `<section class="seo-section"><h2>Основные характеристики</h2>${renderFacts(
+              specsEntries
+            )}</section>`
+          : "",
+        storeAvailability.length > 0
+          ? renderCardList(
+              storeAvailability.map(store => ({
+                title: store.name,
+                text: `${store.address}. В наличии: ${store.qty} шт.`,
+                links: [{ href: `${SEO_HOST}/stores`, label: "Все магазины ТЕХАКС" }],
+              }))
+            )
+          : `<section class="seo-section"><h2>Получение</h2><p>Проверьте наличие в магазинах ТЕХАКС или оформите доставку по России.</p></section>`,
+      ].join(""),
+    }),
   });
 }
 
@@ -556,6 +1026,29 @@ async function buildStoresSeoData() {
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Магазины", url: `${SEO_HOST}/stores` },
+      ],
+      eyebrow: "Офлайн-магазины",
+      title: "Магазины ТЕХАКС в Пензе",
+      description:
+        "Адреса магазинов, режим работы, контакты и самовывоз по актуальному наличию.",
+      content: [
+        renderInlineLinks([
+          { href: `${SEO_HOST}/catalog`, label: "Открыть каталог" },
+          { href: `${SEO_HOST}/contacts`, label: "Контакты и реквизиты" },
+        ]),
+        renderCardList(
+          stores.map(store => ({
+            title: store.name,
+            text: [store.address, store.hours, store.phone].filter(Boolean).join(" • "),
+            links: store.mapUrl ? [{ href: store.mapUrl, label: "Открыть карту" }] : undefined,
+          }))
+        ),
+      ].join(""),
+    }),
   });
 }
 
@@ -581,6 +1074,31 @@ async function buildContactsSeoData() {
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Контакты", url: `${SEO_HOST}/contacts` },
+      ],
+      eyebrow: "Контакты",
+      title: "Контакты ТЕХАКС",
+      description:
+        "Телефоны, e-mail, адреса магазинов, режим работы и реквизиты интернет-магазина ТЕХАКС.",
+      content: [
+        renderFacts([
+          { label: "Телефон", value: profile.contacts.primaryPhoneDisplay || "" },
+          { label: "E-mail", value: profile.contacts.email || "" },
+          { label: "Адрес", value: profile.contacts.fullAddress || "" },
+          { label: "Режим работы", value: profile.contacts.workingHours || "" },
+        ]),
+        renderCardList(
+          stores.map(store => ({
+            title: store.name,
+            text: [store.address, store.hours, store.phone].filter(Boolean).join(" • "),
+            links: [{ href: `${SEO_HOST}/stores`, label: "Смотреть магазин" }],
+          }))
+        ),
+      ].join(""),
+    }),
   });
 }
 
@@ -606,6 +1124,26 @@ async function buildAboutSeoData() {
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "О компании", url: `${SEO_HOST}/about` },
+      ],
+      eyebrow: "О компании",
+      title: "ТЕХАКС — техника и аксессуары в Пензе",
+      description:
+        "Розничная сеть магазинов техники и аксессуаров в Пензе с удобным самовывозом, актуальным наличием и сервисом без лишней сложности.",
+      content: [
+        `<section class="seo-section"><h2>Кто мы</h2><p>ТЕХАКС — это интернет-магазин и офлайн-магазины техники, электроники и аксессуаров. Мы помогаем выбирать полезные устройства для дома, работы, автомобиля и повседневной жизни без переплат и лишней путаницы.</p></section>`,
+        renderCardList(
+          stores.map(store => ({
+            title: store.name,
+            text: [store.address, store.hours].filter(Boolean).join(" • "),
+            links: [{ href: `${SEO_HOST}/stores`, label: "Подробнее о магазинах" }],
+          }))
+        ),
+      ].join(""),
+    }),
   });
 }
 
@@ -645,6 +1183,27 @@ async function buildPromotionsSeoData() {
         })),
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Акции", url: `${SEO_HOST}/promotions` },
+      ],
+      eyebrow: "Акции",
+      title: "Акции и спецпредложения ТЕХАКС",
+      description:
+        "Следите за скидками, подарками и специальными предложениями на технику и аксессуары.",
+      content: renderCardList(
+        promos.map(promo => ({
+          title: promo.title,
+          links: [
+            {
+              href: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}`,
+              label: "Открыть акцию",
+            },
+          ],
+        }))
+      ),
+    }),
   });
 }
 
@@ -706,6 +1265,22 @@ async function buildPromotionDetailSeoData(url: URL) {
         mainEntityOfPage: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}`,
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Акции", url: `${SEO_HOST}/promotions` },
+        {
+          name: promo.title,
+          url: `${SEO_HOST}/promotions/${encodeURIComponent(promo.slug)}`,
+        },
+      ],
+      eyebrow: "Спецпредложение",
+      title: promo.title,
+      description,
+      content: `<section class="seo-section"><h2>Условия акции</h2><p>${escapeHtml(
+        truncateText(promo.subtitle || promo.content, 1200) || "Подробности акции доступны на странице предложения."
+      )}</p></section>`,
+    }),
   });
 }
 
@@ -747,6 +1322,24 @@ async function buildBlogSeoData() {
         })),
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Блог", url: `${SEO_HOST}/blog` },
+      ],
+      eyebrow: "Блог",
+      title: "Блог ТЕХАКС",
+      description:
+        "Обзоры, советы и подборки по электронике, аксессуарам и полезным устройствам для повседневной жизни.",
+      content: renderCardList(
+        posts.map(post => ({
+          title: post.title,
+          links: [
+            { href: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`, label: "Читать статью" },
+          ],
+        }))
+      ),
+    }),
   });
 }
 
@@ -804,6 +1397,21 @@ async function buildBlogPostSeoData(url: URL) {
         mainEntityOfPage: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`,
       },
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Блог", url: `${SEO_HOST}/blog` },
+        { name: post.title, url: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}` },
+      ],
+      eyebrow: post.category || "Статья",
+      title: post.title,
+      description:
+        post.metaDescription ||
+        normalizeDescription(post.excerpt, "Полезные статьи и обзоры от ТЕХАКС."),
+      content: `<section class="seo-section"><h2>Кратко о материале</h2><p>${escapeHtml(
+        truncateText(post.excerpt || post.content, 1400) || "Материал доступен на странице статьи."
+      )}</p></section>`,
+    }),
   });
 }
 
@@ -817,6 +1425,12 @@ async function buildLegalSeoData(pathname: string) {
     "/returns": profile.legalTexts.returnsPolicyTitle || "Возврат и обмен",
   };
   const title = titles[pathname] || "Правовая информация";
+  const contents: Record<string, string> = {
+    "/offer": profile.legalTexts.offerContent,
+    "/privacy-policy": profile.legalTexts.privacyPolicyContent,
+    "/payment-delivery": profile.legalTexts.paymentDeliveryContent,
+    "/returns": profile.legalTexts.returnsPolicyContent,
+  };
 
   return buildBasePageData(pathname, {
     title: `${title} — ТЕХАКС`,
@@ -832,6 +1446,18 @@ async function buildLegalSeoData(pathname: string) {
         address: profile.seller.legalAddress,
       }),
     ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: title, url: `${SEO_HOST}${pathname}` },
+      ],
+      eyebrow: "Правовая информация",
+      title,
+      description: `${title} интернет-магазина ТЕХАКС.`,
+      content: `<section class="seo-section"><h2>Основная информация</h2><p>${escapeHtml(
+        truncateText(contents[pathname], 1800) || "Документ доступен на странице сайта."
+      )}</p></section>`,
+    }),
   });
 }
 

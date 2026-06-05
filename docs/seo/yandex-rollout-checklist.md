@@ -27,6 +27,10 @@
   - [x] promotions
   - [x] blog
   - [x] legal
+- [x] Проверить server-friendly HTML fallback для основного контента:
+  - [x] H1 и хлебные крошки
+  - [x] краткий контент категории / бренда / товара
+  - [x] листинги магазинов, акций и статей
 - [x] Проверить JSON-LD:
   - [x] Product
   - [x] BreadcrumbList
