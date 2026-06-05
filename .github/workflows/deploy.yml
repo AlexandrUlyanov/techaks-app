@@ -25,7 +25,20 @@ jobs:
           username: ${{ env.SERVER_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            set -e
+            set -eu
+
+            dump_debug() {
+              echo "---- DEPLOY DEBUG START ----"
+              echo "PWD: $(pwd || true)"
+              echo "Git HEAD: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+              echo "Node: $(node -v 2>/dev/null || echo missing)"
+              echo "NPM: $(npm -v 2>/dev/null || echo missing)"
+              pm2 status techaks --no-color || true
+              pm2 logs techaks --lines 120 --nostream || true
+              echo "---- DEPLOY DEBUG END ----"
+            }
+
+            trap 'dump_debug' ERR
 
             # 1. Ensure directory exists and clone/pull repository
             if [ ! -d "${{ env.APP_DIR }}/.git" ]; then
@@ -66,6 +79,11 @@ jobs:
 
             # 3. Install dependencies and build only.
             # Production DB changes are intentionally excluded from automatic deploy.
+            echo "Environment versions:"
+            node -v
+            npm -v
+            echo "Deploying git HEAD $(git rev-parse --short HEAD)"
+
             echo "Installing dependencies..."
             if ! npm ci; then
               echo "Primary npm ci failed. Cleaning npm cache and retrying once..."
@@ -149,7 +167,10 @@ jobs:
 
             if [ "$HEALTH_OK" -ne 1 ]; then
               echo "Healthcheck failed after waiting for app startup"
-              pm2 status techaks --no-color || true
-              pm2 logs techaks --lines 80 --nostream || true
               exit 1
             fi
+
+            echo "Running public/admin healthchecks..."
+            curl -fsS https://techaks.ru/ >/dev/null
+            curl -fsS https://techaks.ru/admin/orders >/dev/null
+            echo "Public/admin healthchecks passed"
