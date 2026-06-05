@@ -170,7 +170,8 @@ jobs:
               exit 1
             fi
 
-            echo "Running public/admin healthchecks..."
+            echo "Running API/public/admin healthchecks..."
+            curl -fsS https://techaks.ru/api/health >/dev/null
             curl -fsS https://techaks.ru/ >/dev/null
             curl -fsS https://techaks.ru/admin/orders >/dev/null
-            echo "Public/admin healthchecks passed"
+            echo "API/public/admin healthchecks passed"

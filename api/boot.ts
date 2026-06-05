@@ -131,6 +131,56 @@ app.get("/yandex_0c5c892438bce9a8.html", c => {
   return c.html(body);
 });
 
+app.get("/api/health", async c => {
+  const startedAt = Date.now();
+
+  try {
+    const db = getDb();
+    await db.execute(sql`select 1 as ok`);
+
+    return c.json(
+      {
+        ok: true,
+        status: "healthy",
+        env: env.isProduction ? "production" : "development",
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.round(process.uptime()),
+        checks: {
+          app: "ok",
+          db: "ok",
+        },
+        responseMs: Date.now() - startedAt,
+      },
+      200,
+      {
+        "Cache-Control": "no-store",
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Healthcheck failed";
+
+    return c.json(
+      {
+        ok: false,
+        status: "unhealthy",
+        env: env.isProduction ? "production" : "development",
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.round(process.uptime()),
+        checks: {
+          app: "ok",
+          db: "error",
+        },
+        responseMs: Date.now() - startedAt,
+        error: message,
+      },
+      503,
+      {
+        "Cache-Control": "no-store",
+      }
+    );
+  }
+});
+
 app.get("/sitemap.xml", c => {
   const now = new Date().toISOString();
   const body = `<?xml version="1.0" encoding="UTF-8"?>
