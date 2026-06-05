@@ -832,7 +832,7 @@ if (env.isProduction) {
   }, 60_000);
 
   setInterval(() => {
-    processMoyskladOrderSyncJobs(10).catch(error => {
+    processMoyskladOrderSyncJobs(3).catch(error => {
       console.error("[moysklad-order-sync] queue cycle failed:", error);
     });
   }, 15_000);

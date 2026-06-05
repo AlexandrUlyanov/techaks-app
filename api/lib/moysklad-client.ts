@@ -1,9 +1,11 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
+import axiosRetry from "axios-retry";
 import { getAppSetting } from "./app-settings";
 import { env } from "./env";
 
 const MOYSKLAD_BASE_URL = "https://api.moysklad.ru/api/remap/1.2";
-const DEFAULT_TIMEOUT_MS = 90_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_GET_RETRIES = 3;
 
 export class MoyskladApiError extends Error {
   status: number | null;
@@ -48,6 +50,17 @@ function getRequestId(headers?: Record<string, unknown>) {
   return candidate ? String(candidate) : null;
 }
 
+function getRetryDelay(retryCount: number, error: AxiosError) {
+  const retryAfterHeader = error.response?.headers?.["retry-after"];
+  const retryAfterSeconds = Number(Array.isArray(retryAfterHeader) ? retryAfterHeader[0] : retryAfterHeader);
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  return Math.min(30_000, retryCount * 5_000);
+}
+
 export async function getMoyskladAccessToken() {
   const envToken = env.moyskladToken.trim();
   if (envToken) return envToken;
@@ -69,6 +82,32 @@ export async function getMoyskladClient() {
       "Content-Type": "application/json",
     },
     timeout: DEFAULT_TIMEOUT_MS,
+  });
+
+  axiosRetry(instance, {
+    retries: DEFAULT_GET_RETRIES,
+    shouldResetTimeout: true,
+    retryCondition: error => {
+      const method = error.config?.method?.toLowerCase();
+      if (method !== "get") return false;
+
+      const status = error.response?.status ?? null;
+      return (
+        status === 429 ||
+        (status !== null && status >= 500) ||
+        axiosRetry.isNetworkOrIdempotentRequestError(error)
+      );
+    },
+    retryDelay: getRetryDelay,
+    onRetry: (retryCount, error, requestConfig) => {
+      console.warn("[moysklad-client:retry]", {
+        retryCount,
+        method: requestConfig.method,
+        url: requestConfig.url,
+        status: error.response?.status ?? null,
+        message: error.message,
+      });
+    },
   });
 
   return new MoyskladClient(instance);
