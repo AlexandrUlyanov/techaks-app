@@ -12,7 +12,7 @@ type AdminSectionProps = {
 const toneClasses: Record<NonNullable<AdminSectionProps["tone"]>, string> = {
   default: "border-border bg-card",
   accent:
-    "border-[color:color-mix(in_srgb,var(--tech-color-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_6%,white)]",
+    "border-[color:color-mix(in_srgb,var(--tech-color-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--tech-color-primary)_6%,white)] dark:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_9%,rgba(17,24,39,0.98))]",
   subtle: "border-border/70 bg-[var(--tech-color-surface-muted)]",
 };
 
@@ -28,11 +28,11 @@ export default function AdminSection({
     <section
       className={`overflow-hidden rounded-[var(--tech-radius-card)] border shadow-[var(--tech-shadow-card)] ${toneClasses[tone]}`}
     >
-      <div className="flex flex-col gap-3 border-b border-black/5 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h2 className="text-base font-black text-[var(--tech-color-text-main)]">{title}</h2>
+          <h2 className="text-base font-black text-foreground">{title}</h2>
           {description ? (
-            <p className="max-w-3xl text-sm leading-6 text-[var(--tech-color-text-muted)]">
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               {description}
             </p>
           ) : null}

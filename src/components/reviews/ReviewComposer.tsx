@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/providers/trpc";
 import ReviewStarsInput from "./ReviewStarsInput";
 
@@ -95,10 +97,12 @@ export default function ReviewComposer({
   const hint = useMemo(() => statusHint(existingReview?.status), [existingReview?.status]);
 
   return (
-    <div className={`rounded-2xl border border-border bg-white ${compact ? "p-4" : "p-6"}`}>
+    <div
+      className={`rounded-2xl border border-border bg-card text-card-foreground shadow-[var(--tech-shadow-card)] ${compact ? "p-4" : "p-6"}`}
+    >
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className={`${compact ? "text-base" : "text-lg"} font-black text-[#15171A]`}>
+          <h3 className={`${compact ? "text-base" : "text-lg"} font-black text-foreground`}>
             {existingReview ? "Обновить отзыв" : "Оставить отзыв"}
           </h3>
           {verifiedPurchase ? (
@@ -107,7 +111,7 @@ export default function ReviewComposer({
             </span>
           ) : null}
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           {productName}
         </p>
         {hint ? <p className="text-xs font-semibold text-[#0099A8]">{hint}</p> : null}
@@ -131,7 +135,7 @@ export default function ReviewComposer({
         }}
       >
         <div className="space-y-2">
-          <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
             Оценка
           </span>
           <ReviewStarsInput value={rating} onChange={setRating} />
@@ -139,89 +143,89 @@ export default function ReviewComposer({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
               Заголовок
             </span>
-            <input
+            <Input
               value={title}
               onChange={event => setTitle(event.target.value)}
               placeholder="Например: Хорошо держится в авто"
-              className="h-11 w-full rounded-xl border border-border px-4 text-sm outline-none transition focus:border-[#05C3D4]"
+              className="h-11 px-4 text-sm"
             />
           </label>
           <label className="space-y-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
               Срок использования
             </span>
-            <input
+            <Input
               value={usageDuration}
               onChange={event => setUsageDuration(event.target.value)}
               placeholder="Например: 2 месяца"
-              className="h-11 w-full rounded-xl border border-border px-4 text-sm outline-none transition focus:border-[#05C3D4]"
+              className="h-11 px-4 text-sm"
             />
           </label>
         </div>
 
         <label className="space-y-2 block">
-          <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
             Где использовали товар
           </span>
-          <input
+          <Input
             value={usageContext}
             onChange={event => setUsageContext(event.target.value)}
             placeholder="Например: В машине, дома, для iPhone, для офиса"
-            className="h-11 w-full rounded-xl border border-border px-4 text-sm outline-none transition focus:border-[#05C3D4]"
+            className="h-11 px-4 text-sm"
           />
         </label>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
               Достоинства
             </span>
-            <textarea
+            <Textarea
               value={pros}
               onChange={event => setPros(event.target.value)}
               placeholder="Что особенно понравилось"
               rows={4}
-              className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none transition focus:border-[#05C3D4]"
+              className="px-4 py-3 text-sm"
             />
           </label>
           <label className="space-y-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
               Недостатки
             </span>
-            <textarea
+            <Textarea
               value={cons}
               onChange={event => setCons(event.target.value)}
               placeholder="Что можно улучшить"
               rows={4}
-              className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none transition focus:border-[#05C3D4]"
+              className="px-4 py-3 text-sm"
             />
           </label>
         </div>
 
         <label className="space-y-2 block">
-          <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground/80">
             Текст отзыва
           </span>
-          <textarea
+          <Textarea
             value={text}
             onChange={event => setText(event.target.value)}
             placeholder="Опишите, как товар показал себя в реальном использовании"
             rows={compact ? 5 : 7}
-            className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none transition focus:border-[#05C3D4]"
+            className="px-4 py-3 text-sm"
           />
         </label>
 
-        <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+        <label className="flex items-center gap-3 rounded-xl border border-border bg-white/60 px-4 py-3 dark:bg-white/[0.03]">
           <input
             type="checkbox"
             checked={Boolean(isRecommended)}
             onChange={event => setIsRecommended(event.target.checked)}
             className="h-4 w-4 rounded border-border"
           />
-          <span className="text-sm font-semibold text-[#15171A]">
+          <span className="text-sm font-semibold text-foreground">
             Я рекомендую этот товар
           </span>
         </label>
@@ -230,7 +234,7 @@ export default function ReviewComposer({
           <Button type="submit" disabled={saveReview.isPending}>
             {saveReview.isPending ? "Сохраняем..." : existingReview ? "Обновить отзыв" : "Отправить отзыв"}
           </Button>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             После отправки отзыв попадёт на модерацию магазина.
           </span>
         </div>

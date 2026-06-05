@@ -17,7 +17,7 @@ export default function ReviewStarsInput({
             key={rating}
             type="button"
             onClick={() => onChange(rating)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white transition-colors hover:border-[#05C3D4]/50"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-white/80 text-foreground transition-[background-color,border-color,color] hover:border-[#05C3D4]/45 hover:bg-[#05C3D4]/8 dark:bg-white/[0.04] dark:hover:bg-[#05C3D4]/12"
             aria-label={`Оценка ${rating}`}
           >
             <Star

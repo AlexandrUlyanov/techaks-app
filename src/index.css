@@ -69,6 +69,14 @@
 
   .dark {
     /* Dark Theme - Premium Tech */
+    --tech-color-background: #111827;
+    --tech-color-surface: #1f242c;
+    --tech-color-surface-muted: #262c35;
+    --tech-color-text-main: #f8fafc;
+    --tech-color-text-muted: #c2cad6;
+    --tech-color-border: #313845;
+    --tech-shadow-card: 0 16px 40px rgba(0, 0, 0, 0.28);
+    --tech-shadow-modal: 0 28px 72px rgba(0, 0, 0, 0.4);
     --background: 216 10% 9%;
     --foreground: 0 0% 100%;
     --card: 214 9% 15%;
