@@ -620,6 +620,10 @@ async function buildHomeSeoData() {
   });
 
   return buildBasePageData("/", {
+    title: "ТЕХАКС — интернет-магазин техники и аксессуаров в Пензе",
+    description:
+      "Техника и аксессуары в Пензе: смартфоны, наушники, зарядные устройства, кабели, чехлы и гаджеты. Актуальные цены, самовывоз в Пензе и доставка по России.",
+    canonicalUrl: SEO_HOST,
     structuredData: [
       buildWebsiteStructuredData(),
       buildOrganizationStructuredData({
