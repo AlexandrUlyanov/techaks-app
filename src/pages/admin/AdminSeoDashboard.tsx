@@ -269,6 +269,18 @@ export default function AdminSeoDashboard() {
                     ))}
                   </div>
                 </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4 lg:col-span-2">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Сверка с Яндекс Бизнес
+                  </div>
+                  <ul className="mt-3 grid gap-2 text-sm leading-6 text-[var(--tech-color-text-muted)] md:grid-cols-2">
+                    <li>• название, телефон и e-mail совпадают на сайте и в карточке организации</li>
+                    <li>• адреса и часы всех магазинов совпадают с `/stores` и `/contacts`</li>
+                    <li>• регион сайта закреплён как <span className="font-semibold text-[var(--tech-color-text-main)]">Пенза</span></li>
+                    <li>• после обновления контактов перепроверяем schema `Organization` и `Store`</li>
+                  </ul>
+                </div>
               </div>
             </AdminSection>
 

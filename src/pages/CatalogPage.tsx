@@ -369,12 +369,12 @@ export default function CatalogPage() {
   const seoDescription = currentManufacturer
     ? currentManufacturer.metaDescription?.trim() ||
       currentManufacturer.description?.trim() ||
-      `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
+      `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
     : currentCategory && activeCategory !== "all"
       ? currentCategory.metaDescription?.trim() ||
         currentCategory.description?.trim() ||
-        `${currentCategory.name}: цены, характеристики и наличие в интернет-магазине ТЕХАКС.`
-      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
+        `${currentCategory.name}: цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
+      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам с самовывозом в Пензе и доставкой по России.";
 
   const seoCanonicalPath = (() => {
     if (catalogView === "brands" && activeBrand) {

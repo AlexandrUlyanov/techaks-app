@@ -222,7 +222,7 @@ export default function ProductPage() {
     : "Товар — ТЕХАКС";
   const seoDescription = product
     ? (product.description || "").trim().slice(0, 220) ||
-      `${product.name}: цена, характеристики, фото, наличие и доставка. Купить в интернет-магазине ТЕХАКС.`
+      `${product.name}: цена, характеристики, фото, наличие, самовывоз в Пензе и доставка по России. Купить в интернет-магазине ТЕХАКС.`
     : "Карточка товара интернет-магазина ТЕХАКС.";
   const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
   const relatedProducts = merchandisingRelated.slice(0, 4);
