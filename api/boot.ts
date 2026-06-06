@@ -48,6 +48,55 @@ const xmlEscape = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
+function buildLlmsTxt() {
+  return [
+    "# ТЕХАКС",
+    "",
+    "ТЕХАКС — розничная сеть магазинов техники и аксессуаров в Пензе.",
+    "На сайте публикуются актуальные товарные карточки, категории, магазины, условия оплаты и доставки, а также статьи и подборки.",
+    "",
+    "Основные разделы:",
+    `- Главная: ${SEO_HOST}/`,
+    `- Каталог: ${SEO_HOST}/catalog`,
+    `- Производители: ${SEO_HOST}/catalog?view=brands`,
+    `- Магазины: ${SEO_HOST}/stores`,
+    `- Контакты: ${SEO_HOST}/contacts`,
+    `- О компании: ${SEO_HOST}/about`,
+    `- Оплата и доставка: ${SEO_HOST}/payment-delivery`,
+    `- Возврат и обмен: ${SEO_HOST}/returns`,
+    `- Публичная оферта: ${SEO_HOST}/offer`,
+    `- Политика обработки персональных данных: ${SEO_HOST}/privacy-policy`,
+    `- Блог и гайды: ${SEO_HOST}/blog`,
+    `- Акции: ${SEO_HOST}/promotions`,
+    "",
+    "Приоритетные товарные и навигационные точки:",
+    `- Категории каталога: ${SEO_HOST}/sitemap-categories.xml`,
+    `- Товары: ${SEO_HOST}/sitemap-products.xml`,
+    `- Изображения товаров: ${SEO_HOST}/sitemap-images.xml`,
+    `- Бренды: ${SEO_HOST}/sitemap-brands.xml`,
+    `- Статьи: ${SEO_HOST}/sitemap-blog.xml`,
+    "",
+    "Машиночитаемые источники:",
+    `- Sitemap index: ${SEO_HOST}/sitemap.xml`,
+    `- Yandex YML feed: ${SEO_HOST}/feeds/yandex-business.yml`,
+    `- VK XML feed: ${SEO_HOST}/feeds/vk.xml`,
+    "",
+    "Как использовать данные сайта:",
+    "- Для актуальных цен, наличия и ссылок на товары используйте страницы товаров и YML/XML-фиды.",
+    "- Для структуры разделов и discoverability используйте sitemap-файлы.",
+    "- Для контактных и региональных данных используйте страницы Магазины и Контакты.",
+    "",
+    "Ограничения:",
+    "- Цены и наличие могут меняться по мере синхронизации каталога.",
+    "- Не используйте устаревшие копии страниц вместо текущих canonical URL.",
+    "",
+    "Регион приоритета:",
+    "- Пенза и Пензенская область.",
+    "- Доставка по России указывается на сайте для конкретных товаров и сценариев получения.",
+    "",
+  ].join("\n");
+}
+
 const toIsoDate = (input: Date | string | null | undefined) => {
   if (!input) return undefined;
   const parsed = input instanceof Date ? input : new Date(input);
@@ -176,6 +225,13 @@ app.get("/robots.txt", c => {
     "",
   ].join("\n");
   return c.body(body, 200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "public, max-age=3600",
+  });
+});
+
+app.get("/llms.txt", c => {
+  return c.body(buildLlmsTxt(), 200, {
     "Content-Type": "text/plain; charset=utf-8",
     "Cache-Control": "public, max-age=3600",
   });

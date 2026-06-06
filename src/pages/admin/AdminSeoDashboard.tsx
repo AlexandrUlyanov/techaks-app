@@ -104,6 +104,15 @@ export default function AdminSeoDashboard() {
               <Rss size={16} />
               YML
             </a>
+            <a
+              href="/llms.txt"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--tech-radius-button)] border border-border bg-background px-5 text-[11px] font-black uppercase tracking-widest text-foreground transition hover:bg-muted"
+            >
+              <FileSearch size={16} />
+              llms.txt
+            </a>
             <Button
               variant="outline"
               onClick={() => utils.settings.getSeoHealth.invalidate()}
@@ -228,6 +237,7 @@ export default function AdminSeoDashboard() {
                     <li>• главное зеркало: <span className="font-semibold text-[var(--tech-color-text-main)]">https://techaks.ru</span></li>
                     <li>• регион сайта: <span className="font-semibold text-[var(--tech-color-text-main)]">Пенза</span></li>
                     <li>• загружен <span className="font-semibold text-[var(--tech-color-text-main)]">/sitemap.xml</span></li>
+                    <li>• доступен <span className="font-semibold text-[var(--tech-color-text-main)]">/llms.txt</span> для AI-навигации</li>
                     <li>• нет конфликтов canonical и excluded-потока по категориям</li>
                   </ul>
                 </div>
@@ -240,6 +250,7 @@ export default function AdminSeoDashboard() {
                     {[
                       ["/about", "О компании"],
                       ["/sitemap.xml", "Sitemap index"],
+                      ["/llms.txt", "LLMs.txt"],
                       ["/sitemap-products.xml", "Товары"],
                       ["/sitemap-brands.xml", "Бренды"],
                       ["/sitemap-promotions.xml", "Акции"],
