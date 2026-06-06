@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { useTheme } from "next-themes";
 import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
@@ -56,6 +58,18 @@ export default function HomeSecondarySections({
   popularProducts,
   isStoreOpen,
 }: HomeSecondarySectionsProps) {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const yandexBadgeSrc =
+    mounted && resolvedTheme === "dark"
+      ? "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating&theme=dark"
+      : "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating";
+
   return (
     <>
       {featuredManufacturers.length > 0 && (
@@ -215,34 +229,26 @@ export default function HomeSecondarySections({
             className="mb-16"
           />
 
-          <div className="flex flex-wrap justify-center gap-12 mb-16 pb-16 border-b border-border">
-            {[
-              { platform: "Яндекс Карты", rating: "4.9", count: "59 отзывов" },
-              { platform: "2ГИС", rating: "4.8", count: "39 отзывов" },
-            ].map(item => (
-              <div key={item.platform} className="text-center group">
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 group-hover:text-[#05C3D4] transition-colors">
-                  {item.platform}
-                </div>
-                <div className="flex items-center gap-4 justify-center">
-                  <div className="flex gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        size={20}
-                        className="fill-[#05C3D4] text-[#05C3D4]"
-                      />
-                    ))}
-                  </div>
-                  <span className="text-4xl font-black font-heading text-foreground">
-                    {item.rating}
-                  </span>
-                </div>
-                <div className="mt-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  {item.count}
-                </div>
+          <div className="mb-16 border-b border-border pb-16">
+            <div className="mx-auto max-w-[320px] rounded-[28px] bg-card/80 px-6 py-6 text-center transition-colors dark:bg-white/[0.03]">
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Яндекс Карты
               </div>
-            ))}
+              <div className="mt-4 flex justify-center">
+                <iframe
+                  src={yandexBadgeSrc}
+                  width="150"
+                  height="50"
+                  frameBorder="0"
+                  loading="lazy"
+                  title="Рейтинг ТЕХАКС в Яндекс Картах"
+                  className="overflow-hidden rounded-xl"
+                />
+              </div>
+              <div className="mt-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                59 отзывов
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
