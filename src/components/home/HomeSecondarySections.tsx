@@ -226,15 +226,16 @@ export default function HomeSecondarySections({
             eyebrow="Обратная связь"
             title="Отзывы покупателей"
             accent="покупателей"
-            className="mb-16"
-          />
-
-          <div className="mb-16 border-b border-border pb-16">
-            <div className="mx-auto max-w-[320px] rounded-[28px] bg-card/80 px-6 py-6 text-center transition-colors dark:bg-white/[0.03]">
-              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                Яндекс Карты
-              </div>
-              <div className="mt-4 flex justify-center">
+            action={
+              <div className="inline-flex items-center gap-4 rounded-full bg-card/70 px-4 py-3 transition-colors dark:bg-white/[0.03]">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Яндекс Карты
+                  </div>
+                  <div className="mt-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    59 отзывов
+                  </div>
+                </div>
                 <iframe
                   src={yandexBadgeSrc}
                   width="150"
@@ -245,11 +246,9 @@ export default function HomeSecondarySections({
                   className="overflow-hidden rounded-xl"
                 />
               </div>
-              <div className="mt-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                59 отзывов
-              </div>
-            </div>
-          </div>
+            }
+            className="mb-16"
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {defaultReviews.map((review, i) => (
