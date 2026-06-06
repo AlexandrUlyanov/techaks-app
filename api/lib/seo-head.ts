@@ -1694,6 +1694,18 @@ async function buildLegalSeoData(pathname: string) {
     "/returns": profile.legalTexts.returnsPolicyTitle || "Возврат и обмен",
   };
   const title = titles[pathname] || "Правовая информация";
+  const descriptions: Record<string, string> = {
+    "/offer":
+      "Публичная оферта интернет-магазина ТЕХАКС: условия заказа, оплаты, получения товара и взаимодействия с покупателем.",
+    "/privacy-policy":
+      "Политика обработки персональных данных ТЕХАКС: какие данные собираются, как используются и как защищаются.",
+    "/payment-delivery":
+      "Оплата и доставка в ТЕХАКС: самовывоз, доставка по Пензе и России, способы оплаты и условия получения заказа.",
+    "/returns":
+      "Возврат и обмен в ТЕХАКС: порядок обращения, условия возврата, обмена и поддержки по заказам интернет-магазина.",
+  };
+  const description =
+    descriptions[pathname] || "Юридическая информация интернет-магазина ТЕХАКС.";
   const contents: Record<string, string> = {
     "/offer": profile.legalTexts.offerContent,
     "/privacy-policy": profile.legalTexts.privacyPolicyContent,
@@ -1703,7 +1715,7 @@ async function buildLegalSeoData(pathname: string) {
 
   return buildBasePageData(pathname, {
     title: `${title} — ТЕХАКС`,
-    description: `${title} интернет-магазина ТЕХАКС.`,
+    description,
     structuredData: [
       buildBreadcrumbStructuredData([
         { name: "Главная", url: SEO_HOST },
@@ -1756,7 +1768,7 @@ async function buildLegalSeoData(pathname: string) {
       ],
       eyebrow: "Правовая информация",
       title,
-      description: `${title} интернет-магазина ТЕХАКС.`,
+      description,
       content: `<section class="seo-section"><h2>Основная информация</h2><p>${escapeHtml(
         truncateText(contents[pathname], 1800) || "Документ доступен на странице сайта."
       )}</p></section>`,
