@@ -54,6 +54,66 @@ const toIsoDate = (input: Date | string | null | undefined) => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 };
 
+async function getSitemapSectionLastmods() {
+  const db = getDb();
+  const stockQuery = db
+    .select({
+      productId: schema.productStocks.productId,
+      totalStock: sql<number>`SUM(${schema.productStocks.quantity})`.as("totalStock"),
+    })
+    .from(schema.productStocks)
+    .groupBy(schema.productStocks.productId)
+    .as("stock");
+
+  const [[productsMax], [promotionsMax], [blogMax], [brandsMax]] = await Promise.all([
+    db
+      .select({ lastmod: sql<Date | null>`MAX(${schema.products.createdAt})` })
+      .from(schema.products)
+      .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
+      .where(
+        sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
+      ),
+    db
+      .select({ lastmod: sql<Date | null>`MAX(${schema.banners.createdAt})` })
+      .from(schema.banners)
+      .where(and(eq(schema.banners.active, true), sql`${schema.banners.slug} <> ''`)),
+    db
+      .select({
+        lastmod:
+          sql<Date | null>`MAX(COALESCE(${schema.posts.updatedAt}, ${schema.posts.publishedAt}, ${schema.posts.createdAt}))`,
+      })
+      .from(schema.posts)
+      .where(
+        sql`(${schema.posts.status} = 'published' OR (${schema.posts.status} = 'scheduled' AND ${schema.posts.publishedAt} <= NOW()))`
+      ),
+    db
+      .select({ lastmod: sql<Date | null>`MAX(${schema.manufacturers.updatedAt})` })
+      .from(schema.manufacturers)
+      .where(
+        and(
+          eq(schema.manufacturers.isVisible, true),
+          sql`${schema.manufacturers.productCount} > 0`
+        )
+      ),
+  ]);
+
+  const products = toIsoDate(productsMax?.lastmod);
+  const promotions = toIsoDate(promotionsMax?.lastmod);
+  const blog = toIsoDate(blogMax?.lastmod);
+  const brands = toIsoDate(brandsMax?.lastmod);
+  const pages = blog || promotions || products;
+
+  return {
+    categories: products,
+    brands,
+    products,
+    promotions,
+    pages,
+    blog,
+    images: products,
+  };
+}
+
 function getClientIp(c: { req: { header: (name: string) => string | undefined } }) {
   const forwarded = c.req.header("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
@@ -181,17 +241,25 @@ app.get("/api/health", async c => {
   }
 });
 
-app.get("/sitemap.xml", c => {
-  const now = new Date().toISOString();
+app.get("/sitemap.xml", async c => {
+  const lastmods = await getSitemapSectionLastmods();
+  const rows = [
+    { path: "sitemap-categories.xml", lastmod: lastmods.categories },
+    { path: "sitemap-brands.xml", lastmod: lastmods.brands },
+    { path: "sitemap-products.xml", lastmod: lastmods.products },
+    { path: "sitemap-promotions.xml", lastmod: lastmods.promotions },
+    { path: "sitemap-pages.xml", lastmod: lastmods.pages },
+    { path: "sitemap-blog.xml", lastmod: lastmods.blog },
+    { path: "sitemap-images.xml", lastmod: lastmods.images },
+  ]
+    .map(
+      item =>
+        `  <sitemap><loc>${SEO_HOST}/${item.path}</loc>${item.lastmod ? `<lastmod>${item.lastmod}</lastmod>` : ""}</sitemap>`
+    )
+    .join("\n");
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap><loc>${SEO_HOST}/sitemap-categories.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-brands.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-products.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-promotions.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-pages.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-blog.xml</loc><lastmod>${now}</lastmod></sitemap>
-  <sitemap><loc>${SEO_HOST}/sitemap-images.xml</loc><lastmod>${now}</lastmod></sitemap>
+${rows}
 </sitemapindex>`;
   return c.body(body, 200, {
     "Content-Type": "application/xml; charset=utf-8",
@@ -199,7 +267,7 @@ app.get("/sitemap.xml", c => {
   });
 });
 
-app.get("/sitemap-pages.xml", c => {
+app.get("/sitemap-pages.xml", async c => {
   const staticPages = [
     "/",
     "/catalog",
@@ -214,8 +282,12 @@ app.get("/sitemap-pages.xml", c => {
     "/payment-delivery",
     "/returns",
   ];
+  const lastmods = await getSitemapSectionLastmods();
   const rows = staticPages
-    .map(path => `<url><loc>${SEO_HOST}${path}</loc><changefreq>daily</changefreq><priority>${path === "/" ? "1.0" : "0.8"}</priority></url>`)
+    .map(
+      path =>
+        `<url><loc>${SEO_HOST}${path}</loc>${lastmods.pages ? `<lastmod>${lastmods.pages}</lastmod>` : ""}<changefreq>daily</changefreq><priority>${path === "/" ? "1.0" : "0.8"}</priority></url>`
+    )
     .join("");
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows}</urlset>`;
@@ -249,6 +321,7 @@ app.get("/sitemap-categories.xml", async c => {
     .select({
       categoryId: schema.products.categoryId,
       count: sql<number>`count(*)`.as("count"),
+      lastmod: sql<Date | null>`MAX(${schema.products.createdAt})`.as("lastmod"),
     })
     .from(schema.products)
     .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
@@ -258,30 +331,46 @@ app.get("/sitemap-categories.xml", async c => {
     .groupBy(schema.products.categoryId);
 
   const visibleCounts = new Map<number, number>();
+  const categoryLastmods = new Map<number, string>();
   for (const row of visibleProductRows) {
     visibleCounts.set(row.categoryId, Number(row.count));
+    const lastmod = toIsoDate(row.lastmod);
+    if (lastmod) {
+      categoryLastmods.set(row.categoryId, lastmod);
+    }
   }
 
   const categoriesById = new Map(categories.map(category => [category.id, category] as const));
   const eligibleCategoryIds = new Set<number>();
+  const propagatedLastmods = new Map<number, string>();
 
   for (const [categoryId, count] of visibleCounts.entries()) {
     if (count <= 0) continue;
     let currentId: number | null | undefined = categoryId;
+    const baseLastmod = categoryLastmods.get(categoryId);
     while (currentId) {
-      if (eligibleCategoryIds.has(currentId)) break;
       eligibleCategoryIds.add(currentId);
+      if (baseLastmod) {
+        const currentLastmod = propagatedLastmods.get(currentId);
+        if (!currentLastmod || baseLastmod > currentLastmod) {
+          propagatedLastmods.set(currentId, baseLastmod);
+        }
+      }
       currentId = categoriesById.get(currentId)?.parentId;
     }
   }
 
   const rows = categories
     .filter(category => eligibleCategoryIds.has(category.id))
-    .map(category => `<url><loc>${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`)
+    .map(category => {
+      const lastmod = propagatedLastmods.get(category.id);
+      return `<url><loc>${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>`;
+    })
     .join("");
+  const catalogLastmod = [...propagatedLastmods.values()].sort().at(-1);
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SEO_HOST}/catalog</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>${SEO_HOST}/catalog</loc>${catalogLastmod ? `<lastmod>${catalogLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.9</priority></url>
   ${rows}
 </urlset>`;
   return c.body(body, 200, {
@@ -295,6 +384,7 @@ app.get("/sitemap-brands.xml", async c => {
   const brands = await db
     .select({
       slug: schema.manufacturers.slug,
+      updatedAt: schema.manufacturers.updatedAt,
     })
     .from(schema.manufacturers)
     .where(
@@ -306,12 +396,20 @@ app.get("/sitemap-brands.xml", async c => {
     .orderBy(asc(schema.manufacturers.sortOrder), asc(schema.manufacturers.name));
 
   const rows = brands
-    .map(brand => `<url><loc>${SEO_HOST}/catalog?view=brands&amp;brand=${encodeURIComponent(brand.slug)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`)
+    .map(brand => {
+      const lastmod = toIsoDate(brand.updatedAt);
+      return `<url><loc>${SEO_HOST}/catalog?view=brands&amp;brand=${encodeURIComponent(brand.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    })
     .join("");
+  const brandsLastmod = brands
+    .map(brand => toIsoDate(brand.updatedAt))
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SEO_HOST}/catalog?view=brands</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SEO_HOST}/catalog?view=brands</loc>${brandsLastmod ? `<lastmod>${brandsLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>
   ${rows}
 </urlset>`;
   return c.body(body, 200, {
@@ -341,12 +439,20 @@ app.get("/sitemap-products.xml", async c => {
       sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
     );
 
+  const [latestProductRow] = await db
+    .select({ lastmod: sql<Date | null>`MAX(${schema.products.createdAt})` })
+    .from(schema.products)
+    .leftJoin(stockQuery, eq(stockQuery.productId, schema.products.id))
+    .where(
+      sql`${publicProductVisibilityCondition} AND coalesce(${stockQuery.totalStock}, 0) > 0`
+    );
+
   const totalProducts = Number(countRow?.count ?? 0);
   const chunkCount = Math.max(1, Math.ceil(totalProducts / PRODUCT_SITEMAP_CHUNK_SIZE));
-  const now = new Date().toISOString();
+  const lastmod = toIsoDate(latestProductRow?.lastmod);
   const rows = Array.from({ length: chunkCount }, (_, index) => {
     const chunk = index + 1;
-    return `<sitemap><loc>${SEO_HOST}/sitemap-products-${chunk}.xml</loc><lastmod>${now}</lastmod></sitemap>`;
+    return `<sitemap><loc>${SEO_HOST}/sitemap-products-${chunk}.xml</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}</sitemap>`;
   }).join("");
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>

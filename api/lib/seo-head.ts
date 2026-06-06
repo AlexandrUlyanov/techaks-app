@@ -12,7 +12,7 @@ const SITE_NAME = "ТЕХАКС";
 const DEFAULT_TITLE = "ТЕХАКС — техника и аксессуары в Пензе";
 const DEFAULT_DESCRIPTION =
   "Техника и аксессуары: смартфоны, наушники, зарядные устройства, кабели, чехлы и гаджеты. Актуальные цены, наличие и доставка.";
-const DEFAULT_IMAGE = `${SEO_HOST}/images/logo-light.svg`;
+const DEFAULT_IMAGE = `${SEO_HOST}/images/og-default.svg`;
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 
 type SeoHeadData = {
@@ -50,6 +50,16 @@ function normalizeDescription(value: string | null | undefined, fallback: string
   const normalized = value?.replace(/\s+/g, " ").trim();
   if (!normalized) return fallback;
   return normalized.slice(0, 320);
+}
+
+function toSeoReadableName(value: string | null | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) return "";
+  const hasLetters = /[A-Za-zА-Яа-яЁё]/.test(normalized);
+  if (!hasLetters) return normalized;
+  if (normalized !== normalized.toUpperCase()) return normalized;
+  const lower = normalized.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 function stripHtml(value: string | null | undefined) {
@@ -506,11 +516,6 @@ async function buildHomeSeoData() {
         "@type": "WebSite",
         name: SITE_NAME,
         url: SEO_HOST,
-        potentialAction: {
-          "@type": "SearchAction",
-          target: `${SEO_HOST}/search?q={search_term_string}`,
-          "query-input": "required name=search_term_string",
-        },
       },
       buildOrganizationStructuredData({
         email: profile.contacts.email,
@@ -701,14 +706,14 @@ async function buildCatalogSeoData(url: URL) {
           "Смартфоны, аксессуары, гаджеты, техника для дома и полезная электроника с самовывозом в Пензе и доставкой по России.",
         content: renderCardList(
           categories.map(category => ({
-            title: category.name,
+            title: toSeoReadableName(category.name),
             text:
               truncateText(category.description, 160) ||
               "Раздел каталога с актуальными товарами и ценами.",
             links: [
               {
                 href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
-                label: `Перейти в раздел ${category.name}`,
+                label: `Перейти в раздел ${toSeoReadableName(category.name)}`,
               },
             ],
           }))
@@ -741,17 +746,18 @@ async function buildCatalogSeoData(url: URL) {
   }
   for (const item of trail) {
     breadcrumbItems.push({
-      name: item.name,
+      name: toSeoReadableName(item.name),
       url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(item.slug)}`,
     });
   }
 
+  const readableCategoryName = toSeoReadableName(currentCategory.name);
   const description = normalizeDescription(
     currentCategory.metaDescription || currentCategory.description,
-    `${currentCategory.name} в интернет-магазине ТЕХАКС: цены, наличие, самовывоз и доставка по Пензе и России.`
+    `${readableCategoryName} в интернет-магазине ТЕХАКС: цены, наличие, самовывоз и доставка по Пензе и России.`
   );
   const title =
-    currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в ТЕХАКС`;
+    currentCategory.metaTitle?.trim() || `${readableCategoryName} — купить в ТЕХАКС`;
   const childCategories = categoryRows
     .filter(category => category.parentId === currentCategory.id)
     .slice(0, 16);
@@ -759,14 +765,14 @@ async function buildCatalogSeoData(url: URL) {
     childCategories.length > 0
       ? renderCardList(
           childCategories.map(category => ({
-            title: category.name,
+            title: toSeoReadableName(category.name),
             text:
               truncateText(category.description, 150) ||
               "Подкатегория с товарами, ценами и наличием.",
             links: [
               {
                 href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
-                label: `Открыть ${category.name}`,
+                label: `Открыть ${toSeoReadableName(category.name)}`,
               },
             ],
           }))
@@ -785,7 +791,7 @@ async function buildCatalogSeoData(url: URL) {
       {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        name: currentCategory.name,
+        name: readableCategoryName,
         description,
         url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
       },
@@ -793,7 +799,7 @@ async function buildCatalogSeoData(url: URL) {
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: breadcrumbItems,
       eyebrow: "Категория",
-      title: currentCategory.name,
+      title: readableCategoryName,
       description,
       content,
     }),

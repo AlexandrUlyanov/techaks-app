@@ -57,11 +57,6 @@ export default function HomePage() {
         "@type": "WebSite",
         name: "ТЕХАКС",
         url: "https://techaks.ru",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: "https://techaks.ru/search?q={search_term_string}",
-          "query-input": "required name=search_term_string",
-        },
       },
       buildOrganizationStructuredData({
         name: "ТЕХАКС",
