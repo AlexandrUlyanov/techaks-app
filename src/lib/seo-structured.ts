@@ -5,6 +5,28 @@ type BreadcrumbItem = {
 
 const SITE_URL = "https://techaks.ru";
 
+export function buildWebsiteStructuredData(input?: {
+  name?: string;
+  url?: string;
+  searchPathTemplate?: string;
+}) {
+  const siteUrl = input?.url || SITE_URL;
+  const searchPathTemplate = input?.searchPathTemplate || "/search?q={search_term_string}";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: input?.name || "ТЕХАКС",
+    url: siteUrl,
+    inLanguage: "ru-RU",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}${searchPathTemplate}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
 function guessAddressLocality(address?: string | null) {
   const normalized = address?.toLowerCase() ?? "";
   if (normalized.includes("пенз")) return "Пенза";

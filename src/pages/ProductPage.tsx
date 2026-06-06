@@ -292,6 +292,10 @@ export default function ProductPage() {
   const productJsonLd = useMemo(() => {
     if (!product) return null;
 
+    const publishedReviews = (reviewFeed?.items ?? []).slice(0, 2);
+    const hasAggregateRating =
+      Number(product?.reviewCount ?? 0) > 0 && Number(product?.rating ?? 0) > 0;
+
     return {
       "@context": "https://schema.org",
       "@type": "Product",
@@ -307,6 +311,36 @@ export default function ProductPage() {
         "@type": "Brand",
         name: productManufacturer?.title || "ТЕХАКС",
       },
+      aggregateRating: hasAggregateRating
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: Number(product.rating),
+            reviewCount: Number(product.reviewCount),
+            bestRating: 5,
+            worstRating: 1,
+          }
+        : undefined,
+      review:
+        publishedReviews.length > 0
+          ? publishedReviews.map(review => ({
+              "@type": "Review",
+              name: review.title || `Отзыв о ${product.name}`,
+              reviewBody: review.text,
+              datePublished: review.publishedAt
+                ? new Date(review.publishedAt).toISOString()
+                : undefined,
+              author: {
+                "@type": "Person",
+                name: review.authorName,
+              },
+              reviewRating: {
+                "@type": "Rating",
+                ratingValue: Number(review.rating),
+                bestRating: 5,
+                worstRating: 1,
+              },
+            }))
+          : undefined,
       offers: {
         "@type": "Offer",
         url: buildCanonical(seoCanonicalPath),
@@ -325,6 +359,7 @@ export default function ProductPage() {
     product,
     productImages,
     productManufacturer?.title,
+    reviewFeed?.items,
     seoCanonicalPath,
   ]);
 

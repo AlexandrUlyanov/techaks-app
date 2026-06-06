@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import * as schema from "@db/schema";
+import { normalizeProductImageVariantSet } from "@contracts/product-images";
 
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -98,6 +99,28 @@ function buildBreadcrumbStructuredData(items: BreadcrumbItem[]) {
   };
 }
 
+function buildWebsiteStructuredData(input?: {
+  name?: string;
+  url?: string;
+  searchPathTemplate?: string;
+}) {
+  const siteUrl = input?.url || SEO_HOST;
+  const searchPathTemplate = input?.searchPathTemplate || "/search?q={search_term_string}";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: input?.name || SITE_NAME,
+    url: siteUrl,
+    inLanguage: "ru-RU",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}${searchPathTemplate}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
 function buildOrganizationStructuredData(input: {
   email?: string | null;
   phone?: string | null;
@@ -153,6 +176,48 @@ function buildStoreStructuredData(store: typeof schema.stores.$inferSelect) {
     openingHours: store.hours || undefined,
     areaServed: ["RU", "Пенза"],
   };
+}
+
+function collectProductImageUrls(
+  primaryImage?: string | null,
+  primaryImageVariants?: unknown,
+  images?: unknown
+) {
+  const urls = new Set<string>();
+
+  const pushUrl = (value?: string | null) => {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (!normalized) return;
+    urls.add(toAbsoluteUrl(normalized));
+  };
+
+  const addVariantSet = (value: unknown, fallbackOriginal?: string | null) => {
+    const parsed = normalizeProductImageVariantSet(value, fallbackOriginal);
+    if (!parsed) return;
+    pushUrl(parsed.original);
+    pushUrl(parsed.medium);
+    pushUrl(parsed.card);
+    pushUrl(parsed.thumb);
+  };
+
+  addVariantSet(primaryImageVariants, primaryImage);
+  pushUrl(primaryImage);
+
+  if (Array.isArray(images)) {
+    for (const item of images) {
+      if (typeof item === "string") {
+        pushUrl(item);
+        continue;
+      }
+      addVariantSet(item, primaryImage);
+    }
+  }
+
+  if (urls.size === 0) {
+    pushUrl(DEFAULT_IMAGE);
+  }
+
+  return Array.from(urls);
 }
 
 function buildBasePageData(
@@ -511,12 +576,7 @@ async function buildHomeSeoData() {
 
   return buildBasePageData("/", {
     structuredData: [
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        name: SITE_NAME,
-        url: SEO_HOST,
-      },
+      buildWebsiteStructuredData(),
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
@@ -823,6 +883,8 @@ async function buildProductSeoData(url: URL) {
       barcode: schema.products.barcode,
       categoryId: schema.products.categoryId,
       specs: schema.products.specs,
+      rating: schema.products.rating,
+      reviewCount: schema.products.reviewCount,
       categorySlug: schema.categories.slug,
       categoryName: schema.categories.name,
     })
@@ -907,6 +969,11 @@ async function buildProductSeoData(url: URL) {
   );
 
   const image = product.image || DEFAULT_IMAGE;
+  const imageUrls = collectProductImageUrls(
+    product.image,
+    product.imageVariants,
+    product.images
+  );
   const specsEntries = Object.entries(
     product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
       ? (product.specs as Record<string, unknown>)
@@ -918,6 +985,28 @@ async function buildProductSeoData(url: URL) {
       label: key,
       value: String(value),
     }));
+  const reviewRows = await db
+    .select({
+      rating: schema.productReviews.rating,
+      title: schema.productReviews.title,
+      text: schema.productReviews.text,
+      publishedAt: schema.productReviews.publishedAt,
+      authorName:
+        sql<string>`coalesce(nullif(${schema.users.fullName}, ''), nullif(${schema.users.email}, ''), 'Покупатель ТЕХАКС')`,
+    })
+    .from(schema.productReviews)
+    .leftJoin(schema.users, eq(schema.productReviews.userId, schema.users.id))
+    .where(
+      and(
+        eq(schema.productReviews.productId, product.id),
+        eq(schema.productReviews.status, "published")
+      )
+    )
+    .orderBy(desc(schema.productReviews.publishedAt), desc(schema.productReviews.id))
+    .limit(2);
+  const hasAggregateRating =
+    Number(product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
+  const isAvailable = storeAvailability.length > 0;
 
   return buildBasePageData(`/product/${encodeURIComponent(product.slug)}`, {
     title: `${product.name} — купить в ТЕХАКС`,
@@ -930,7 +1019,7 @@ async function buildProductSeoData(url: URL) {
         "@context": "https://schema.org",
         "@type": "Product",
         name: product.name,
-        image: [toAbsoluteUrl(image)],
+        image: imageUrls,
         description,
         sku: product.article || product.slug.toUpperCase(),
         gtin13: product.barcode || undefined,
@@ -938,12 +1027,44 @@ async function buildProductSeoData(url: URL) {
           "@type": "Brand",
           name: manufacturerName,
         },
+        aggregateRating: hasAggregateRating
+          ? {
+              "@type": "AggregateRating",
+              ratingValue: Number(product.rating),
+              reviewCount: Number(product.reviewCount),
+              bestRating: 5,
+              worstRating: 1,
+            }
+          : undefined,
+        review:
+          reviewRows.length > 0
+            ? reviewRows.map(review => ({
+                "@type": "Review",
+                name: review.title || `Отзыв о ${product.name}`,
+                reviewBody: review.text,
+                datePublished: review.publishedAt
+                  ? new Date(review.publishedAt).toISOString()
+                  : undefined,
+                author: {
+                  "@type": "Person",
+                  name: review.authorName,
+                },
+                reviewRating: {
+                  "@type": "Rating",
+                  ratingValue: Number(review.rating),
+                  bestRating: 5,
+                  worstRating: 1,
+                },
+              }))
+            : undefined,
         offers: {
           "@type": "Offer",
           url: `${SEO_HOST}/product/${encodeURIComponent(product.slug)}`,
           priceCurrency: "RUB",
           price: String(product.price),
-          availability: "https://schema.org/InStock",
+          availability: isAvailable
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
           itemCondition: "https://schema.org/NewCondition",
           seller: {
             "@type": "Organization",

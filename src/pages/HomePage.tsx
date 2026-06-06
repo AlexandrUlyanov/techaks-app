@@ -11,6 +11,7 @@ import { useSeo } from "@/lib/seo";
 import {
   buildOrganizationStructuredData,
   buildBreadcrumbStructuredData,
+  buildWebsiteStructuredData,
 } from "@/lib/seo-structured";
 import HomeSectionHeading from "@/components/home/HomeSectionHeading";
 import {
@@ -52,12 +53,10 @@ export default function HomePage() {
       "Техника и аксессуары: смартфоны, наушники, зарядные устройства, кабели, чехлы и гаджеты. Актуальные цены, наличие и доставка.",
     canonicalPath: "/",
     structuredData: [
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
+      buildWebsiteStructuredData({
         name: "ТЕХАКС",
         url: "https://techaks.ru",
-      },
+      }),
       buildOrganizationStructuredData({
         name: "ТЕХАКС",
         url: "https://techaks.ru",
