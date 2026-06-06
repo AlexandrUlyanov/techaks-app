@@ -20,7 +20,9 @@ import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  buildFaqStructuredData,
   buildOrganizationStructuredData,
+  getPublicSchemaAddress,
   buildStoreStructuredData,
 } from "@/lib/seo-structured";
 
@@ -186,6 +188,26 @@ function VisualMetric({
 export default function AboutPage() {
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
+  const faqStructuredData = buildFaqStructuredData([
+    {
+      question: "Чем занимается ТЕХАКС?",
+      answer:
+        "ТЕХАКС — розничная сеть магазинов техники и аксессуаров в Пензе с каталогом гаджетов, электроники и полезных товаров для дома, работы и повседневной жизни.",
+    },
+    {
+      question: "С какими брендами работает ТЕХАКС?",
+      answer:
+        "На странице компании указаны бренды HOCO, Remax, ISA и другие производители, которые представлены в актуальном ассортименте магазина.",
+    },
+    ...(stores.length > 0
+      ? [
+          {
+            question: "Можно ли забрать заказ самовывозом?",
+            answer: stores.map(store => `${store.name}: ${store.address}`).join(" | "),
+          },
+        ]
+      : []),
+  ]);
 
   useSeo({
     title: "О компании ТЕХАКС — техника и аксессуары в Пензе",
@@ -203,9 +225,14 @@ export default function AboutPage() {
         logo: "/images/logo-light.svg",
         email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
         phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
-        address: siteProfile?.contacts.fullAddress || siteProfile?.seller.legalAddress,
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }),
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
+      ...(faqStructuredData ? [faqStructuredData] : []),
     ],
   });
 

@@ -12,11 +12,13 @@ import ProductBreadcrumbsCompact from "@/components/product/ProductBreadcrumbsCo
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  getPublicSchemaAddress,
   buildOrganizationStructuredData,
 } from "@/lib/seo-structured";
 
 export default function PromotionDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: promo, isLoading } = trpc.banner.getBySlug.useQuery({
     slug: slug || "",
   });
@@ -40,6 +42,13 @@ export default function PromotionDetailPage() {
             name: "ТЕХАКС",
             url: "https://techaks.ru",
             logo: "https://techaks.ru/images/logo-light.svg",
+            email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+            phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+            address: getPublicSchemaAddress({
+              shortAddress: siteProfile?.contacts.shortAddress,
+              fullAddress: siteProfile?.contacts.fullAddress,
+              legalAddress: siteProfile?.seller.legalAddress,
+            }),
           }),
           {
             "@context": "https://schema.org",

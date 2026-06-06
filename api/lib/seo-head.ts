@@ -140,6 +140,32 @@ function buildItemListStructuredData(input: {
   };
 }
 
+function buildFaqStructuredData(
+  questions: Array<{ question: string; answer: string }>
+) {
+  const normalizedQuestions = questions
+    .map(item => ({
+      question: item.question.trim(),
+      answer: item.answer.trim(),
+    }))
+    .filter(item => item.question.length > 0 && item.answer.length > 0);
+
+  if (normalizedQuestions.length === 0) return null;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: normalizedQuestions.map(item => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
 function buildOrganizationStructuredData(input: {
   email?: string | null;
   phone?: string | null;
@@ -1264,6 +1290,24 @@ async function buildContactsSeoData() {
           profile.seller.legalAddress,
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
+      buildFaqStructuredData([
+        {
+          question: "Как связаться с ТЕХАКС?",
+          answer: `Основной телефон: ${profile.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}. Email: ${profile.contacts.email || "tech.aks@yandex.ru"}.`,
+        },
+        {
+          question: "Когда работает магазин?",
+          answer: profile.contacts.workingHours || "Ежедневно 9:00–21:00.",
+        },
+        ...(stores.length > 0
+          ? [
+              {
+                question: "Где находятся магазины ТЕХАКС?",
+                answer: stores.map(store => `${store.name}: ${store.address}`).join(" | "),
+              },
+            ]
+          : []),
+      ]),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: [
@@ -1278,7 +1322,14 @@ async function buildContactsSeoData() {
         renderFacts([
           { label: "Телефон", value: profile.contacts.primaryPhoneDisplay || "" },
           { label: "E-mail", value: profile.contacts.email || "" },
-          { label: "Адрес", value: profile.contacts.fullAddress || "" },
+          {
+            label: "Адрес",
+            value:
+              profile.contacts.shortAddress ||
+              profile.contacts.fullAddress ||
+              profile.seller.legalAddress ||
+              "",
+          },
           { label: "Режим работы", value: profile.contacts.workingHours || "" },
         ]),
         renderCardList(
@@ -1317,6 +1368,26 @@ async function buildAboutSeoData() {
           profile.seller.legalAddress,
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
+      buildFaqStructuredData([
+        {
+          question: "Чем занимается ТЕХАКС?",
+          answer:
+            "ТЕХАКС — интернет-магазин и офлайн-магазины техники, электроники и аксессуаров в Пензе.",
+        },
+        {
+          question: "С какими брендами работает ТЕХАКС?",
+          answer:
+            "В ассортименте представлены HOCO, Remax, ISA и другие бренды техники и аксессуаров.",
+        },
+        ...(stores.length > 0
+          ? [
+              {
+                question: "Можно ли забрать заказ самовывозом?",
+                answer: stores.map(store => `${store.name}: ${store.address}`).join(" | "),
+              },
+            ]
+          : []),
+      ]),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: [
@@ -1637,8 +1708,42 @@ async function buildLegalSeoData(pathname: string) {
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
-        address: profile.seller.legalAddress,
+        address:
+          profile.contacts.shortAddress ||
+          profile.contacts.fullAddress ||
+          profile.seller.legalAddress,
       }),
+      ...(pathname === "/payment-delivery"
+        ? [
+            buildFaqStructuredData([
+              {
+                question: "Какие способы получения доступны в ТЕХАКС?",
+                answer:
+                  "Интернет-магазин ТЕХАКС предлагает самовывоз и доставку. Конкретный сценарий зависит от товара, региона и наличия.",
+              },
+              {
+                question: "От чего зависят способы оплаты и доставки?",
+                answer:
+                  "Итоговые варианты оплаты и получения зависят от выбранного товара, региона и статуса наличия. Они фиксируются в подтверждённом заказе.",
+              },
+            ]),
+          ]
+        : pathname === "/returns"
+          ? [
+              buildFaqStructuredData([
+                {
+                  question: "Как оформить возврат или обмен?",
+                  answer:
+                    "Для возврата или обмена нужно обратиться по контактам магазина и указать номер заказа, причину обращения и удобный способ связи.",
+                },
+                {
+                  question: "Какие данные могут понадобиться для возврата?",
+                  answer:
+                    "Менеджер может запросить фотографии, описание состояния товара и сведения о комплектности перед принятием решения по возврату или обмену.",
+                },
+              ]),
+            ]
+          : []),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: [

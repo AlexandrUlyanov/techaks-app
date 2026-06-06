@@ -4,7 +4,9 @@ import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  buildFaqStructuredData,
   buildOrganizationStructuredData,
+  getPublicSchemaAddress,
 } from "@/lib/seo-structured";
 import {
   buildSellerRequisitesLines,
@@ -61,6 +63,34 @@ export default function LegalDocumentPage() {
   const title = profile?.legalTexts[meta.titleField] || meta.fallbackTitle;
   const content = profile?.legalTexts[meta.contentField] || "";
   const sellerLines = buildSellerRequisitesLines(profile);
+  const faqStructuredData =
+    key === "payment-delivery"
+      ? buildFaqStructuredData([
+          {
+            question: "Какие способы получения доступны в ТЕХАКС?",
+            answer:
+              "Интернет-магазин ТЕХАКС предлагает самовывоз и доставку. Доступность конкретного способа зависит от товара, региона и наличия.",
+          },
+          {
+            question: "От чего зависят способы оплаты и доставки?",
+            answer:
+              "Итоговые варианты оплаты и получения зависят от выбранного товара, региона и статуса наличия. Они фиксируются в подтверждённом заказе.",
+          },
+        ])
+      : key === "returns"
+        ? buildFaqStructuredData([
+            {
+              question: "Как оформить возврат или обмен?",
+              answer:
+                "Для возврата или обмена нужно обратиться по контактам магазина и указать номер заказа, причину обращения и удобный способ связи.",
+            },
+            {
+              question: "Какие данные могут понадобиться для возврата?",
+              answer:
+                "Менеджер может запросить фотографии, описание состояния товара и сведения о комплектности перед принятием решения по возврату или обмену.",
+            },
+          ])
+        : null;
 
   useSeo({
     title: `${title} — ТЕХАКС`,
@@ -77,7 +107,11 @@ export default function LegalDocumentPage() {
         logo: "https://techaks.ru/images/logo-light.svg",
         email: profile?.contacts.email,
         phone: profile?.contacts.primaryPhoneDisplay,
-        address: profile?.seller.legalAddress,
+        address: getPublicSchemaAddress({
+          shortAddress: profile?.contacts.shortAddress,
+          fullAddress: profile?.contacts.fullAddress,
+          legalAddress: profile?.seller.legalAddress,
+        }),
       }),
       {
         "@context": "https://schema.org",
@@ -86,6 +120,7 @@ export default function LegalDocumentPage() {
         description: `${title} интернет-магазина ТЕХАКС.`,
         url: `https://techaks.ru${location.pathname}`,
       },
+      ...(faqStructuredData ? [faqStructuredData] : []),
     ],
   });
 

@@ -11,6 +11,7 @@ import { useSeo } from "@/lib/seo";
 import {
   buildOrganizationStructuredData,
   buildBreadcrumbStructuredData,
+  getPublicSchemaAddress,
   buildWebsiteStructuredData,
 } from "@/lib/seo-structured";
 import HomeSectionHeading from "@/components/home/HomeSectionHeading";
@@ -47,6 +48,11 @@ function SecondarySectionsFallback() {
 }
 
 export default function HomePage() {
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery(
+    undefined,
+    HOME_QUERY_OPTIONS
+  );
+
   useSeo({
     title: "ТЕХАКС — интернет-магазин техники и аксессуаров",
     description:
@@ -61,9 +67,13 @@ export default function HomePage() {
         name: "ТЕХАКС",
         url: "https://techaks.ru",
         logo: "/images/logo-light.svg",
-        email: "tech.aks@yandex.ru",
-        phone: "+7 (927) 364-28-88",
-        address: "Пенза",
+        email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+        phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }) || "Пенза",
       }),
       buildBreadcrumbStructuredData([{ name: "Главная", path: "/" }]),
     ],

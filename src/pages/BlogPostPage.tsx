@@ -15,6 +15,7 @@ import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
   buildOrganizationStructuredData,
+  getPublicSchemaAddress,
 } from "@/lib/seo-structured";
 
 export default function BlogPostPage() {
@@ -22,6 +23,7 @@ export default function BlogPostPage() {
   const { data: post, isLoading } = trpc.blog.getBySlug.useQuery({
     slug: slug || "",
   });
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: relatedPosts = [] } = trpc.blog.getRelated.useQuery(
     {
       id: post?.id ?? 0,
@@ -46,6 +48,13 @@ export default function BlogPostPage() {
         name: "ТЕХАКС",
         url: "https://techaks.ru",
         logo: "https://techaks.ru/images/logo-light.svg",
+        email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+        phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }),
       }),
       {
         "@context": "https://schema.org",
@@ -70,7 +79,7 @@ export default function BlogPostPage() {
         mainEntityOfPage: `https://techaks.ru/blog/${post.slug}`,
       },
     ];
-  }, [post]);
+  }, [post, siteProfile?.contacts.email, siteProfile?.contacts.fullAddress, siteProfile?.contacts.primaryPhoneDisplay, siteProfile?.contacts.shortAddress, siteProfile?.seller.legalAddress]);
 
   useSeo({
     title: post ? `${post.metaTitle || post.title} — Блог ТЕХАКС` : "Блог ТЕХАКС",

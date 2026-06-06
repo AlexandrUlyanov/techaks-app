@@ -5,6 +5,19 @@ type BreadcrumbItem = {
 
 const SITE_URL = "https://techaks.ru";
 
+export function getPublicSchemaAddress(input?: {
+  shortAddress?: string | null;
+  fullAddress?: string | null;
+  legalAddress?: string | null;
+}) {
+  return (
+    input?.shortAddress?.trim() ||
+    input?.fullAddress?.trim() ||
+    input?.legalAddress?.trim() ||
+    undefined
+  );
+}
+
 export function buildWebsiteStructuredData(input?: {
   name?: string;
   url?: string;
@@ -24,6 +37,32 @@ export function buildWebsiteStructuredData(input?: {
       target: `${siteUrl}${searchPathTemplate}`,
       "query-input": "required name=search_term_string",
     },
+  };
+}
+
+export function buildFaqStructuredData(
+  questions: Array<{ question: string; answer: string }>
+) {
+  const normalizedQuestions = questions
+    .map(item => ({
+      question: item.question.trim(),
+      answer: item.answer.trim(),
+    }))
+    .filter(item => item.question.length > 0 && item.answer.length > 0);
+
+  if (normalizedQuestions.length === 0) return null;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: normalizedQuestions.map(item => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
   };
 }
 

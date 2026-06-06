@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   buildBreadcrumbStructuredData,
   buildOrganizationStructuredData,
+  getPublicSchemaAddress,
 } from "@/lib/seo-structured";
 import ReservationConfirmDialog from "@/components/product/ReservationConfirmDialog";
 import OneClickOrderDialog from "@/components/product/OneClickOrderDialog";
@@ -68,6 +69,7 @@ export default function ProductPage() {
   const detailsTabsRef = useRef<HTMLDivElement | null>(null);
   const { addItem, items: cartItems } = useCart();
   const { isAuthenticated } = useAuth();
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
 
   const { data: product, isLoading } = trpc.product.getBySlug.useQuery({
     slug: slug || "",
@@ -398,10 +400,17 @@ export default function ProductPage() {
         name: "ТЕХАКС",
         url: "https://techaks.ru",
         logo: "https://techaks.ru/images/logo-light.svg",
+        email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+        phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }),
       }),
       productJsonLd,
     ];
-  }, [breadcrumbs, product, productJsonLd, seoCanonicalPath]);
+  }, [breadcrumbs, product, productJsonLd, seoCanonicalPath, siteProfile?.contacts.email, siteProfile?.contacts.fullAddress, siteProfile?.contacts.primaryPhoneDisplay, siteProfile?.contacts.shortAddress, siteProfile?.seller.legalAddress]);
 
   useSeo({
     title: seoTitle,

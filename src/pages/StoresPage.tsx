@@ -4,11 +4,13 @@ import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  getPublicSchemaAddress,
   buildOrganizationStructuredData,
   buildStoreStructuredData,
 } from "@/lib/seo-structured";
 
 export default function StoresPage() {
+  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: stores = [] } = trpc.store.getAll.useQuery();
 
   const now = new Date();
@@ -28,6 +30,13 @@ export default function StoresPage() {
         name: "ТЕХАКС",
         url: "https://techaks.ru",
         logo: "https://techaks.ru/images/logo-light.svg",
+        email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
+        phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }),
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],

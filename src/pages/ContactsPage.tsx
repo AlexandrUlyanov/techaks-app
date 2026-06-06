@@ -4,7 +4,9 @@ import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  buildFaqStructuredData,
   buildOrganizationStructuredData,
+  getPublicSchemaAddress,
   buildStoreStructuredData,
 } from "@/lib/seo-structured";
 
@@ -13,6 +15,24 @@ export default function ContactsPage() {
   const { data: stores = [] } = trpc.store.getAll.useQuery();
   const legalFormLabel =
     siteProfile?.seller.legalForm === "ip" ? "ОГРНИП" : "ОГРН";
+  const faqStructuredData = buildFaqStructuredData([
+    {
+      question: "Как связаться с ТЕХАКС?",
+      answer: `Основной телефон: ${siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88"}. Email: ${siteProfile?.contacts.email || "tech.aks@yandex.ru"}.`,
+    },
+    {
+      question: "Когда работает магазин?",
+      answer: siteProfile?.contacts.workingHours || "Ежедневно 9:00–21:00.",
+    },
+    ...(stores.length > 0
+      ? [
+          {
+            question: "Где находятся магазины ТЕХАКС?",
+            answer: stores.map(store => `${store.name}: ${store.address}`).join(" | "),
+          },
+        ]
+      : []),
+  ]);
 
   useSeo({
     title: "Контакты ТЕХАКС — телефоны, адреса магазинов и режим работы",
@@ -30,9 +50,14 @@ export default function ContactsPage() {
         logo: "https://techaks.ru/images/logo-light.svg",
         email: siteProfile?.contacts.email || "tech.aks@yandex.ru",
         phone: siteProfile?.contacts.primaryPhoneDisplay || "+7 (927) 364-28-88",
-        address: siteProfile?.contacts.fullAddress || siteProfile?.seller.legalAddress,
+        address: getPublicSchemaAddress({
+          shortAddress: siteProfile?.contacts.shortAddress,
+          fullAddress: siteProfile?.contacts.fullAddress,
+          legalAddress: siteProfile?.seller.legalAddress,
+        }),
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
+      ...(faqStructuredData ? [faqStructuredData] : []),
     ],
   });
 
