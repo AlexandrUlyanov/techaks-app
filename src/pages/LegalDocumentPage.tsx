@@ -30,27 +30,36 @@ const DOCUMENT_META: Record<
     titleField: LegalTextField;
     contentField: LegalTextField;
     fallbackTitle: string;
+    seoDescription: string;
   }
 > = {
   offer: {
     titleField: "offerTitle",
     contentField: "offerContent",
     fallbackTitle: "Публичная оферта",
+    seoDescription:
+      "Публичная оферта интернет-магазина ТЕХАКС: условия заказа, оплаты, получения товара и взаимодействия с покупателем.",
   },
   "privacy-policy": {
     titleField: "privacyPolicyTitle",
     contentField: "privacyPolicyContent",
     fallbackTitle: "Политика обработки персональных данных",
+    seoDescription:
+      "Политика обработки персональных данных ТЕХАКС: какие данные собираются, как используются и как защищаются.",
   },
   "payment-delivery": {
     titleField: "paymentDeliveryTitle",
     contentField: "paymentDeliveryContent",
     fallbackTitle: "Оплата и доставка",
+    seoDescription:
+      "Оплата и доставка в ТЕХАКС: самовывоз, доставка по Пензе и России, способы оплаты и условия получения заказа.",
   },
   returns: {
     titleField: "returnsPolicyTitle",
     contentField: "returnsPolicyContent",
     fallbackTitle: "Возврат и обмен",
+    seoDescription:
+      "Возврат и обмен в ТЕХАКС: порядок обращения, условия возврата, обмена и поддержки по заказам интернет-магазина.",
   },
 };
 
@@ -62,6 +71,7 @@ export default function LegalDocumentPage() {
   const meta = DOCUMENT_META[key] ?? DOCUMENT_META.offer;
   const title = profile?.legalTexts[meta.titleField] || meta.fallbackTitle;
   const content = profile?.legalTexts[meta.contentField] || "";
+  const seoDescription = meta.seoDescription;
   const sellerLines = buildSellerRequisitesLines(profile);
   const faqStructuredData =
     key === "payment-delivery"
@@ -94,7 +104,7 @@ export default function LegalDocumentPage() {
 
   useSeo({
     title: `${title} — ТЕХАКС`,
-    description: `${title} интернет-магазина ТЕХАКС.`,
+    description: seoDescription,
     canonicalPath: location.pathname,
     structuredData: [
       buildBreadcrumbStructuredData([
@@ -117,7 +127,7 @@ export default function LegalDocumentPage() {
         "@context": "https://schema.org",
         "@type": "WebPage",
         name: title,
-        description: `${title} интернет-магазина ТЕХАКС.`,
+        description: seoDescription,
         url: `https://techaks.ru${location.pathname}`,
       },
       ...(faqStructuredData ? [faqStructuredData] : []),

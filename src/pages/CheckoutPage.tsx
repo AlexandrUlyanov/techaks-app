@@ -695,6 +695,18 @@ export default function CheckoutPage() {
                   withOffer
                   className="mt-4"
                 />
+
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold text-muted-foreground">
+                  <Link to="/payment-delivery" className="transition-colors hover:text-[#05C3D4]">
+                    Оплата и доставка
+                  </Link>
+                  <Link to="/returns" className="transition-colors hover:text-[#05C3D4]">
+                    Возврат и обмен
+                  </Link>
+                  <Link to="/contacts" className="transition-colors hover:text-[#05C3D4]">
+                    Контакты магазина
+                  </Link>
+                </div>
               </div>
             </div>
 
