@@ -121,6 +121,25 @@ function buildWebsiteStructuredData(input?: {
   };
 }
 
+function buildItemListStructuredData(input: {
+  name: string;
+  url: string;
+  items: Array<{ name: string; url: string }>;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: input.name,
+    url: input.url,
+    itemListElement: input.items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  };
+}
+
 function buildOrganizationStructuredData(input: {
   email?: string | null;
   phone?: string | null;
@@ -580,7 +599,10 @@ async function buildHomeSeoData() {
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
-        address: profile.contacts.fullAddress || profile.seller.legalAddress,
+        address:
+          profile.contacts.shortAddress ||
+          profile.contacts.fullAddress ||
+          profile.seller.legalAddress,
       }),
       buildBreadcrumbStructuredData(breadcrumbs),
     ],
@@ -634,6 +656,14 @@ async function buildCatalogSeoData(url: URL) {
               "Производители техники и аксессуаров в каталоге ТЕХАКС. Бренды с товарами в наличии, самовывозом и доставкой.",
             url: `${SEO_HOST}/catalog?view=brands`,
           },
+          buildItemListStructuredData({
+            name: "Производители ТЕХАКС",
+            url: `${SEO_HOST}/catalog?view=brands`,
+            items: manufacturers.map(item => ({
+              name: item.name,
+              url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(item.slug)}`,
+            })),
+          }),
         ],
         bodyHtml: renderSeoBodyShell({
           breadcrumbs,
@@ -757,6 +787,14 @@ async function buildCatalogSeoData(url: URL) {
             "Каталог товаров ТЕХАКС: смартфоны, гаджеты, аксессуары, бытовая техника, самовывоз и доставка по Пензе и России.",
           url: `${SEO_HOST}/catalog`,
         },
+        buildItemListStructuredData({
+          name: "Каталог товаров ТЕХАКС",
+          url: `${SEO_HOST}/catalog`,
+          items: categories.map(category => ({
+            name: toSeoReadableName(category.name),
+            url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+          })),
+        }),
       ],
       bodyHtml: renderSeoBodyShell({
         breadcrumbs,
@@ -855,6 +893,18 @@ async function buildCatalogSeoData(url: URL) {
         description,
         url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
       },
+      ...(childCategories.length > 0
+        ? [
+            buildItemListStructuredData({
+              name: readableCategoryName,
+              url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
+              items: childCategories.map(category => ({
+                name: toSeoReadableName(category.name),
+                url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+              })),
+            }),
+          ]
+        : []),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: breadcrumbItems,
@@ -1027,6 +1077,14 @@ async function buildProductSeoData(url: URL) {
           "@type": "Brand",
           name: manufacturerName,
         },
+        additionalProperty:
+          specsEntries.length > 0
+            ? specsEntries.map(spec => ({
+                "@type": "PropertyValue",
+                name: spec.label,
+                value: spec.value,
+              }))
+            : undefined,
         aggregateRating: hasAggregateRating
           ? {
               "@type": "AggregateRating",
@@ -1149,7 +1207,10 @@ async function buildStoresSeoData() {
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
-        address: profile.contacts.fullAddress || profile.seller.legalAddress,
+        address:
+          profile.contacts.shortAddress ||
+          profile.contacts.fullAddress ||
+          profile.seller.legalAddress,
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],
@@ -1197,7 +1258,10 @@ async function buildContactsSeoData() {
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
-        address: profile.contacts.fullAddress || profile.seller.legalAddress,
+        address:
+          profile.contacts.shortAddress ||
+          profile.contacts.fullAddress ||
+          profile.seller.legalAddress,
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],
@@ -1247,7 +1311,10 @@ async function buildAboutSeoData() {
       buildOrganizationStructuredData({
         email: profile.contacts.email,
         phone: profile.contacts.primaryPhoneDisplay,
-        address: profile.contacts.fullAddress || profile.seller.legalAddress,
+        address:
+          profile.contacts.shortAddress ||
+          profile.contacts.fullAddress ||
+          profile.seller.legalAddress,
       }),
       ...stores.map(store => buildStoreStructuredData(store)),
     ],

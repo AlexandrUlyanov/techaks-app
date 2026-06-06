@@ -295,6 +295,16 @@ export default function ProductPage() {
     const publishedReviews = (reviewFeed?.items ?? []).slice(0, 2);
     const hasAggregateRating =
       Number(product?.reviewCount ?? 0) > 0 && Number(product?.rating ?? 0) > 0;
+    const seoSpecs =
+      product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+        ? Object.entries(product.specs as Record<string, unknown>)
+            .filter(([, value]) => String(value ?? "").trim().length > 0)
+            .slice(0, 8)
+            .map(([key, value]) => ({
+              name: key,
+              value: String(value),
+            }))
+        : [];
 
     return {
       "@context": "https://schema.org",
@@ -311,6 +321,14 @@ export default function ProductPage() {
         "@type": "Brand",
         name: productManufacturer?.title || "ТЕХАКС",
       },
+      additionalProperty:
+        seoSpecs.length > 0
+          ? seoSpecs.map(spec => ({
+              "@type": "PropertyValue",
+              name: spec.name,
+              value: spec.value,
+            }))
+          : undefined,
       aggregateRating: hasAggregateRating
         ? {
             "@type": "AggregateRating",
