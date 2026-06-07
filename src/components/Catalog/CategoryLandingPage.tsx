@@ -549,6 +549,24 @@ export default function CategoryLandingPage({
     return children.length > 0 ? children : [activeSection];
   }, [activeSection, byParent, compactLayout, sectionCategories]);
 
+  const compactGridClassName = useMemo(() => {
+    const count = desktopCards.length;
+
+    if (count <= 1) {
+      return "mx-auto grid max-w-[360px] grid-cols-1 gap-4";
+    }
+
+    if (count === 2) {
+      return "mx-auto grid max-w-[820px] grid-cols-1 gap-4 md:grid-cols-2";
+    }
+
+    if (count === 3) {
+      return "mx-auto grid max-w-[1120px] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
+    }
+
+    return "mx-auto grid max-w-[1120px] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
+  }, [desktopCards.length]);
+
   const searchResults = useMemo<SearchResultItem[]>(() => {
     const normalizedQuery = normalizeText(debouncedSearch);
     if (!normalizedQuery) return [];
@@ -601,11 +619,15 @@ export default function CategoryLandingPage({
 
   const desktopSectionTitle = activeSection
     ? `Раздел «${activeSection.name}»`
-    : "Выберите подкатегорию";
+    : compactLayout
+      ? "Все подкатегории раздела"
+      : "Выберите подкатегорию";
 
   const desktopSectionDescription = activeSection
     ? "Показываем прямые дочерние категории выбранной ветки. Можно вернуться ко всем разделам одним кликом."
-    : "Сначала выберите нужное направление, а затем откройте конечную категорию с товарами.";
+    : compactLayout
+      ? "Собрали все дочерние разделы на одном экране, чтобы можно было быстро перейти в нужную категорию без лишней навигации."
+      : "Сначала выберите нужное направление, а затем откройте конечную категорию с товарами.";
 
   if (loading) {
     return (
@@ -783,7 +805,14 @@ export default function CategoryLandingPage({
               </div>
 
               {desktopCards.length > 0 ? (
-                <div className={cn("grid gap-4", compactLayout ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2 xl:grid-cols-3")}>
+                <div
+                  className={cn(
+                    "grid gap-4",
+                    compactLayout
+                      ? compactGridClassName
+                      : "grid-cols-2 xl:grid-cols-3"
+                  )}
+                >
                   {desktopCards.map(child => {
                     const hasChildren = getChildren(byParent, child.id).length > 0;
                     const preview = hasChildren
