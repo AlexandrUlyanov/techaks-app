@@ -39,6 +39,11 @@ import {
 } from "@/components/ui/select";
 import { useSeo } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
+import {
+  categoryHasChildren,
+  isCatalogProductMode,
+  resolveCatalogRenderMode,
+} from "@/lib/catalog-render-mode";
 
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
@@ -63,7 +68,6 @@ export default function CatalogPage() {
   const activeCategory = searchParams.get("cat") || "all";
   const activeBrand = searchParams.get("brand") || "";
   const activeTreeSlugFromHash = decodeURIComponent(location.hash.replace(/^#/, "").trim());
-  const isRootCatalogNavigator = catalogView === "categories" && activeCategory === "all";
   const forceProductsView = searchParams.get("show") === "products";
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
@@ -88,20 +92,28 @@ export default function CatalogPage() {
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
   }, [categories, activeCategory]);
-  const categoryHasChildren = useMemo(
+  const renderMode = useMemo(
     () =>
-      Boolean(
-        currentCategory &&
-          categories.some(category => category.parentId === currentCategory.id)
-      ),
-    [categories, currentCategory]
+      resolveCatalogRenderMode({
+        catalogView,
+        activeCategory,
+        activeBrand,
+        currentCategory,
+        categories,
+        forceProductsView,
+      }),
+    [
+      activeBrand,
+      activeCategory,
+      catalogView,
+      categories,
+      currentCategory,
+      forceProductsView,
+    ]
   );
-  const isCategoryLandingPage =
-    catalogView === "categories" &&
-    activeCategory !== "all" &&
-    Boolean(currentCategory) &&
-    categoryHasChildren &&
-    !forceProductsView;
+  const isRootCatalogNavigator = renderMode === "root-navigation";
+  const isCategoryLandingPage = renderMode === "category-navigation";
+  const isProductListingPage = isCatalogProductMode(renderMode);
   const rootCategoryPreviewsQuery = trpc.product.getCatalogCategoryPreviews.useQuery(undefined, {
     enabled: isRootCatalogNavigator || isCategoryLandingPage,
     placeholderData: prev => prev,
@@ -120,9 +132,7 @@ export default function CatalogPage() {
     {
       placeholderData: prev => prev,
       enabled:
-        catalogView === "categories" &&
-        activeCategory !== "all" &&
-        !isCategoryLandingPage,
+        renderMode === "category-products",
     }
   );
   const { data: manufacturerSpecFilters = [] } =
@@ -137,10 +147,7 @@ export default function CatalogPage() {
     { categorySlug: activeCategory, specFilters: selectedFilters },
     {
       placeholderData: prev => prev,
-      enabled:
-        catalogView === "categories" &&
-        activeCategory !== "all" &&
-        !isCategoryLandingPage,
+      enabled: renderMode === "category-products",
     }
   );
   const manufacturerProductsQuery = trpc.product.getByManufacturer.useQuery(
@@ -158,7 +165,7 @@ export default function CatalogPage() {
       ? manufacturerProductsQuery.data ?? []
       : categoryProductsQuery.data ?? [];
   const isLoading =
-    catalogView === "brands"
+    renderMode === "brands-products"
       ? currentManufacturerQuery.isLoading || manufacturerProductsQuery.isLoading
       : isCategoryLandingPage
         ? rootCategoryPreviewsQuery.isLoading
@@ -347,7 +354,7 @@ export default function CatalogPage() {
   const headerTitle = catalogView === "brands"
     ? currentManufacturer?.name || "Производители"
     : activeCategoryName;
-  const showProductSection = catalogView === "categories" || Boolean(activeBrand);
+  const showProductSection = isProductListingPage;
   const currentResultCount = sortedProducts.length;
   const currentIntroText = currentManufacturer
     ? currentManufacturer.description?.trim() ||
