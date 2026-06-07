@@ -549,12 +549,61 @@ export const productRouter = createRouter({
       .orderBy(asc(categories.sortOrder));
   }),
 
-  getCatalogCategoryPreviews: publicQuery.query(async () => {
+  getCatalogCategoryPreviews: publicQuery
+    .input(
+      z
+        .object({
+          scopeCategoryId: z.number().int().positive().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
     const db = getDb();
     const allCategories = await db
-      .select()
+      .select({
+        id: categories.id,
+        parentId: categories.parentId,
+      })
       .from(categories)
       .orderBy(asc(categories.sortOrder));
+
+    const childrenByParentId = new Map<number | null, number[]>();
+    for (const category of allCategories) {
+      const key = category.parentId ?? null;
+      const bucket = childrenByParentId.get(key) ?? [];
+      bucket.push(category.id);
+      childrenByParentId.set(key, bucket);
+    }
+
+    const scopedCategorySet =
+      input?.scopeCategoryId && allCategories.some(category => category.id === input.scopeCategoryId)
+        ? (() => {
+            const scoped = new Set<number>();
+            const stack = [input.scopeCategoryId as number];
+
+            while (stack.length > 0) {
+              const currentId = stack.pop()!;
+              if (scoped.has(currentId)) continue;
+              scoped.add(currentId);
+              const children = childrenByParentId.get(currentId) ?? [];
+              children.forEach(childId => stack.push(childId));
+            }
+
+            return scoped;
+          })()
+        : null;
+
+    if (input?.scopeCategoryId && !scopedCategorySet) {
+      return [];
+    }
+
+    const scopedCategoryIds = scopedCategorySet
+      ? Array.from(scopedCategorySet)
+      : null;
+    const previewCondition =
+      scopedCategoryIds && scopedCategoryIds.length > 0
+        ? and(publicProductVisibilityCondition, inArray(products.categoryId, scopedCategoryIds))
+        : publicProductVisibilityCondition;
 
     const countRows = await db
       .select({
@@ -562,7 +611,7 @@ export const productRouter = createRouter({
         productCount: sql<number>`count(*)`,
       })
       .from(products)
-      .where(publicProductVisibilityCondition)
+      .where(previewCondition)
       .groupBy(products.categoryId);
 
     const previewIdRows = await db
@@ -571,7 +620,7 @@ export const productRouter = createRouter({
         previewProductId: sql<number>`min(${products.id})`,
       })
       .from(products)
-      .where(publicProductVisibilityCondition)
+      .where(previewCondition)
       .groupBy(products.categoryId);
 
     const previewProductIds = previewIdRows
@@ -600,15 +649,9 @@ export const productRouter = createRouter({
     const previewProductIdByCategoryId = new Map(
       previewIdRows.map(row => [row.categoryId, Number(row.previewProductId || 0)] as const)
     );
-    const childrenByParentId = new Map<number | null, number[]>();
-    for (const category of allCategories) {
-      const key = category.parentId ?? null;
-      const bucket = childrenByParentId.get(key) ?? [];
-      bucket.push(category.id);
-      childrenByParentId.set(key, bucket);
-    }
-
-    return allCategories.map(category => {
+    return allCategories
+      .filter(category => (scopedCategorySet ? scopedCategorySet.has(category.id) : true))
+      .map(category => {
       const previewProduct = previewByProductId.get(
         previewProductIdByCategoryId.get(category.id) ?? 0
       );
@@ -620,8 +663,8 @@ export const productRouter = createRouter({
         previewImageVariants: previewProduct?.imageVariants ?? null,
         hasChildren: (childrenByParentId.get(category.id)?.length ?? 0) > 0,
       };
-    });
-  }),
+      });
+    }),
 
   getByManufacturer: publicQuery
     .input(

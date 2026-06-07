@@ -114,11 +114,21 @@ export default function CatalogPage() {
   const isRootCatalogNavigator = renderMode === "root-navigation";
   const isCategoryLandingPage = renderMode === "category-navigation";
   const isProductListingPage = isCatalogProductMode(renderMode);
-  const rootCategoryPreviewsQuery = trpc.product.getCatalogCategoryPreviews.useQuery(undefined, {
-    enabled: isRootCatalogNavigator || isCategoryLandingPage,
-    placeholderData: prev => prev,
-  });
-  const rootCategoryPreviews = rootCategoryPreviewsQuery.data ?? [];
+  const categoryPreviewInput = useMemo(
+    () =>
+      isCategoryLandingPage && currentCategory
+        ? { scopeCategoryId: currentCategory.id }
+        : undefined,
+    [currentCategory, isCategoryLandingPage]
+  );
+  const categoryNavigationPreviewsQuery = trpc.product.getCatalogCategoryPreviews.useQuery(
+    categoryPreviewInput,
+    {
+      enabled: isRootCatalogNavigator || isCategoryLandingPage,
+      placeholderData: prev => prev,
+    }
+  );
+  const categoryNavigationPreviews = categoryNavigationPreviewsQuery.data ?? [];
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
@@ -168,7 +178,7 @@ export default function CatalogPage() {
     renderMode === "brands-products"
       ? currentManufacturerQuery.isLoading || manufacturerProductsQuery.isLoading
       : isCategoryLandingPage
-        ? rootCategoryPreviewsQuery.isLoading
+        ? categoryNavigationPreviewsQuery.isLoading
         : categoryProductsQuery.isLoading;
 
   const updateCatalogParams = (updates: Record<string, string | null>, replace = true) => {
@@ -507,7 +517,7 @@ export default function CatalogPage() {
           {isRootCatalogNavigator ? (
             <RootCatalogNavigator
               categories={categories}
-              previews={rootCategoryPreviews}
+              previews={categoryNavigationPreviews}
               activeBranchSlug={activeTreeSlugFromHash || null}
               onSelectBranch={slug =>
                 navigate(`/catalog?cat=all#${encodeURIComponent(slug)}`, { replace: true })
@@ -519,7 +529,7 @@ export default function CatalogPage() {
             <CategoryLandingPage
               currentCategory={currentCategory}
               categories={categories}
-              previews={rootCategoryPreviews}
+              previews={categoryNavigationPreviews}
               onShowAllProducts={() => updateCatalogParams({ show: "products" })}
             />
           ) : (
