@@ -57,6 +57,18 @@ function highlightLabel(label: string, query: string) {
   );
 }
 
+function formatProductCount(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return `${count} товар`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${count} товара`;
+  }
+
+  return `${count} товаров`;
+}
+
 export default function RootCatalogNavigator({
   categories,
   previews,
@@ -101,12 +113,6 @@ export default function RootCatalogNavigator({
       currentParentId = parent.parentId ?? null;
     }
     return result;
-  };
-
-  const getLeafDescendants = (category: CategoryRecord): CategoryRecord[] => {
-    const children = byParent.get(category.id) ?? [];
-    if (children.length === 0) return [category];
-    return children.flatMap(child => getLeafDescendants(child));
   };
 
   const getBranchDescendants = (category: CategoryRecord): CategoryRecord[] => {
@@ -267,18 +273,6 @@ export default function RootCatalogNavigator({
         </div>
       </div>
 
-      <div className="mb-4">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={event => setSearchQuery(event.target.value)}
-            placeholder="Найти категорию..."
-            className="h-11 rounded-full border-transparent bg-[var(--tech-color-surface-muted)]/80 pl-9 pr-4 text-sm shadow-none focus-visible:ring-[var(--tech-color-primary)]/25"
-          />
-        </div>
-      </div>
-
       <div>{renderTree(topLevelCategories)}</div>
     </div>
   );
@@ -287,12 +281,12 @@ export default function RootCatalogNavigator({
   const desktopVisibleCategories = normalizedSearchQuery
     ? matchedLeafCategories
     : effectiveBranch
-      ? getLeafDescendants(effectiveBranch)
+      ? byParent.get(effectiveBranch.id) ?? []
       : topLevelCategories;
   const mobileVisibleCategories = normalizedSearchQuery
     ? matchedLeafCategories
     : effectiveBranch
-      ? getLeafDescendants(effectiveBranch)
+      ? byParent.get(effectiveBranch.id) ?? []
       : mobileRootCategories;
 
   const getCardCount = (
@@ -311,14 +305,15 @@ export default function RootCatalogNavigator({
 
   const renderCategoryCards = (
     items: CategoryRecord[],
-    mode: "branch" | "leaf",
+    context: "root-top" | "branch-children" | "search-results",
     layoutClassName: string,
     imageSizes: string
   ) => (
     <div className={layoutClassName}>
       {items.map((category, index) => {
+        const hasChildren = (byParent.get(category.id) ?? []).length > 0;
         const stats =
-          mode === "branch"
+          hasChildren
             ? branchStats.get(category.id)
             : previewByCategoryId.get(category.id) ?? branchStats.get(category.id);
         const imageProps =
@@ -334,11 +329,19 @@ export default function RootCatalogNavigator({
           <button
             key={category.id}
             type="button"
-            onClick={() =>
-              mode === "branch"
-                ? onSelectBranch(category.slug)
-                : onOpenLeafCategory(category.slug)
-            }
+            onClick={() => {
+              if (context === "root-top") {
+                onSelectBranch(category.slug);
+                return;
+              }
+
+              if (hasChildren) {
+                onOpenCategory(category.slug);
+                return;
+              }
+
+              onOpenLeafCategory(category.slug);
+            }}
             className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[background-color,box-shadow,border-color] duration-200 hover:bg-[var(--tech-color-surface)] hover:ring-[rgba(5,195,212,0.24)] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
@@ -356,21 +359,27 @@ export default function RootCatalogNavigator({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[var(--tech-color-surface-muted)]/60 text-[var(--tech-color-primary)]">
-                  <CategoryIcon name={category.name} slug={category.slug} size={mode === "branch" ? 52 : 42} className="text-current" />
+                  <CategoryIcon name={category.name} slug={category.slug} size={hasChildren ? 52 : 42} className="text-current" />
                 </div>
               )}
             </div>
             <div className="space-y-2 px-4 py-4 md:px-5">
               <div className={cn(
                 "line-clamp-2 text-foreground",
-                mode === "branch"
+                hasChildren
                   ? "text-sm font-black uppercase tracking-[0.03em] md:text-base"
                   : "text-sm font-bold leading-5"
               )}>
                 {highlightLabel(category.name, searchQuery)}
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>{getCardCount(stats) > 0 ? `${getCardCount(stats)} товаров` : mode === "branch" ? "Открыть категорию" : "Подборка товаров"}</span>
+                <span>
+                  {getCardCount(stats) > 0
+                    ? formatProductCount(getCardCount(stats))
+                    : hasChildren
+                      ? "Открыть категорию"
+                      : "Подборка товаров"}
+                </span>
                 <ChevronRight size={15} className="text-[var(--tech-color-primary)]" />
               </div>
             </div>
@@ -382,6 +391,27 @@ export default function RootCatalogNavigator({
 
   return (
     <div className="space-y-6 md:space-y-8">
+      <div className="space-y-4 md:space-y-5">
+        <div className="space-y-2">
+          <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
+            Каталог
+          </h1>
+          <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground">
+            Найдите нужную категорию, выберите ветку каталога и перейдите в конечный раздел с товарами.
+          </p>
+        </div>
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={event => setSearchQuery(event.target.value)}
+            placeholder="Найти категорию в каталоге"
+            className="h-12 rounded-full border-transparent bg-white/72 pl-11 pr-4 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:ring-[var(--tech-color-primary)]/30 dark:bg-white/6 dark:shadow-none"
+          />
+        </div>
+      </div>
+
       <div className="md:hidden">
         {normalizedSearchQuery.length > 0 || effectiveBranch ? (
           <>
@@ -408,7 +438,7 @@ export default function RootCatalogNavigator({
             <div className="mt-6 space-y-4">
               <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4">
                 <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                  {normalizedSearchQuery ? "Результаты поиска" : "Конечные категории"}
+                  {normalizedSearchQuery ? "Результаты поиска" : "Разделы ветки"}
                 </div>
                 <div className="mt-1 text-lg font-black text-foreground">
                   {normalizedSearchQuery ? `Найдено ${mobileVisibleCategories.length}` : effectiveBranch?.name ?? "Каталог"}
@@ -416,14 +446,14 @@ export default function RootCatalogNavigator({
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
                   {normalizedSearchQuery
                     ? "Показали конечные категории, которые совпали по названию или находятся внутри подходящей ветки."
-                    : "Откройте нужную конечную категорию и перейдите к обычной товарной выдаче."}
+                    : "Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу."}
                 </p>
               </div>
 
               {mobileVisibleCategories.length > 0 ? (
                 renderCategoryCards(
                   mobileVisibleCategories,
-                  "leaf",
+                  normalizedSearchQuery ? "search-results" : "branch-children",
                   "grid grid-cols-2 gap-3 sm:grid-cols-2",
                   "(max-width: 768px) 44vw, 220px"
                 )
@@ -443,7 +473,7 @@ export default function RootCatalogNavigator({
         ) : (
           renderCategoryCards(
             mobileRootCategories,
-            "branch",
+            "root-top",
             "grid grid-cols-2 gap-3 sm:grid-cols-2",
             "(max-width: 768px) 44vw, 260px"
           )
@@ -461,7 +491,7 @@ export default function RootCatalogNavigator({
               {normalizedSearchQuery
                 ? "Результаты поиска"
                 : effectiveBranch
-                  ? "Конечные категории"
+                  ? "Разделы ветки"
                   : "Категории каталога"}
             </div>
             <div className="mt-1 text-lg font-black text-foreground">
@@ -473,7 +503,7 @@ export default function RootCatalogNavigator({
               {normalizedSearchQuery
                 ? "Показали конечные категории, которые совпали по названию или находятся внутри подходящей ветки."
                 : effectiveBranch
-                  ? "Откройте нужную конечную категорию и перейдите к обычной товарной выдаче."
+                  ? "Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу."
                   : "Слева выберите ветку каталога, а справа мы сразу покажем основные разделы верхнего уровня."}
             </p>
           </div>
@@ -481,7 +511,11 @@ export default function RootCatalogNavigator({
           {desktopVisibleCategories.length > 0 ? (
             renderCategoryCards(
               desktopVisibleCategories,
-              effectiveBranch || normalizedSearchQuery ? "leaf" : "branch",
+              normalizedSearchQuery
+                ? "search-results"
+                : effectiveBranch
+                  ? "branch-children"
+                  : "root-top",
               "grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4",
               "(max-width: 1280px) 26vw, 240px"
             )
