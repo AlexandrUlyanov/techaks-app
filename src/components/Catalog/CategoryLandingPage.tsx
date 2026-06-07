@@ -3,10 +3,7 @@ import { Link, useNavigate } from "react-router";
 import {
   ChevronDown,
   ChevronRight,
-  Search,
-  X,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { CategoryIcon } from "@/lib/category-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -38,19 +35,6 @@ type CategoryLandingPageProps = {
   onShowAllProducts: () => void;
 };
 
-type SearchResultItem = {
-  category: CategoryRecord;
-  trail: CategoryRecord[];
-  productCount: number;
-  previewImage?: string | null;
-  previewImageVariants?: unknown;
-  isLeaf: boolean;
-};
-
-function normalizeText(value: string) {
-  return value.trim().toLowerCase().replace(/ё/g, "е");
-}
-
 function formatProductCount(count: number) {
   const mod10 = count % 10;
   const mod100 = count % 100;
@@ -61,24 +45,6 @@ function formatProductCount(count: number) {
   }
 
   return `${count} товаров`;
-}
-
-function highlightText(label: string, query: string) {
-  if (!query) return label;
-  const normalizedLabel = normalizeText(label);
-  const normalizedQuery = normalizeText(query);
-  const startIndex = normalizedLabel.indexOf(normalizedQuery);
-  if (startIndex === -1) return label;
-  const endIndex = startIndex + normalizedQuery.length;
-  return (
-    <>
-      {label.slice(0, startIndex)}
-      <mark className="rounded bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,transparent)] px-1 text-foreground">
-        {label.slice(startIndex, endIndex)}
-      </mark>
-      {label.slice(endIndex)}
-    </>
-  );
 }
 
 function buildByParent(categories: CategoryRecord[]) {
@@ -147,160 +113,6 @@ function findBranchPreview(
     }
   }
   return previewsByCategoryId.get(category.id);
-}
-
-function CategorySearch({
-  query,
-  onQueryChange,
-  searchResults,
-  currentCategory,
-}: {
-  query: string;
-  onQueryChange: (value: string) => void;
-  searchResults: SearchResultItem[];
-  currentCategory: CategoryRecord;
-}) {
-  const navigate = useNavigate();
-  const [activeIndex, setActiveIndex] = useState(-1);
-
-  useEffect(() => {
-    setActiveIndex(searchResults.length > 0 ? 0 : -1);
-  }, [searchResults.length, query]);
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!query.trim() || searchResults.length === 0) {
-      if (event.key === "Escape") onQueryChange("");
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveIndex(prev => (prev + 1) % searchResults.length);
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveIndex(prev => (prev - 1 + searchResults.length) % searchResults.length);
-      return;
-    }
-
-    if (event.key === "Enter") {
-      event.preventDefault();
-      const target = searchResults[activeIndex] ?? searchResults[0];
-      navigate(`/catalog?cat=${target.category.slug}`);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onQueryChange("");
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <label className="sr-only" htmlFor={`category-search-${currentCategory.slug}`}>
-        Найти категорию в разделе {currentCategory.name}
-      </label>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id={`category-search-${currentCategory.slug}`}
-          value={query}
-          onChange={event => onQueryChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={`Найти категорию в «${currentCategory.name}»`}
-          className="h-12 rounded-full border-transparent bg-white/72 pl-11 pr-12 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:ring-[var(--tech-color-primary)]/30 dark:bg-white/6 dark:shadow-none"
-        />
-        {query ? (
-          <button
-            type="button"
-            onClick={() => onQueryChange("")}
-            aria-label="Очистить поиск"
-            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
-          >
-            <X size={16} />
-          </button>
-        ) : null}
-      </div>
-
-      {query.trim() ? (
-        searchResults.length > 0 ? (
-          <div className="space-y-3">
-            <div className="text-sm font-semibold text-muted-foreground">
-              Найдено {searchResults.length} категорий
-            </div>
-            <div className="space-y-3">
-              {searchResults.map((result, index) => {
-                const preview = result.previewImage
-                  ? getProductCardImageProps({
-                      image: result.previewImage,
-                      imageVariants: result.previewImageVariants,
-                      sizes: "(max-width: 768px) 88vw, 120px",
-                    })
-                  : null;
-
-                return (
-                  <Link
-                    key={result.category.id}
-                    to={`/catalog?cat=${result.category.slug}`}
-                    className={cn(
-                      "flex min-h-14 items-center gap-3 rounded-[1.25rem] bg-white/88 px-4 py-3 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:bg-white dark:bg-white/6 dark:hover:bg-white/10 dark:shadow-none",
-                      activeIndex === index && "ring-2 ring-[var(--tech-color-primary)]/30"
-                    )}
-                  >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white dark:bg-white">
-                      {preview ? (
-                        <img
-                          src={preview.src}
-                          srcSet={preview.srcSet}
-                          sizes={preview.sizes}
-                          alt={result.category.name}
-                          className="h-full w-full object-contain"
-                          loading="lazy"
-                          decoding="async"
-                          onError={applyProductImageFallback}
-                        />
-                      ) : (
-                        <CategoryIcon
-                          name={result.category.name}
-                          slug={result.category.slug}
-                          size={22}
-                          className="text-[var(--tech-color-primary)]"
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-bold text-foreground">
-                        {highlightText(result.category.name, query)}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {result.trail.map(item => item.name).join(" → ")}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-xs text-muted-foreground">
-                        {result.productCount > 0 ? formatProductCount(result.productCount) : result.isLeaf ? "Раздел" : "Категория"}
-                      </div>
-                      <ChevronRight size={16} className="ml-auto mt-1 text-[var(--tech-color-primary)]" />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.08),transparent_55%)] px-5 py-6 text-center shadow-[0_10px_28px_rgba(15,23,42,0.05)] dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),rgba(255,255,255,0.02)_58%)] dark:shadow-none">
-            <div className="text-lg font-black text-foreground">Ничего не найдено</div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Попробуйте изменить запрос или выбрать категорию из списка ниже.
-            </p>
-          </div>
-        )
-      ) : null}
-    </div>
-  );
 }
 
 function CategoryCard({
@@ -487,23 +299,10 @@ export default function CategoryLandingPage({
   onShowAllProducts,
 }: CategoryLandingPageProps) {
   const navigate = useNavigate();
-  const [searchValue, setSearchValue] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
   const [expandedSectionSlugs, setExpandedSectionSlugs] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedSearch(searchValue.trim());
-    }, 180);
-    return () => window.clearTimeout(handle);
-  }, [searchValue]);
-
   const byParent = useMemo(() => buildByParent(categories), [categories]);
-  const categoryById = useMemo(
-    () => new Map(categories.map(category => [category.id, category] as const)),
-    [categories]
-  );
   const previewsByCategoryId = useMemo(
     () => new Map(previews.map(preview => [preview.categoryId, preview] as const)),
     [previews]
@@ -566,52 +365,6 @@ export default function CategoryLandingPage({
 
     return "mx-auto grid max-w-[1120px] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
   }, [desktopCards.length]);
-
-  const searchResults = useMemo<SearchResultItem[]>(() => {
-    const normalizedQuery = normalizeText(debouncedSearch);
-    if (!normalizedQuery) return [];
-
-    const scopedCategories = getDescendants(currentCategory, byParent);
-    return scopedCategories
-      .filter(category => {
-        const fullTrail = [...getAncestors(category, categoryById), category];
-        const currentCategoryIndex = fullTrail.findIndex(item => item.id === currentCategory.id);
-        const trail =
-          currentCategoryIndex >= 0
-            ? fullTrail.slice(currentCategoryIndex)
-            : [currentCategory, category];
-        return trail.some(item => normalizeText(item.name).includes(normalizedQuery));
-      })
-      .map(category => {
-        const fullTrail = [...getAncestors(category, categoryById), category];
-        const currentCategoryIndex = fullTrail.findIndex(item => item.id === currentCategory.id);
-        const trail =
-          currentCategoryIndex >= 0
-            ? fullTrail.slice(currentCategoryIndex)
-            : [currentCategory, category];
-        const preview =
-          previewsByCategoryId.get(category.id)?.previewImage
-            ? previewsByCategoryId.get(category.id)
-            : findBranchPreview(category, byParent, previewsByCategoryId);
-        const isLeaf = getChildren(byParent, category.id).length === 0;
-        return {
-          category,
-          trail,
-          productCount: isLeaf
-            ? previewsByCategoryId.get(category.id)?.productCount ?? 0
-            : getBranchCount(category),
-          previewImage: preview?.previewImage ?? null,
-          previewImageVariants: preview?.previewImageVariants ?? null,
-          isLeaf,
-        };
-      })
-      .sort(
-        (a: SearchResultItem, b: SearchResultItem) =>
-          b.productCount - a.productCount ||
-          a.category.name.localeCompare(b.category.name, "ru")
-      )
-      .slice(0, 12);
-  }, [byParent, categoryById, currentCategory, debouncedSearch, previewsByCategoryId]);
 
   const topDescription =
     currentCategory.description?.trim() ||
@@ -686,13 +439,6 @@ export default function CategoryLandingPage({
           </p>
         </div>
 
-        <CategorySearch
-          query={searchValue}
-          onQueryChange={setSearchValue}
-          searchResults={searchResults}
-          currentCategory={currentCategory}
-        />
-
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -704,8 +450,7 @@ export default function CategoryLandingPage({
         </div>
       </div>
 
-      {!searchValue.trim() ? (
-        <>
+      <>
           <div
             className={cn(
               "hidden gap-6 lg:grid xl:gap-8",
@@ -860,8 +605,7 @@ export default function CategoryLandingPage({
               getBranchCount={getBranchCount}
             />
           </div>
-        </>
-      ) : null}
+      </>
     </div>
   );
 }
