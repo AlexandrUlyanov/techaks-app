@@ -339,7 +339,7 @@ export default function RootCatalogNavigator({
                 ? onSelectBranch(category.slug)
                 : onOpenLeafCategory(category.slug)
             }
-            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left transition-colors duration-200 hover:bg-[color:color-mix(in_srgb,var(--tech-color-surface)_82%,var(--tech-color-surface-muted))] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none"
+            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[background-color,box-shadow,border-color] duration-200 hover:bg-[var(--tech-color-surface)] hover:ring-[rgba(5,195,212,0.24)] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
             <div className="flex h-[152px] items-center justify-center bg-white p-5">
@@ -351,7 +351,7 @@ export default function RootCatalogNavigator({
                   alt={category.name}
                   loading="lazy"
                   decoding="async"
-                  className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.045] motion-reduce:transition-none"
+                  className="h-full w-full object-contain"
                   onError={applyProductImageFallback}
                 />
               ) : (

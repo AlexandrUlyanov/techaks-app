@@ -328,7 +328,7 @@ function CategoryCard({
   return (
     <Link
       to={`/catalog?cat=${category.slug}`}
-      className="group overflow-hidden rounded-[1.5rem] bg-white/84 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:bg-white/4 dark:hover:bg-white/7 dark:shadow-none dark:hover:shadow-none"
+      className="group overflow-hidden rounded-[1.5rem] bg-white/84 p-4 ring-1 ring-transparent transition-[background-color,box-shadow,border-color] duration-200 hover:bg-white hover:shadow-none hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:bg-white/4 dark:hover:bg-white/4 dark:hover:ring-[#05C3D4]/30"
     >
       <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white dark:bg-white">
         {imageProps ? (
@@ -339,7 +339,7 @@ function CategoryCard({
             alt={category.name}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-contain transition duration-200 group-hover:scale-[1.04]"
+            className="h-full w-full object-contain"
             onError={applyProductImageFallback}
           />
         ) : (
@@ -369,7 +369,7 @@ function CategoryCard({
             <div className="mt-2 text-sm text-muted-foreground">Смотреть раздел</div>
           )}
         </div>
-        <ChevronRight size={18} className="mt-1 shrink-0 text-[var(--tech-color-primary)] transition group-hover:translate-x-1" />
+        <ChevronRight size={18} className="mt-1 shrink-0 text-[var(--tech-color-primary)]" />
       </div>
     </Link>
   );
