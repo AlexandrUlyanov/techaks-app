@@ -713,7 +713,7 @@ export default function CategoryLandingPage({
             )}
           >
             {!compactLayout ? (
-              <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh-var(--header-height,96px)-24px)] overflow-y-auto pr-2">
+              <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh_-_var(--header-height,96px)_-_24px)] overflow-y-auto pr-2 no-scrollbar">
                 <div className="space-y-1">
                   {sectionCategories.map((section: CategoryRecord) => {
                     const isActive = activeSection?.slug === section.slug;

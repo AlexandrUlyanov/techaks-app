@@ -188,7 +188,7 @@ export default function RootCatalogNavigator({
   const isExpanded = (category: CategoryRecord) => {
     if (matchedAncestorSlugSet.has(category.slug)) return true;
     if (effectiveBranch && getAncestors(effectiveBranch).some(item => item.slug === category.slug)) return true;
-    return expandedSlugs[category.slug] ?? topLevelCategories[0]?.slug === category.slug;
+    return expandedSlugs[category.slug] ?? false;
   };
 
   const renderTree = (nodes: CategoryRecord[], depth = 0) => {
@@ -229,7 +229,7 @@ export default function RootCatalogNavigator({
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)] transition group-hover:scale-[1.03] motion-reduce:transition-none">
                     <CategoryIcon name={category.name} slug={category.slug} size={16} className="text-current" />
                   </span>
-                  <span className="truncate text-sm font-semibold">
+                  <span className="line-clamp-2 text-sm font-semibold leading-5">
                     {highlightLabel(category.name, searchQuery)}
                   </span>
                 </button>
@@ -425,7 +425,7 @@ export default function RootCatalogNavigator({
                   Категории
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-full max-w-none bg-background p-0">
+              <SheetContent side="left" className="w-full max-w-none overflow-y-auto bg-background p-0">
                 <SheetHeader className="px-5 py-4">
                   <SheetTitle className="text-left text-sm font-black uppercase tracking-[0.2em]">
                     Категории
@@ -481,7 +481,7 @@ export default function RootCatalogNavigator({
       </div>
 
       <div className="hidden gap-6 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
-        <div className="sticky top-[var(--header-height,96px)] self-start">
+        <div className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh_-_var(--header-height,96px)_-_24px)] self-start overflow-y-auto pr-2 no-scrollbar">
           {treePanel}
         </div>
 
