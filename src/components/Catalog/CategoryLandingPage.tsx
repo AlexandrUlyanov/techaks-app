@@ -490,6 +490,7 @@ export default function CategoryLandingPage({
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
+  const [expandedSectionSlugs, setExpandedSectionSlugs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -515,22 +516,21 @@ export default function CategoryLandingPage({
   const compactLayout = sectionCategories.length <= 6;
 
   useEffect(() => {
-    if (!sectionCategories.length) {
-      setActiveSectionSlug(null);
-      return;
-    }
-    if (compactLayout) {
-      setActiveSectionSlug(null);
-      return;
-    }
     setActiveSectionSlug(prev =>
       prev && sectionCategories.some(category => category.slug === prev)
         ? prev
-        : sectionCategories.find(category => getChildren(byParent, category.id).length > 0)?.slug ??
-          sectionCategories[0]?.slug ??
-          null
+        : null
     );
-  }, [byParent, compactLayout, sectionCategories]);
+  }, [sectionCategories]);
+
+  useEffect(() => {
+    setExpandedSectionSlugs(prev => {
+      const nextEntries = Object.entries(prev).filter(([slug]) =>
+        sectionCategories.some(category => category.slug === slug)
+      );
+      return Object.fromEntries(nextEntries);
+    });
+  }, [sectionCategories]);
 
   const activeSection = useMemo(
     () =>
@@ -598,6 +598,14 @@ export default function CategoryLandingPage({
   const topDescription =
     currentCategory.description?.trim() ||
     `Найдите нужный раздел в категории «${currentCategory.name}»: мы собрали подкатегории, популярные направления и быстрые переходы к товарам.`;
+
+  const desktopSectionTitle = activeSection
+    ? `Раздел «${activeSection.name}»`
+    : "Выберите подкатегорию";
+
+  const desktopSectionDescription = activeSection
+    ? "Показываем прямые дочерние категории выбранной ветки. Можно вернуться ко всем разделам одним кликом."
+    : "Сначала выберите нужное направление, а затем откройте конечную категорию с товарами.";
 
   if (loading) {
     return (
@@ -697,7 +705,13 @@ export default function CategoryLandingPage({
                               navigate(`/catalog?cat=${section.slug}`);
                               return;
                             }
-                            setActiveSectionSlug(section.slug);
+                            setActiveSectionSlug(prev =>
+                              prev === section.slug ? null : section.slug
+                            );
+                            setExpandedSectionSlugs(prev => ({
+                              ...prev,
+                              [section.slug]: !prev[section.slug],
+                            }));
                           }}
                             className={cn(
                               "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
@@ -719,14 +733,14 @@ export default function CategoryLandingPage({
                               size={16}
                               className={cn(
                                 "mt-1 shrink-0 text-[#05C3D4] transition-transform",
-                                isActive ? "rotate-180" : ""
+                                expandedSectionSlugs[section.slug] ? "rotate-180" : ""
                               )}
                             />
                           ) : (
                             <ChevronRight size={16} className="mt-1 shrink-0 text-[#05C3D4]" />
                           )}
                         </button>
-                        {isActive && children.length > 0 ? (
+                        {expandedSectionSlugs[section.slug] && children.length > 0 ? (
                           <div className="space-y-1 pl-4">
                             {children.map((child: CategoryRecord) => (
                               <Link
@@ -748,10 +762,24 @@ export default function CategoryLandingPage({
             ) : null}
 
             <div className="space-y-5">
-              <div>
-                <div className="text-sm font-bold text-muted-foreground">
-                  Выберите подкатегорию
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-muted-foreground">
+                    {desktopSectionTitle}
+                  </div>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {desktopSectionDescription}
+                  </p>
                 </div>
+                {activeSection ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSectionSlug(null)}
+                    className="inline-flex min-h-10 items-center rounded-full bg-white/84 px-4 text-sm font-semibold text-[var(--tech-color-primary)] ring-1 ring-[rgba(5,195,212,0.24)] transition hover:bg-white dark:bg-white/6 dark:hover:bg-white/10"
+                  >
+                    Все разделы категории
+                  </button>
+                ) : null}
               </div>
 
               {desktopCards.length > 0 ? (
