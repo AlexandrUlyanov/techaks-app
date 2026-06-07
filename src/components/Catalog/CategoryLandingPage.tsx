@@ -211,7 +211,7 @@ function CategorySearch({
           onChange={event => onQueryChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={`Найти категорию в «${currentCategory.name}»`}
-          className="h-12 rounded-full border-transparent bg-[rgba(255,255,255,0.72)] pl-11 pr-12 text-sm shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:ring-[var(--tech-color-primary)]/30"
+          className="h-12 rounded-full border-transparent bg-white/72 pl-11 pr-12 text-sm text-foreground shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:ring-[var(--tech-color-primary)]/30 dark:bg-white/6 dark:shadow-none"
         />
         {query ? (
           <button
@@ -246,11 +246,11 @@ function CategorySearch({
                     key={result.category.id}
                     to={`/catalog?cat=${result.category.slug}`}
                     className={cn(
-                      "flex min-h-14 items-center gap-3 rounded-[1.25rem] bg-white/88 px-4 py-3 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:bg-white",
+                      "flex min-h-14 items-center gap-3 rounded-[1.25rem] bg-white/88 px-4 py-3 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:bg-white dark:bg-white/6 dark:hover:bg-white/10 dark:shadow-none",
                       activeIndex === index && "ring-2 ring-[var(--tech-color-primary)]/30"
                     )}
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white dark:bg-white">
                       {preview ? (
                         <img
                           src={preview.src}
@@ -291,7 +291,7 @@ function CategorySearch({
             </div>
           </div>
         ) : (
-          <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.08),transparent_55%)] px-5 py-6 text-center shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+          <div className="rounded-[1.5rem] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.08),transparent_55%)] px-5 py-6 text-center shadow-[0_10px_28px_rgba(15,23,42,0.05)] dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.12),rgba(255,255,255,0.02)_58%)] dark:shadow-none">
             <div className="text-lg font-black text-foreground">Ничего не найдено</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Попробуйте изменить запрос или выбрать категорию из списка ниже.
@@ -328,9 +328,9 @@ function CategoryCard({
   return (
     <Link
       to={`/catalog?cat=${category.slug}`}
-      className="group overflow-hidden rounded-[1.5rem] bg-white/84 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
+      className="group overflow-hidden rounded-[1.5rem] bg-white/84 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:bg-white/4 dark:hover:bg-white/7 dark:shadow-none dark:hover:shadow-none"
     >
-      <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white">
+      <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white dark:bg-white">
         {imageProps ? (
           <img
             src={imageProps.src}
@@ -354,19 +354,19 @@ function CategoryCard({
 
       <div className="mt-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-base font-black leading-6 text-[#1F2933]">
+          <div className="text-base font-black leading-6 text-foreground">
             {category.name}
           </div>
           {variant === "leaf" ? (
-          <div className="mt-2 text-sm text-[#6B7280]">
+          <div className="mt-2 text-sm text-muted-foreground">
               {productCount > 0 ? formatProductCount(productCount) : "Перейти в раздел"}
             </div>
           ) : childNames?.length ? (
-            <div className="mt-2 line-clamp-3 text-sm leading-6 text-[#6B7280]">
+            <div className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
               {childNames.join(" · ")}
             </div>
           ) : (
-            <div className="mt-2 text-sm text-[#6B7280]">Смотреть раздел</div>
+            <div className="mt-2 text-sm text-muted-foreground">Смотреть раздел</div>
           )}
         </div>
         <ChevronRight size={18} className="mt-1 shrink-0 text-[var(--tech-color-primary)] transition group-hover:translate-x-1" />
@@ -407,7 +407,7 @@ function MobileCategoryAccordion({
         const children = getChildren(byParent, section.id);
         const hasChildren = children.length > 0;
         return (
-          <div key={section.id} className="rounded-[1.4rem] bg-white/86 px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+          <div key={section.id} className="rounded-[1.4rem] bg-white/86 px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] dark:bg-white/4 dark:shadow-none">
             <button
               type="button"
               onClick={() => {
@@ -421,8 +421,8 @@ function MobileCategoryAccordion({
               className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
             >
               <div>
-                <div className="text-base font-black text-[#1F2933]">{section.name}</div>
-                <div className="mt-1 text-sm text-[#6B7280]">
+                <div className="text-base font-black text-foreground">{section.name}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
                   {getBranchCount(section) > 0
                     ? formatProductCount(getBranchCount(section))
                     : hasChildren
@@ -625,11 +625,11 @@ export default function CategoryLandingPage({
 
   if (sectionCategories.length === 0) {
     return (
-      <div className="rounded-[1.75rem] bg-white/84 px-6 py-10 text-center shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
-        <div className="text-2xl font-black text-[#1F2933]">
+      <div className="rounded-[1.75rem] bg-white/84 px-6 py-10 text-center shadow-[0_12px_32px_rgba(15,23,42,0.06)] dark:bg-white/5 dark:shadow-none">
+        <div className="text-2xl font-black text-foreground">
           В этом разделе пока нет подкатегорий
         </div>
-        <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Попробуйте выбрать другую категорию или вернуться в каталог.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -648,10 +648,10 @@ export default function CategoryLandingPage({
     <div className="space-y-6 md:space-y-8">
       <div className="space-y-4 md:space-y-5">
         <div className="space-y-2">
-          <h1 className="text-[30px] font-black tracking-tight text-[#1F2933] md:text-[38px]">
+          <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
             {currentCategory.name}
           </h1>
-          <p className="max-w-3xl text-[15px] leading-7 text-[#6B7280]">
+          <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground">
             {topDescription}
           </p>
         </div>
@@ -667,7 +667,7 @@ export default function CategoryLandingPage({
           <button
             type="button"
             onClick={onShowAllProducts}
-            className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-[#05C3D4] ring-1 ring-[rgba(5,195,212,0.28)] transition hover:bg-[rgba(5,195,212,0.05)]"
+            className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-[#05C3D4] ring-1 ring-[rgba(5,195,212,0.28)] transition hover:bg-[rgba(5,195,212,0.05)] dark:bg-transparent"
           >
             Показать все товары в разделе
           </button>
@@ -699,11 +699,11 @@ export default function CategoryLandingPage({
                             }
                             setActiveSectionSlug(section.slug);
                           }}
-                          className={cn(
-                            "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
-                            isActive
-                              ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-[#1F2933] shadow-[inset_3px_0_0_0_#05C3D4]"
-                              : "text-[#464A50] hover:bg-[rgba(5,195,212,0.06)]"
+                            className={cn(
+                              "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
+                              isActive
+                              ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-foreground shadow-[inset_3px_0_0_0_#05C3D4]"
+                              : "text-muted-foreground hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground"
                           )}
                         >
                           <span className="flex min-w-0 items-start gap-2">
@@ -732,7 +732,7 @@ export default function CategoryLandingPage({
                               <Link
                                 key={child.id}
                                 to={`/catalog?cat=${child.slug}`}
-                                className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-[#464A50] transition hover:bg-[rgba(5,195,212,0.06)] hover:text-[#1F2933]"
+                                className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground"
                               >
                                 <span className="line-clamp-2 leading-5">{child.name}</span>
                                 <ChevronRight size={14} className="mt-0.5 shrink-0 text-[#05C3D4]" />
@@ -749,7 +749,7 @@ export default function CategoryLandingPage({
 
             <div className="space-y-5">
               <div>
-                <div className="text-sm font-bold text-[#6B7280]">
+                <div className="text-sm font-bold text-muted-foreground">
                   Выберите подкатегорию
                 </div>
               </div>
@@ -780,11 +780,11 @@ export default function CategoryLandingPage({
                   })}
                 </div>
               ) : (
-                <div className="rounded-[1.6rem] bg-white/82 px-6 py-8 text-center shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                  <div className="text-xl font-black text-[#1F2933]">
+                <div className="rounded-[1.6rem] bg-white/82 px-6 py-8 text-center shadow-[0_14px_34px_rgba(15,23,42,0.05)] dark:bg-white/5 dark:shadow-none">
+                  <div className="text-xl font-black text-foreground">
                     Внутри раздела пока пусто
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Попробуйте открыть соседнюю категорию или перейти ко всем товарам раздела.
                   </p>
                 </div>
@@ -793,7 +793,7 @@ export default function CategoryLandingPage({
           </div>
 
           <div className="space-y-4 lg:hidden">
-            <div className="text-sm font-bold text-[#6B7280]">
+            <div className="text-sm font-bold text-muted-foreground">
               Все категории
             </div>
             <MobileCategoryAccordion
