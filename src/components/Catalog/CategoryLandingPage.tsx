@@ -144,6 +144,11 @@ function CategoryCard({
     <Link
       to={`/catalog?cat=${category.slug}`}
       onClick={() => onNavigate?.(category.slug, "card")}
+      aria-label={
+        variant === "leaf"
+          ? `Перейти в категорию ${category.name}`
+          : `Открыть раздел ${category.name}`
+      }
       className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] p-4 ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:hover:ring-[#05C3D4]/30"
     >
       <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-4 dark:bg-[rgba(255,255,255,0.04)]">
@@ -448,10 +453,11 @@ export default function CategoryLandingPage({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onShowAllProducts}
+            aria-label={`Показать все товары в разделе ${currentCategory.name}`}
             className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-[#05C3D4] ring-1 ring-[rgba(5,195,212,0.28)] transition hover:bg-[rgba(5,195,212,0.05)] dark:bg-transparent dark:hover:bg-[rgba(5,195,212,0.08)]"
           >
             Показать все товары в разделе
@@ -468,6 +474,7 @@ export default function CategoryLandingPage({
           >
             {!compactLayout ? (
               <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh_-_var(--header-height,96px)_-_24px)] overflow-y-auto pr-2 no-scrollbar">
+                <nav aria-label={`Подкатегории раздела ${currentCategory.name}`}>
                 <div className="space-y-1">
                   {sectionCategories.map((section: CategoryRecord) => {
                     const isActive = activeSection?.slug === section.slug;
@@ -496,6 +503,8 @@ export default function CategoryLandingPage({
                               ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-foreground shadow-[inset_3px_0_0_0_#05C3D4] dark:text-white"
                               : "text-muted-foreground hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                           )}
+                          aria-expanded={children.length > 0 ? expandedSectionSlugs[section.slug] ?? false : undefined}
+                          aria-current={isActive ? "true" : undefined}
                         >
                           <span className="flex min-w-0 items-start gap-2">
                             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
@@ -524,6 +533,7 @@ export default function CategoryLandingPage({
                                 key={child.id}
                                 to={`/catalog?cat=${child.slug}`}
                                 onClick={() => onNavigateCategory?.(child.slug, "sidebar")}
+                                aria-label={`Перейти в категорию ${child.name}`}
                                 className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                               >
                                 <span className="line-clamp-2 leading-5">{child.name}</span>
@@ -536,6 +546,7 @@ export default function CategoryLandingPage({
                     );
                   })}
                 </div>
+                </nav>
               </aside>
             ) : null}
 
@@ -607,16 +618,18 @@ export default function CategoryLandingPage({
           </div>
 
           <div className="space-y-4 lg:hidden">
-            <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
-              Все категории
-            </div>
-            <MobileCategoryAccordion
-              sections={sectionCategories}
-              byParent={byParent}
-              previewsByCategoryId={previewsByCategoryId}
-              getBranchCount={getBranchCount}
-              onNavigateCategory={onNavigateCategory ? (slug) => onNavigateCategory(slug, "accordion") : undefined}
-            />
+            <nav aria-label={`Все категории раздела ${currentCategory.name}`} className="space-y-4">
+              <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
+                Все категории
+              </div>
+              <MobileCategoryAccordion
+                sections={sectionCategories}
+                byParent={byParent}
+                previewsByCategoryId={previewsByCategoryId}
+                getBranchCount={getBranchCount}
+                onNavigateCategory={onNavigateCategory ? (slug) => onNavigateCategory(slug, "accordion") : undefined}
+              />
+            </nav>
           </div>
       </>
     </div>

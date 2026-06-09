@@ -146,14 +146,14 @@ export default function RootCatalogNavigator({
 
   const renderTree = (nodes: CategoryRecord[], depth = 0) => {
     return (
-      <div className={cn("space-y-1", depth > 0 ? "mt-1 pl-4" : "")}>
+      <ul className={cn("space-y-1", depth > 0 ? "mt-1 pl-4" : "")}>
         {nodes.map(category => {
           const children = byParent.get(category.id) ?? [];
           const hasChildren = children.length > 0;
           const active = effectiveBranch?.slug === category.slug;
 
           return (
-            <div key={category.id} className="space-y-1">
+            <li key={category.id} className="space-y-1">
               <div
                 className={cn(
                   "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-colors duration-200 motion-reduce:transition-none",
@@ -182,6 +182,12 @@ export default function RootCatalogNavigator({
 
                     onOpenCategory(category.slug, "tree");
                   }}
+                  aria-current={active ? "page" : undefined}
+                  aria-label={
+                    hasChildren
+                      ? `Открыть ветку каталога ${category.name}`
+                      : `Перейти в категорию ${category.name}`
+                  }
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)]">
@@ -213,15 +219,18 @@ export default function RootCatalogNavigator({
               </div>
 
               {hasChildren && isExpanded(category) ? renderTree(children, depth + 1) : null}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     );
   };
 
   const treePanel = (
-    <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] p-4 md:p-5">
+    <nav
+      aria-label="Дерево категорий каталога"
+      className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] p-4 md:p-5"
+    >
       <div className="mb-4">
         <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
           Дерево каталога
@@ -232,7 +241,7 @@ export default function RootCatalogNavigator({
       </div>
 
       <div>{renderTree(topLevelCategories)}</div>
-    </div>
+    </nav>
   );
 
   const mobileRootCategories = topLevelCategories;
@@ -301,6 +310,11 @@ export default function RootCatalogNavigator({
 
               onOpenLeafCategory(category.slug, "card");
             }}
+            aria-label={
+              hasChildren
+                ? `Открыть раздел каталога ${category.name}`
+                : `Перейти в категорию ${category.name}`
+            }
             className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
