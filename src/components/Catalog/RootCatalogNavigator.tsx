@@ -157,8 +157,8 @@ export default function RootCatalogNavigator({
                 className={cn(
                   "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-colors duration-200 motion-reduce:transition-none",
                   active
-                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_13%,transparent)] text-foreground"
-                    : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,transparent)] hover:text-foreground"
+                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_13%,transparent)] text-foreground dark:text-white"
+                    : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,transparent)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                 )}
               >
                 <button
@@ -178,7 +178,7 @@ export default function RootCatalogNavigator({
                   }}
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)] transition group-hover:scale-[1.03] motion-reduce:transition-none">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)]">
                     <CategoryIcon name={category.name} slug={category.slug} size={16} className="text-current" />
                   </span>
                   <span className="line-clamp-2 text-sm font-semibold leading-5">
@@ -190,7 +190,7 @@ export default function RootCatalogNavigator({
                   <button
                     type="button"
                     onClick={() => toggleExpanded(category.slug)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-[var(--tech-color-surface-muted)] hover:text-foreground dark:text-white/52 dark:hover:text-white"
                     aria-label={isExpanded(category) ? "Свернуть категорию" : "Раскрыть категорию"}
                   >
                     <ChevronDown
@@ -220,7 +220,7 @@ export default function RootCatalogNavigator({
         <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
           Дерево каталога
         </div>
-        <div className="mt-1 text-sm text-muted-foreground">
+        <div className="mt-1 text-sm text-muted-foreground dark:text-white/62">
           Выберите ветку и перейдите к конечной категории с товарами
         </div>
       </div>
@@ -290,10 +290,10 @@ export default function RootCatalogNavigator({
 
               onOpenLeafCategory(category.slug);
             }}
-            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[background-color,box-shadow,border-color] duration-200 hover:bg-[var(--tech-color-surface)] hover:ring-[rgba(5,195,212,0.24)] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
+            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
-            <div className="flex h-[152px] items-center justify-center bg-white p-5">
+            <div className="flex h-[152px] items-center justify-center bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-5 dark:bg-[rgba(255,255,255,0.04)]">
               {imageProps ? (
                 <img
                   src={imageProps.src}
@@ -313,14 +313,14 @@ export default function RootCatalogNavigator({
             </div>
             <div className="space-y-2 px-4 py-4 md:px-5">
               <div className={cn(
-                "line-clamp-2 text-foreground",
+                "line-clamp-2 text-foreground dark:text-white/92",
                 hasChildren
                   ? "text-sm font-black uppercase tracking-[0.03em] md:text-base"
                   : "text-sm font-bold leading-5"
               )}>
                 {category.name}
               </div>
-              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground dark:text-white/62">
                 <span>
                   {getCardCount(stats) > 0
                     ? formatProductCount(getCardCount(stats))
@@ -379,7 +379,7 @@ export default function RootCatalogNavigator({
                 <div className="mt-1 text-lg font-black text-foreground">
                   {effectiveBranch?.name ?? "Каталог"}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-white/62">
                   Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу.
                 </p>
               </div>
@@ -396,9 +396,9 @@ export default function RootCatalogNavigator({
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
                     <Search size={22} />
                   </div>
-                  <div className="mt-5 text-xl font-black text-foreground">Категории не найдены</div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Попробуйте другой запрос или откройте соседнюю ветку каталога.
+                  <div className="mt-5 text-xl font-black text-foreground dark:text-white/92">Категории не найдены</div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground dark:text-white/62">
+                    Откройте соседнюю ветку каталога или вернитесь к верхнему уровню.
                   </p>
                 </div>
               )}
@@ -427,7 +427,7 @@ export default function RootCatalogNavigator({
             <div className="mt-1 text-lg font-black text-foreground">
               {effectiveBranch?.name ?? "Выберите ветку каталога"}
             </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-white/62">
               {effectiveBranch
                 ? "Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу."
                 : "Слева выберите ветку каталога, а справа мы сразу покажем основные разделы верхнего уровня."}
@@ -446,9 +446,9 @@ export default function RootCatalogNavigator({
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,transparent)] text-[var(--tech-color-primary)]">
                 <Search size={22} />
               </div>
-              <div className="mt-5 text-xl font-black text-foreground">Категории не найдены</div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Попробуйте другой запрос или откройте соседнюю ветку каталога.
+              <div className="mt-5 text-xl font-black text-foreground dark:text-white/92">Категории не найдены</div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground dark:text-white/62">
+                Откройте соседнюю ветку каталога или вернитесь к верхнему уровню.
               </p>
             </div>
           )}
