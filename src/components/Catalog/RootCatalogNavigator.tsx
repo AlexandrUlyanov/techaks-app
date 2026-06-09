@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { ChevronDown, ChevronRight, FolderTree, Search } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CategoryIcon } from "@/lib/category-icons";
@@ -29,9 +30,9 @@ type RootCatalogNavigatorProps = {
   categories: CategoryRecord[];
   previews: CategoryPreviewRecord[];
   activeBranchSlug: string | null;
-  onSelectBranch: (slug: string) => void;
-  onOpenCategory: (slug: string) => void;
-  onOpenLeafCategory: (slug: string) => void;
+  onSelectBranch: (slug: string, source: "tree" | "card") => void;
+  onOpenCategory: (slug: string, source: "tree" | "card") => void;
+  onOpenLeafCategory: (slug: string, source: "tree" | "card") => void;
 };
 
 function formatProductCount(count: number) {
@@ -161,22 +162,27 @@ export default function RootCatalogNavigator({
                     : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,transparent)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                 )}
               >
-                <button
-                  type="button"
+                <Link
+                  to={
+                    hasChildren && depth === 0
+                      ? `/catalog?cat=all#${encodeURIComponent(category.slug)}`
+                      : `/catalog?cat=${category.slug}`
+                  }
+                  replace={hasChildren && depth === 0}
                   onClick={() => {
                     if (!hasChildren) {
-                      onOpenLeafCategory(category.slug);
+                      onOpenLeafCategory(category.slug, "tree");
                       return;
                     }
 
                     if (depth === 0) {
-                      onSelectBranch(category.slug);
+                      onSelectBranch(category.slug, "tree");
                       return;
                     }
 
-                    onOpenCategory(category.slug);
+                    onOpenCategory(category.slug, "tree");
                   }}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)]">
                     <CategoryIcon name={category.name} slug={category.slug} size={16} className="text-current" />
@@ -184,7 +190,7 @@ export default function RootCatalogNavigator({
                   <span className="line-clamp-2 text-sm font-semibold leading-5">
                     {category.name}
                   </span>
-                </button>
+                </Link>
 
                 {hasChildren ? (
                   <button
@@ -274,23 +280,28 @@ export default function RootCatalogNavigator({
             : null;
 
         return (
-          <button
+          <Link
             key={category.id}
-            type="button"
+            to={
+              context === "root-top"
+                ? `/catalog?cat=all#${encodeURIComponent(category.slug)}`
+                : `/catalog?cat=${category.slug}`
+            }
+            replace={context === "root-top"}
             onClick={() => {
               if (context === "root-top") {
-                onSelectBranch(category.slug);
+                onSelectBranch(category.slug, "card");
                 return;
               }
 
               if (hasChildren) {
-                onOpenCategory(category.slug);
+                onOpenCategory(category.slug, "card");
                 return;
               }
 
-              onOpenLeafCategory(category.slug);
+              onOpenLeafCategory(category.slug, "card");
             }}
-            className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
+            className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
             <div className="flex h-[152px] items-center justify-center bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-5 dark:bg-[rgba(255,255,255,0.04)]">
@@ -331,7 +342,7 @@ export default function RootCatalogNavigator({
                 <ChevronRight size={15} className="text-[var(--tech-color-primary)]" />
               </div>
             </div>
-          </button>
+          </Link>
         );
       })}
     </div>

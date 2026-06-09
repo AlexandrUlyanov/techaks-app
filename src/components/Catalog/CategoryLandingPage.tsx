@@ -33,6 +33,7 @@ type CategoryLandingPageProps = {
   previews: CategoryPreviewRecord[];
   loading?: boolean;
   onShowAllProducts: () => void;
+  onNavigateCategory?: (slug: string, source: "card" | "accordion" | "sidebar") => void;
 };
 
 function formatProductCount(count: number) {
@@ -121,12 +122,14 @@ function CategoryCard({
   productCount,
   variant,
   childNames,
+  onNavigate,
 }: {
   category: CategoryRecord;
   preview?: CategoryPreviewRecord | { previewImage?: string | null; previewImageVariants?: unknown } | null;
   productCount: number;
   variant: "parent" | "leaf";
   childNames?: string[];
+  onNavigate?: (slug: string, source: "card") => void;
 }) {
   const imageProps =
     preview?.previewImage
@@ -140,6 +143,7 @@ function CategoryCard({
   return (
     <Link
       to={`/catalog?cat=${category.slug}`}
+      onClick={() => onNavigate?.(category.slug, "card")}
       className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] p-4 ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:hover:ring-[#05C3D4]/30"
     >
       <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-4 dark:bg-[rgba(255,255,255,0.04)]">
@@ -192,11 +196,13 @@ function MobileCategoryAccordion({
   byParent,
   previewsByCategoryId,
   getBranchCount,
+  onNavigateCategory,
 }: {
   sections: CategoryRecord[];
   byParent: Map<number | null, CategoryRecord[]>;
   previewsByCategoryId: Map<number, CategoryPreviewRecord>;
   getBranchCount: (category: CategoryRecord) => number;
+  onNavigateCategory?: (slug: string, source: "accordion") => void;
 }) {
   const navigate = useNavigate();
   const [openSlugs, setOpenSlugs] = useState<Record<string, boolean>>({});
@@ -224,6 +230,7 @@ function MobileCategoryAccordion({
               type="button"
               onClick={() => {
                 if (!hasChildren) {
+                  onNavigateCategory?.(section.slug, "accordion");
                   navigate(`/catalog?cat=${section.slug}`);
                   return;
                 }
@@ -272,6 +279,7 @@ function MobileCategoryAccordion({
                       preview={preview}
                       productCount={childHasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
                       variant={childHasChildren ? "parent" : "leaf"}
+                      onNavigate={onNavigateCategory ? (slug) => onNavigateCategory(slug, "accordion") : undefined}
                       childNames={
                         childHasChildren
                           ? getChildren(byParent, child.id)
@@ -297,6 +305,7 @@ export default function CategoryLandingPage({
   previews,
   loading = false,
   onShowAllProducts,
+  onNavigateCategory,
 }: CategoryLandingPageProps) {
   const navigate = useNavigate();
   const [activeSectionSlug, setActiveSectionSlug] = useState<string | null>(null);
@@ -469,6 +478,7 @@ export default function CategoryLandingPage({
                           type="button"
                           onClick={() => {
                             if (children.length === 0) {
+                              onNavigateCategory?.(section.slug, "sidebar");
                               navigate(`/catalog?cat=${section.slug}`);
                               return;
                             }
@@ -513,6 +523,7 @@ export default function CategoryLandingPage({
                               <Link
                                 key={child.id}
                                 to={`/catalog?cat=${child.slug}`}
+                                onClick={() => onNavigateCategory?.(child.slug, "sidebar")}
                                 className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                               >
                                 <span className="line-clamp-2 leading-5">{child.name}</span>
@@ -569,10 +580,11 @@ export default function CategoryLandingPage({
                         category={child}
                         preview={preview}
                         productCount={hasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
-                        variant={hasChildren ? "parent" : "leaf"}
-                        childNames={
-                          hasChildren
-                            ? getChildren(byParent, child.id)
+                      variant={hasChildren ? "parent" : "leaf"}
+                      onNavigate={onNavigateCategory ? (slug) => onNavigateCategory(slug, "card") : undefined}
+                      childNames={
+                        hasChildren
+                          ? getChildren(byParent, child.id)
                                 .slice(0, 4)
                                 .map(item => item.name)
                             : undefined
@@ -603,6 +615,7 @@ export default function CategoryLandingPage({
               byParent={byParent}
               previewsByCategoryId={previewsByCategoryId}
               getBranchCount={getBranchCount}
+              onNavigateCategory={onNavigateCategory ? (slug) => onNavigateCategory(slug, "accordion") : undefined}
             />
           </div>
       </>

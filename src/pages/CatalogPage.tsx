@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { useSeo } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
+import { reachYandexGoal } from "@/lib/yandex-metrika";
 import {
   categoryHasChildren,
   isCatalogProductMode,
@@ -223,6 +224,49 @@ export default function CatalogPage() {
   };
 
   const clearFilters = () => updateFilters([]);
+
+  const trackCatalogNavigation = (
+    goal: "catalog_category_click" | "catalog_subcategory_click" | "catalog_show_all_products",
+    params: Record<string, unknown>
+  ) => {
+    reachYandexGoal(goal, params);
+  };
+
+  const handleRootBranchSelect = (slug: string, source: "tree" | "card") => {
+    trackCatalogNavigation("catalog_category_click", {
+      category_slug: slug,
+      source,
+      mode: "root-navigation",
+    });
+  };
+
+  const handleCatalogCategoryOpen = (slug: string, source: "tree" | "card") => {
+    trackCatalogNavigation("catalog_subcategory_click", {
+      category_slug: slug,
+      source,
+      mode: isRootCatalogNavigator ? "root-navigation" : "category-navigation",
+    });
+  };
+
+  const handleLandingCategoryOpen = (
+    slug: string,
+    source: "card" | "accordion" | "sidebar"
+  ) => {
+    trackCatalogNavigation("catalog_subcategory_click", {
+      category_slug: slug,
+      source,
+      mode: "category-navigation",
+      parent_category_slug: currentCategory?.slug ?? null,
+    });
+  };
+
+  const handleShowAllProducts = () => {
+    trackCatalogNavigation("catalog_show_all_products", {
+      category_slug: currentCategory?.slug ?? activeCategory,
+      mode: renderMode,
+    });
+    updateCatalogParams({ show: "products" });
+  };
 
   const sortedProducts = useMemo(() => {
     const result = [...products];
@@ -519,18 +563,17 @@ export default function CatalogPage() {
               categories={categories}
               previews={categoryNavigationPreviews}
               activeBranchSlug={activeTreeSlugFromHash || null}
-              onSelectBranch={slug =>
-                navigate(`/catalog?cat=all#${encodeURIComponent(slug)}`, { replace: true })
-              }
-              onOpenCategory={slug => navigate(`/catalog?cat=${slug}`)}
-              onOpenLeafCategory={slug => navigate(`/catalog?cat=${slug}`)}
+              onSelectBranch={handleRootBranchSelect}
+              onOpenCategory={handleCatalogCategoryOpen}
+              onOpenLeafCategory={handleCatalogCategoryOpen}
             />
           ) : isCategoryLandingPage && currentCategory ? (
             <CategoryLandingPage
               currentCategory={currentCategory}
               categories={categories}
               previews={categoryNavigationPreviews}
-              onShowAllProducts={() => updateCatalogParams({ show: "products" })}
+              onShowAllProducts={handleShowAllProducts}
+              onNavigateCategory={handleLandingCategoryOpen}
             />
           ) : (
             <>
