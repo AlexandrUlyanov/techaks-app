@@ -93,6 +93,10 @@ export default function CatalogPage() {
   const currentCategory = useMemo(() => {
     return categories.find(c => c.slug === activeCategory);
   }, [categories, activeCategory]);
+  const rootActiveBranch = useMemo(() => {
+    if (!activeTreeSlugFromHash) return null;
+    return categories.find(category => category.slug === activeTreeSlugFromHash) ?? null;
+  }, [categories, activeTreeSlugFromHash]);
   const renderMode = useMemo(
     () =>
       resolveCatalogRenderMode({
@@ -130,6 +134,22 @@ export default function CatalogPage() {
     }
   );
   const categoryNavigationPreviews = categoryNavigationPreviewsQuery.data ?? [];
+  const secondaryShelfCategorySlug =
+    isCategoryLandingPage && currentCategory
+      ? currentCategory.slug
+      : isRootCatalogNavigator && rootActiveBranch
+        ? rootActiveBranch.slug
+        : null;
+  const categorySecondaryShelfQuery = trpc.product.getTopByCategoryStock.useQuery(
+    secondaryShelfCategorySlug
+      ? { categorySlug: secondaryShelfCategorySlug, limit: 4 }
+      : { categorySlug: "__disabled__", limit: 4 },
+    {
+      enabled: Boolean(secondaryShelfCategorySlug),
+      placeholderData: prev => prev,
+    }
+  );
+  const categorySecondaryShelf = categorySecondaryShelfQuery.data ?? [];
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
@@ -348,10 +368,7 @@ export default function CatalogPage() {
   const hasSelectedFilters = selectedFilterLabels.length > 0;
 
   const currentManufacturer = currentManufacturerQuery.data ?? null;
-  const hashedRootCategory = useMemo(() => {
-    if (!activeTreeSlugFromHash) return null;
-    return categories.find(category => category.slug === activeTreeSlugFromHash) ?? null;
-  }, [categories, activeTreeSlugFromHash]);
+  const hashedRootCategory = rootActiveBranch;
 
   useEffect(() => {
     if (!isRootCatalogNavigator || !hashedRootCategory) return;
@@ -388,6 +405,16 @@ export default function CatalogPage() {
     if (catalogView !== "brands" || activeBrand) return [];
     return manufacturers;
   }, [catalogView, activeBrand, manufacturers]);
+  const secondaryShelfTitle = isCategoryLandingPage
+    ? "Популярное в разделе"
+    : rootActiveBranch
+      ? `Популярное в ветке «${rootActiveBranch.name}»`
+      : "Популярное в каталоге";
+  const secondaryShelfDescription = isCategoryLandingPage
+    ? "Небольшая подборка товаров в наличии, если хотите сразу перейти к просмотру предложений."
+    : rootActiveBranch
+      ? "Несколько товаров из выбранной ветки, чтобы быстро сориентироваться в ассортименте."
+      : "";
 
   // Breadcrumbs
   const breadcrumbs = useMemo(() => {
@@ -559,22 +586,66 @@ export default function CatalogPage() {
       <section className={isRootCatalogNavigator ? "py-6 md:py-8" : "py-6 md:py-8"}>
         <div className="container-main space-y-8 md:space-y-10">
           {isRootCatalogNavigator ? (
-            <RootCatalogNavigator
-              categories={categories}
-              previews={categoryNavigationPreviews}
-              activeBranchSlug={activeTreeSlugFromHash || null}
-              onSelectBranch={handleRootBranchSelect}
-              onOpenCategory={handleCatalogCategoryOpen}
-              onOpenLeafCategory={handleCatalogCategoryOpen}
-            />
+            <>
+              <RootCatalogNavigator
+                categories={categories}
+                previews={categoryNavigationPreviews}
+                activeBranchSlug={activeTreeSlugFromHash || null}
+                onSelectBranch={handleRootBranchSelect}
+                onOpenCategory={handleCatalogCategoryOpen}
+                onOpenLeafCategory={handleCatalogCategoryOpen}
+              />
+              {categorySecondaryShelf.length > 0 ? (
+                <section className="space-y-4">
+                  <div className="space-y-2 px-1">
+                    <div className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                      Вторичная подборка
+                    </div>
+                    <h2 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
+                      {secondaryShelfTitle}
+                    </h2>
+                    <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
+                      {secondaryShelfDescription}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                    {categorySecondaryShelf.map(product => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
           ) : isCategoryLandingPage && currentCategory ? (
-            <CategoryLandingPage
-              currentCategory={currentCategory}
-              categories={categories}
-              previews={categoryNavigationPreviews}
-              onShowAllProducts={handleShowAllProducts}
-              onNavigateCategory={handleLandingCategoryOpen}
-            />
+            <>
+              <CategoryLandingPage
+                currentCategory={currentCategory}
+                categories={categories}
+                previews={categoryNavigationPreviews}
+                onShowAllProducts={handleShowAllProducts}
+                onNavigateCategory={handleLandingCategoryOpen}
+              />
+              {categorySecondaryShelf.length > 0 ? (
+                <section className="space-y-4">
+                  <div className="space-y-2 px-1">
+                    <div className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+                      Вторичная подборка
+                    </div>
+                    <h2 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
+                      {secondaryShelfTitle}
+                    </h2>
+                    <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
+                      {secondaryShelfDescription}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                    {categorySecondaryShelf.map(product => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
           ) : (
             <>
           <div className="space-y-3 px-1">
