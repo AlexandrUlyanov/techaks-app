@@ -568,9 +568,7 @@ export default function CatalogPage() {
         currentLabel={
           catalogView === "brands"
             ? currentManufacturer?.name || "Производители"
-            : activeCategory === "all"
-              ? "Каталог"
-              : undefined
+            : undefined
         }
       />
 
