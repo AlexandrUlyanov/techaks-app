@@ -1,0 +1,2 @@
+ALTER TABLE `categories`
+  ADD COLUMN `image_url` varchar(512) NULL AFTER `meta_description`;

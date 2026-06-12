@@ -7,7 +7,6 @@ import {
 import { CategoryIcon } from "@/lib/category-icons";
 import { cn } from "@/lib/utils";
 import {
-  applyProductImageFallback,
   getProductCardImageProps,
 } from "@/lib/product-images";
 
@@ -17,6 +16,7 @@ type CategoryRecord = {
   slug: string;
   name: string;
   description?: string | null;
+  imageUrl?: string | null;
 };
 
 type CategoryPreviewRecord = {
@@ -132,10 +132,10 @@ function CategoryCard({
   onNavigate?: (slug: string, source: "card") => void;
 }) {
   const imageProps =
-    preview?.previewImage
+    category.imageUrl
       ? getProductCardImageProps({
-          image: preview.previewImage,
-          imageVariants: preview.previewImageVariants,
+          image: category.imageUrl,
+          imageVariants: null,
           sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 240px",
         })
       : null;
@@ -151,7 +151,7 @@ function CategoryCard({
       }
       className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] p-4 ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:hover:ring-[#05C3D4]/30"
     >
-      <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-4 dark:bg-[rgba(255,255,255,0.04)]">
+      <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white p-4 dark:bg-white">
         {imageProps ? (
           <img
             src={imageProps.src}
@@ -161,7 +161,6 @@ function CategoryCard({
             loading="lazy"
             decoding="async"
             className="h-full w-full object-contain"
-            onError={applyProductImageFallback}
           />
         ) : (
           <CategoryIcon

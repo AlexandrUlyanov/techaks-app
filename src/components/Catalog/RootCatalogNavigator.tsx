@@ -5,7 +5,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { CategoryIcon } from "@/lib/category-icons";
 import { cn } from "@/lib/utils";
 import {
-  applyProductImageFallback,
   getProductCardImageProps,
 } from "@/lib/product-images";
 
@@ -15,6 +14,7 @@ type CategoryRecord = {
   slug: string;
   name: string;
   description?: string | null;
+  imageUrl?: string | null;
   icon?: string | null;
 };
 
@@ -271,10 +271,10 @@ export default function RootCatalogNavigator({
             ? branchStats.get(category.id)
             : previewByCategoryId.get(category.id) ?? branchStats.get(category.id);
         const imageProps =
-          stats?.previewImage
+          category.imageUrl
             ? getProductCardImageProps({
-                image: stats.previewImage,
-                imageVariants: stats.previewImageVariants,
+                image: category.imageUrl,
+                imageVariants: null,
                 sizes: imageSizes,
               })
             : null;
@@ -309,7 +309,7 @@ export default function RootCatalogNavigator({
             className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
           >
-            <div className="flex h-[152px] items-center justify-center bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_82%,white)] p-5 dark:bg-[rgba(255,255,255,0.04)]">
+            <div className="flex h-[152px] items-center justify-center bg-white p-5 dark:bg-white">
               {imageProps ? (
                 <img
                   src={imageProps.src}
@@ -319,7 +319,6 @@ export default function RootCatalogNavigator({
                   loading="lazy"
                   decoding="async"
                   className="h-full w-full object-contain"
-                  onError={applyProductImageFallback}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[var(--tech-color-surface-muted)]/60 text-[var(--tech-color-primary)]">

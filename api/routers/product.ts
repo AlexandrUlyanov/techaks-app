@@ -148,6 +148,7 @@ function normalizeCategoryPayload(
     description?: string | null;
     metaTitle?: string | null;
     metaDescription?: string | null;
+    imageUrl?: string | null;
     icon?: string | null;
     sortOrder: number;
   }
@@ -159,6 +160,7 @@ function normalizeCategoryPayload(
     description: data.description?.trim() ? data.description.trim() : null,
     metaTitle: data.metaTitle?.trim() ? data.metaTitle.trim() : null,
     metaDescription: data.metaDescription?.trim() ? data.metaDescription.trim() : null,
+    imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
     icon: data.icon?.trim() ? data.icon.trim() : null,
     sortOrder: data.sortOrder,
   };
@@ -563,6 +565,7 @@ export const productRouter = createRouter({
       .select({
         id: categories.id,
         parentId: categories.parentId,
+        imageUrl: categories.imageUrl,
       })
       .from(categories)
       .orderBy(asc(categories.sortOrder));
@@ -659,7 +662,7 @@ export const productRouter = createRouter({
       return {
         categoryId: category.id,
         productCount: countByCategoryId.get(category.id) ?? 0,
-        previewImage: previewProduct?.image ?? null,
+        previewImage: category.imageUrl ?? previewProduct?.image ?? null,
         previewImageVariants: previewProduct?.imageVariants ?? null,
         hasChildren: (childrenByParentId.get(category.id)?.length ?? 0) > 0,
       };
@@ -1231,6 +1234,7 @@ export const productRouter = createRouter({
           description: z.string().nullable(),
           metaTitle: z.string().nullable().optional(),
           metaDescription: z.string().nullable().optional(),
+          imageUrl: z.string().nullable().optional(),
           icon: z.string().nullable(),
           sortOrder: z.number(),
         }),

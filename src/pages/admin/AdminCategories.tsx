@@ -31,6 +31,7 @@ type CategoryRecord = {
   description: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
+  imageUrl: string | null;
   icon: string | null;
   sortOrder: number;
 };
@@ -51,6 +52,7 @@ type CategoryDraft = {
   description: string;
   metaTitle: string;
   metaDescription: string;
+  imageUrl: string;
   icon: string;
   sortOrder: number;
 };
@@ -62,6 +64,7 @@ const EMPTY_DRAFT: CategoryDraft = {
   description: "",
   metaTitle: "",
   metaDescription: "",
+  imageUrl: "",
   icon: "",
   sortOrder: 0,
 };
@@ -265,6 +268,7 @@ export default function AdminCategories() {
       description: category.description ?? "",
       metaTitle: category.metaTitle ?? "",
       metaDescription: category.metaDescription ?? "",
+      imageUrl: category.imageUrl ?? "",
       icon: category.icon ?? "",
       sortOrder: category.sortOrder,
     });
@@ -288,6 +292,7 @@ export default function AdminCategories() {
         description: editingCategory.description.trim() || null,
         metaTitle: editingCategory.metaTitle.trim() || null,
         metaDescription: editingCategory.metaDescription.trim() || null,
+        imageUrl: editingCategory.imageUrl.trim() || null,
         icon: editingCategory.icon.trim() || null,
         sortOrder: Number(editingCategory.sortOrder) || 0,
       },
@@ -363,8 +368,18 @@ export default function AdminCategories() {
                     )}
                   </button>
 
-                  <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F2FBFD] text-[#05C3D4]">
-                    <CategoryIcon name={category.name} slug={category.slug} size={18} />
+                  <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-[#05C3D4]">
+                    {category.imageUrl ? (
+                      <img
+                        src={category.imageUrl}
+                        alt={category.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <CategoryIcon name={category.name} slug={category.slug} size={18} />
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-1">
@@ -707,6 +722,20 @@ export default function AdminCategories() {
                   }
                   rows={4}
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#05C3D4]"
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-gray-700">Фото категории</span>
+                <input
+                  value={editingCategory.imageUrl}
+                  onChange={event =>
+                    setEditingCategory(prev =>
+                      prev ? { ...prev, imageUrl: event.target.value } : prev
+                    )
+                  }
+                  placeholder="https://... или /uploads/categories/..."
+                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition-colors focus:border-[#05C3D4]"
                 />
               </label>
 
