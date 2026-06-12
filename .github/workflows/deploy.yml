@@ -96,6 +96,9 @@ jobs:
             echo "Building application..."
             npm run build
 
+            echo "Verifying production schema against SQL migrations..."
+            npm run deploy:verify-schema
+
             echo "Configuring nginx for techaks.ru..."
             cat << 'NGINX' > /etc/nginx/sites-available/techaks
             server {
@@ -173,5 +176,6 @@ jobs:
             echo "Running API/public/admin healthchecks..."
             curl -fsS https://techaks.ru/api/health >/dev/null
             curl -fsS https://techaks.ru/ >/dev/null
+            curl -fsS "https://techaks.ru/catalog?cat=all" | grep -q "Дерево категорий каталога"
             curl -fsS https://techaks.ru/admin/orders >/dev/null
             echo "API/public/admin healthchecks passed"
