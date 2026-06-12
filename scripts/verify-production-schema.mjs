@@ -21,35 +21,33 @@ const CRITICAL_TABLES = [
 ];
 
 async function readExistingTables(connection, schemaName) {
-  const [rows] = await connection.query(
-    `
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = ?
-    `,
-    [schemaName],
+  const [rows] = await connection.query(`SHOW TABLES FROM \`${schemaName}\``);
+  return new Set(
+    rows.map((row) => {
+      const value = Object.values(row)[0];
+      return typeof value === "string" ? value : String(value);
+    }),
   );
-
-  return new Set(rows.map((row) => row.table_name));
 }
 
 async function readExistingColumns(connection, schemaName, tableNames) {
-  if (tableNames.length === 0) {
-    return new Set();
+  const columns = new Set();
+
+  for (const tableName of tableNames) {
+    try {
+      const [rows] = await connection.query(`SHOW COLUMNS FROM \`${schemaName}\`.\`${tableName}\``);
+      for (const row of rows) {
+        const columnName = row.Field;
+        if (typeof columnName === "string") {
+          columns.add(`${tableName}.${columnName}`);
+        }
+      }
+    } catch {
+      // Missing table is handled separately via readExistingTables.
+    }
   }
 
-  const placeholders = tableNames.map(() => "?").join(", ");
-  const [rows] = await connection.query(
-    `
-      SELECT table_name, column_name
-      FROM information_schema.columns
-      WHERE table_schema = ?
-        AND table_name IN (${placeholders})
-    `,
-    [schemaName, ...tableNames],
-  );
-
-  return new Set(rows.map((row) => `${row.table_name}.${row.column_name}`));
+  return columns;
 }
 
 async function main() {
