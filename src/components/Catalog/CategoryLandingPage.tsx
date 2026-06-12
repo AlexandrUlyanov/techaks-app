@@ -382,19 +382,13 @@ export default function CategoryLandingPage({
 
   const topDescription =
     currentCategory.description?.trim() ||
-    `Найдите нужный раздел в категории «${currentCategory.name}»: мы собрали подкатегории, популярные направления и быстрые переходы к товарам.`;
+    "";
 
   const desktopSectionTitle = activeSection
-    ? `Раздел «${activeSection.name}»`
+    ? activeSection.name
     : compactLayout
-      ? "Все подкатегории раздела"
-      : "Выберите подкатегорию";
-
-  const desktopSectionDescription = activeSection
-    ? "Показываем прямые дочерние категории выбранной ветки. Можно вернуться ко всем разделам одним кликом."
-    : compactLayout
-      ? "Собрали все дочерние разделы на одном экране, чтобы можно было быстро перейти в нужную категорию без лишней навигации."
-      : "Сначала выберите нужное направление, а затем откройте конечную категорию с товарами.";
+      ? "Подкатегории"
+      : "Разделы";
 
   if (loading) {
     return (
@@ -448,9 +442,11 @@ export default function CategoryLandingPage({
           <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
             {currentCategory.name}
           </h1>
-          <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground dark:text-white/64">
-            {topDescription}
-          </p>
+          {topDescription ? (
+            <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground dark:text-white/64">
+              {topDescription}
+            </p>
+          ) : null}
         </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -556,9 +552,6 @@ export default function CategoryLandingPage({
                   <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
                     {desktopSectionTitle}
                   </div>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground dark:text-white/62">
-                    {desktopSectionDescription}
-                  </p>
                 </div>
                 {activeSection ? (
                   <button

@@ -406,15 +406,10 @@ export default function CatalogPage() {
     return manufacturers;
   }, [catalogView, activeBrand, manufacturers]);
   const secondaryShelfTitle = isCategoryLandingPage
-    ? "Популярное в разделе"
+    ? "Товары в наличии"
     : rootActiveBranch
-      ? `Популярное в ветке «${rootActiveBranch.name}»`
-      : "Популярное в каталоге";
-  const secondaryShelfDescription = isCategoryLandingPage
-    ? "Небольшая подборка товаров в наличии, если хотите сразу перейти к просмотру предложений."
-    : rootActiveBranch
-      ? "Несколько товаров из выбранной ветки, чтобы быстро сориентироваться в ассортименте."
-      : "";
+      ? `Товары в ветке «${rootActiveBranch.name}»`
+      : "Товары";
 
   // Breadcrumbs
   const breadcrumbs = useMemo(() => {
@@ -597,16 +592,10 @@ export default function CatalogPage() {
               />
               {categorySecondaryShelf.length > 0 ? (
                 <section className="space-y-4">
-                  <div className="space-y-2 px-1">
-                    <div className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">
-                      Вторичная подборка
-                    </div>
+                  <div className="px-1">
                     <h2 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
                       {secondaryShelfTitle}
                     </h2>
-                    <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
-                      {secondaryShelfDescription}
-                    </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                     {categorySecondaryShelf.map(product => (
@@ -627,16 +616,10 @@ export default function CatalogPage() {
               />
               {categorySecondaryShelf.length > 0 ? (
                 <section className="space-y-4">
-                  <div className="space-y-2 px-1">
-                    <div className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">
-                      Вторичная подборка
-                    </div>
+                  <div className="px-1">
                     <h2 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
                       {secondaryShelfTitle}
                     </h2>
-                    <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
-                      {secondaryShelfDescription}
-                    </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                     {categorySecondaryShelf.map(product => (

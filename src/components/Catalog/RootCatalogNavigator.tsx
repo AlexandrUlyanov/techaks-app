@@ -231,13 +231,8 @@ export default function RootCatalogNavigator({
       aria-label="Дерево категорий каталога"
       className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] p-4 md:p-5"
     >
-      <div className="mb-4">
-        <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-          Дерево каталога
-        </div>
-        <div className="mt-1 text-sm text-muted-foreground dark:text-white/62">
-          Выберите ветку и перейдите к конечной категории с товарами
-        </div>
+      <div className="mb-4 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+        Категории
       </div>
 
       <div>{renderTree(topLevelCategories)}</div>
@@ -364,14 +359,9 @@ export default function RootCatalogNavigator({
 
   return (
     <div className="space-y-6 md:space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
-          Каталог
-        </h1>
-        <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground">
-          Выберите ветку каталога и перейдите в нужный раздел с товарами.
-        </p>
-      </div>
+      <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
+        Каталог
+      </h1>
 
       <div className="md:hidden">
         {effectiveBranch ? (
@@ -399,14 +389,11 @@ export default function RootCatalogNavigator({
             <div className="mt-6 space-y-4">
               <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4">
                 <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                  Разделы ветки
+                  Разделы
                 </div>
                 <div className="mt-1 text-lg font-black text-foreground">
                   {effectiveBranch?.name ?? "Каталог"}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-white/62">
-                  Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу.
-                </p>
               </div>
 
               {mobileVisibleCategories.length > 0 ? (
@@ -447,16 +434,11 @@ export default function RootCatalogNavigator({
         <div className="space-y-4">
           <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4 md:px-5">
             <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-              {effectiveBranch ? "Разделы ветки" : "Категории каталога"}
+              {effectiveBranch ? "Разделы" : "Категории"}
             </div>
             <div className="mt-1 text-lg font-black text-foreground">
-              {effectiveBranch?.name ?? "Выберите ветку каталога"}
+              {effectiveBranch?.name ?? "Каталог"}
             </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground dark:text-white/62">
-              {effectiveBranch
-                ? "Откройте нужный раздел внутри выбранной ветки и продолжите навигацию по каталогу."
-                : "Слева выберите ветку каталога, а справа мы сразу покажем основные разделы верхнего уровня."}
-            </p>
           </div>
 
           {desktopVisibleCategories.length > 0 ? (
