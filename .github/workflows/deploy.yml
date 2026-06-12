@@ -176,6 +176,6 @@ jobs:
             echo "Running API/public/admin healthchecks..."
             curl -fsS https://techaks.ru/api/health >/dev/null
             curl -fsS https://techaks.ru/ >/dev/null
-            curl -fsS "https://techaks.ru/catalog?cat=all" | grep -q "Дерево категорий каталога"
+            curl -fsS "https://techaks.ru/catalog?cat=all" | grep -q "<title>Каталог товаров ТЕХАКС"
             curl -fsS https://techaks.ru/admin/orders >/dev/null
             echo "API/public/admin healthchecks passed"
