@@ -53,18 +53,25 @@ async function readExistingColumns(connection, schemaName, tableNames) {
 }
 
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL?.trim().replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
 
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required to verify production schema.");
   }
 
-  const schemaName = new URL(databaseUrl).pathname.replace(/^\/+/, "");
+  const parsedUrl = new URL(databaseUrl);
+  const schemaName = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, "").replace(/\/+$/, "");
   if (!schemaName) {
     throw new Error("Could not determine schema name from DATABASE_URL.");
   }
 
-  const connection = await mysql.createConnection(databaseUrl);
+  const connection = await mysql.createConnection({
+    host: parsedUrl.hostname,
+    port: parsedUrl.port ? Number(parsedUrl.port) : 3306,
+    user: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    database: schemaName,
+  });
 
   try {
     const requiredTableNames = CRITICAL_TABLES.map((entry) => entry.tableName);
