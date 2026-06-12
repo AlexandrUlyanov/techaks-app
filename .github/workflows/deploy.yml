@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
 
 env:
   SERVER_IP: "195.208.2.100"
@@ -14,10 +19,13 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -35,8 +43,20 @@ jobs:
               echo "Node: $(node -v 2>/dev/null || echo missing)"
               echo "NPM: $(npm -v 2>/dev/null || echo missing)"
               pm2 status techaks --no-color || true
-              pm2 logs techaks --lines 120 --nostream || true
+              tail -n 80 /root/.pm2/logs/techaks-error.log 2>/dev/null || true
+              tail -n 40 /root/.pm2/logs/techaks-out.log 2>/dev/null || true
               echo "---- DEPLOY DEBUG END ----"
+            }
+
+            smoke_check() {
+              local url="$1"
+              local pattern="${2:-}"
+
+              if [ -n "$pattern" ]; then
+                curl -fsS "$url" | grep -q "$pattern"
+              else
+                curl -fsS "$url" >/dev/null
+              fi
             }
 
             trap 'dump_debug' ERR
@@ -175,8 +195,8 @@ jobs:
             fi
 
             echo "Running API/public/admin healthchecks..."
-            curl -fsS https://techaks.ru/api/health >/dev/null
-            curl -fsS https://techaks.ru/ >/dev/null
-            curl -fsS "https://techaks.ru/catalog?cat=all" | grep -q "<title>Каталог товаров ТЕХАКС"
-            curl -fsS https://techaks.ru/admin/orders >/dev/null
+            smoke_check "https://techaks.ru/api/health"
+            smoke_check "https://techaks.ru/"
+            smoke_check "https://techaks.ru/catalog?cat=all" "<title>Каталог товаров ТЕХАКС"
+            smoke_check "https://techaks.ru/admin/orders"
             echo "API/public/admin healthchecks passed"
