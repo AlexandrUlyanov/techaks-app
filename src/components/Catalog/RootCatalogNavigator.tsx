@@ -190,11 +190,8 @@ export default function RootCatalogNavigator({
                       ? `Открыть ветку каталога ${categoryLabel}`
                       : `Перейти в категорию ${categoryLabel}`
                   }
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
+                  className="flex min-w-0 flex-1 items-center rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,transparent)] text-[var(--tech-color-primary)]">
-                    <CategoryIcon name={category.name} slug={category.slug} size={16} className="text-current" />
-                  </span>
                   <span className="line-clamp-2 text-sm font-semibold leading-5">
                     {categoryLabel}
                   </span>

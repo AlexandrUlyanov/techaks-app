@@ -499,10 +499,7 @@ export default function CategoryLandingPage({
                           aria-expanded={children.length > 0 ? expandedSectionSlugs[section.slug] ?? false : undefined}
                           aria-current={isActive ? "true" : undefined}
                         >
-                          <span className="flex min-w-0 items-start gap-2">
-                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
-                              <CategoryIcon name={section.name} slug={section.slug} size={16} className="text-current" />
-                            </span>
+                          <span className="flex min-w-0 items-start">
                             <span className="line-clamp-2 text-sm font-semibold leading-5">
                               {sectionLabel}
                             </span>
