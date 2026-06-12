@@ -76,9 +76,6 @@ export default function ProductDeliveryTab({
         <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
           Как получить и оплатить заказ
         </h2>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          Блок подготовлен так, чтобы позже условия можно было забирать из настроек сайта без переделки интерфейса.
-        </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
