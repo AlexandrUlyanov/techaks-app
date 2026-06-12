@@ -433,14 +433,10 @@ export default function CatalogPage() {
   const showProductSection = isProductListingPage;
   const currentResultCount = sortedProducts.length;
   const currentIntroText = currentManufacturer
-    ? currentManufacturer.description?.trim() ||
-      currentManufacturer.metaDescription?.trim() ||
-      `Товары бренда ${currentManufacturer.name}: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`
+    ? currentManufacturer.description?.trim() || ""
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.description?.trim() ||
-        currentCategory.metaDescription?.trim() ||
-        `${currentCategory.name}: выбирайте товары по категории, сравнивайте предложения и наличие в интернет-магазине ТЕХАКС.`
-      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам.";
+      ? currentCategory.description?.trim() || ""
+      : "";
 
   const seoTitle = currentManufacturer
     ? currentManufacturer.metaTitle?.trim() ||
@@ -635,9 +631,11 @@ export default function CatalogPage() {
             <h1 className="text-2xl font-black tracking-[-0.03em] text-foreground md:text-[2rem]">
               {headerTitle}
             </h1>
-            <p className="max-w-4xl text-sm leading-7 text-muted-foreground md:text-[15px]">
-              {currentIntroText}
-            </p>
+            {currentIntroText ? (
+              <p className="max-w-4xl text-sm leading-7 text-muted-foreground md:text-[15px]">
+                {currentIntroText}
+              </p>
+            ) : null}
           </div>
           
           {/* Categories Grid */}
@@ -679,15 +677,7 @@ export default function CatalogPage() {
           {displayCategories.length > 0 && (
             <div className="space-y-4">
               <div className="px-1 py-1 md:px-0 md:py-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.26em] text-muted-foreground">
-                      {activeCategory === "all" ? "Категории" : "Подкатегории"}
-                    </h2>
-                    <p className="mt-1.5 text-sm text-muted-foreground">
-                      Быстрый переход по основным разделам каталога
-                    </p>
-                  </div>
+                <div className="flex items-center justify-end gap-4">
                   <div className="flex items-center gap-3">
                     {displayCategories.length > INITIAL_CATEGORY_SHELF_COUNT ? (
                       <button

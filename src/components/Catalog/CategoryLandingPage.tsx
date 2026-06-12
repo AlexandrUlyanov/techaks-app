@@ -384,12 +384,6 @@ export default function CategoryLandingPage({
     currentCategory.description?.trim() ||
     "";
 
-  const desktopSectionTitle = activeSection
-    ? activeSection.name
-    : compactLayout
-      ? "Подкатегории"
-      : "Разделы";
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -548,11 +542,11 @@ export default function CategoryLandingPage({
 
             <div className="space-y-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                {activeSection ? (
                   <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
-                    {desktopSectionTitle}
+                    {activeSection.name}
                   </div>
-                </div>
+                ) : <div />}
                 {activeSection ? (
                   <button
                     type="button"

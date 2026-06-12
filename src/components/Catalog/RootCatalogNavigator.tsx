@@ -231,10 +231,6 @@ export default function RootCatalogNavigator({
       aria-label="Дерево категорий каталога"
       className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] p-4 md:p-5"
     >
-      <div className="mb-4 text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-        Категории
-      </div>
-
       <div>{renderTree(topLevelCategories)}</div>
     </nav>
   );
@@ -387,13 +383,8 @@ export default function RootCatalogNavigator({
             </Sheet>
 
             <div className="mt-6 space-y-4">
-              <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4">
-                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                  Разделы
-                </div>
-                <div className="mt-1 text-lg font-black text-foreground">
-                  {effectiveBranch?.name ?? "Каталог"}
-                </div>
+              <div className="px-1 text-lg font-black text-foreground">
+                {effectiveBranch?.name ?? "Каталог"}
               </div>
 
               {mobileVisibleCategories.length > 0 ? (
@@ -432,14 +423,11 @@ export default function RootCatalogNavigator({
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-[1.4rem] bg-[color:color-mix(in_srgb,var(--tech-color-surface)_58%,transparent)] px-4 py-4 md:px-5">
-            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-              {effectiveBranch ? "Разделы" : "Категории"}
+          {effectiveBranch ? (
+            <div className="px-1 text-lg font-black text-foreground">
+              {effectiveBranch.name}
             </div>
-            <div className="mt-1 text-lg font-black text-foreground">
-              {effectiveBranch?.name ?? "Каталог"}
-            </div>
-          </div>
+          ) : null}
 
           {desktopVisibleCategories.length > 0 ? (
             renderCategoryCards(
