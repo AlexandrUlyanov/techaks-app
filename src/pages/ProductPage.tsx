@@ -34,6 +34,7 @@ import ProductBreadcrumbsCompact, {
   shortenProductName,
   type CompactBreadcrumbItem,
 } from "@/components/product/ProductBreadcrumbsCompact";
+import { formatCategoryLabel } from "@/lib/category-labels";
 import type { ProductStoreAvailability } from "@/components/product/StoreAvailabilityItem";
 import {
   getMerchandisingBadgeLabel,
@@ -391,7 +392,7 @@ export default function ProductPage() {
         { name: "Главная", path: "/" },
         { name: "Каталог", path: "/catalog" },
         ...breadcrumbs.map(item => ({
-          name: item.name,
+          name: formatCategoryLabel(String(item.name)),
           path: `/catalog?cat=${item.slug}`,
         })),
         { name: product.name, path: seoCanonicalPath },
@@ -655,7 +656,7 @@ export default function ProductPage() {
           breadcrumb =>
             ({
               id: breadcrumb.id,
-              label: String(breadcrumb.name),
+              label: formatCategoryLabel(String(breadcrumb.name)),
               to: `/catalog?cat=${breadcrumb.slug}`,
             }) satisfies CompactBreadcrumbItem
         )}

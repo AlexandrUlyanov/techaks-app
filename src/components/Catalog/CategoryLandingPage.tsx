@@ -5,6 +5,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { CategoryIcon } from "@/lib/category-icons";
+import { formatCategoryLabel } from "@/lib/category-labels";
 import { cn } from "@/lib/utils";
 import {
   getProductCardImageProps,
@@ -139,6 +140,7 @@ function CategoryCard({
           sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 240px",
         })
       : null;
+  const categoryLabel = formatCategoryLabel(category.name);
 
   return (
     <Link
@@ -146,8 +148,8 @@ function CategoryCard({
       onClick={() => onNavigate?.(category.slug, "card")}
       aria-label={
         variant === "leaf"
-          ? `Перейти в категорию ${category.name}`
-          : `Открыть раздел ${category.name}`
+          ? `Перейти в категорию ${categoryLabel}`
+          : `Открыть раздел ${categoryLabel}`
       }
       className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] p-4 ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:hover:ring-[#05C3D4]/30"
     >
@@ -157,7 +159,7 @@ function CategoryCard({
             src={imageProps.src}
             srcSet={imageProps.srcSet}
             sizes={imageProps.sizes}
-            alt={category.name}
+            alt={categoryLabel}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-contain"
@@ -175,7 +177,7 @@ function CategoryCard({
       <div className="mt-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-base font-black leading-6 text-foreground dark:text-white/92">
-            {category.name}
+            {categoryLabel}
           </div>
           {variant === "leaf" ? (
           <div className="mt-2 text-sm text-muted-foreground dark:text-white/62">
@@ -244,7 +246,7 @@ function MobileCategoryAccordion({
               className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
             >
               <div>
-                <div className="text-base font-black text-foreground dark:text-white/92">{section.name}</div>
+                <div className="text-base font-black text-foreground dark:text-white/92">{formatCategoryLabel(section.name)}</div>
                 <div className="mt-1 text-sm text-muted-foreground dark:text-white/62">
                   {getBranchCount(section) > 0
                     ? formatProductCount(getBranchCount(section))
@@ -288,7 +290,7 @@ function MobileCategoryAccordion({
                         childHasChildren
                           ? getChildren(byParent, child.id)
                               .slice(0, 4)
-                              .map(item => item.name)
+                              .map(item => formatCategoryLabel(item.name))
                           : undefined
                       }
                     />
@@ -382,6 +384,7 @@ export default function CategoryLandingPage({
   const topDescription =
     currentCategory.description?.trim() ||
     "";
+  const currentCategoryLabel = formatCategoryLabel(currentCategory.name);
 
   if (loading) {
     return (
@@ -433,7 +436,7 @@ export default function CategoryLandingPage({
       <div className="space-y-4 md:space-y-5">
         <div className="space-y-2">
           <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
-            {currentCategory.name}
+            {currentCategoryLabel}
           </h1>
           {topDescription ? (
             <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground dark:text-white/64">
@@ -446,7 +449,7 @@ export default function CategoryLandingPage({
           <button
             type="button"
             onClick={onShowAllProducts}
-            aria-label={`Показать все товары в разделе ${currentCategory.name}`}
+            aria-label={`Показать все товары в разделе ${currentCategoryLabel}`}
             className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-bold text-[#05C3D4] ring-1 ring-[rgba(5,195,212,0.28)] transition hover:bg-[rgba(5,195,212,0.05)] dark:bg-transparent dark:hover:bg-[rgba(5,195,212,0.08)]"
           >
             Показать все товары в разделе
@@ -463,11 +466,12 @@ export default function CategoryLandingPage({
           >
             {!compactLayout ? (
               <aside className="sticky top-[var(--header-height,96px)] max-h-[calc(100vh_-_var(--header-height,96px)_-_24px)] overflow-y-auto pr-2 no-scrollbar">
-                <nav aria-label={`Подкатегории раздела ${currentCategory.name}`}>
+                <nav aria-label={`Подкатегории раздела ${currentCategoryLabel}`}>
                 <div className="space-y-1">
                   {sectionCategories.map((section: CategoryRecord) => {
                     const isActive = activeSection?.slug === section.slug;
                     const children = getChildren(byParent, section.id);
+                    const sectionLabel = formatCategoryLabel(section.name);
                     return (
                       <div key={section.id} className="space-y-1">
                         <button
@@ -500,7 +504,7 @@ export default function CategoryLandingPage({
                               <CategoryIcon name={section.name} slug={section.slug} size={16} className="text-current" />
                             </span>
                             <span className="line-clamp-2 text-sm font-semibold leading-5">
-                              {section.name}
+                              {sectionLabel}
                             </span>
                           </span>
                           {children.length > 0 ? (
@@ -522,10 +526,10 @@ export default function CategoryLandingPage({
                                 key={child.id}
                                 to={`/catalog?cat=${child.slug}`}
                                 onClick={() => onNavigateCategory?.(child.slug, "sidebar")}
-                                aria-label={`Перейти в категорию ${child.name}`}
+                                aria-label={`Перейти в категорию ${formatCategoryLabel(child.name)}`}
                                 className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
                               >
-                                <span className="line-clamp-2 leading-5">{child.name}</span>
+                                <span className="line-clamp-2 leading-5">{formatCategoryLabel(child.name)}</span>
                                 <ChevronRight size={14} className="mt-0.5 shrink-0 text-[#05C3D4]" />
                               </Link>
                             ))}
@@ -543,7 +547,7 @@ export default function CategoryLandingPage({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 {activeSection ? (
                   <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
-                    {activeSection.name}
+                    {formatCategoryLabel(activeSection.name)}
                   </div>
                 ) : <div />}
                 {activeSection ? (
@@ -583,7 +587,7 @@ export default function CategoryLandingPage({
                         hasChildren
                           ? getChildren(byParent, child.id)
                                 .slice(0, 4)
-                                .map(item => item.name)
+                                .map(item => formatCategoryLabel(item.name))
                             : undefined
                         }
                       />
@@ -604,7 +608,7 @@ export default function CategoryLandingPage({
           </div>
 
           <div className="space-y-4 lg:hidden">
-            <nav aria-label={`Все категории раздела ${currentCategory.name}`} className="space-y-4">
+            <nav aria-label={`Все категории раздела ${currentCategoryLabel}`} className="space-y-4">
               <div className="text-sm font-bold text-muted-foreground dark:text-white/66">
                 Все категории
               </div>

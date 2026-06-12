@@ -18,6 +18,7 @@ import type {
 import { useCatalog } from "@/providers/CatalogProvider";
 import { useMediaQuery, useBodyScrollLock } from "@/hooks/use-catalog-menu";
 import { CategoryIcon } from "@/lib/category-icons";
+import { formatCategoryLabel } from "@/lib/category-labels";
 
 const IconWrapper = ({
   title,
@@ -169,8 +170,8 @@ const DesktopCatalog = () => {
                           : "text-foreground/30 group-hover:text-[#05C3D4]"
                       }
                     />
-                    <span className="text-[12px] font-black uppercase tracking-widest leading-none">
-                      {cat.title}
+                    <span className="text-[12px] font-black tracking-[0.08em] leading-none">
+                      {formatCategoryLabel(cat.title)}
                     </span>
                   </div>
                   <ChevronRight
@@ -187,8 +188,8 @@ const DesktopCatalog = () => {
 
           <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-white dark:bg-background">
             <div className="flex items-center justify-between mb-10 pb-6 border-b border-border">
-              <h2 className="text-3xl font-black uppercase tracking-tighter text-foreground">
-                {menu.activeCategory.title}
+              <h2 className="text-3xl font-black tracking-tight text-foreground">
+                {formatCategoryLabel(menu.activeCategory.title)}
               </h2>
               {groupsWithChildren.length > 0 && (
                 <Link
@@ -207,9 +208,9 @@ const DesktopCatalog = () => {
                     key={group.id}
                     className="mb-6 break-inside-avoid space-y-2.5"
                   >
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
+                    <h3 className="text-[11px] font-black tracking-[0.08em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                       <Link to={group.href || "#"} onClick={menu.close}>
-                        {group.title}
+                        {formatCategoryLabel(group.title)}
                       </Link>
                     </h3>
                     <div className="flex flex-col gap-1.5">
@@ -221,7 +222,7 @@ const DesktopCatalog = () => {
                           onClick={menu.close}
                         >
                           <span className="group-hover/item:translate-x-1 transition-transform">
-                            {item.title}
+                            {formatCategoryLabel(item.title)}
                           </span>
                           <Badge type={item.badge} />
                         </Link>
@@ -274,9 +275,9 @@ const DesktopCatalog = () => {
                       key={group.id}
                       to={group.href || "#"}
                       onClick={menu.close}
-                      className="text-[12px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
-                    >
-                      {group.title}
+                    className="text-[12px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                  >
+                      {formatCategoryLabel(group.title)}
                     </Link>
                   ))}
                 </div>
@@ -420,8 +421,8 @@ const MobileCatalog = () => {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-24">
         {menu.searchTerm ? (
-          <div className="p-4 space-y-2">
-            {menu.filteredCategories.map((item: any, i: number) => (
+            <div className="p-4 space-y-2">
+              {menu.filteredCategories.map((item: any, i: number) => (
               <Link
                 key={`${item.id}-${i}`}
                 to={item.href || item.parentHref || "#"}
@@ -432,8 +433,8 @@ const MobileCatalog = () => {
                   <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">
                     {item.type}
                   </span>
-                  <span className="text-sm font-black uppercase text-foreground">
-                    {item.title}
+                  <span className="text-sm font-black text-foreground">
+                    {formatCategoryLabel(item.title)}
                   </span>
                 </div>
                 <ChevronRight size={16} className="text-[#05C3D4]" />
@@ -459,8 +460,8 @@ const MobileCatalog = () => {
                     size={22}
                     className="text-[#05C3D4]"
                   />
-                  <span className="text-[14px] font-black uppercase tracking-widest">
-                    {cat.title}
+                  <span className="text-[14px] font-black tracking-[0.08em]">
+                    {formatCategoryLabel(cat.title)}
                   </span>
                 </div>
                 {cat.children && (
@@ -472,8 +473,8 @@ const MobileCatalog = () => {
         ) : !currentGroup ? (
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
-              <h3 className="text-2xl font-black uppercase tracking-tighter mb-4">
-                {currentCategory?.title}
+              <h3 className="text-2xl font-black tracking-tight mb-4">
+                {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </h3>
               <Link
                 to={currentCategory?.href || "#"}
@@ -494,8 +495,8 @@ const MobileCatalog = () => {
                       : (window.location.href = group.href || "#")
                   }
                 >
-                  <span className="text-[13px] font-black uppercase tracking-wider">
-                    {group.title}
+                  <span className="text-[13px] font-black tracking-[0.08em]">
+                    {formatCategoryLabel(group.title)}
                   </span>
                   <ChevronRight size={18} className="opacity-20" />
                 </div>
@@ -506,10 +507,10 @@ const MobileCatalog = () => {
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
               <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] block mb-2">
-                {currentCategory?.title}
+                {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </span>
-              <h3 className="text-2xl font-black uppercase tracking-tighter">
-                {currentGroup.title}
+              <h3 className="text-2xl font-black tracking-tight">
+                {formatCategoryLabel(currentGroup.title)}
               </h3>
             </div>
             <div className="p-4 space-y-1">
@@ -520,8 +521,8 @@ const MobileCatalog = () => {
                   className="flex items-center justify-between p-5 bg-card border border-transparent border-b-border active:bg-[#05C3D4]/5"
                   onClick={menu.close}
                 >
-                  <span className="text-[13px] font-bold uppercase tracking-tight text-foreground/80">
-                    {item.title}
+                  <span className="text-[13px] font-bold tracking-tight text-foreground/80">
+                    {formatCategoryLabel(item.title)}
                   </span>
                   <Badge type={item.badge} />
                 </Link>

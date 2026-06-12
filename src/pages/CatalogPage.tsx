@@ -7,6 +7,7 @@ import CategoryLandingPage from "@/components/Catalog/CategoryLandingPage";
 import ProductBreadcrumbsCompact, {
   type CompactBreadcrumbItem,
 } from "@/components/product/ProductBreadcrumbsCompact";
+import { formatCategoryLabel } from "@/lib/category-labels";
 import { trpc } from "@/providers/trpc";
 import { CategoryIcon } from "@/lib/category-icons";
 import {
@@ -379,7 +380,7 @@ export default function CatalogPage() {
 
   const activeCategoryName = useMemo(() => {
     if (activeCategory === "all") return "Все";
-    return currentCategory?.name || "Каталог";
+    return currentCategory ? formatCategoryLabel(currentCategory.name) : "Каталог";
   }, [currentCategory, activeCategory]);
 
   const displayCategories = useMemo(() => {
@@ -408,7 +409,7 @@ export default function CatalogPage() {
   const secondaryShelfTitle = isCategoryLandingPage
     ? "Товары в наличии"
     : rootActiveBranch
-      ? `Товары в ветке «${rootActiveBranch.name}»`
+      ? `Товары в ветке «${formatCategoryLabel(rootActiveBranch.name)}»`
       : "Товары";
 
   // Breadcrumbs
@@ -442,7 +443,7 @@ export default function CatalogPage() {
     ? currentManufacturer.metaTitle?.trim() ||
       `${currentManufacturer.name} — товары бренда в ТЕХАКС`
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.metaTitle?.trim() || `${currentCategory.name} — купить в ТЕХАКС`
+      ? currentCategory.metaTitle?.trim() || `${formatCategoryLabel(currentCategory.name)} — купить в ТЕХАКС`
       : "Каталог товаров — интернет-магазин ТЕХАКС";
 
   const seoDescription = currentManufacturer
@@ -452,7 +453,7 @@ export default function CatalogPage() {
     : currentCategory && activeCategory !== "all"
       ? currentCategory.metaDescription?.trim() ||
         currentCategory.description?.trim() ||
-        `${currentCategory.name}: цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
+        `${formatCategoryLabel(currentCategory.name)}: цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
       : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам с самовывозом в Пензе и доставкой по России.";
 
   const seoCanonicalPath = (() => {
@@ -492,7 +493,7 @@ export default function CatalogPage() {
         : [
             { name: "Каталог", path: "/catalog" },
             ...breadcrumbs.map(breadcrumb => ({
-              name: String(breadcrumb.name),
+              name: formatCategoryLabel(String(breadcrumb.name)),
               path: `/catalog?cat=${breadcrumb.slug}`,
             })),
           ];
@@ -559,7 +560,7 @@ export default function CatalogPage() {
                 breadcrumb =>
                   ({
                     id: breadcrumb.id,
-                    label: String(breadcrumb.name),
+                    label: formatCategoryLabel(String(breadcrumb.name)),
                     to: `/catalog?cat=${breadcrumb.slug}`,
                   }) satisfies CompactBreadcrumbItem
               )

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ChevronDown, ChevronRight, FolderTree, Search } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CategoryIcon } from "@/lib/category-icons";
+import { formatCategoryLabel } from "@/lib/category-labels";
 import { cn } from "@/lib/utils";
 import {
   getProductCardImageProps,
@@ -151,6 +152,7 @@ export default function RootCatalogNavigator({
           const children = byParent.get(category.id) ?? [];
           const hasChildren = children.length > 0;
           const active = effectiveBranch?.slug === category.slug;
+          const categoryLabel = formatCategoryLabel(category.name);
 
           return (
             <li key={category.id} className="space-y-1">
@@ -185,8 +187,8 @@ export default function RootCatalogNavigator({
                   aria-current={active ? "page" : undefined}
                   aria-label={
                     hasChildren
-                      ? `Открыть ветку каталога ${category.name}`
-                      : `Перейти в категорию ${category.name}`
+                      ? `Открыть ветку каталога ${categoryLabel}`
+                      : `Перейти в категорию ${categoryLabel}`
                   }
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40"
                 >
@@ -194,7 +196,7 @@ export default function RootCatalogNavigator({
                     <CategoryIcon name={category.name} slug={category.slug} size={16} className="text-current" />
                   </span>
                   <span className="line-clamp-2 text-sm font-semibold leading-5">
-                    {category.name}
+                    {categoryLabel}
                   </span>
                 </Link>
 
@@ -278,6 +280,7 @@ export default function RootCatalogNavigator({
                 sizes: imageSizes,
               })
             : null;
+        const categoryLabel = formatCategoryLabel(category.name);
 
         return (
           <Link
@@ -303,8 +306,8 @@ export default function RootCatalogNavigator({
             }}
             aria-label={
               hasChildren
-                ? `Открыть раздел каталога ${category.name}`
-                : `Перейти в категорию ${category.name}`
+                ? `Открыть раздел каталога ${categoryLabel}`
+                : `Перейти в категорию ${categoryLabel}`
             }
             className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
             style={{ animationDelay: `${index * 30}ms` }}
@@ -315,7 +318,7 @@ export default function RootCatalogNavigator({
                   src={imageProps.src}
                   srcSet={imageProps.srcSet}
                   sizes={imageProps.sizes}
-                  alt={category.name}
+                  alt={categoryLabel}
                   loading="lazy"
                   decoding="async"
                   className="h-full w-full object-contain"
@@ -330,10 +333,10 @@ export default function RootCatalogNavigator({
               <div className={cn(
                 "line-clamp-2 text-foreground dark:text-white/92",
                 hasChildren
-                  ? "text-sm font-black uppercase tracking-[0.03em] md:text-base"
+                  ? "text-sm font-black tracking-tight md:text-base"
                   : "text-sm font-bold leading-5"
               )}>
-                {category.name}
+                {categoryLabel}
               </div>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground dark:text-white/62">
                 <span>
@@ -383,7 +386,7 @@ export default function RootCatalogNavigator({
 
             <div className="mt-6 space-y-4">
               <div className="px-1 text-lg font-black text-foreground">
-                {effectiveBranch?.name ?? "Каталог"}
+                {effectiveBranch ? formatCategoryLabel(effectiveBranch.name) : "Каталог"}
               </div>
 
               {mobileVisibleCategories.length > 0 ? (
@@ -424,7 +427,7 @@ export default function RootCatalogNavigator({
         <div className="space-y-4">
           {effectiveBranch ? (
             <div className="px-1 text-lg font-black text-foreground">
-              {effectiveBranch.name}
+              {formatCategoryLabel(effectiveBranch.name)}
             </div>
           ) : null}
 
