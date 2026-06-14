@@ -91,6 +91,33 @@ export default function AdminSeoDashboard() {
   });
 
   const data = query.data;
+  const storefrontAuditIssues =
+    data?.storefrontAudit.results.flatMap(item =>
+      item.issues.map(issue => `${item.label}: ${issue}`)
+    ) ?? [];
+  const feedWarnings = data?.yandexFeed.warnings ?? [];
+  const contentDebtCount = data
+    ? data.products.withoutDescription +
+      data.products.withoutImage +
+      data.categories.withoutDescription +
+      data.categories.withoutMetaTitle +
+      data.categories.withoutMetaDescription +
+      data.blog.withoutMetaTitle +
+      data.blog.withoutMetaDescription
+    : 0;
+  const weeklyAlerts = data
+    ? [
+        ...(storefrontAuditIssues.length > 0
+          ? storefrontAuditIssues.slice(0, 6)
+          : ["Storefront head/canonical/noindex без замечаний"]),
+        ...(feedWarnings.length > 0
+          ? feedWarnings.slice(0, 4).map(item => `YML: ${item}`)
+          : ["YML-фид без предупреждений"]),
+        ...(data.commercial.contactIssues.length > 0
+          ? data.commercial.contactIssues.map(item => `Контакты: ${item}`)
+          : ["Контакты и региональность заполнены"]),
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -727,6 +754,161 @@ export default function AdminSeoDashboard() {
               ))}
             </div>
           </AdminSection>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <AdminSection
+              title="Weekly SEO control loop"
+              description="Операционный контур на неделю: что смотрим в админке, что сверяем в Яндекс Вебмастере и какие сигналы считаем поводом для реакции."
+              actions={
+                <a
+                  href="/admin/feeds"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                >
+                  Проверить фиды
+                  <ArrowRight size={16} />
+                </a>
+              }
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard
+                  label="Storefront issues"
+                  value={data.storefrontAudit.issueCount}
+                  hint="Head, canonical, robots, H1"
+                  icon={Globe}
+                  tone={data.storefrontAudit.issueCount > 0 ? "warning" : "success"}
+                />
+                <AdminStatCard
+                  label="YML warnings"
+                  value={data.yandexFeed.warnings.length}
+                  hint={`Офферов: ${data.yandexFeed.totalOffers}`}
+                  icon={Rss}
+                  tone={data.yandexFeed.warnings.length > 0 ? "warning" : "success"}
+                />
+                <AdminStatCard
+                  label="Content debt"
+                  value={contentDebtCount}
+                  hint="Товары, категории и блог"
+                  icon={ScrollText}
+                  tone={contentDebtCount > 0 ? "warning" : "success"}
+                />
+                <AdminStatCard
+                  label="Коммерческие сигналы"
+                  value={data.commercial.contactIssues.length + data.commercial.legalDocumentsMissing}
+                  hint="Контакты, документы, регион"
+                  icon={ShieldCheck}
+                  tone={
+                    data.commercial.contactIssues.length + data.commercial.legalDocumentsMissing > 0
+                      ? "warning"
+                      : "success"
+                  }
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Что смотрим каждую неделю
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                    <li>• индекс и исключённые страницы в Яндекс Вебмастере</li>
+                    <li>• качество sitemap и загрузку YML-фида</li>
+                    <li>• noindex/canonical drift по страницам каталога и товарам</li>
+                    <li>• контентные долги: товары без описаний, категории без meta и intro</li>
+                    <li>• CTR и клики по важным категориям, брендам и товарам</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Owner list
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-[var(--tech-color-text-muted)]">
+                    <div>
+                      <span className="font-semibold text-[var(--tech-color-text-main)]">
+                        Storefront / SEO:
+                      </span>{" "}
+                      canonical, noindex, sitemap, schema, storefront audit
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--tech-color-text-main)]">
+                        Контент / каталог:
+                      </span>{" "}
+                      meta, intro, описания категорий, brand copy, FAQ
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--tech-color-text-main)]">
+                        Операционный контур:
+                      </span>{" "}
+                      фид, Вебмастер, регион, коммерческие сигналы, weekly review
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4 lg:col-span-2">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Контрольные алерты недели
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {weeklyAlerts.map(item => (
+                      <IssueBadge key={item} issue={item} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Weekly review template"
+              description="Один и тот же ритм, чтобы SEO не превращалось в разовые акции. Этот шаблон можно использовать на еженедельном созвоне или в заметке по релизу."
+            >
+              <div className="grid gap-4">
+                {[
+                  {
+                    title: "1. Индексация и crawl",
+                    points: [
+                      "Проверить excluded pages, soft 404, noindex drift и canonical conflicts",
+                      "Сверить storefront audit с продом после последних релизов",
+                    ],
+                  },
+                  {
+                    title: "2. Yandex feed и коммерческий контур",
+                    points: [
+                      `Проверить YML: ${data.yandexFeed.totalOffers} офферов, ${data.yandexFeed.warnings.length} предупреждений`,
+                      "Убедиться, что цена, наличие, vendor и картинки не расходятся со storefront",
+                    ],
+                  },
+                  {
+                    title: "3. Контентный долг",
+                    points: [
+                      `Товары без описания: ${data.products.withoutDescription}, категории без description: ${data.categories.withoutDescription}`,
+                      `Блог без meta title/description: ${data.blog.withoutMetaTitle}/${data.blog.withoutMetaDescription}`,
+                    ],
+                  },
+                  {
+                    title: "4. Регион и доверие",
+                    points: [
+                      "Проверить Пензу в контактах, магазинах и schema Organization/Store",
+                      `Юрдокументы готовы: ${data.commercial.legalDocumentsReady}/4`,
+                    ],
+                  },
+                ].map(section => (
+                  <div
+                    key={section.title}
+                    className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4"
+                  >
+                    <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                      {section.title}
+                    </div>
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                      {section.points.map(point => (
+                        <li key={point}>• {point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </AdminSection>
+          </div>
         </>
       ) : null}
     </div>

@@ -986,6 +986,11 @@ export const settingsRouter = createRouter({
       )
       .orderBy(desc(schema.posts.publishedAt), desc(schema.posts.id))
       .limit(1);
+    const yandexFeedPreview = await buildYandexYmlFeed({
+      ignoreEnabled: true,
+      previewOnly: true,
+      skipCache: true,
+    });
 
     const sampleManufacturers = manufacturerRows
       .filter(item => {
@@ -1257,6 +1262,20 @@ export const settingsRouter = createRouter({
         legalIssues,
         legalDocumentsReady: legalDocuments.length - legalIssues.length,
         storesReady: readyStores,
+      },
+      yandexFeed: {
+        generatedAt: yandexFeedPreview.generatedAt,
+        totalOffers: yandexFeedPreview.stats.totalOffers,
+        categoriesIncluded: yandexFeedPreview.stats.categoriesIncluded,
+        warnings: yandexFeedPreview.stats.warnings,
+        skippedOutOfStock: yandexFeedPreview.stats.skippedOutOfStock,
+        skippedWithoutPrice: yandexFeedPreview.stats.skippedWithoutPrice,
+        skippedWithoutPicture: yandexFeedPreview.stats.skippedWithoutPicture,
+        skippedWithoutCategory: yandexFeedPreview.stats.skippedWithoutCategory,
+        skippedWithoutName: yandexFeedPreview.stats.skippedWithoutName,
+        vendorMissingCount: yandexFeedPreview.stats.vendorMissingCount,
+        picturesMissingCount: yandexFeedPreview.stats.picturesMissingCount,
+        descriptionsSanitized: yandexFeedPreview.stats.descriptionsSanitized,
       },
       storefrontAudit,
     };
