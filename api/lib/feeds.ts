@@ -100,8 +100,18 @@ type FeedStats = {
   warnings: string[];
   productsSource: number;
   vendorMissingCount: number;
+  vendorCodeMissingCount: number;
+  barcodeMissingCount: number;
+  descriptionMissingCount: number;
   picturesMissingCount: number;
   descriptionsSanitized: number;
+};
+
+type FeedValidationDiagnostics = {
+  pictureProbeChecked: number;
+  pictureProbeFailed: number;
+  brokenPictureSamples: string[];
+  checklist: string[];
 };
 
 type FeedOffer = {
@@ -181,6 +191,7 @@ type FeedBuildResult<TSettings> = {
   generatedAt: string;
   settings: TSettings;
   preview: string;
+  validation?: FeedValidationDiagnostics;
 };
 
 const feedCache = new Map<string, { expiresAt: number; value: unknown }>();
@@ -409,8 +420,51 @@ function createEmptyFeedStats(productsSource: number): FeedStats {
     warnings: [],
     productsSource,
     vendorMissingCount: 0,
+    vendorCodeMissingCount: 0,
+    barcodeMissingCount: 0,
+    descriptionMissingCount: 0,
     picturesMissingCount: 0,
     descriptionsSanitized: 0,
+  };
+}
+
+async function probeFeedPictures(urls: string[], sampleSize = 10) {
+  const samples = Array.from(new Set(urls)).slice(0, sampleSize);
+  const brokenPictureSamples: string[] = [];
+
+  for (const url of samples) {
+    try {
+      let response = await fetch(url, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(4_000),
+        headers: { "user-agent": "techaks-feed-validator/1.0" },
+      });
+
+      if (response.status === 405 || response.status === 403) {
+        response = await fetch(url, {
+          method: "GET",
+          signal: AbortSignal.timeout(4_000),
+          headers: {
+            Range: "bytes=0-0",
+            "user-agent": "techaks-feed-validator/1.0",
+          },
+        });
+      }
+
+      if (!response.ok) {
+        brokenPictureSamples.push(`${url} (HTTP ${response.status})`);
+      }
+    } catch (error) {
+      brokenPictureSamples.push(
+        `${url} (${error instanceof Error ? error.message : "request failed"})`
+      );
+    }
+  }
+
+  return {
+    pictureProbeChecked: samples.length,
+    pictureProbeFailed: brokenPictureSamples.length,
+    brokenPictureSamples,
   };
 }
 
@@ -665,6 +719,15 @@ function collectFeedOffers(
       if (!input.vendor || input.vendor === "Без бренда") {
         stats.vendorMissingCount += 1;
       }
+      if (!input.vendorCode?.trim()) {
+        stats.vendorCodeMissingCount += 1;
+      }
+      if (!input.barcode?.trim()) {
+        stats.barcodeMissingCount += 1;
+      }
+      if (!input.description.trim()) {
+        stats.descriptionMissingCount += 1;
+      }
       if (descriptionMeta.wasSanitized) {
         stats.descriptionsSanitized += 1;
       }
@@ -760,6 +823,21 @@ function collectFeedOffers(
   if (stats.vendorMissingCount > 0) {
     stats.warnings.push(
       `У ${stats.vendorMissingCount} офферов бренд определить не удалось — используется значение «Без бренда».`
+    );
+  }
+  if (stats.vendorCodeMissingCount > 0) {
+    stats.warnings.push(
+      `У ${stats.vendorCodeMissingCount} офферов не заполнен vendorCode. Для Яндекс Товаров это желательно исправить.`
+    );
+  }
+  if (stats.barcodeMissingCount > 0) {
+    stats.warnings.push(
+      `У ${stats.barcodeMissingCount} офферов нет barcode. Это снижает качество товарной идентификации.`
+    );
+  }
+  if (stats.descriptionMissingCount > 0) {
+    stats.warnings.push(
+      `У ${stats.descriptionMissingCount} офферов пустое описание. Их стоит обогатить перед загрузкой в Яндекс.`
     );
   }
   if (stats.skippedWithoutPicture > 0) {
@@ -1149,6 +1227,69 @@ export async function buildYandexYmlFeed(
     writeFeedCache(cacheKey, result);
   }
   return result;
+}
+
+export async function validateYandexYmlFeed() {
+  const result = await buildYandexYmlFeed({
+    ignoreEnabled: true,
+    previewOnly: true,
+    skipCache: true,
+  });
+
+  const source = await loadFeedSourceData();
+  const collected = collectFeedOffers(source, {
+    siteUrl: result.settings.shopUrl,
+    currencyId: result.settings.currencyId,
+    includeOutOfStock: result.settings.includeOutOfStock,
+    pictureMode: "single",
+    maxPictures: 1,
+    pickup: result.settings.pickup,
+    delivery: result.settings.delivery,
+    salesNotes: result.settings.salesNotes || null,
+  });
+
+  const pictureProbe = await probeFeedPictures(
+    collected.offers.flatMap(offer => offer.pictures),
+    12
+  );
+
+  const checklist = [
+    result.stats.totalOffers > 0
+      ? `Офферы есть: ${result.stats.totalOffers}`
+      : "Офферы отсутствуют — проверьте видимость товаров и настройки выгрузки",
+    result.stats.skippedWithoutPrice === 0
+      ? "Нет пропусков по нулевой цене"
+      : `Есть пропуски по цене: ${result.stats.skippedWithoutPrice}`,
+    result.stats.skippedWithoutPicture === 0
+      ? "Нет пропусков по изображениям"
+      : `Есть пропуски по изображениям: ${result.stats.skippedWithoutPicture}`,
+    result.stats.skippedWithoutCategory === 0
+      ? "Нет пропусков по категориям"
+      : `Есть пропуски по категориям: ${result.stats.skippedWithoutCategory}`,
+    result.stats.vendorCodeMissingCount === 0
+      ? "Все офферы имеют vendorCode"
+      : `Без vendorCode: ${result.stats.vendorCodeMissingCount}`,
+    result.stats.descriptionMissingCount === 0
+      ? "Все офферы имеют description"
+      : `С пустым description: ${result.stats.descriptionMissingCount}`,
+    pictureProbe.pictureProbeFailed === 0
+      ? `Проверенные картинки доступны (${pictureProbe.pictureProbeChecked}/${pictureProbe.pictureProbeChecked})`
+      : `Есть битые картинки в выборке: ${pictureProbe.pictureProbeFailed}/${pictureProbe.pictureProbeChecked}`,
+  ];
+
+  return {
+    enabled: result.settings.enabled,
+    publicUrl: result.settings.publicUrl,
+    stats: result.stats,
+    generatedAt: result.generatedAt,
+    preview: result.preview,
+    validation: {
+      pictureProbeChecked: pictureProbe.pictureProbeChecked,
+      pictureProbeFailed: pictureProbe.pictureProbeFailed,
+      brokenPictureSamples: pictureProbe.brokenPictureSamples,
+      checklist,
+    } satisfies FeedValidationDiagnostics,
+  };
 }
 
 export async function buildVkFeed(

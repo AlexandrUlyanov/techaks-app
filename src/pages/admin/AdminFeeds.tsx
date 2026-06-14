@@ -30,6 +30,10 @@ export default function AdminFeeds() {
   const yandexPreviewQuery = trpc.settings.previewYandexYmlFeed.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
+  const yandexValidationQuery = trpc.settings.validateYandexYmlFeed.useQuery(undefined, {
+    enabled: false,
+    refetchOnWindowFocus: false,
+  });
   const vkSettingsQuery = trpc.settings.getVkFeedSettings.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -109,6 +113,7 @@ export default function AdminFeeds() {
       utils.settings.getFeedCatalog.invalidate(),
       utils.settings.getYandexYmlFeedSettings.invalidate(),
       utils.settings.previewYandexYmlFeed.invalidate(),
+      utils.settings.validateYandexYmlFeed.invalidate(),
       utils.settings.getVkFeedSettings.invalidate(),
       utils.settings.previewVkFeed.invalidate(),
       utils.settings.validateVkFeed.invalidate(),
@@ -145,9 +150,11 @@ export default function AdminFeeds() {
   }, [catalogQuery.data]);
 
   const yandexPreview = yandexPreviewQuery.data;
+  const yandexValidation = yandexValidationQuery.data ?? null;
   const vkPreview = vkPreviewQuery.data;
   const vkValidation = vkValidationQuery.data ?? null;
   const vkDiagnostics = vkValidation ?? vkPreview ?? null;
+  const yandexDiagnostics = yandexValidation ?? yandexPreview ?? null;
 
   const totals = useMemo(() => {
     const items = catalogQuery.data ?? [];
@@ -217,6 +224,7 @@ export default function AdminFeeds() {
               catalogQuery.isFetching ||
               yandexSettingsQuery.isFetching ||
               yandexPreviewQuery.isFetching ||
+              yandexValidationQuery.isFetching ||
               vkSettingsQuery.isFetching ||
               vkPreviewQuery.isFetching ||
               vkValidationQuery.isFetching
@@ -228,6 +236,7 @@ export default function AdminFeeds() {
                 catalogQuery.isFetching ||
                 yandexSettingsQuery.isFetching ||
                 yandexPreviewQuery.isFetching ||
+                yandexValidationQuery.isFetching ||
                 vkSettingsQuery.isFetching ||
                 vkPreviewQuery.isFetching ||
                 vkValidationQuery.isFetching
@@ -312,6 +321,17 @@ export default function AdminFeeds() {
                   Открыть XML
                 </a>
                 <Button
+                  variant="outline"
+                  onClick={() => void yandexValidationQuery.refetch()}
+                  disabled={yandexValidationQuery.isFetching}
+                >
+                  <RefreshCw
+                    size={16}
+                    className={yandexValidationQuery.isFetching ? "animate-spin" : ""}
+                  />
+                  Проверить Yandex
+                </Button>
+                <Button
                   onClick={handleSaveYandex}
                   disabled={saveYandexMutation.isPending || yandexSettingsQuery.isLoading}
                 >
@@ -328,13 +348,15 @@ export default function AdminFeeds() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <AdminStatCard
                 label="Офферов"
-                value={overview.yandex?.offersCount ?? yandexPreview?.stats.totalOffers ?? 0}
+                value={overview.yandex?.offersCount ?? yandexDiagnostics?.stats.totalOffers ?? 0}
                 hint="Позиции, которые увидит Яндекс"
                 icon={Rss}
               />
               <AdminStatCard
                 label="Предупреждений"
-                value={overview.yandex?.warningsCount ?? yandexPreview?.stats.warnings.length ?? 0}
+                value={
+                  overview.yandex?.warningsCount ?? yandexDiagnostics?.stats.warnings.length ?? 0
+                }
                 hint="Подсказки по качеству YML"
                 icon={TriangleAlert}
                 tone={(overview.yandex?.warningsCount ?? 0) > 0 ? "warning" : "success"}
@@ -354,6 +376,23 @@ export default function AdminFeeds() {
                 hint="Специфичная структура под Яндекс"
                 icon={FileCode2}
                 tone="accent"
+              />
+              <AdminStatCard
+                label="Картинки"
+                value={
+                  yandexValidation
+                    ? `${yandexValidation.validation.pictureProbeChecked - yandexValidation.validation.pictureProbeFailed}/${yandexValidation.validation.pictureProbeChecked}`
+                    : "—"
+                }
+                hint="Доступность проверенной выборки"
+                icon={CheckCircle2}
+                tone={
+                  !yandexValidation
+                    ? "default"
+                    : yandexValidation.validation.pictureProbeFailed > 0
+                      ? "warning"
+                      : "success"
+                }
               />
             </div>
 
@@ -460,23 +499,27 @@ export default function AdminFeeds() {
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-              <FeedPreview
-                title="Предпросмотр XML"
-                value={yandexPreview?.preview ?? ""}
-                isRefreshing={yandexPreviewQuery.isFetching}
-                onRefresh={() => void yandexPreviewQuery.refetch()}
-              />
-              <FeedWarningsPanel
-                title="Предупреждения Yandex"
-                warnings={yandexPreview?.stats.warnings ?? []}
-                footerTitle="Что важно помнить"
-                footerItems={[
-                  "вставить именно публичную ссылку на XML",
-                  "после смены настроек лучше пересобрать фид",
-                  "если Яндекс ругается на vendor или описание, проверь карточки товаров",
-                ]}
-              />
-            </div>
+                <FeedPreview
+                  title="Предпросмотр XML"
+                  value={yandexPreview?.preview ?? ""}
+                  isRefreshing={yandexPreviewQuery.isFetching}
+                  onRefresh={() => void yandexPreviewQuery.refetch()}
+                />
+                <FeedWarningsPanel
+                  title="Предупреждения Yandex"
+                  warnings={yandexDiagnostics?.stats.warnings ?? []}
+                  footerTitle="Чек-лист и последняя проверка"
+                  footerItems={[
+                    ...(yandexValidation?.validation.checklist ?? [
+                      "Нажми «Проверить Yandex», чтобы собрать deep-диагностику по фиду",
+                    ]),
+                    `Публичный URL: ${yandexSettingsQuery.data?.publicUrl ?? "https://techaks.ru/feeds/yandex-business.yml"}`,
+                    "В Яндекс загружаем именно этот URL, а после правок пересобираем фид заново",
+                  ]}
+                  extraWarnings={yandexValidation?.validation.brokenPictureSamples ?? []}
+                  extraWarningsTitle="Подозрительные картинки из выборки"
+                />
+              </div>
           </AdminSection>
 
           <AdminSection
@@ -833,11 +876,15 @@ function FeedWarningsPanel({
   warnings,
   footerTitle,
   footerItems,
+  extraWarningsTitle,
+  extraWarnings,
 }: {
   title: string;
   warnings: string[];
   footerTitle: string;
   footerItems: string[];
+  extraWarningsTitle?: string;
+  extraWarnings?: string[];
 }) {
   return (
     <div className="space-y-4">
@@ -864,6 +911,27 @@ function FeedWarningsPanel({
           </div>
         )}
       </div>
+
+      {extraWarnings && extraWarnings.length > 0 ? (
+        <div className="rounded-3xl border border-border bg-white px-5 py-5">
+          <div className="text-sm font-black text-[var(--tech-color-text-main)]">
+            {extraWarningsTitle || "Дополнительная диагностика"}
+          </div>
+          <div className="mt-4 space-y-3">
+            {extraWarnings.map(item => (
+              <div
+                key={item}
+                className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-3 text-sm leading-6 text-[var(--tech-color-text-main)]"
+              >
+                <div className="flex items-start gap-3">
+                  <TriangleAlert size={16} className="mt-1 shrink-0 text-amber-500" />
+                  <span className="break-all">{item}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-3xl border border-border bg-white px-5 py-5">
         <div className="text-sm font-black text-[var(--tech-color-text-main)]">

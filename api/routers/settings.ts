@@ -27,6 +27,7 @@ import {
   getYandexYmlFeedSettings,
   saveVkFeedSettings,
   saveYandexYmlFeedSettings,
+  validateYandexYmlFeed,
   validateVkFeed,
   vkFeedSettingsInputSchema,
   yandexYmlFeedSettingsInputSchema,
@@ -1432,6 +1433,11 @@ export const settingsRouter = createRouter({
   previewYandexYmlFeed: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");
     return buildYandexYmlFeed({ ignoreEnabled: true, previewOnly: true });
+  }),
+
+  validateYandexYmlFeed: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Settings");
+    return validateYandexYmlFeed();
   }),
 
   saveVkFeedSettings: protectedProcedure
