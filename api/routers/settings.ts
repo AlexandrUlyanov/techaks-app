@@ -119,6 +119,22 @@ type StorefrontAuditResult = {
   issues: string[];
 };
 
+type StorefrontPerformanceExpectation = {
+  label: string;
+  path: string;
+};
+
+type StorefrontPerformanceResult = {
+  label: string;
+  path: string;
+  url: string;
+  status: number | null;
+  responseMs: number | null;
+  htmlBytes: number | null;
+  ok: boolean;
+  issues: string[];
+};
+
 function stripSeoHtml(value: string | null | undefined) {
   if (!value) return "";
   return value
@@ -224,6 +240,69 @@ async function runStorefrontSeoAudit(checks: StorefrontAuditExpectation[]) {
     baseUrl: SEO_AUDIT_BASE_URL,
     okCount: results.filter(item => item.ok).length,
     issueCount: results.filter(item => !item.ok).length,
+    results,
+  };
+}
+
+async function runStorefrontPerformanceAudit(checks: StorefrontPerformanceExpectation[]) {
+  const results = await Promise.all(
+    checks.map(async check => {
+      const url = `${SEO_AUDIT_BASE_URL}${check.path}`;
+      const startedAt = Date.now();
+
+      try {
+        const response = await fetch(url, {
+          headers: { "user-agent": "techaks-seo-performance-audit/1.0" },
+          signal: AbortSignal.timeout(6_000),
+        });
+        const html = await response.text();
+        const responseMs = Date.now() - startedAt;
+        const headerBytes = Number(response.headers.get("content-length") ?? 0) || null;
+        const htmlBytes = headerBytes ?? Buffer.byteLength(html, "utf8");
+        const issues: string[] = [];
+
+        if (!response.ok) {
+          issues.push(`HTTP ${response.status}`);
+        }
+        if (responseMs > 1_500) {
+          issues.push(`Медленный HTML-ответ: ${responseMs} мс`);
+        }
+        if (htmlBytes > 250_000) {
+          issues.push(`Тяжёлый HTML: ${(htmlBytes / 1024).toFixed(1)} KB`);
+        }
+
+        return {
+          label: check.label,
+          path: check.path,
+          url,
+          status: response.status,
+          responseMs,
+          htmlBytes,
+          ok: issues.length === 0,
+          issues,
+        } satisfies StorefrontPerformanceResult;
+      } catch (error) {
+        return {
+          label: check.label,
+          path: check.path,
+          url,
+          status: null,
+          responseMs: null,
+          htmlBytes: null,
+          ok: false,
+          issues: [error instanceof Error ? error.message : "Не удалось измерить storefront"],
+        } satisfies StorefrontPerformanceResult;
+      }
+    })
+  );
+
+  return {
+    checkedAt: new Date().toISOString(),
+    baseUrl: SEO_AUDIT_BASE_URL,
+    okCount: results.filter(item => item.ok).length,
+    issueCount: results.filter(item => !item.ok).length,
+    slowestResponseMs: results.reduce((max, item) => Math.max(max, item.responseMs ?? 0), 0),
+    heaviestHtmlBytes: results.reduce((max, item) => Math.max(max, item.htmlBytes ?? 0), 0),
     results,
   };
 }
@@ -1179,6 +1258,26 @@ export const settingsRouter = createRouter({
     }
 
     const storefrontAudit = await runStorefrontSeoAudit(storefrontAuditChecks);
+    const storefrontPerformanceChecks: StorefrontPerformanceExpectation[] = [
+      { label: "Главная", path: "/" },
+      {
+        label: "Каталог",
+        path: representativeCategory
+          ? `/catalog?cat=${encodeURIComponent(representativeCategory.slug)}`
+          : "/catalog",
+      },
+    ];
+
+    if (samplePublicProduct) {
+      storefrontPerformanceChecks.push({
+        label: "Карточка товара",
+        path: `/product/${encodeURIComponent(samplePublicProduct.slug)}`,
+      });
+    }
+
+    const storefrontPerformance = await runStorefrontPerformanceAudit(
+      storefrontPerformanceChecks
+    );
 
     return {
       generatedAt: new Date().toISOString(),
@@ -1278,6 +1377,27 @@ export const settingsRouter = createRouter({
         descriptionsSanitized: yandexFeedPreview.stats.descriptionsSanitized,
       },
       storefrontAudit,
+      performance: {
+        storefront: storefrontPerformance,
+        implementation: {
+          homeSecondaryDeferred: true,
+          responsiveProductImages: true,
+          productGalleryPriorityImage: true,
+          ymlFeedChunking: true,
+          sitemapChunking: true,
+        },
+        bottlenecks: [
+          "Следить за весом home secondary bundle и below-the-fold секций",
+          "Не допускать тяжёлого HTML на категориях с длинными листингами",
+          "Держать CLS под контролем через width/height и стабильные image shells",
+          "Не раздувать storefront новыми eager-картинками вне первого экрана",
+        ],
+        nextActions: [
+          "Проверять главную, категорию и товар после релизов через storefront performance audit",
+          "Держать вторичные блоки главной в deferred-режиме до приближения к viewport",
+          "Пересматривать размеры hero/media и lazy-loading при добавлении новых витринных секций",
+        ],
+      },
     };
   }),
 

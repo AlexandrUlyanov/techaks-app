@@ -93,6 +93,8 @@ export function getProductCardImageProps(args: {
     loading,
     fetchPriority: (args.priority ? "high" : "auto") as "high" | "auto",
     decoding: "async" as const,
+    width: variantSet.width ?? undefined,
+    height: variantSet.height ?? undefined,
   };
 }
 
@@ -115,6 +117,8 @@ export function getProductGalleryImageProps(args: {
     srcSet: srcSetEntries.length > 1 ? srcSetEntries.join(", ") : undefined,
     sizes: "(max-width: 768px) 92vw, 800px",
     decoding: "async" as const,
+    width: variantSet.width ?? undefined,
+    height: variantSet.height ?? undefined,
   };
 }
 

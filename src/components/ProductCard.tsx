@@ -199,6 +199,8 @@ export default function ProductCard({
               loading={productImage.loading}
               fetchPriority={productImage.fetchPriority}
               decoding={productImage.decoding}
+              width={productImage.width}
+              height={productImage.height}
               onError={applyProductImageFallback}
             />
           </div>
@@ -275,6 +277,8 @@ export default function ProductCard({
             loading={productImage.loading}
             fetchPriority={productImage.fetchPriority}
             decoding={productImage.decoding}
+            width={productImage.width}
+            height={productImage.height}
             onError={applyProductImageFallback}
           />
         </div>

@@ -118,6 +118,22 @@ export default function AdminSeoDashboard() {
           : ["Контакты и региональность заполнены"]),
       ]
     : [];
+  const storefrontPerformanceIssues =
+    data?.performance.storefront.results.flatMap(item =>
+      item.issues.map(issue => `${item.label}: ${issue}`)
+    ) ?? [];
+  const slowestStorefrontPage =
+    data?.performance.storefront.results.reduce<(typeof data.performance.storefront.results)[number] | null>(
+      (current, item) =>
+        !current || (item.responseMs ?? 0) > (current.responseMs ?? 0) ? item : current,
+      null
+    ) ?? null;
+  const heaviestStorefrontPage =
+    data?.performance.storefront.results.reduce<(typeof data.performance.storefront.results)[number] | null>(
+      (current, item) =>
+        !current || (item.htmlBytes ?? 0) > (current.htmlBytes ?? 0) ? item : current,
+      null
+    ) ?? null;
 
   return (
     <div className="space-y-6">
@@ -853,6 +869,107 @@ export default function AdminSeoDashboard() {
                       <IssueBadge key={item} issue={item} />
                     ))}
                   </div>
+                </div>
+              </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Performance и crawl-efficiency"
+              description="Контролируем лёгкость storefront для mobile-first индексации: насколько быстро приходит HTML, не раздувается ли страница и остаются ли below-the-fold блоки отложенными."
+              actions={
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
+                >
+                  Открыть витрину
+                  <ArrowRight size={16} />
+                </Link>
+              }
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard
+                  label="Storefront perf issues"
+                  value={data.performance.storefront.issueCount}
+                  hint="Главная, категория, товар"
+                  icon={AlertTriangle}
+                  tone={data.performance.storefront.issueCount > 0 ? "warning" : "success"}
+                />
+                <AdminStatCard
+                  label="Медленнейший HTML"
+                  value={`${data.performance.storefront.slowestResponseMs} мс`}
+                  hint={slowestStorefrontPage?.label ?? "—"}
+                  icon={RefreshCw}
+                  tone={
+                    data.performance.storefront.slowestResponseMs > 1500 ? "warning" : "success"
+                  }
+                />
+                <AdminStatCard
+                  label="Тяжелейший HTML"
+                  value={`${Math.round(data.performance.storefront.heaviestHtmlBytes / 1024)} KB`}
+                  hint={heaviestStorefrontPage?.label ?? "—"}
+                  icon={FileSearch}
+                  tone={
+                    data.performance.storefront.heaviestHtmlBytes > 250_000
+                      ? "warning"
+                      : "success"
+                  }
+                />
+                <AdminStatCard
+                  label="Deferred home sections"
+                  value={data.performance.implementation.homeSecondaryDeferred ? "Да" : "Нет"}
+                  hint="Below-the-fold блоки ждут viewport"
+                  icon={CheckCircle2}
+                  tone={data.performance.implementation.homeSecondaryDeferred ? "success" : "warning"}
+                />
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    Приоритетные storefront URL
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {data.performance.storefront.results.map(item => (
+                      <div
+                        key={`${item.label}-${item.path}`}
+                        className="rounded-2xl bg-background/70 px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-semibold text-[var(--tech-color-text-main)]">
+                            {item.label}
+                          </div>
+                          <AuditStatusBadge ok={item.ok} />
+                        </div>
+                        <div className="mt-2 text-sm text-[var(--tech-color-text-muted)]">
+                          {item.path}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--tech-color-text-muted)]">
+                          <span>HTML: {item.htmlBytes ? `${Math.round(item.htmlBytes / 1024)} KB` : "—"}</span>
+                          <span>·</span>
+                          <span>Ответ: {item.responseMs ? `${item.responseMs} мс` : "—"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4">
+                  <div className="text-sm font-semibold text-[var(--tech-color-text-main)]">
+                    High-impact план
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {data.performance.bottlenecks.map(item => (
+                      <IssueBadge key={item} issue={item} />
+                    ))}
+                    {storefrontPerformanceIssues.map(item => (
+                      <IssueBadge key={item} issue={item} />
+                    ))}
+                  </div>
+                  <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--tech-color-text-muted)]">
+                    {data.performance.nextActions.map(item => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </AdminSection>

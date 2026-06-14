@@ -155,6 +155,8 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
                         alt={card.name}
                         className="max-h-full max-w-full object-contain"
                         loading="eager"
+                        fetchPriority={index === 0 ? "high" : "auto"}
+                        decoding="async"
                       />
                     </Link>
 
@@ -203,6 +205,8 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
                       alt={card.name}
                       className="max-h-full max-w-full object-contain"
                       loading={index < 2 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                      decoding="async"
                     />
                   </div>
                   <div className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-[#05C3D4]">

@@ -196,6 +196,8 @@ export default function ProductImageGallery({
                       className="max-h-full max-w-full object-contain"
                       loading="lazy"
                       decoding="async"
+                      width={thumbnailProps.width}
+                      height={thumbnailProps.height}
                       onError={applyProductImageFallback}
                     />
                   </button>
@@ -259,7 +261,11 @@ export default function ProductImageGallery({
               alt={productName}
               title={productName}
               className="max-h-[340px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
+              width={activeImageProps.width}
+              height={activeImageProps.height}
               onError={applyProductImageFallback}
             />
           </button>

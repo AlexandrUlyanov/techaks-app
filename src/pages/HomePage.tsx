@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -89,30 +89,45 @@ export default function HomePage() {
   const now = new Date();
   const isStoreOpen = now.getHours() >= 9 && now.getHours() < 21;
   const [showSecondarySections, setShowSecondarySections] = useState(false);
+  const secondaryTriggerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (showSecondarySections) return;
+
     let cancelled = false;
+    let observer: IntersectionObserver | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const reveal = () => {
-      if (!cancelled) {
-        setShowSecondarySections(true);
-      }
+      if (cancelled) return;
+      setShowSecondarySections(true);
     };
 
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(reveal, { timeout: 1200 });
-      return () => {
-        cancelled = true;
-        window.cancelIdleCallback(id);
-      };
+    if (
+      typeof window !== "undefined" &&
+      "IntersectionObserver" in window &&
+      secondaryTriggerRef.current
+    ) {
+      observer = new window.IntersectionObserver(
+        entries => {
+          if (entries.some(entry => entry.isIntersecting)) {
+            reveal();
+            observer?.disconnect();
+          }
+        },
+        { rootMargin: "320px 0px" }
+      );
+      observer.observe(secondaryTriggerRef.current);
     }
 
-    const timeoutId = setTimeout(reveal, 350);
+    timeoutId = setTimeout(reveal, 2500);
+
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
+      observer?.disconnect();
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, []);
+  }, [showSecondarySections]);
 
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
@@ -208,6 +223,8 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      <div ref={secondaryTriggerRef} aria-hidden="true" className="h-px w-full" />
 
       {showSecondarySections && secondary ? (
         <Suspense fallback={<SecondarySectionsFallback />}>
