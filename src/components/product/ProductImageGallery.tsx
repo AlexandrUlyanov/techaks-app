@@ -180,6 +180,7 @@ export default function ProductImageGallery({
                     type="button"
                     onClick={() => selectImage(index)}
                     aria-label={`Показать изображение ${index + 1} товара ${productName}`}
+                    title={`${productName} — изображение ${index + 1}`}
                     className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[1rem] border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
                       index === activeIndex
                         ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
@@ -191,6 +192,7 @@ export default function ProductImageGallery({
                       srcSet={thumbnailProps.srcSet}
                       sizes="80px"
                       alt={`${productName} — миниатюра ${index + 1}`}
+                      title={`${productName} — миниатюра ${index + 1}`}
                       className="max-h-full max-w-full object-contain"
                       loading="lazy"
                       decoding="async"
@@ -247,6 +249,7 @@ export default function ProductImageGallery({
             type="button"
             onClick={() => openLightbox(activeIndex)}
             aria-label={`Увеличить изображение товара ${productName}`}
+            title={`${productName} — открыть изображение`}
             className="relative z-10 flex h-full w-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
           >
             <img
@@ -254,6 +257,7 @@ export default function ProductImageGallery({
               srcSet={activeImageProps.srcSet}
               sizes={activeImageProps.sizes}
               alt={productName}
+              title={productName}
               className="max-h-[340px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
               decoding="async"
               onError={applyProductImageFallback}

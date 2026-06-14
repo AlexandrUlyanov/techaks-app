@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, desc, eq, isNull, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { createRouter, protectedProcedure, publicQuery, requireAbility } from "../middleware";
 import { getAppSettings, setAppSetting } from "../lib/app-settings";
 import { env } from "../lib/env";
@@ -96,6 +96,137 @@ const siteProfileSettingsSchema = z.object({
 const homepageHeroVariantSchema = z.enum(["classic", "interactive"]);
 
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
+const SEO_AUDIT_BASE_URL =
+  process.env.NODE_ENV === "production" ? "https://techaks.ru" : "http://127.0.0.1:3000";
+
+type StorefrontAuditExpectation = {
+  label: string;
+  path: string;
+  expectedCanonical?: string;
+  expectedNoindex?: boolean;
+};
+
+type StorefrontAuditResult = {
+  label: string;
+  path: string;
+  url: string;
+  status: number | null;
+  title: string | null;
+  canonical: string | null;
+  robots: string | null;
+  h1: string | null;
+  ok: boolean;
+  issues: string[];
+};
+
+function stripSeoHtml(value: string | null | undefined) {
+  if (!value) return "";
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractHeadTagValue(html: string, tagName: string) {
+  const match = html.match(new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i"));
+  return stripSeoHtml(match?.[1] ?? "");
+}
+
+function extractCanonicalHref(html: string) {
+  const match =
+    html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["'][^>]*>/i) ??
+    html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["']canonical["'][^>]*>/i);
+  return match?.[1]?.trim() ?? "";
+}
+
+function extractRobotsContent(html: string) {
+  const match =
+    html.match(/<meta[^>]*name=["']robots["'][^>]*content=["']([^"']+)["'][^>]*>/i) ??
+    html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']robots["'][^>]*>/i);
+  return match?.[1]?.trim() ?? "";
+}
+
+async function runStorefrontSeoAudit(checks: StorefrontAuditExpectation[]) {
+  const results = await Promise.all(
+    checks.map(async check => {
+      const url = `${SEO_AUDIT_BASE_URL}${check.path}`;
+
+      try {
+        const response = await fetch(url, {
+          headers: { "user-agent": "techaks-seo-audit/1.0" },
+          signal: AbortSignal.timeout(6_000),
+        });
+
+        const html = await response.text();
+        const title = extractHeadTagValue(html, "title");
+        const canonical = extractCanonicalHref(html);
+        const robots = extractRobotsContent(html);
+        const h1 = extractHeadTagValue(html, "h1");
+        const issues: string[] = [];
+
+        if (!response.ok) {
+          issues.push(`HTTP ${response.status}`);
+        }
+        if (!title) {
+          issues.push("Нет <title>");
+        }
+        if (!canonical) {
+          issues.push("Нет canonical");
+        } else if (check.expectedCanonical && canonical !== check.expectedCanonical) {
+          issues.push(`Canonical отличается: ${canonical}`);
+        }
+
+        const robotsLower = robots.toLowerCase();
+        if (check.expectedNoindex) {
+          if (!robotsLower.includes("noindex")) {
+            issues.push("Ожидали noindex");
+          }
+        } else if (robotsLower.includes("noindex")) {
+          issues.push("Неожиданный noindex");
+        }
+
+        if (!h1) {
+          issues.push("Нет H1 в HTML");
+        }
+
+        return {
+          label: check.label,
+          path: check.path,
+          url,
+          status: response.status,
+          title: title || null,
+          canonical: canonical || null,
+          robots: robots || null,
+          h1: h1 || null,
+          ok: issues.length === 0,
+          issues,
+        } satisfies StorefrontAuditResult;
+      } catch (error) {
+        return {
+          label: check.label,
+          path: check.path,
+          url,
+          status: null,
+          title: null,
+          canonical: null,
+          robots: null,
+          h1: null,
+          ok: false,
+          issues: [error instanceof Error ? error.message : "Не удалось выполнить запрос"],
+        } satisfies StorefrontAuditResult;
+      }
+    })
+  );
+
+  return {
+    checkedAt: new Date().toISOString(),
+    baseUrl: SEO_AUDIT_BASE_URL,
+    okCount: results.filter(item => item.ok).length,
+    issueCount: results.filter(item => !item.ok).length,
+    results,
+  };
+}
 
 export const settingsRouter = createRouter({
   getAdminAuditLogs: protectedProcedure
@@ -823,6 +954,39 @@ export const settingsRouter = createRouter({
       .from(schema.manufacturers)
       .orderBy(desc(schema.manufacturers.productCount), asc(schema.manufacturers.name))
       .limit(200);
+
+    const [samplePublicProduct] = await db
+      .select({
+        slug: schema.products.slug,
+      })
+      .from(schema.products)
+      .where(publicProductVisibilityCondition)
+      .orderBy(desc(schema.products.createdAt), desc(schema.products.id))
+      .limit(1);
+
+    const [samplePromotion] = await db
+      .select({
+        slug: schema.banners.slug,
+      })
+      .from(schema.banners)
+      .where(eq(schema.banners.active, true))
+      .orderBy(desc(schema.banners.createdAt), desc(schema.banners.id))
+      .limit(1);
+
+    const [samplePublishedPost] = await db
+      .select({
+        slug: schema.posts.slug,
+      })
+      .from(schema.posts)
+      .where(
+        or(
+          eq(schema.posts.status, "published"),
+          and(eq(schema.posts.status, "scheduled"), sql`${schema.posts.publishedAt} <= NOW()`)
+        )
+      )
+      .orderBy(desc(schema.posts.publishedAt), desc(schema.posts.id))
+      .limit(1);
+
     const sampleManufacturers = manufacturerRows
       .filter(item => {
         const flags = [
@@ -908,6 +1072,109 @@ export const settingsRouter = createRouter({
         Boolean(store.image?.trim())
     ).length;
 
+    const representativeCategory = categoryRows.find(
+      category =>
+        (visibleProductCountByCategoryId.get(category.id) ?? 0) > 0 ||
+        (childCounts.get(category.id) ?? 0) > 0
+    );
+    const representativeBrand = manufacturerRows.find(item => item.isVisible);
+
+    const storefrontAuditChecks: StorefrontAuditExpectation[] = [
+      {
+        label: "Главная",
+        path: "/",
+        expectedCanonical: "https://techaks.ru/",
+      },
+      {
+        label: "Каталог",
+        path: "/catalog",
+        expectedCanonical: "https://techaks.ru/catalog",
+      },
+      {
+        label: "Бренды",
+        path: "/catalog?view=brands",
+        expectedCanonical: "https://techaks.ru/catalog?view=brands",
+      },
+      {
+        label: "Магазины",
+        path: "/stores",
+        expectedCanonical: "https://techaks.ru/stores",
+      },
+      {
+        label: "Контакты",
+        path: "/contacts",
+        expectedCanonical: "https://techaks.ru/contacts",
+      },
+      {
+        label: "Checkout",
+        path: "/checkout",
+        expectedCanonical: "https://techaks.ru/checkout",
+        expectedNoindex: true,
+      },
+      {
+        label: "Поиск",
+        path: "/search?q=router",
+        expectedCanonical: "https://techaks.ru/search?q=router",
+        expectedNoindex: true,
+      },
+      {
+        label: "Логин",
+        path: "/login",
+        expectedCanonical: "https://techaks.ru/login",
+        expectedNoindex: true,
+      },
+    ];
+
+    if (representativeCategory) {
+      storefrontAuditChecks.push(
+        {
+          label: "Категория",
+          path: `/catalog?cat=${encodeURIComponent(representativeCategory.slug)}`,
+          expectedCanonical: `https://techaks.ru/catalog?cat=${encodeURIComponent(representativeCategory.slug)}`,
+        },
+        {
+          label: "Категория с фильтром",
+          path: `/catalog?cat=${encodeURIComponent(representativeCategory.slug)}&sort=price-asc`,
+          expectedCanonical: `https://techaks.ru/catalog?cat=${encodeURIComponent(representativeCategory.slug)}`,
+          expectedNoindex: true,
+        }
+      );
+    }
+
+    if (representativeBrand) {
+      storefrontAuditChecks.push({
+        label: "Страница бренда",
+        path: `/catalog?view=brands&brand=${encodeURIComponent(representativeBrand.slug)}`,
+        expectedCanonical: `https://techaks.ru/catalog?view=brands&brand=${encodeURIComponent(representativeBrand.slug)}`,
+      });
+    }
+
+    if (samplePublicProduct) {
+      storefrontAuditChecks.push({
+        label: "Карточка товара",
+        path: `/product/${encodeURIComponent(samplePublicProduct.slug)}`,
+        expectedCanonical: `https://techaks.ru/product/${encodeURIComponent(samplePublicProduct.slug)}`,
+      });
+    }
+
+    if (samplePromotion?.slug) {
+      storefrontAuditChecks.push({
+        label: "Страница акции",
+        path: `/promotions/${encodeURIComponent(samplePromotion.slug)}`,
+        expectedCanonical: `https://techaks.ru/promotions/${encodeURIComponent(samplePromotion.slug)}`,
+      });
+    }
+
+    if (samplePublishedPost?.slug) {
+      storefrontAuditChecks.push({
+        label: "Статья блога",
+        path: `/blog/${encodeURIComponent(samplePublishedPost.slug)}`,
+        expectedCanonical: `https://techaks.ru/blog/${encodeURIComponent(samplePublishedPost.slug)}`,
+      });
+    }
+
+    const storefrontAudit = await runStorefrontSeoAudit(storefrontAuditChecks);
+
     return {
       generatedAt: new Date().toISOString(),
       feed: {
@@ -991,6 +1258,7 @@ export const settingsRouter = createRouter({
         legalDocumentsReady: legalDocuments.length - legalIssues.length,
         storesReady: readyStores,
       },
+      storefrontAudit,
     };
   }),
 

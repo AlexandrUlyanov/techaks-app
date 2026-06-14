@@ -4,12 +4,43 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import fs from "fs";
 import path from "path";
 import { renderSeoAwareIndex } from "./seo-head";
+import { getDb } from "../queries/connection";
+import * as schema from "@db/schema";
+import { eq } from "drizzle-orm";
 
 type App = Hono<{ Bindings: HttpBindings }>;
 
 export function serveStaticFiles(app: App) {
   const distPath = path.resolve(import.meta.dirname, "../dist/public");
   const sendIndex = async (c: Context) => {
+    const requestUrl = new URL(c.req.url);
+    if (requestUrl.pathname.startsWith("/product/")) {
+      const slug = decodeURIComponent(
+        requestUrl.pathname.replace(/^\/product\//, "").trim()
+      );
+
+      if (slug) {
+        const db = getDb();
+        const [hiddenProduct] = await db
+          .select({
+            slug: schema.products.slug,
+            isActive: schema.products.isActive,
+            categorySlug: schema.categories.slug,
+          })
+          .from(schema.products)
+          .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+          .where(eq(schema.products.slug, slug))
+          .limit(1);
+
+        if (hiddenProduct && hiddenProduct.isActive === false) {
+          const destination = hiddenProduct.categorySlug
+            ? `/catalog?cat=${encodeURIComponent(hiddenProduct.categorySlug)}`
+            : "/catalog";
+          return c.redirect(destination, 301);
+        }
+      }
+    }
+
     const indexPath = path.resolve(distPath, "index.html");
     const content = fs.readFileSync(indexPath, "utf-8");
     const html = await renderSeoAwareIndex(content, c.req.url);

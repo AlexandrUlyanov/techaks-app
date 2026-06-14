@@ -46,6 +46,11 @@ import {
   isCatalogProductMode,
   resolveCatalogRenderMode,
 } from "@/lib/catalog-render-mode";
+import {
+  buildBrandSeoCopy,
+  buildCategorySeoCopy,
+  buildRootCatalogSeoCopy,
+} from "@contracts/seo-copy";
 
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
@@ -438,23 +443,45 @@ export default function CatalogPage() {
     : currentCategory && activeCategory !== "all"
       ? currentCategory.description?.trim() || ""
       : "";
+  const rootCatalogSeo = buildRootCatalogSeoCopy();
+  const brandSeo = currentManufacturer
+    ? buildBrandSeoCopy({
+        brandName: currentManufacturer.name,
+        description:
+          currentManufacturer.metaDescription?.trim() ||
+          currentManufacturer.description?.trim() ||
+          "",
+      })
+    : null;
+  const categorySeo =
+    currentCategory && activeCategory !== "all"
+      ? buildCategorySeoCopy({
+          categoryName: formatCategoryLabel(currentCategory.name),
+          description:
+            currentCategory.metaDescription?.trim() ||
+            currentCategory.description?.trim() ||
+            "",
+          hasChildren: categoryHasChildren(categories, currentCategory),
+        })
+      : null;
 
   const seoTitle = currentManufacturer
-    ? currentManufacturer.metaTitle?.trim() ||
-      `${currentManufacturer.name} — товары бренда в ТЕХАКС`
+    ? currentManufacturer.metaTitle?.trim() || brandSeo?.title || rootCatalogSeo.title
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.metaTitle?.trim() || `${formatCategoryLabel(currentCategory.name)} — купить в ТЕХАКС`
-      : "Каталог товаров — интернет-магазин ТЕХАКС";
+      ? currentCategory.metaTitle?.trim() || categorySeo?.title || rootCatalogSeo.title
+      : rootCatalogSeo.title;
 
   const seoDescription = currentManufacturer
     ? currentManufacturer.metaDescription?.trim() ||
       currentManufacturer.description?.trim() ||
-      `Товары бренда ${currentManufacturer.name}: актуальные цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
+      brandSeo?.description ||
+      rootCatalogSeo.description
     : currentCategory && activeCategory !== "all"
       ? currentCategory.metaDescription?.trim() ||
         currentCategory.description?.trim() ||
-        `${formatCategoryLabel(currentCategory.name)}: цены, характеристики, самовывоз в Пензе и доставка по России в интернет-магазине ТЕХАКС.`
-      : "Каталог техники и аксессуаров ТЕХАКС: выбирайте товары по категориям и брендам с самовывозом в Пензе и доставкой по России.";
+        categorySeo?.description ||
+        rootCatalogSeo.description
+      : rootCatalogSeo.description;
 
   const seoCanonicalPath = (() => {
     if (catalogView === "brands" && activeBrand) {
@@ -594,7 +621,14 @@ export default function CatalogPage() {
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                     {categorySecondaryShelf.map(product => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard
+                        key={product.id}
+                        product={{
+                          ...product,
+                          categoryId: currentCategory?.id ?? 0,
+                          inStock: product.totalStock > 0,
+                        }}
+                      />
                     ))}
                   </div>
                 </section>
@@ -618,7 +652,14 @@ export default function CatalogPage() {
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                     {categorySecondaryShelf.map(product => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard
+                        key={product.id}
+                        product={{
+                          ...product,
+                          categoryId: currentCategory?.id ?? 0,
+                          inStock: product.totalStock > 0,
+                        }}
+                      />
                     ))}
                   </div>
                 </section>

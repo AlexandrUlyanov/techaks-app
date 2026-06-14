@@ -2,6 +2,13 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import * as schema from "@db/schema";
 import { normalizeProductImageVariantSet } from "@contracts/product-images";
+import {
+  buildBrandSeoCopy,
+  buildCategorySeoCopy,
+  buildProductSeoCopy,
+  buildRootCatalogSeoCopy,
+  toSeoReadableName,
+} from "@contracts/seo-copy";
 
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -51,16 +58,6 @@ function normalizeDescription(value: string | null | undefined, fallback: string
   const normalized = value?.replace(/\s+/g, " ").trim();
   if (!normalized) return fallback;
   return normalized.slice(0, 320);
-}
-
-function toSeoReadableName(value: string | null | undefined) {
-  const normalized = value?.trim();
-  if (!normalized) return "";
-  const hasLetters = /[A-Za-zА-Яа-яЁё]/.test(normalized);
-  if (!hasLetters) return normalized;
-  if (normalized !== normalized.toUpperCase()) return normalized;
-  const lower = normalized.toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 function stripHtml(value: string | null | undefined) {
@@ -650,6 +647,7 @@ async function buildCatalogSeoData(url: URL) {
   const hasLayout = (searchParams.get("layout") || "grid") !== "grid";
   const hasSort = (searchParams.get("sort") || "default") !== "default";
   const forceProductsView = searchParams.get("show") === "products";
+  const rootCatalogSeo = buildRootCatalogSeoCopy();
 
   if (catalogView === "brands") {
     if (!activeBrand) {
@@ -671,9 +669,9 @@ async function buildCatalogSeoData(url: URL) {
       ];
 
       return buildBasePageData("/catalog?view=brands", {
-        title: "Производители — каталог брендов ТЕХАКС",
+        title: "Производители в Пензе — бренды ТЕХАКС",
         description:
-          "Производители техники и аксессуаров в каталоге ТЕХАКС. Бренды с товарами в наличии, самовывозом и доставкой.",
+          "Производители техники и аксессуаров в каталоге ТЕХАКС: бренды с товарами в наличии, самовывозом в Пензе и доставкой по России.",
         canonicalUrl: `${SEO_HOST}/catalog?view=brands`,
         noindex: hasFilters || hasLayout || hasSort || forceProductsView,
         structuredData: [
@@ -729,12 +727,15 @@ async function buildCatalogSeoData(url: URL) {
       return buildBasePageData("/catalog", { noindex: true });
     }
 
+    const brandSeo = buildBrandSeoCopy({
+      brandName: manufacturer.name,
+      description: manufacturer.metaDescription || manufacturer.description,
+    });
     const description = normalizeDescription(
-      manufacturer.metaDescription || manufacturer.description,
-      `Товары бренда ${manufacturer.name} в интернет-магазине ТЕХАКС: актуальные цены, наличие, самовывоз и доставка по Пензе и России.`
+      manufacturer.metaDescription || brandSeo.description,
+      brandSeo.description
     );
-    const title =
-      manufacturer.metaTitle?.trim() || `${manufacturer.name} — товары бренда в ТЕХАКС`;
+    const title = manufacturer.metaTitle?.trim() || brandSeo.title;
     const breadcrumbs = [
       { name: "Главная", url: SEO_HOST },
       { name: "Каталог", url: `${SEO_HOST}/catalog` },
@@ -802,9 +803,8 @@ async function buildCatalogSeoData(url: URL) {
     ];
 
     return buildBasePageData("/catalog", {
-      title: "Каталог товаров ТЕХАКС — техника и аксессуары",
-      description:
-        "Каталог товаров ТЕХАКС: смартфоны, гаджеты, аксессуары, бытовая техника, самовывоз и доставка по Пензе и России.",
+      title: rootCatalogSeo.title,
+      description: rootCatalogSeo.description,
       canonicalUrl: `${SEO_HOST}/catalog`,
       noindex: hasFilters || hasLayout || hasSort || forceProductsView,
       structuredData: [
@@ -813,8 +813,7 @@ async function buildCatalogSeoData(url: URL) {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "Каталог товаров ТЕХАКС",
-          description:
-            "Каталог товаров ТЕХАКС: смартфоны, гаджеты, аксессуары, бытовая техника, самовывоз и доставка по Пензе и России.",
+          description: rootCatalogSeo.description,
           url: `${SEO_HOST}/catalog`,
         },
         buildItemListStructuredData({
@@ -830,8 +829,7 @@ async function buildCatalogSeoData(url: URL) {
         breadcrumbs,
         eyebrow: "Каталог",
         title: "Каталог товаров ТЕХАКС",
-        description:
-          "Смартфоны, аксессуары, гаджеты, техника для дома и полезная электроника с самовывозом в Пензе и доставкой по России.",
+        description: rootCatalogSeo.description,
         content: renderCardList(
           categories.map(category => ({
             title: toSeoReadableName(category.name),
@@ -880,15 +878,19 @@ async function buildCatalogSeoData(url: URL) {
   }
 
   const readableCategoryName = toSeoReadableName(currentCategory.name);
-  const description = normalizeDescription(
-    currentCategory.metaDescription || currentCategory.description,
-    `${readableCategoryName} в интернет-магазине ТЕХАКС: цены, наличие, самовывоз и доставка по Пензе и России.`
-  );
-  const title =
-    currentCategory.metaTitle?.trim() || `${readableCategoryName} — купить в ТЕХАКС`;
   const childCategories = categoryRows
     .filter(category => category.parentId === currentCategory.id)
     .slice(0, 16);
+  const categorySeo = buildCategorySeoCopy({
+    categoryName: readableCategoryName,
+    description: currentCategory.metaDescription || currentCategory.description,
+    hasChildren: childCategories.length > 0,
+  });
+  const description = normalizeDescription(
+    currentCategory.metaDescription || currentCategory.description,
+    categorySeo.description
+  );
+  const title = currentCategory.metaTitle?.trim() || categorySeo.title;
   const content = [
     childCategories.length > 0
       ? renderCardList(
@@ -906,7 +908,11 @@ async function buildCatalogSeoData(url: URL) {
           }))
         )
       : "",
-    `<section class="seo-section"><h2>Покупка и получение</h2><p>В разделе доступны актуальные цены, наличие по магазинам ТЕХАКС, самовывоз в Пензе и доставка по России.</p></section>`,
+    `<section class="seo-section"><h2>${childCategories.length > 0 ? "Как выбрать раздел" : "Покупка и получение"}</h2><p>${
+      childCategories.length > 0
+        ? "Выбирайте нужную подкатегорию или сразу переходите к товарам с актуальными ценами, наличием по магазинам ТЕХАКС и самовывозом в Пензе."
+        : "В разделе доступны актуальные цены, наличие по магазинам ТЕХАКС, самовывоз в Пензе и доставка по России."
+    }</p></section>`,
   ].join("");
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
@@ -1033,7 +1039,7 @@ async function buildProductSeoData(url: URL) {
   }
   for (const item of trail) {
     breadcrumbItems.push({
-      name: item.name,
+      name: toSeoReadableName(item.name),
       url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(item.slug)}`,
     });
   }
@@ -1043,17 +1049,6 @@ async function buildProductSeoData(url: URL) {
   });
 
   const manufacturerName = getManufacturerNameFromProductSpecs(product.specs) || SITE_NAME;
-  const description = normalizeDescription(
-    product.description,
-    `${product.name}: цена, характеристики, фото, наличие, самовывоз в Пензе и доставка по России. Купить в интернет-магазине ТЕХАКС.`
-  );
-
-  const image = product.image || DEFAULT_IMAGE;
-  const imageUrls = collectProductImageUrls(
-    product.image,
-    product.imageVariants,
-    product.images
-  );
   const specsEntries = Object.entries(
     product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
       ? (product.specs as Record<string, unknown>)
@@ -1087,9 +1082,28 @@ async function buildProductSeoData(url: URL) {
   const hasAggregateRating =
     Number(product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
   const isAvailable = storeAvailability.length > 0;
+  const productSeo = buildProductSeoCopy({
+    productName: product.name,
+    manufacturerName,
+    categoryName: product.categoryName,
+    description: product.description,
+    specs:
+      product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+        ? (product.specs as Record<string, unknown>)
+        : null,
+    price: product.price,
+    inStock: isAvailable,
+  });
+  const description = normalizeDescription(product.description, productSeo.description);
+  const image = product.image || DEFAULT_IMAGE;
+  const imageUrls = collectProductImageUrls(
+    product.image,
+    product.imageVariants,
+    product.images
+  );
 
   return buildBasePageData(`/product/${encodeURIComponent(product.slug)}`, {
-    title: `${product.name} — купить в ТЕХАКС`,
+    title: productSeo.title,
     description,
     canonicalUrl: `${SEO_HOST}/product/${encodeURIComponent(product.slug)}`,
     image,
@@ -1191,6 +1205,12 @@ async function buildProductSeoData(url: URL) {
       title: product.name,
       description,
       content: [
+        `<section class="seo-section"><h2>Кратко о товаре</h2><p>${escapeHtml(
+          productSeo.summaryLine ||
+            (isAvailable
+              ? `${product.name} доступен для покупки в ТЕХАКС с самовывозом в Пензе и доставкой по России.`
+              : `${product.name} сейчас недоступен для покупки, но карточка сохранена для сравнения характеристик и цены.`)
+        )}</p></section>`,
         renderFacts([
           { label: "Цена", value: `${new Intl.NumberFormat("ru-RU").format(product.price)} ₽` },
           { label: "Бренд", value: manufacturerName },

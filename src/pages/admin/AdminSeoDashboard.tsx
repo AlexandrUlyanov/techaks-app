@@ -33,6 +33,20 @@ function IssueBadge({ issue }: { issue: string }) {
   );
 }
 
+function AuditStatusBadge({ ok }: { ok: boolean }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
+        ok
+          ? "bg-emerald-100 text-emerald-700"
+          : "bg-rose-100 text-rose-700"
+      }`}
+    >
+      {ok ? "OK" : "Проверить"}
+    </span>
+  );
+}
+
 function SampleCard({
   title,
   subtitle,
@@ -281,6 +295,98 @@ export default function AdminSeoDashboard() {
                     <li>• после обновления контактов перепроверяем schema `Organization` и `Store`</li>
                   </ul>
                 </div>
+              </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Storefront audit"
+              description="Быстрый автоматический проход по ключевым витринным URL: title, canonical, robots и H1 в реальном HTML. Это как раз то, что нам важно после каждого SEO-релиза."
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <AdminStatCard
+                  label="Проверено URL"
+                  value={data.storefrontAudit.results.length}
+                  hint={new Date(data.storefrontAudit.checkedAt).toLocaleString("ru-RU")}
+                  icon={Globe}
+                />
+                <AdminStatCard
+                  label="Без замечаний"
+                  value={data.storefrontAudit.okCount}
+                  hint="Title, canonical, robots, H1"
+                  icon={CheckCircle2}
+                  tone="success"
+                />
+                <AdminStatCard
+                  label="С замечаниями"
+                  value={data.storefrontAudit.issueCount}
+                  hint={data.storefrontAudit.baseUrl}
+                  icon={AlertTriangle}
+                  tone={data.storefrontAudit.issueCount > 0 ? "warning" : "default"}
+                />
+                <AdminStatCard
+                  label="База аудита"
+                  value={data.storefrontAudit.baseUrl.replace(/^https?:\/\//, "")}
+                  hint="Проверка идёт живым HTTP-запросом"
+                  icon={ExternalLink}
+                  tone="accent"
+                />
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                {data.storefrontAudit.results.map(item => (
+                  <a
+                    key={`${item.label}-${item.path}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-4 transition-colors hover:bg-[color:color-mix(in_srgb,var(--tech-color-surface-muted)_72%,white)]"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="font-semibold text-[var(--tech-color-text-main)]">
+                            {item.label}
+                          </div>
+                          <AuditStatusBadge ok={item.ok} />
+                          {item.status ? (
+                            <span className="text-xs font-semibold text-[var(--tech-color-text-muted)]">
+                              HTTP {item.status}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-sm text-[var(--tech-color-text-muted)]">{item.path}</div>
+                      </div>
+                      <ExternalLink size={16} className="text-[var(--tech-color-primary)]" />
+                    </div>
+
+                    <div className="mt-3 grid gap-2 text-sm text-[var(--tech-color-text-muted)]">
+                      <div>
+                        <span className="font-semibold text-[var(--tech-color-text-main)]">Title:</span>{" "}
+                        {item.title || "—"}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[var(--tech-color-text-main)]">Canonical:</span>{" "}
+                        {item.canonical || "—"}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[var(--tech-color-text-main)]">Robots:</span>{" "}
+                        {item.robots || "—"}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[var(--tech-color-text-main)]">H1:</span>{" "}
+                        {item.h1 || "—"}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {item.issues.length === 0 ? (
+                        <IssueBadge issue="Head и HTML выглядят корректно" />
+                      ) : (
+                        item.issues.map(issue => <IssueBadge key={issue} issue={issue} />)
+                      )}
+                    </div>
+                  </a>
+                ))}
               </div>
             </AdminSection>
 

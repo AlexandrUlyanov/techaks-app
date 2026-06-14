@@ -46,6 +46,7 @@ import {
   resolveProductImageCollection,
 } from "@/lib/product-images";
 import { trackViewItem } from "@/lib/yandex-metrika";
+import { buildProductSeoCopy } from "@contracts/seo-copy";
 
 const PRODUCT_TAB_KEYS = ["about", "specs", "stock", "delivery", "reviews", "warranty"] as const;
 
@@ -218,16 +219,8 @@ export default function ProductPage() {
     return trail;
   }, [categories, product]);
 
-  const seoTitle = product
-    ? `${product.name} — купить в ТЕХАКС`
-    : "Товар — ТЕХАКС";
-  const seoDescription = product
-    ? (product.description || "").trim().slice(0, 220) ||
-      `${product.name}: цена, характеристики, фото, наличие, самовывоз в Пензе и доставка по России. Купить в интернет-магазине ТЕХАКС.`
-    : "Карточка товара интернет-магазина ТЕХАКС.";
   const seoCanonicalPath = product?.slug ? `/product/${product.slug}` : "/catalog";
   const relatedProducts = merchandisingRelated.slice(0, 4);
-  const descriptionForSeo = (product?.description || "").trim().slice(0, 220);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -238,6 +231,23 @@ export default function ProductPage() {
   const isInStock = hasVariants
     ? selectedVariantAvailableQty > 0
     : Boolean(product?.inStock);
+  const productSeo = product
+    ? buildProductSeoCopy({
+        productName: product.name,
+        manufacturerName: productManufacturer?.title || null,
+        categoryName: breadcrumbs.at(-1)?.name ? String(breadcrumbs.at(-1)?.name) : null,
+        description: product.description || "",
+        specs:
+          product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+            ? (product.specs as Record<string, unknown>)
+            : null,
+        price: selectedVariant?.price ?? product.price,
+        inStock: isInStock,
+      })
+    : null;
+  const seoTitle = productSeo?.title || "Товар — ТЕХАКС";
+  const seoDescription = productSeo?.description || "Карточка товара интернет-магазина ТЕХАКС.";
+  const descriptionForSeo = seoDescription;
   const manufacturer = productManufacturer ?? null;
   const hasManufacturer = Boolean(manufacturer);
   const merchandisingBadges = normalizeMerchandisingBadges(
@@ -410,7 +420,7 @@ export default function ProductPage() {
         }),
       }),
       productJsonLd,
-    ];
+    ].filter(Boolean) as Record<string, unknown>[];
   }, [breadcrumbs, product, productJsonLd, seoCanonicalPath, siteProfile?.contacts.email, siteProfile?.contacts.fullAddress, siteProfile?.contacts.primaryPhoneDisplay, siteProfile?.contacts.shortAddress, siteProfile?.seller.legalAddress]);
 
   useSeo({

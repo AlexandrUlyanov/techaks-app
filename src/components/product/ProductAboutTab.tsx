@@ -67,7 +67,7 @@ export default function ProductAboutTab({
           О товаре
         </div>
         <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
-          Ключевая информация о модели
+          Кратко о товаре
         </h2>
         <p className="mt-4 text-[15px] leading-7 text-muted-foreground md:text-base md:leading-8">
           {normalizedDescription ||
@@ -102,7 +102,7 @@ export default function ProductAboutTab({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-extrabold text-foreground">
-                  Основные параметры
+                  Ключевые характеристики
                 </h3>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Самое важное, чтобы быстро понять товар.
