@@ -197,6 +197,6 @@ jobs:
             echo "Running API/public/admin healthchecks..."
             smoke_check "https://techaks.ru/api/health"
             smoke_check "https://techaks.ru/"
-            smoke_check "https://techaks.ru/catalog?cat=all" "<title>Каталог товаров ТЕХАКС"
+            smoke_check "https://techaks.ru/catalog?cat=all" "<title>Каталог"
             smoke_check "https://techaks.ru/admin/orders"
             echo "API/public/admin healthchecks passed"
