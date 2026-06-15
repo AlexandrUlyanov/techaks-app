@@ -15,6 +15,12 @@ import {
   buildLocalLandingUrl,
   getLocalSeoLandingBySlug,
 } from "@contracts/local-seo-landings";
+import {
+  getKnowledgeCenterPlanForPost,
+  getKnowledgeFaqForPost,
+  knowledgeCenterArticlePlan,
+  knowledgeCenterClusters,
+} from "@contracts/blog-knowledge-center";
 
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -2238,6 +2244,14 @@ async function buildBlogSeoData() {
           name: post.title,
         })),
       },
+      buildItemListStructuredData({
+        name: "Контент-план блога ТЕХАКС",
+        url: `${SEO_HOST}/blog`,
+        items: knowledgeCenterArticlePlan.slice(0, 10).map(item => ({
+          name: item.title,
+          url: `${SEO_HOST}/blog/${encodeURIComponent(item.slug)}`,
+        })),
+      }),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: [
@@ -2248,14 +2262,48 @@ async function buildBlogSeoData() {
       title: "Блог ТЕХАКС",
       description:
         "Обзоры, советы и подборки по электронике, аксессуарам и полезным устройствам для повседневной жизни.",
-      content: renderCardList(
-        posts.map(post => ({
-          title: post.title,
-          links: [
-            { href: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`, label: "Читать статью" },
-          ],
-        }))
-      ),
+      content: `
+        <section class="seo-section">
+          <h2>Тематические направления</h2>
+          ${renderCardList(
+            knowledgeCenterClusters.map(cluster => ({
+              title: cluster.title,
+              text: cluster.description,
+              links: cluster.links.map(link => ({
+                href: `${SEO_HOST}${link.href}`,
+                label: link.label,
+              })),
+            }))
+          )}
+        </section>
+        <section class="seo-section">
+          <h2>Опубликованные материалы</h2>
+          ${renderCardList(
+            posts.map(post => ({
+              title: post.title,
+              links: [
+                {
+                  href: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`,
+                  label: "Читать статью",
+                },
+              ],
+            }))
+          )}
+        </section>
+        <section class="seo-section">
+          <h2>План ближайших публикаций</h2>
+          ${renderCardList(
+            knowledgeCenterArticlePlan.slice(0, 6).map(item => ({
+              title: item.title,
+              text: item.shortAnswer,
+              links: item.categoryLinks.slice(0, 2).map(link => ({
+                href: `${SEO_HOST}${link.href}`,
+                label: link.label,
+              })),
+            }))
+          )}
+        </section>
+      `,
     }),
   });
 }
@@ -2272,6 +2320,19 @@ async function buildBlogPostSeoData(url: URL) {
   if (!post) {
     return buildBasePageData(url.pathname, { noindex: true });
   }
+
+  const knowledgePlan = getKnowledgeCenterPlanForPost({
+    slug: post.slug,
+    title: post.title,
+    category: post.category,
+  });
+  const knowledgeFaq = getKnowledgeFaqForPost({
+    slug: post.slug,
+    title: post.title,
+    category: post.category,
+    excerpt: post.excerpt,
+  });
+  const faqStructuredData = buildFaqStructuredData(knowledgeFaq);
 
   return buildBasePageData(`/blog/${encodeURIComponent(post.slug)}`, {
     title: `${post.metaTitle || post.title} — Блог ТЕХАКС`,
@@ -2313,6 +2374,7 @@ async function buildBlogPostSeoData(url: URL) {
         },
         mainEntityOfPage: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`,
       },
+      ...(faqStructuredData ? [faqStructuredData] : []),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: [
@@ -2325,9 +2387,39 @@ async function buildBlogPostSeoData(url: URL) {
       description:
         post.metaDescription ||
         normalizeDescription(post.excerpt, "Полезные статьи и обзоры от ТЕХАКС."),
-      content: `<section class="seo-section"><h2>Кратко о материале</h2><p>${escapeHtml(
-        truncateText(post.excerpt || post.content, 1400) || "Материал доступен на странице статьи."
-      )}</p></section>`,
+      content: `
+        <section class="seo-section">
+          <h2>Кратко о материале</h2>
+          <p>${escapeHtml(
+            knowledgePlan?.shortAnswer ||
+              truncateText(post.excerpt || post.content, 1400) ||
+              "Материал доступен на странице статьи."
+          )}</p>
+        </section>
+        ${
+          knowledgePlan?.categoryLinks?.length
+            ? `<section class="seo-section"><h2>Категории по теме</h2>${renderCardList(
+                knowledgePlan.categoryLinks.map(link => ({
+                  title: link.label,
+                  text: link.note,
+                  links: [{ href: `${SEO_HOST}${link.href}`, label: "Открыть раздел" }],
+                }))
+              )}</section>`
+            : ""
+        }
+        ${
+          knowledgePlan?.brandLinks?.length
+            ? `<section class="seo-section"><h2>Связанные бренды</h2>${renderCardList(
+                knowledgePlan.brandLinks.map(link => ({
+                  title: link.label,
+                  text: link.note,
+                  links: [{ href: `${SEO_HOST}${link.href}`, label: "Открыть бренд" }],
+                }))
+              )}</section>`
+            : ""
+        }
+        ${renderFaqSection("Частые вопросы", knowledgeFaq)}
+      `,
     }),
   });
 }

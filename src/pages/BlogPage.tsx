@@ -4,6 +4,10 @@ import { trpc } from "@/providers/trpc";
 import { Loader2, Calendar, ArrowRight, BookOpen, Sparkles } from "lucide-react";
 import { useSeo } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
+import {
+  knowledgeCenterArticlePlan,
+  knowledgeCenterClusters,
+} from "@contracts/blog-knowledge-center";
 
 export default function BlogPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -16,6 +20,10 @@ export default function BlogPage() {
   const regularPosts = useMemo(
     () => posts.filter(post => post.id !== featuredPost?.id),
     [featuredPost?.id, posts]
+  );
+  const upcomingArticles = useMemo(
+    () => knowledgeCenterArticlePlan.slice(0, 6),
+    []
   );
 
   useSeo({
@@ -96,6 +104,94 @@ export default function BlogPage() {
                 <span className="ml-2 text-[10px] opacity-70">{item.count}</span>
               </button>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-12">
+        <div className="container-main">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[2rem] border border-border bg-card p-8 md:p-10">
+              <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+                Knowledge center
+              </div>
+              <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground md:text-4xl">
+                Тематические направления блога
+              </h2>
+              <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground">
+                Собрали постоянные темы, через которые блог помогает находить не
+                просто статьи, а сразу нужные категории, бренды и сценарии выбора.
+              </p>
+              <div className="mt-8 grid gap-4 md:grid-cols-2">
+                {knowledgeCenterClusters.map(cluster => (
+                  <div
+                    key={cluster.id}
+                    className="rounded-[1.5rem] border border-border bg-background/70 p-5"
+                  >
+                    <h3 className="text-lg font-black tracking-tight text-foreground">
+                      {cluster.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {cluster.description}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {cluster.links.map(link => (
+                        <Link
+                          key={`${cluster.id}-${link.href}`}
+                          to={link.href}
+                          className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:border-[#05C3D4]/40 hover:text-[#05C3D4]"
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-border bg-card p-8 md:p-10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+                    Контент-план
+                  </div>
+                  <h2 className="mt-4 text-2xl font-black tracking-tight text-foreground md:text-3xl">
+                    3 месяца полезных статей
+                  </h2>
+                </div>
+                <div className="rounded-full bg-[#05C3D4]/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#05C3D4]">
+                  {knowledgeCenterArticlePlan.length} тем
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                План строится вокруг реального спроса: выбор устройств, совместимость,
+                бренды, локальные сценарии для Пензы и переходы в каталог без потери
+                контекста.
+              </p>
+              <div className="mt-6 space-y-3">
+                {upcomingArticles.map(article => (
+                  <div
+                    key={article.slug}
+                    className="rounded-[1.25rem] border border-border bg-background/70 px-4 py-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
+                          Месяц {article.month}
+                        </div>
+                        <div className="mt-2 text-sm font-black leading-snug text-foreground">
+                          {article.title}
+                        </div>
+                      </div>
+                      <div className="rounded-full bg-background px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        {article.category}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

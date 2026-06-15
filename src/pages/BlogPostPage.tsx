@@ -14,9 +14,14 @@ import LeadForm from "@/components/LeadForm";
 import { useSeo } from "@/lib/seo";
 import {
   buildBreadcrumbStructuredData,
+  buildFaqStructuredData,
   buildOrganizationStructuredData,
   getPublicSchemaAddress,
 } from "@/lib/seo-structured";
+import {
+  getKnowledgeCenterPlanForPost,
+  getKnowledgeFaqForPost,
+} from "@contracts/blog-knowledge-center";
 
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -34,9 +39,30 @@ export default function BlogPostPage() {
       enabled: Boolean(post?.id && post?.category),
     }
   );
+  const knowledgePlan = useMemo(
+    () =>
+      getKnowledgeCenterPlanForPost({
+        slug: post?.slug,
+        title: post?.title,
+        category: post?.category,
+      }),
+    [post?.category, post?.slug, post?.title]
+  );
+  const knowledgeFaq = useMemo(
+    () =>
+      getKnowledgeFaqForPost({
+        slug: post?.slug,
+        title: post?.title,
+        category: post?.category,
+        excerpt: post?.excerpt,
+      }),
+    [post?.category, post?.excerpt, post?.slug, post?.title]
+  );
 
   const structuredData = useMemo(() => {
     if (!post) return null;
+
+    const faqStructuredData = buildFaqStructuredData(knowledgeFaq);
 
     return [
       buildBreadcrumbStructuredData([
@@ -78,8 +104,17 @@ export default function BlogPostPage() {
         },
         mainEntityOfPage: `https://techaks.ru/blog/${post.slug}`,
       },
+      ...(faqStructuredData ? [faqStructuredData] : []),
     ];
-  }, [post, siteProfile?.contacts.email, siteProfile?.contacts.fullAddress, siteProfile?.contacts.primaryPhoneDisplay, siteProfile?.contacts.shortAddress, siteProfile?.seller.legalAddress]);
+  }, [
+    knowledgeFaq,
+    post,
+    siteProfile?.contacts.email,
+    siteProfile?.contacts.fullAddress,
+    siteProfile?.contacts.primaryPhoneDisplay,
+    siteProfile?.contacts.shortAddress,
+    siteProfile?.seller.legalAddress,
+  ]);
 
   useSeo({
     title: post ? `${post.metaTitle || post.title} — Блог ТЕХАКС` : "Блог ТЕХАКС",
@@ -172,6 +207,98 @@ export default function BlogPostPage() {
               <div className="prose prose-lg max-w-none prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-a:text-[#05C3D4] prose-img:rounded-[2rem]">
                 <div dangerouslySetInnerHTML={{ __html: post.content }} />
               </div>
+
+              <section className="mt-16 rounded-[2.5rem] border border-border bg-card p-8 md:p-10">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-3xl">
+                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+                      Короткий ответ
+                    </div>
+                    <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground md:text-4xl">
+                      Что важно по этой теме
+                    </h2>
+                    <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                      {knowledgePlan?.shortAnswer || post.excerpt}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.5rem] bg-background/80 px-5 py-4 text-sm text-muted-foreground">
+                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
+                      Материал
+                    </div>
+                    <div className="mt-2 font-semibold text-foreground">
+                      {knowledgePlan?.intent || post.category}
+                    </div>
+                  </div>
+                </div>
+
+                {(knowledgePlan?.categoryLinks?.length || knowledgePlan?.brandLinks?.length) ? (
+                  <div className="mt-8 grid gap-6 md:grid-cols-2">
+                    {knowledgePlan?.categoryLinks?.length ? (
+                      <div className="rounded-[1.5rem] border border-border bg-background/70 p-5">
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
+                          Категории по теме
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {knowledgePlan.categoryLinks.map(link => (
+                            <Link
+                              key={link.href}
+                              to={link.href}
+                              className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:border-[#05C3D4]/40 hover:text-[#05C3D4]"
+                            >
+                              {link.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {knowledgePlan?.brandLinks?.length ? (
+                      <div className="rounded-[1.5rem] border border-border bg-background/70 p-5">
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
+                          Бренды и подборки
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {knowledgePlan.brandLinks.map(link => (
+                            <Link
+                              key={link.href}
+                              to={link.href}
+                              className="inline-flex min-h-10 items-center rounded-full border border-border px-4 text-xs font-black uppercase tracking-widest text-foreground transition-colors hover:border-[#05C3D4]/40 hover:text-[#05C3D4]"
+                            >
+                              {link.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+
+              {knowledgeFaq.length > 0 ? (
+                <section className="mt-16 rounded-[2.5rem] border border-border bg-card p-8 md:p-10">
+                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
+                    FAQ
+                  </div>
+                  <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground md:text-4xl">
+                    Частые вопросы по теме
+                  </h2>
+                  <div className="mt-8 space-y-4">
+                    {knowledgeFaq.map(item => (
+                      <div
+                        key={item.question}
+                        className="rounded-[1.5rem] border border-border bg-background/70 p-5"
+                      >
+                        <h3 className="text-base font-black leading-snug text-foreground">
+                          {item.question}
+                        </h3>
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                          {item.answer}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <div className="relative mt-24 overflow-hidden rounded-[2.5rem] border border-border bg-card p-10 md:p-16">
                 <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-[#05C3D4]/5 blur-[100px]" />
