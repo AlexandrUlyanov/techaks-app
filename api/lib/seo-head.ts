@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import * as schema from "@db/schema";
 import { normalizeProductImageVariantSet } from "@contracts/product-images";
@@ -495,6 +495,125 @@ function renderCardList(
     .join("")}</div>`;
 }
 
+function renderFaqSection(
+  title: string,
+  items: Array<{
+    question: string;
+    answer: string;
+  }>
+) {
+  const rows = items.filter(
+    item => item.question.trim().length > 0 && item.answer.trim().length > 0
+  );
+  if (rows.length === 0) return "";
+
+  return `
+    <section class="seo-section">
+      <h2>${escapeHtml(title)}</h2>
+      ${renderCardList(
+        rows.map(item => ({
+          title: item.question,
+          text: item.answer,
+        }))
+      )}
+    </section>
+  `;
+}
+
+function buildCategoryFaqItems(input: {
+  categoryName: string;
+  hasChildren: boolean;
+  topBrands?: string[];
+}) {
+  const brandLine =
+    input.topBrands && input.topBrands.length > 0
+      ? `В разделе часто представлены бренды ${input.topBrands.slice(0, 3).join(", ")}.`
+      : "В разделе собраны товары с актуальными ценами и наличием.";
+
+  return [
+    {
+      question: `Что можно найти в категории «${input.categoryName}»?`,
+      answer: input.hasChildren
+        ? `В категории «${input.categoryName}» собраны подкатегории и быстрые переходы к нужным товарам. ${brandLine}`
+        : `В категории «${input.categoryName}» доступны товары с актуальными ценами, наличием по магазинам ТЕХАКС и вариантами получения заказа. ${brandLine}`,
+    },
+    {
+      question: `Можно ли забрать товары из раздела «${input.categoryName}» самовывозом?`,
+      answer:
+        "Да, если товар есть в наличии в нужном магазине. Точка самовывоза и доступность подтверждаются в карточке товара и на этапе оформления заказа.",
+    },
+    {
+      question: `Как выбрать товары в разделе «${input.categoryName}»?`,
+      answer: input.hasChildren
+        ? "Сначала откройте нужную подкатегорию, затем сравните модели по цене, совместимости, характеристикам и наличию."
+        : "Сравнивайте модели по характеристикам, совместимости, цене и наличию. Для точного выбора полезно смотреть карточку товара и условия получения.",
+    },
+    {
+      question: `Доступна ли доставка по категории «${input.categoryName}»?`,
+      answer:
+        "Да, для части товаров доступна доставка по Пензе и России. Итоговые варианты зависят от конкретного товара, адреса и способа получения.",
+    },
+  ];
+}
+
+function buildBrandFaqItems(input: {
+  brandName: string;
+  topCategoryNames?: string[];
+}) {
+  const categoriesLine =
+    input.topCategoryNames && input.topCategoryNames.length > 0
+      ? `Чаще всего бренд представлен в разделах: ${input.topCategoryNames.slice(0, 4).join(", ")}.`
+      : "Ассортимент бренда зависит от текущей поставки и видимых позиций в каталоге.";
+
+  return [
+    {
+      question: `Какие товары бренда ${input.brandName} есть в ТЕХАКС?`,
+      answer: `На странице бренда ${input.brandName} собраны актуальные товары с ценами, наличием и быстрым переходом в карточки. ${categoriesLine}`,
+    },
+    {
+      question: `Можно ли купить товары ${input.brandName} с самовывозом?`,
+      answer:
+        "Да, если конкретный товар есть в магазине. Наличие по точкам самовывоза отображается в карточке товара и подтверждается при заказе.",
+    },
+    {
+      question: `Как выбрать товар бренда ${input.brandName}?`,
+      answer:
+        "Сравните модели по назначению, совместимости, характеристикам, цене и наличию. Для аксессуаров особенно важно проверить совместимость с вашим устройством.",
+    },
+    {
+      question: `Есть ли доставка для товаров ${input.brandName}?`,
+      answer:
+        "Да, доступность доставки зависит от конкретного товара и адреса получения. Итоговый вариант определяется на этапе оформления заказа.",
+    },
+  ];
+}
+
+function collectDescendantCategoryIds(
+  rootCategoryId: number,
+  categoryRows: Array<typeof schema.categories.$inferSelect>
+) {
+  const byParent = new Map<number | null, Array<typeof schema.categories.$inferSelect>>();
+  for (const row of categoryRows) {
+    const bucket = byParent.get(row.parentId ?? null) ?? [];
+    bucket.push(row);
+    byParent.set(row.parentId ?? null, bucket);
+  }
+
+  const result = new Set<number>();
+  const queue = [rootCategoryId];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId || result.has(currentId)) continue;
+    result.add(currentId);
+    const children = byParent.get(currentId) ?? [];
+    for (const child of children) {
+      if (!result.has(child.id)) queue.push(child.id);
+    }
+  }
+
+  return Array.from(result);
+}
+
 function renderSeoBodyShell(input: {
   breadcrumbs?: BreadcrumbItem[];
   eyebrow?: string;
@@ -745,6 +864,41 @@ async function buildCatalogSeoData(url: URL) {
         url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
       },
     ];
+    const relatedCategoryRows = await db
+      .select({
+        slug: schema.categories.slug,
+        name: schema.categories.name,
+        description: schema.categories.description,
+        productCount: schema.manufacturerCategoryIndex.productCount,
+      })
+      .from(schema.manufacturerCategoryIndex)
+      .innerJoin(
+        schema.categories,
+        eq(schema.categories.id, schema.manufacturerCategoryIndex.categoryId)
+      )
+      .where(eq(schema.manufacturerCategoryIndex.manufacturerId, manufacturer.id))
+      .orderBy(
+        desc(schema.manufacturerCategoryIndex.productCount),
+        asc(schema.categories.sortOrder),
+        asc(schema.categories.id)
+      )
+      .limit(6);
+    const recentPosts = await db
+      .select({
+        slug: schema.posts.slug,
+        title: schema.posts.title,
+        excerpt: schema.posts.excerpt,
+      })
+      .from(schema.posts)
+      .where(
+        sql`(${schema.posts.status} = 'published' OR (${schema.posts.status} = 'scheduled' AND ${schema.posts.publishedAt} <= NOW()))`
+      )
+      .orderBy(desc(schema.posts.featured), desc(schema.posts.publishedAt), desc(schema.posts.createdAt))
+      .limit(3);
+    const brandFaqItems = buildBrandFaqItems({
+      brandName: manufacturer.name,
+      topCategoryNames: relatedCategoryRows.map(item => toSeoReadableName(item.name)),
+    });
 
     return buildBasePageData(`/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`, {
       title,
@@ -761,6 +915,7 @@ async function buildCatalogSeoData(url: URL) {
           description,
           url: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`,
         },
+        ...(buildFaqStructuredData(brandFaqItems) ? [buildFaqStructuredData(brandFaqItems)] : []),
       ],
       bodyHtml: renderSeoBodyShell({
         breadcrumbs,
@@ -774,11 +929,43 @@ async function buildCatalogSeoData(url: URL) {
               label: "Смотреть товары бренда",
             },
             { href: `${SEO_HOST}/catalog?view=brands`, label: "Все производители" },
+            { href: `${SEO_HOST}/catalog`, label: "Каталог ТЕХАКС" },
           ]),
           manufacturer.description?.trim()
             ? `<section class="seo-section"><h2>О бренде</h2><p>${escapeHtml(
                 truncateText(manufacturer.description, 800)
               )}</p></section>`
+            : "",
+          relatedCategoryRows.length > 0
+            ? `<section class="seo-section"><h2>Где искать товары бренда</h2>${renderCardList(
+                relatedCategoryRows.map(item => ({
+                  title: toSeoReadableName(item.name),
+                  text:
+                    truncateText(item.description, 150) ||
+                    `${manufacturer.name} и похожие товары в этой категории.`,
+                  links: [
+                    {
+                      href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(item.slug)}`,
+                      label: `Открыть ${toSeoReadableName(item.name)}`,
+                    },
+                  ],
+                }))
+              )}</section>`
+            : "",
+          renderFaqSection(`Частые вопросы о бренде ${manufacturer.name}`, brandFaqItems),
+          recentPosts.length > 0
+            ? `<section class="seo-section"><h2>Полезные статьи и подборки</h2>${renderCardList(
+                recentPosts.map(post => ({
+                  title: post.title,
+                  text: truncateText(post.excerpt, 150) || "Практическая статья из блога ТЕХАКС.",
+                  links: [
+                    {
+                      href: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`,
+                      label: "Читать материал",
+                    },
+                  ],
+                }))
+              )}</section>`
             : "",
         ].join(""),
       }),
@@ -881,6 +1068,52 @@ async function buildCatalogSeoData(url: URL) {
   const childCategories = categoryRows
     .filter(category => category.parentId === currentCategory.id)
     .slice(0, 16);
+  const siblingCategories = categoryRows
+    .filter(
+      category =>
+        category.parentId === currentCategory.parentId && category.id !== currentCategory.id
+    )
+    .slice(0, 8);
+  const relevantCategoryIds = collectDescendantCategoryIds(currentCategory.id, categoryRows);
+  const topManufacturersInCategory =
+    relevantCategoryIds.length > 0
+      ? await db
+          .select({
+            slug: schema.manufacturers.slug,
+            name: schema.manufacturers.name,
+            description: schema.manufacturers.description,
+            productCount: schema.manufacturerCategoryIndex.productCount,
+          })
+          .from(schema.manufacturerCategoryIndex)
+          .innerJoin(
+            schema.manufacturers,
+            eq(schema.manufacturers.id, schema.manufacturerCategoryIndex.manufacturerId)
+          )
+          .where(
+            and(
+              inArray(schema.manufacturerCategoryIndex.categoryId, relevantCategoryIds),
+              eq(schema.manufacturers.isVisible, true)
+            )
+          )
+          .orderBy(
+            desc(schema.manufacturerCategoryIndex.productCount),
+            asc(schema.manufacturers.sortOrder),
+            asc(schema.manufacturers.name)
+          )
+          .limit(6)
+      : [];
+  const relatedPosts = await db
+    .select({
+      slug: schema.posts.slug,
+      title: schema.posts.title,
+      excerpt: schema.posts.excerpt,
+    })
+    .from(schema.posts)
+    .where(
+      sql`(${schema.posts.status} = 'published' OR (${schema.posts.status} = 'scheduled' AND ${schema.posts.publishedAt} <= NOW()))`
+    )
+    .orderBy(desc(schema.posts.featured), desc(schema.posts.publishedAt), desc(schema.posts.createdAt))
+    .limit(3);
   const categorySeo = buildCategorySeoCopy({
     categoryName: readableCategoryName,
     description: currentCategory.metaDescription || currentCategory.description,
@@ -891,9 +1124,29 @@ async function buildCatalogSeoData(url: URL) {
     categorySeo.description
   );
   const title = currentCategory.metaTitle?.trim() || categorySeo.title;
+  const categoryFaqItems = buildCategoryFaqItems({
+    categoryName: readableCategoryName,
+    hasChildren: childCategories.length > 0,
+    topBrands: topManufacturersInCategory.map(item => item.name),
+  });
   const content = [
+    renderInlineLinks([
+      {
+        href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
+        label: `Товары раздела ${readableCategoryName}`,
+      },
+      { href: `${SEO_HOST}/catalog`, label: "Весь каталог" },
+      ...(topManufacturersInCategory[0]
+        ? [
+            {
+              href: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(topManufacturersInCategory[0].slug)}`,
+              label: `Бренд ${topManufacturersInCategory[0].name}`,
+            },
+          ]
+        : []),
+    ]),
     childCategories.length > 0
-      ? renderCardList(
+      ? `<section class="seo-section"><h2>Популярные подкатегории</h2>${renderCardList(
           childCategories.map(category => ({
             title: toSeoReadableName(category.name),
             text:
@@ -906,13 +1159,60 @@ async function buildCatalogSeoData(url: URL) {
               },
             ],
           }))
-        )
+        )}</section>`
       : "",
     `<section class="seo-section"><h2>${childCategories.length > 0 ? "Как выбрать раздел" : "Покупка и получение"}</h2><p>${
       childCategories.length > 0
         ? "Выбирайте нужную подкатегорию или сразу переходите к товарам с актуальными ценами, наличием по магазинам ТЕХАКС и самовывозом в Пензе."
         : "В разделе доступны актуальные цены, наличие по магазинам ТЕХАКС, самовывоз в Пензе и доставка по России."
     }</p></section>`,
+    siblingCategories.length > 0
+      ? `<section class="seo-section"><h2>Похожие разделы</h2>${renderCardList(
+          siblingCategories.map(category => ({
+            title: toSeoReadableName(category.name),
+            text:
+              truncateText(category.description, 140) ||
+              "Соседний раздел каталога с похожими товарами.",
+            links: [
+              {
+                href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}`,
+                label: `Перейти в ${toSeoReadableName(category.name)}`,
+              },
+            ],
+          }))
+        )}</section>`
+      : "",
+    topManufacturersInCategory.length > 0
+      ? `<section class="seo-section"><h2>Популярные бренды в разделе</h2>${renderCardList(
+          topManufacturersInCategory.map(item => ({
+            title: item.name,
+            text:
+              truncateText(item.description, 140) ||
+              `${item.name} — один из брендов, представленных в разделе ${readableCategoryName}.`,
+            links: [
+              {
+                href: `${SEO_HOST}/catalog?view=brands&brand=${encodeURIComponent(item.slug)}`,
+                label: `Открыть бренд ${item.name}`,
+              },
+            ],
+          }))
+        )}</section>`
+      : "",
+    renderFaqSection(`Частые вопросы по категории «${readableCategoryName}»`, categoryFaqItems),
+    relatedPosts.length > 0
+      ? `<section class="seo-section"><h2>Статьи и подборки по теме</h2>${renderCardList(
+          relatedPosts.map(post => ({
+            title: post.title,
+            text: truncateText(post.excerpt, 150) || "Материал из блога ТЕХАКС по выбору и использованию техники.",
+            links: [
+              {
+                href: `${SEO_HOST}/blog/${encodeURIComponent(post.slug)}`,
+                label: "Читать статью",
+              },
+            ],
+          }))
+        )}</section>`
+      : "",
   ].join("");
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
@@ -940,6 +1240,9 @@ async function buildCatalogSeoData(url: URL) {
               })),
             }),
           ]
+        : []),
+      ...(buildFaqStructuredData(categoryFaqItems)
+        ? [buildFaqStructuredData(categoryFaqItems)]
         : []),
     ],
     bodyHtml: renderSeoBodyShell({
