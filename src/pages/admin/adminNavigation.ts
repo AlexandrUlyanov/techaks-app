@@ -8,6 +8,7 @@ import {
   Globe,
   History,
   LayoutDashboard,
+  Layers3,
   MapPinned,
   MessageSquare,
   Package,
@@ -90,6 +91,7 @@ export function buildAdminNavigation(
       title: "Каталог",
       items: [
         { id: "categories", name: "Категории", href: "/admin/categories", icon: FolderTree },
+        { id: "listings", name: "Листинги", href: "/admin/listings", icon: Layers3 },
         { id: "products", name: "Товары", href: "/admin/products", icon: Package },
         { id: "stores", name: "Магазины", href: "/admin/stores", icon: Store },
         {

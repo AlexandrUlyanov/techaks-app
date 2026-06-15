@@ -16,12 +16,14 @@ import { reviewsRouter } from "./routers/reviews";
 import { homeRouter } from "./routers/home";
 import { designSystemRouter } from "./routers/design-system";
 import { searchRouter } from "./routers/search";
+import { listingRouter } from "./routers/listing";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
   home: homeRouter,
   designSystem: designSystemRouter,
   search: searchRouter,
+  listing: listingRouter,
   lead: leadRouter,
   product: productRouter,
   store: storeRouter,

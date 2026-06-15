@@ -27,6 +27,7 @@ export type Subjects =
   | "Product"
   | "Review"
   | "Category"
+  | "Listing"
   | "Store"
   | "Reservation"
   | "Lead"
@@ -55,6 +56,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
       "Product",
       "Review",
       "Category",
+      "Listing",
       "Store",
       "Reservation",
       "Lead",
@@ -73,6 +75,7 @@ export function defineAbilityFor(user: { id: number; role: string }) {
     can("read", "AdminPanel");
   } else if (role === "merchandiser") {
     can("read", ["Product", "Category"]);
+    can("read", "Listing");
     can("manage", "Merchandising");
     can("read", "AdminPanel");
   } else if (role === "content_manager") {
