@@ -1191,6 +1191,31 @@ export const settingsRouter = createRouter({
         expectedCanonical: "https://techaks.ru/contacts",
       },
       {
+        label: "О компании",
+        path: "/about",
+        expectedCanonical: "https://techaks.ru/about",
+      },
+      {
+        label: "Оплата и доставка",
+        path: "/payment-delivery",
+        expectedCanonical: "https://techaks.ru/payment-delivery",
+      },
+      {
+        label: "Возврат и обмен",
+        path: "/returns",
+        expectedCanonical: "https://techaks.ru/returns",
+      },
+      {
+        label: "Оферта",
+        path: "/offer",
+        expectedCanonical: "https://techaks.ru/offer",
+      },
+      {
+        label: "Политика ПДн",
+        path: "/privacy-policy",
+        expectedCanonical: "https://techaks.ru/privacy-policy",
+      },
+      {
         label: "Checkout",
         path: "/checkout",
         expectedCanonical: "https://techaks.ru/checkout",
