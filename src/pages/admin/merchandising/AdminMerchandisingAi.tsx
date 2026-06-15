@@ -4,7 +4,6 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
-import AdminMerchandisingNav from "./AdminMerchandisingNav";
 
 export default function AdminMerchandisingAi() {
   const utils = trpc.useUtils();
@@ -74,8 +73,6 @@ export default function AdminMerchandisingAi() {
           </div>
         }
       />
-
-      <AdminMerchandisingNav />
 
       <AdminSection
         title="Запустить AI-проход"

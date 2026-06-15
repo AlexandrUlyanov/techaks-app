@@ -1,13 +1,9 @@
-import { Link } from "react-router";
 import {
-  ArrowRight,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
   FileText,
-  PackageOpen,
   Clock3,
-  ShoppingBag,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -80,59 +76,28 @@ export default function AdminSyncMenu() {
 
       <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <AdminSection
-          title="Основные маршруты"
-          description="Разделили товарный контур и order-sync, чтобы оператору было проще быстро попасть в нужный сценарий и не тонуть в одном длинном экране."
+          title="Контур интеграции"
+          description="Все рабочие маршруты вынесены в главное меню слева. Этот экран теперь оставляем обзорным: здесь видно текущее состояние обмена, последние типы запусков и общий журнал."
         >
-          <div className="grid gap-4">
-            <Link
-              to="/admin/sync/moysklad"
-              className="group block rounded-2xl border border-gray-200 bg-white px-6 py-6 transition hover:border-[#05C3D4] hover:shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#15171A] text-white">
-                    <PackageOpen size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-[#15171A]">
-                      Каталог, остатки и очереди
-                    </h3>
-                    <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500">
-                      Товары, остатки, цены, очереди вебхуков, reconcile,
-                      scheduler и watchdog для full sync.
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-gray-200 p-2 text-gray-400 transition group-hover:border-[#05C3D4] group-hover:text-[#05C3D4]">
-                  <ArrowRight size={18} />
-                </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-5">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                Каталог и остатки
               </div>
-            </Link>
-
-            <Link
-              to="/admin/sync/moysklad/orders"
-              className="group block rounded-2xl border border-gray-200 bg-white px-6 py-6 transition hover:border-[#05C3D4] hover:shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#15171A] text-white">
-                    <ShoppingBag size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-[#15171A]">
-                      Заказы в МойСклад
-                    </h3>
-                    <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500">
-                      Очередь customerorder, маппинг статусов, ошибки, ручной
-                      retry и диагностика проблемных заказов.
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-gray-200 p-2 text-gray-400 transition group-hover:border-[#05C3D4] group-hover:text-[#05C3D4]">
-                  <ArrowRight size={18} />
-                </div>
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Очереди вебхуков, reconcile, scheduler, watchdog, полный прогон каталога,
+                цены и остатки живут в ветке МойСклад.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-5">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                Заказы customerorder
               </div>
-            </Link>
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Отдельная ветка для order-sync: статусы, retry, маппинг customerorder и
+                разбор проблемных заказов без смешивания с товарным контуром.
+              </p>
+            </div>
           </div>
         </AdminSection>
 

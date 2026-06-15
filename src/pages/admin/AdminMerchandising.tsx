@@ -24,7 +24,6 @@ import {
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
 import { toast } from "sonner";
-import AdminMerchandisingNav from "@/pages/admin/merchandising/AdminMerchandisingNav";
 
 type EditState = {
   manualPriority: number;
@@ -316,8 +315,6 @@ export default function AdminMerchandising() {
           Пересчитать все
         </button>
       </div>
-
-      <AdminMerchandisingNav />
 
       <div className="grid gap-4 lg:grid-cols-4">
         {[

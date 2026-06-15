@@ -4,7 +4,6 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
-import AdminMerchandisingNav from "./AdminMerchandisingNav";
 
 export default function AdminMerchandisingAssignments() {
   const utils = trpc.useUtils();
@@ -47,8 +46,6 @@ export default function AdminMerchandisingAssignments() {
           </button>
         }
       />
-
-      <AdminMerchandisingNav />
 
       <AdminSection
         title="Выбор категории для preview"

@@ -4,7 +4,6 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import { trpc } from "@/providers/trpc";
 import { toast } from "sonner";
-import AdminMerchandisingNav from "./AdminMerchandisingNav";
 
 export default function AdminMerchandisingBadges() {
   const utils = trpc.useUtils();
@@ -59,8 +58,6 @@ export default function AdminMerchandisingBadges() {
           </div>
         }
       />
-
-      <AdminMerchandisingNav />
 
       <AdminSection
         title="Добавить новый бейдж"

@@ -2,7 +2,6 @@ import { Bot, CheckCheck } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import { trpc } from "@/providers/trpc";
-import AdminMerchandisingNav from "./AdminMerchandisingNav";
 
 export default function AdminMerchandisingQuality() {
   const qualityQuery = trpc.merchandising.qualityDashboard.useQuery(undefined, {
@@ -22,8 +21,6 @@ export default function AdminMerchandisingQuality() {
           </div>
         }
       />
-
-      <AdminMerchandisingNav />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
