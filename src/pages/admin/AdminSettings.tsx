@@ -6,15 +6,11 @@ import {
   Save,
   ShieldCheck,
   Trash2,
-  Wrench,
-  UserCog,
-  Bot,
-  Cable,
   CreditCard,
   ArrowRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
@@ -26,18 +22,10 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 
 type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
 
-const TABS: Array<{ key: SettingsTab; label: string; icon: typeof UserCog }> = [
-  { key: "profile", label: "Профиль", icon: UserCog },
-  { key: "access", label: "Доступ", icon: ShieldCheck },
-  { key: "ai", label: "ИИ", icon: Bot },
-  { key: "integrations", label: "Интеграции", icon: Cable },
-  { key: "payment", label: "Оплата", icon: CreditCard },
-  { key: "site", label: "Сайт", icon: Wrench },
-];
-
 export default function AdminSettings() {
+  const location = useLocation();
   const utils = trpc.useUtils();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const activeTab = resolveSettingsTab(location.pathname);
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
@@ -455,7 +443,7 @@ export default function AdminSettings() {
       <AdminPageHeader
         eyebrow="Контур управления"
         title="Настройки и интеграции"
-        description="Здесь собраны только рабочие настройки: доступ, внешние интеграции, режим сайта и сервисные параметры. Длинный экран разбит на смысловые зоны, чтобы нужный блок находился быстрее."
+        description="Настройки разложены по отдельным маршрутам. Навигация по разделам теперь идет через главное меню слева, без внутреннего дублирующего таб-бара."
       />
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -468,28 +456,6 @@ export default function AdminSettings() {
             tone={card.tone}
           />
         ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-        {TABS.map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors ${
-                isActive
-                  ? "bg-[#05C3D4] text-white"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-[#05C3D4]"
-              }`}
-            >
-              <Icon size={16} />
-              {tab.label}
-            </button>
-          );
-        })}
       </div>
 
       {activeTab === "profile" ? (
@@ -2034,4 +2000,13 @@ export default function AdminSettings() {
       ) : null}
     </div>
   );
+}
+
+function resolveSettingsTab(pathname: string): SettingsTab {
+  if (pathname.startsWith("/admin/settings/access")) return "access";
+  if (pathname.startsWith("/admin/settings/ai")) return "ai";
+  if (pathname.startsWith("/admin/settings/integrations")) return "integrations";
+  if (pathname.startsWith("/admin/settings/payment")) return "payment";
+  if (pathname.startsWith("/admin/settings/site")) return "site";
+  return "profile";
 }

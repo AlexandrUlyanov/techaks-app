@@ -166,14 +166,34 @@ export function buildAdminNavigation(
         {
           id: "settings",
           name: "Настройки",
-          href: "/admin/settings",
+          href: "/admin/settings/profile",
           icon: Settings,
           match: hrefStartsWith("/admin/settings"),
           children: [
             {
+              id: "settings-profile",
+              name: "Профиль",
+              href: "/admin/settings/profile",
+            },
+            {
+              id: "settings-access",
+              name: "Доступ и роли",
+              href: "/admin/settings/access",
+            },
+            {
+              id: "settings-ai",
+              name: "ИИ и сервисы",
+              href: "/admin/settings/ai",
+            },
+            {
+              id: "settings-integrations",
+              name: "Интеграции",
+              href: "/admin/settings/integrations",
+            },
+            {
               id: "settings-payments",
               name: "Платежи",
-              href: "/admin/settings/payment/yookassa",
+              href: "/admin/settings/payment",
               match: hrefStartsWith("/admin/settings/payment"),
               children: [
                 {
@@ -182,6 +202,11 @@ export function buildAdminNavigation(
                   href: "/admin/settings/payment/yookassa",
                 },
               ],
+            },
+            {
+              id: "settings-site",
+              name: "Сайт",
+              href: "/admin/settings/site",
             },
           ],
         },

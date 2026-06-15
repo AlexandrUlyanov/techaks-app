@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, useLocation } from "react-router";
+import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Toaster } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -189,7 +189,13 @@ export default function App() {
                   />
                 </Route>
 
-                <Route path="settings" element={<AdminSettings />} />
+                <Route path="settings" element={<Navigate to="/admin/settings/profile" replace />} />
+                <Route path="settings/profile" element={<AdminSettings />} />
+                <Route path="settings/access" element={<AdminSettings />} />
+                <Route path="settings/ai" element={<AdminSettings />} />
+                <Route path="settings/integrations" element={<AdminSettings />} />
+                <Route path="settings/payment" element={<AdminSettings />} />
+                <Route path="settings/site" element={<AdminSettings />} />
                 <Route
                   path="settings/payment/yookassa"
                   element={<AdminYooKassaSettings />}
