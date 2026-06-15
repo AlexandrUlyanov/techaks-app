@@ -31,6 +31,7 @@ import {
 } from "./lib/sync-runtime-settings";
 import { handleYooKassaWebhook } from "./lib/yookassa";
 import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
+import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -337,6 +338,7 @@ app.get("/sitemap-pages.xml", async c => {
     "/privacy-policy",
     "/payment-delivery",
     "/returns",
+    ...localSeoLandings.map(item => buildLocalLandingUrl(item.slug)),
   ];
   const lastmods = await getSitemapSectionLastmods();
   const rows = staticPages

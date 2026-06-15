@@ -9,6 +9,12 @@ import {
   buildRootCatalogSeoCopy,
   toSeoReadableName,
 } from "@contracts/seo-copy";
+import {
+  buildBrandCatalogUrl,
+  buildCatalogCategoryUrl,
+  buildLocalLandingUrl,
+  getLocalSeoLandingBySlug,
+} from "@contracts/local-seo-landings";
 
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -1932,6 +1938,132 @@ async function buildAboutSeoData() {
   });
 }
 
+async function buildLocalLandingSeoData(url: URL) {
+  const slug = decodeURIComponent(url.pathname.replace(/^\/penza\//, "").trim());
+  const landing = getLocalSeoLandingBySlug(slug);
+
+  if (!landing) {
+    return buildBasePageData(url.pathname, {
+      title: "Подборка не найдена — ТЕХАКС",
+      description: "Запрошенная локальная подборка недоступна.",
+      canonicalUrl: `${SEO_HOST}${url.pathname}`,
+      noindex: true,
+    });
+  }
+
+  const categoryItems = landing.categoryLinks.map(item => ({
+    name: item.label,
+    url: `${SEO_HOST}${buildCatalogCategoryUrl(item.slug)}`,
+  }));
+  const brandItems = landing.brandLinks.map(item => ({
+    name: item.label,
+    url: `${SEO_HOST}${buildBrandCatalogUrl(item.slug)}`,
+  }));
+  const relatedItems = landing.relatedSlugs
+    .map(itemSlug => getLocalSeoLandingBySlug(itemSlug))
+    .filter(Boolean)
+    .map(item => ({
+      name: item.h1,
+      url: `${SEO_HOST}${buildLocalLandingUrl(item.slug)}`,
+    }));
+  const faqStructuredData = buildFaqStructuredData(landing.faqs);
+
+  return buildBasePageData(buildLocalLandingUrl(landing.slug), {
+    title: landing.title,
+    description: landing.description,
+    canonicalUrl: `${SEO_HOST}${buildLocalLandingUrl(landing.slug)}`,
+    structuredData: [
+      buildBreadcrumbStructuredData([
+        { name: "Главная", url: SEO_HOST },
+        { name: "Каталог", url: `${SEO_HOST}/catalog` },
+        { name: landing.h1, url: `${SEO_HOST}${buildLocalLandingUrl(landing.slug)}` },
+      ]),
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: landing.h1,
+        headline: landing.h1,
+        description: landing.description,
+        url: `${SEO_HOST}${buildLocalLandingUrl(landing.slug)}`,
+        inLanguage: "ru-RU",
+        about: landing.categoryLinks.map(item => item.label),
+      },
+      buildItemListStructuredData({
+        name: `${landing.h1} — быстрые переходы`,
+        url: `${SEO_HOST}${buildLocalLandingUrl(landing.slug)}`,
+        items: [...categoryItems, ...brandItems].slice(0, 12),
+      }),
+      ...(faqStructuredData ? [faqStructuredData] : []),
+    ],
+    bodyHtml: renderSeoBodyShell({
+      breadcrumbs: [
+        { name: "Главная", url: SEO_HOST },
+        { name: "Каталог", url: `${SEO_HOST}/catalog` },
+        { name: landing.h1, url: `${SEO_HOST}${buildLocalLandingUrl(landing.slug)}` },
+      ],
+      eyebrow: "Локальная подборка",
+      title: landing.h1,
+      description: landing.description,
+      content: [
+        renderInlineLinks([
+          {
+            href: `${SEO_HOST}${buildCatalogCategoryUrl(landing.primaryCategory.slug)}`,
+            label: `Открыть ${landing.primaryCategory.label}`,
+          },
+          { href: `${SEO_HOST}/stores`, label: "Магазины и самовывоз" },
+          { href: `${SEO_HOST}/payment-delivery`, label: "Оплата и доставка" },
+        ]),
+        `<section class="seo-section"><h2>Зачем нужна эта страница</h2><p>${escapeHtml(
+          landing.intro
+        )}</p></section>`,
+        `<section class="seo-section"><h2>Что удобно открыть отсюда</h2><ul>${landing.supportPoints
+          .map(point => `<li>${escapeHtml(point)}</li>`)
+          .join("")}</ul></section>`,
+        `<section class="seo-section"><h2>Категории по теме</h2>${renderCardList(
+          landing.categoryLinks.map(item => ({
+            title: item.label,
+            text: item.note,
+            links: [
+              {
+                href: `${SEO_HOST}${buildCatalogCategoryUrl(item.slug)}`,
+                label: `Перейти в ${item.label}`,
+              },
+            ],
+          }))
+        )}</section>`,
+        `<section class="seo-section"><h2>Подходящие бренды</h2>${renderCardList(
+          landing.brandLinks.map(item => ({
+            title: item.label,
+            text: item.note,
+            links: [
+              {
+                href: `${SEO_HOST}${buildBrandCatalogUrl(item.slug)}`,
+                label: `Открыть бренд ${item.label}`,
+              },
+            ],
+          }))
+        )}</section>`,
+        relatedItems.length > 0
+          ? `<section class="seo-section"><h2>Ещё локальные подборки</h2>${renderInlineLinks(
+              relatedItems.map(item => ({
+                href: item.url,
+                label: item.name,
+              }))
+            )}</section>`
+          : "",
+        landing.faqs.length > 0
+          ? `<section class="seo-section"><h2>Частые вопросы</h2>${renderCardList(
+              landing.faqs.map(item => ({
+                title: item.question,
+                text: item.answer,
+              }))
+            )}</section>`
+          : "",
+      ].join(""),
+    }),
+  });
+}
+
 async function buildPromotionsSeoData() {
   const db = getDb();
   const promos = await db
@@ -2310,6 +2442,7 @@ export async function buildSeoHeadData(url: URL): Promise<SeoHeadData> {
   if (pathname === "/stores") return buildStoresSeoData();
   if (pathname === "/contacts") return buildContactsSeoData();
   if (pathname === "/about") return buildAboutSeoData();
+  if (pathname.startsWith("/penza/")) return buildLocalLandingSeoData(url);
   if (pathname === "/promotions") return buildPromotionsSeoData();
   if (pathname.startsWith("/promotions/")) return buildPromotionDetailSeoData(url);
   if (pathname === "/blog") return buildBlogSeoData();

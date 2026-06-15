@@ -19,6 +19,7 @@ const ProductPage = lazy(() => import("@/pages/ProductPage"));
 const StoresPage = lazy(() => import("@/pages/StoresPage"));
 const ContactsPage = lazy(() => import("@/pages/ContactsPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const LocalLandingPage = lazy(() => import("@/pages/LocalLandingPage"));
 const PromotionsPage = lazy(() => import("@/pages/PromotionsPage"));
 const PromotionDetailPage = lazy(() => import("@/pages/PromotionDetailPage"));
 const BlogPage = lazy(() => import("@/pages/BlogPage"));
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="/stores" element={<StoresPage />} />
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/penza/:slug" element={<LocalLandingPage />} />
             <Route path="/promotions" element={<PromotionsPage />} />
             <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
             <Route path="/blog" element={<BlogPage />} />

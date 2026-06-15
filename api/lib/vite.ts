@@ -54,6 +54,7 @@ export function serveStaticFiles(app: App) {
   app.get("/stores", sendIndex);
   app.get("/contacts", sendIndex);
   app.get("/about", sendIndex);
+  app.get("/penza/*", sendIndex);
   app.get("/offer", sendIndex);
   app.get("/privacy-policy", sendIndex);
   app.get("/payment-delivery", sendIndex);
