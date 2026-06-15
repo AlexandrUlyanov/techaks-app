@@ -828,7 +828,7 @@ export default function AdminSyncMoySklad() {
                         <div className="font-semibold">Токен пока не настроен</div>
                         <div className="mt-1">
                           Для стабильной работы лучше добавить его в{" "}
-                          <Link to="/admin/settings" className="font-semibold underline">
+                          <Link to="/admin/settings/integrations" className="font-semibold underline">
                             настройках
                           </Link>
                           .

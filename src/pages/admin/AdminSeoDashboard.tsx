@@ -438,7 +438,7 @@ export default function AdminSeoDashboard() {
               description="Брендовые страницы тоже должны быть самостоятельными SEO-посадочными: с описанием, meta-полями и логотипом."
               actions={
                 <Link
-                  to="/admin/settings"
+                  to="/admin/products"
                   className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
                 >
                   Каталог брендов
@@ -461,7 +461,7 @@ export default function AdminSeoDashboard() {
                       title={item.name}
                       subtitle={`/catalog?view=brands&brand=${item.slug}`}
                       issues={item.issues}
-                      to="/admin/settings"
+                      to="/admin/products"
                     />
                   ))
                 ) : (
@@ -481,7 +481,7 @@ export default function AdminSeoDashboard() {
               actions={
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    to="/admin/settings"
+                    to="/admin/settings/site"
                     className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--tech-color-primary)]"
                   >
                     Настройки сайта

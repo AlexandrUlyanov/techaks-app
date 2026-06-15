@@ -18,6 +18,8 @@ import {
   type AdminNavItem,
 } from "./adminNavigation";
 
+const ADMIN_NAV_STATE_KEY = "techaks-admin-nav-expanded";
+
 export default function AdminLayout() {
   const location = useLocation();
   const ability = useAbility();
@@ -43,6 +45,18 @@ export default function AdminLayout() {
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(ADMIN_NAV_STATE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Record<string, boolean>;
+      setExpandedIds(prev => ({ ...parsed, ...prev }));
+    } catch {
+      // ignore malformed persisted nav state
+    }
+  }, []);
+
+  useEffect(() => {
     setExpandedIds(prev => {
       const next = { ...prev };
       for (const id of autoExpandedIds) {
@@ -51,6 +65,11 @@ export default function AdminLayout() {
       return next;
     });
   }, [autoExpandedIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(ADMIN_NAV_STATE_KEY, JSON.stringify(expandedIds));
+  }, [expandedIds]);
 
   return (
     <div className="min-h-screen bg-[var(--tech-color-background)]">

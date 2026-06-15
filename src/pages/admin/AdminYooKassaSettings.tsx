@@ -79,7 +79,7 @@ export default function AdminYooKassaSettings() {
           description="У вас нет доступа к настройкам платежных систем."
         />
         <Link
-          to="/admin/settings"
+          to="/admin/settings/payment"
           className="inline-flex h-11 items-center rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black"
         >
           Вернуться в настройки
@@ -127,7 +127,7 @@ export default function AdminYooKassaSettings() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          to="/admin/settings"
+          to="/admin/settings/payment"
           className="inline-flex h-10 items-center rounded-xl bg-white px-4 text-sm font-bold text-[#464A50] ring-1 ring-black/5 transition hover:text-[#05C3D4]"
         >
           Настройки
