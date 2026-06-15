@@ -588,6 +588,142 @@ function buildBrandFaqItems(input: {
   ];
 }
 
+function getSeoSpecValue(
+  specs: Record<string, unknown> | null | undefined,
+  candidates: string[]
+) {
+  if (!specs || typeof specs !== "object") return "";
+  const entries = Object.entries(specs);
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = candidate.trim().toLowerCase();
+    const exact = entries.find(([key, value]) => {
+      if (String(value ?? "").trim().length === 0) return false;
+      return key.trim().toLowerCase() === normalizedCandidate;
+    });
+    if (exact) return String(exact[1]).trim();
+  }
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = candidate.trim().toLowerCase();
+    const partial = entries.find(([key, value]) => {
+      if (String(value ?? "").trim().length === 0) return false;
+      return key.trim().toLowerCase().includes(normalizedCandidate);
+    });
+    if (partial) return String(partial[1]).trim();
+  }
+
+  return "";
+}
+
+function buildProductFactRows(input: {
+  manufacturerName: string;
+  product: {
+    article?: string | null;
+    categoryName?: string | null;
+    specs?: unknown;
+  };
+  inStock: boolean;
+  availableStoreCount: number;
+}) {
+  const specs =
+    input.product.specs &&
+    typeof input.product.specs === "object" &&
+    !Array.isArray(input.product.specs)
+      ? (input.product.specs as Record<string, unknown>)
+      : null;
+
+  const rows = [
+    { label: "Бренд", value: input.manufacturerName || SITE_NAME },
+    {
+      label: "Тип",
+      value: getSeoSpecValue(specs, ["Тип", "Вид", "Назначение"]),
+    },
+    {
+      label: "Модель",
+      value: getSeoSpecValue(specs, ["Модель", "Model", "#1"]),
+    },
+    {
+      label: "Цвет",
+      value: getSeoSpecValue(specs, ["Цвет", "Расцветка"]),
+    },
+    {
+      label: "Совместимость",
+      value: getSeoSpecValue(specs, [
+        "Совместимость",
+        "Поддержка",
+        "Интерфейс",
+        "Разъем",
+        "Подключение",
+      ]),
+    },
+    {
+      label: "Категория",
+      value: input.product.categoryName || "",
+    },
+    {
+      label: "Артикул",
+      value: input.product.article || "",
+    },
+    {
+      label: "Наличие",
+      value: input.inStock
+        ? input.availableStoreCount > 0
+          ? `Есть в наличии в Пензе (${input.availableStoreCount} ${input.availableStoreCount === 1 ? "магазин" : input.availableStoreCount < 5 ? "магазина" : "магазинов"})`
+          : "Есть в наличии"
+        : "Нет в наличии",
+    },
+  ];
+
+  return rows.filter(row => row.value && String(row.value).trim().length > 0);
+}
+
+function buildProductFaqItems(input: {
+  productName: string;
+  manufacturerName: string;
+  categoryName?: string | null;
+  compatibility?: string;
+  inStock: boolean;
+  availableStoreCount: number;
+}) {
+  const readableCategoryName = toSeoReadableName(input.categoryName);
+  const availabilitySentence = input.inStock
+    ? input.availableStoreCount > 0
+      ? `Сейчас товар доступен как минимум в ${input.availableStoreCount} магазинах ТЕХАКС в Пензе, а точное наличие лучше проверить в карточке и при оформлении заказа.`
+      : "Сейчас товар доступен для заказа, а наличие по точкам самовывоза уточняется в карточке."
+    : "Сейчас товара нет в наличии, но карточка сохранена для сравнения характеристик, цены и совместимости.";
+  const compatibilitySentence = input.compatibility
+    ? `В характеристиках указана совместимость: ${input.compatibility}.`
+    : "Для аксессуаров и совместимых устройств обязательно сверяйте разъёмы, поддерживаемые стандарты и сценарий использования.";
+
+  return [
+    {
+      question: `Что важно знать о товаре «${input.productName}» перед покупкой?`,
+      answer: [
+        input.manufacturerName ? `${input.productName} — товар бренда ${input.manufacturerName}.` : "",
+        readableCategoryName ? `Раздел каталога: ${readableCategoryName}.` : "",
+        compatibilitySentence,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    },
+    {
+      question: `Есть ли «${input.productName}» в наличии в Пензе?`,
+      answer: availabilitySentence,
+    },
+    {
+      question: `Можно ли забрать «${input.productName}» самовывозом?`,
+      answer:
+        "Да, если товар есть на нужной точке. На странице товара и в корзине можно проверить магазины, где позиция доступна для самовывоза.",
+    },
+    {
+      question: `Доступна ли доставка для «${input.productName}»?`,
+      answer:
+        "Да, для части товаров доступна доставка по Пензе и России. Итоговый вариант зависит от адреса, способа получения и текущей доступности товара.",
+    },
+  ];
+}
+
 function collectDescendantCategoryIds(
   rootCategoryId: number,
   categoryRows: Array<typeof schema.categories.$inferSelect>
@@ -1385,6 +1521,26 @@ async function buildProductSeoData(url: URL) {
   const hasAggregateRating =
     Number(product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
   const isAvailable = storeAvailability.length > 0;
+  const compatibilityValue = getSeoSpecValue(
+    product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
+      ? (product.specs as Record<string, unknown>)
+      : null,
+    ["Совместимость", "Поддержка", "Интерфейс", "Разъем", "Подключение"]
+  );
+  const productFacts = buildProductFactRows({
+    manufacturerName,
+    product,
+    inStock: isAvailable,
+    availableStoreCount: storeAvailability.length,
+  });
+  const productFaqItems = buildProductFaqItems({
+    productName: product.name,
+    manufacturerName,
+    categoryName: product.categoryName,
+    compatibility: compatibilityValue,
+    inStock: isAvailable,
+    availableStoreCount: storeAvailability.length,
+  });
   const productSeo = buildProductSeoCopy({
     productName: product.name,
     manufacturerName,
@@ -1501,6 +1657,9 @@ async function buildProductSeoData(url: URL) {
           },
         },
       },
+      ...(buildFaqStructuredData(productFaqItems)
+        ? [buildFaqStructuredData(productFaqItems)]
+        : []),
     ],
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: breadcrumbItems,
@@ -1508,35 +1667,69 @@ async function buildProductSeoData(url: URL) {
       title: product.name,
       description,
       content: [
+        renderInlineLinks([
+          {
+            href: `${SEO_HOST}/product/${encodeURIComponent(product.slug)}`,
+            label: "Карточка товара",
+          },
+          ...(product.categoryName
+            ? [
+                {
+                  href: `${SEO_HOST}/catalog?cat=${encodeURIComponent(trail[trail.length - 1]?.slug ?? "")}`,
+                  label: `Раздел ${toSeoReadableName(product.categoryName)}`,
+                },
+              ]
+            : []),
+          { href: `${SEO_HOST}/payment-delivery`, label: "Доставка и оплата" },
+          { href: `${SEO_HOST}/stores`, label: "Магазины ТЕХАКС" },
+        ]),
         `<section class="seo-section"><h2>Кратко о товаре</h2><p>${escapeHtml(
           productSeo.summaryLine ||
             (isAvailable
               ? `${product.name} доступен для покупки в ТЕХАКС с самовывозом в Пензе и доставкой по России.`
               : `${product.name} сейчас недоступен для покупки, но карточка сохранена для сравнения характеристик и цены.`)
         )}</p></section>`,
-        renderFacts([
+        `<section class="seo-section"><h2>Факты о товаре</h2>${renderFacts([
           { label: "Цена", value: `${new Intl.NumberFormat("ru-RU").format(product.price)} ₽` },
-          { label: "Бренд", value: manufacturerName },
-          { label: "Артикул", value: product.article || "Уточняется" },
-          {
-            label: "Категория",
-            value: product.categoryName || "Каталог ТЕХАКС",
-          },
-        ]),
+          ...productFacts,
+        ])}</section>`,
         specsEntries.length > 0
           ? `<section class="seo-section"><h2>Основные характеристики</h2>${renderFacts(
               specsEntries
             )}</section>`
           : "",
         storeAvailability.length > 0
-          ? renderCardList(
+          ? `<section class="seo-section"><h2>Наличие и получение</h2>${renderCardList(
               storeAvailability.map(store => ({
                 title: store.name,
                 text: `${store.address}. В наличии: ${store.qty} шт.`,
                 links: [{ href: `${SEO_HOST}/stores`, label: "Все магазины ТЕХАКС" }],
               }))
-            )
+            )}</section>`
           : `<section class="seo-section"><h2>Получение</h2><p>Проверьте наличие в магазинах ТЕХАКС или оформите доставку по России.</p></section>`,
+        reviewRows.length > 0
+          ? `<section class="seo-section"><h2>Отзывы покупателей</h2>${renderCardList(
+              reviewRows.map(review => ({
+                title: review.title || `${review.authorName} — ${review.rating}/5`,
+                text: truncateText(review.text, 220),
+                meta: `${review.authorName} · ${review.rating}/5`,
+                links: [
+                  {
+                    href: `${SEO_HOST}/product/${encodeURIComponent(product.slug)}#reviews`,
+                    label: "Смотреть все отзывы",
+                  },
+                ],
+              }))
+            )}</section>`
+          : `<section class="seo-section"><h2>Отзывы покупателей</h2><p>Отзывов пока нет. Будьте первым, кто оставит отзыв о товаре после покупки — это поможет другим быстрее принять решение.</p></section>`,
+        `<section class="seo-section"><h2>Что проверить перед покупкой</h2><p>${
+          compatibilityValue
+            ? `Перед покупкой проверьте совместимость устройства, разъёмы, цвет и сценарий использования. Для этой модели указана совместимость: ${escapeHtml(
+                compatibilityValue
+              )}.`
+            : "Перед покупкой проверьте тип товара, модель, совместимость, ключевые характеристики и доступность нужного способа получения."
+        }</p></section>`,
+        renderFaqSection(`Частые вопросы о товаре «${product.name}»`, productFaqItems),
       ].join(""),
     }),
   });
