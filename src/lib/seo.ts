@@ -10,6 +10,7 @@ type SeoInput = {
   title?: string;
   description?: string;
   canonicalPath?: string;
+  canonicalUrl?: string;
   noindex?: boolean;
   image?: string;
   type?: "website" | "article";
@@ -84,7 +85,11 @@ export function useSeo(input: SeoInput) {
 
     const canonical = ensureCanonical();
     const path = input.canonicalPath ?? location.pathname;
-    const canonicalUrl = `${SITE_URL}${path}`;
+    const canonicalUrl = input.canonicalUrl?.trim()
+      ? input.canonicalUrl.startsWith("http")
+        ? input.canonicalUrl
+        : `${SITE_URL}${input.canonicalUrl.startsWith("/") ? input.canonicalUrl : `/${input.canonicalUrl}`}`
+      : `${SITE_URL}${path}`;
     canonical.setAttribute("href", canonicalUrl);
 
     const ogTitle = ensurePropertyMeta("og:title");
@@ -127,6 +132,7 @@ export function useSeo(input: SeoInput) {
       structuredDataNode.textContent = "";
     }
   }, [
+    input.canonicalUrl,
     input.canonicalPath,
     input.description,
     input.image,

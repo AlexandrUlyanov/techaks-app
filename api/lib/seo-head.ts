@@ -23,6 +23,10 @@ import {
 } from "@contracts/blog-knowledge-center";
 
 import { getDb } from "../queries/connection";
+import {
+  normalizeCanonicalUrl,
+  shouldNoindexCategoryListing,
+} from "./listing-pages";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
 import { getPublicSiteProfile } from "./site-profile-settings";
 import { getManufacturerNameFromProductSpecs } from "./manufacturers";
@@ -1193,6 +1197,18 @@ async function buildCatalogSeoData(url: URL) {
     return buildBasePageData("/catalog", { noindex: true });
   }
 
+  const [categoryListing] = await db
+    .select()
+    .from(schema.listingPages)
+    .where(
+      and(
+        eq(schema.listingPages.type, "category"),
+        eq(schema.listingPages.categoryId, currentCategory.id),
+        eq(schema.listingPages.isPublished, true)
+      )
+    )
+    .limit(1);
+
   const categoriesById = new Map(categoryRows.map(category => [category.id, category] as const));
   const breadcrumbItems: BreadcrumbItem[] = [
     { name: "Главная", url: SEO_HOST },
@@ -1268,10 +1284,19 @@ async function buildCatalogSeoData(url: URL) {
     hasChildren: childCategories.length > 0,
   });
   const description = normalizeDescription(
-    currentCategory.metaDescription || currentCategory.description,
+    categoryListing?.metaDescription ||
+      currentCategory.metaDescription ||
+      currentCategory.description,
     categorySeo.description
   );
-  const title = currentCategory.metaTitle?.trim() || categorySeo.title;
+  const title =
+    categoryListing?.title?.trim() ||
+    currentCategory.metaTitle?.trim() ||
+    categorySeo.title;
+  const bodyDescription = normalizeDescription(
+    categoryListing?.introText || currentCategory.description || description,
+    description
+  );
   const categoryFaqItems = buildCategoryFaqItems({
     categoryName: readableCategoryName,
     hasChildren: childCategories.length > 0,
@@ -1361,21 +1386,37 @@ async function buildCatalogSeoData(url: URL) {
           }))
         )}</section>`
       : "",
+    categoryListing?.bottomText?.trim()
+      ? `<section class="seo-section"><h2>Дополнительно</h2><p>${escapeHtml(
+          categoryListing.bottomText.trim()
+        )}</p></section>`
+      : "",
   ].join("");
+
+  const listingCanonical = normalizeCanonicalUrl(categoryListing?.canonicalUrl);
+  const canonicalUrl =
+    listingCanonical && listingCanonical.startsWith("http")
+      ? listingCanonical
+      : `${SEO_HOST}${listingCanonical || `/catalog?cat=${encodeURIComponent(activeCategory)}`}`;
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
     title,
     description,
-    canonicalUrl: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
-    noindex: hasFilters || hasLayout || hasSort || forceProductsView,
+    canonicalUrl,
+    noindex:
+      hasFilters ||
+      hasLayout ||
+      hasSort ||
+      forceProductsView ||
+      shouldNoindexCategoryListing(categoryListing?.indexationMode),
     structuredData: [
       buildBreadcrumbStructuredData(breadcrumbItems),
       {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        name: readableCategoryName,
+        name: categoryListing?.h1?.trim() || readableCategoryName,
         description,
-        url: `${SEO_HOST}/catalog?cat=${encodeURIComponent(activeCategory)}`,
+        url: canonicalUrl,
       },
       ...(childCategories.length > 0
         ? [
@@ -1396,8 +1437,8 @@ async function buildCatalogSeoData(url: URL) {
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: breadcrumbItems,
       eyebrow: "Категория",
-      title: readableCategoryName,
-      description,
+      title: categoryListing?.h1?.trim() || readableCategoryName,
+      description: bodyDescription,
       content,
     }),
   });

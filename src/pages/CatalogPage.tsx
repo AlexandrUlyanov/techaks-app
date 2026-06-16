@@ -55,6 +55,13 @@ import {
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
 
+function normalizeCanonical(input?: string | null) {
+  const value = input?.trim();
+  if (!value) return null;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return value.startsWith("/") ? value : `/${value}`;
+}
+
 function formatProductCount(count: number) {
   const mod10 = count % 10;
   const mod100 = count % 100;
@@ -140,6 +147,14 @@ export default function CatalogPage() {
     }
   );
   const categoryNavigationPreviews = categoryNavigationPreviewsQuery.data ?? [];
+  const publicCategoryListingQuery = trpc.listing.getPublicCategoryListing.useQuery(
+    { categorySlug: activeCategory },
+    {
+      enabled: catalogView === "categories" && activeCategory !== "all",
+      placeholderData: prev => prev,
+    }
+  );
+  const publicCategoryListing = publicCategoryListingQuery.data ?? null;
   const secondaryShelfCategorySlug =
     isCategoryLandingPage && currentCategory
       ? currentCategory.slug
@@ -435,13 +450,21 @@ export default function CatalogPage() {
 
   const headerTitle = catalogView === "brands"
     ? currentManufacturer?.name || "Производители"
-    : activeCategoryName;
+    : activeCategory !== "all"
+      ? publicCategoryListing?.h1?.trim() || activeCategoryName
+      : activeCategoryName;
   const showProductSection = isProductListingPage;
   const currentResultCount = sortedProducts.length;
   const currentIntroText = currentManufacturer
     ? currentManufacturer.description?.trim() || ""
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.description?.trim() || ""
+      ? publicCategoryListing?.introText?.trim() ||
+        currentCategory.description?.trim() ||
+        ""
+      : "";
+  const currentBottomText =
+    currentCategory && activeCategory !== "all"
+      ? publicCategoryListing?.bottomText?.trim() || ""
       : "";
   const rootCatalogSeo = buildRootCatalogSeoCopy();
   const brandSeo = currentManufacturer
@@ -468,7 +491,10 @@ export default function CatalogPage() {
   const seoTitle = currentManufacturer
     ? currentManufacturer.metaTitle?.trim() || brandSeo?.title || rootCatalogSeo.title
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.metaTitle?.trim() || categorySeo?.title || rootCatalogSeo.title
+      ? publicCategoryListing?.title?.trim() ||
+        currentCategory.metaTitle?.trim() ||
+        categorySeo?.title ||
+        rootCatalogSeo.title
       : rootCatalogSeo.title;
 
   const seoDescription = currentManufacturer
@@ -477,13 +503,20 @@ export default function CatalogPage() {
       brandSeo?.description ||
       rootCatalogSeo.description
     : currentCategory && activeCategory !== "all"
-      ? currentCategory.metaDescription?.trim() ||
+      ? publicCategoryListing?.metaDescription?.trim() ||
+        currentCategory.metaDescription?.trim() ||
         currentCategory.description?.trim() ||
         categorySeo?.description ||
         rootCatalogSeo.description
       : rootCatalogSeo.description;
 
+  const listingCanonical = normalizeCanonical(publicCategoryListing?.canonicalUrl);
+
   const seoCanonicalPath = (() => {
+    if (listingCanonical && !listingCanonical.startsWith("http")) {
+      return listingCanonical;
+    }
+
     if (catalogView === "brands" && activeBrand) {
       return `/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`;
     }
@@ -503,7 +536,8 @@ export default function CatalogPage() {
     selectedFilters.length > 0 ||
     sortBy !== "default" ||
     viewMode !== "grid" ||
-    forceProductsView;
+    forceProductsView ||
+    publicCategoryListing?.indexationMode === "noindex";
 
   const seoStructuredData = useMemo(() => {
     const breadcrumbItems =
@@ -530,7 +564,10 @@ export default function CatalogPage() {
       "@type": "CollectionPage",
       name: headerTitle,
       description: seoDescription,
-      url: `https://techaks.ru${seoCanonicalPath}`,
+      url:
+        listingCanonical && listingCanonical.startsWith("http")
+          ? listingCanonical
+          : `https://techaks.ru${seoCanonicalPath}`,
     };
 
     if (visibleProducts.length > 0) {
@@ -555,6 +592,7 @@ export default function CatalogPage() {
     catalogView,
     currentManufacturer?.name,
     headerTitle,
+    listingCanonical,
     seoCanonicalPath,
     seoDescription,
     visibleProducts,
@@ -564,6 +602,7 @@ export default function CatalogPage() {
     title: seoTitle,
     description: seoDescription,
     canonicalPath: seoCanonicalPath,
+    canonicalUrl: listingCanonical && listingCanonical.startsWith("http") ? listingCanonical : undefined,
     noindex: shouldNoindexCatalog,
     structuredData: seoStructuredData,
   });
@@ -640,6 +679,8 @@ export default function CatalogPage() {
                 currentCategory={currentCategory}
                 categories={categories}
                 previews={categoryNavigationPreviews}
+                displayTitle={publicCategoryListing?.h1?.trim() || undefined}
+                displayDescription={publicCategoryListing?.introText?.trim() || undefined}
                 onShowAllProducts={handleShowAllProducts}
                 onNavigateCategory={handleLandingCategoryOpen}
               />
@@ -1092,9 +1133,14 @@ export default function CatalogPage() {
                 </div>
               </div>
             )}
+            {currentBottomText ? (
+              <section className="rounded-[1.6rem] bg-[var(--tech-color-surface)] px-5 py-5 text-sm leading-7 text-muted-foreground md:px-6 md:py-6 md:text-[15px]">
+                {currentBottomText}
+              </section>
+            ) : null}
           </div>
           )}
-            </>
+        </>
           )}
         </div>
       </section>

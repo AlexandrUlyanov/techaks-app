@@ -32,6 +32,7 @@ import {
 import { handleYooKassaWebhook } from "./lib/yookassa";
 import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
 import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
+import { shouldIncludeCategoryListingInSitemap } from "./lib/listing-pages";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -375,6 +376,14 @@ app.get("/sitemap-categories.xml", async c => {
     .from(schema.categories)
     .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.id));
 
+  const listingRows = await db
+    .select()
+    .from(schema.listingPages)
+    .where(eq(schema.listingPages.type, "category"));
+  const listingByCategoryId = new Map(
+    listingRows.map(item => [item.categoryId, item] as const)
+  );
+
   const visibleProductRows = await db
     .select({
       categoryId: schema.products.categoryId,
@@ -420,6 +429,9 @@ app.get("/sitemap-categories.xml", async c => {
 
   const rows = categories
     .filter(category => eligibleCategoryIds.has(category.id))
+    .filter(category =>
+      shouldIncludeCategoryListingInSitemap(listingByCategoryId.get(category.id))
+    )
     .map(category => {
       const lastmod = propagatedLastmods.get(category.id);
       return `<url><loc>${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>`;

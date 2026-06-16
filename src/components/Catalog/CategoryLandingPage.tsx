@@ -33,6 +33,8 @@ type CategoryLandingPageProps = {
   categories: CategoryRecord[];
   previews: CategoryPreviewRecord[];
   loading?: boolean;
+  displayTitle?: string;
+  displayDescription?: string | null;
   onShowAllProducts: () => void;
   onNavigateCategory?: (slug: string, source: "card" | "accordion" | "sidebar") => void;
 };
@@ -310,6 +312,8 @@ export default function CategoryLandingPage({
   categories,
   previews,
   loading = false,
+  displayTitle,
+  displayDescription,
   onShowAllProducts,
   onNavigateCategory,
 }: CategoryLandingPageProps) {
@@ -382,9 +386,11 @@ export default function CategoryLandingPage({
   }, [desktopCards.length]);
 
   const topDescription =
+    displayDescription?.trim() ||
     currentCategory.description?.trim() ||
     "";
   const currentCategoryLabel = formatCategoryLabel(currentCategory.name);
+  const headingTitle = displayTitle?.trim() || currentCategoryLabel;
 
   if (loading) {
     return (
@@ -436,7 +442,7 @@ export default function CategoryLandingPage({
       <div className="space-y-4 md:space-y-5">
         <div className="space-y-2">
           <h1 className="text-[30px] font-black tracking-tight text-foreground md:text-[38px]">
-            {currentCategoryLabel}
+            {headingTitle}
           </h1>
           {topDescription ? (
             <p className="max-w-3xl text-[15px] leading-7 text-muted-foreground dark:text-white/64">
