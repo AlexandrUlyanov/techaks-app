@@ -37,24 +37,20 @@ export async function getAppSettings(
 
 export async function setAppSetting(key: string, value: string | null) {
   const db = getDb();
-  const existing = await getAppSetting(key);
-
-  if (existing === null) {
-    await db.insert(appSettings).values({
+  const updatedAt = new Date();
+  await db
+    .insert(appSettings)
+    .values({
       key,
       value,
-      updatedAt: new Date(),
-    });
-    return { success: true };
-  }
-
-  await db
-    .update(appSettings)
-    .set({
-      value,
-      updatedAt: new Date(),
+      updatedAt,
     })
-    .where(eq(appSettings.key, key));
+    .onDuplicateKeyUpdate({
+      set: {
+        value,
+        updatedAt,
+      },
+    });
 
   return { success: true };
 }

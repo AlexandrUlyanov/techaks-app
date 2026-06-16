@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { getAppSetting, setAppSetting } from "./app-settings";
+import { getDb } from "../queries/connection";
 
 const FULL_SYNC_LOCK_KEY = "moysklad_full_sync_lock";
 const ORDER_SYNC_WORKER_LOCK_KEY = "moysklad_order_sync_worker_lock";
@@ -68,6 +70,35 @@ function parseWorkerLock(raw: string | null) {
   return payload;
 }
 
+async function tryAcquireWorkerLock(settingKey: string, payload: WorkerLockPayload) {
+  const db = getDb();
+  const rawPayload = JSON.stringify(payload);
+  const now = Date.now();
+
+  await db.execute(sql`
+    INSERT INTO app_settings (\`key\`, \`value\`, \`updated_at\`)
+    VALUES (${settingKey}, ${rawPayload}, NOW())
+    ON DUPLICATE KEY UPDATE
+      \`value\` = IF(
+        \`value\` IS NULL
+        OR JSON_EXTRACT(\`value\`, '$.expiresAt') IS NULL
+        OR CAST(JSON_UNQUOTE(JSON_EXTRACT(\`value\`, '$.expiresAt')) AS UNSIGNED) <= ${now},
+        VALUES(\`value\`),
+        \`value\`
+      ),
+      \`updated_at\` = IF(
+        \`value\` IS NULL
+        OR JSON_EXTRACT(\`value\`, '$.expiresAt') IS NULL
+        OR CAST(JSON_UNQUOTE(JSON_EXTRACT(\`value\`, '$.expiresAt')) AS UNSIGNED) <= ${now},
+        VALUES(\`updated_at\`),
+        \`updated_at\`
+      )
+  `);
+
+  const current = parseWorkerLock(await getAppSetting(settingKey));
+  return current?.owner === payload.owner ? payload : null;
+}
+
 function getBasePressureSnapshot(): MoyskladPressureSnapshot {
   return {
     level: "normal",
@@ -115,18 +146,12 @@ export async function acquireMoyskladWorkerLock(
       : key === "reconcile"
         ? RECONCILE_WORKER_LOCK_KEY
         : WEBHOOK_WORKER_LOCK_KEY;
-  const existing = parseWorkerLock(await getAppSetting(settingKey));
-  if (existing && existing.expiresAt > Date.now()) {
-    return null;
-  }
-
   const payload: WorkerLockPayload = {
     owner: randomUUID(),
     startedAt: Date.now(),
     expiresAt: Date.now() + ttlMs,
   };
-  await setAppSetting(settingKey, JSON.stringify(payload));
-  return payload;
+  return tryAcquireWorkerLock(settingKey, payload);
 }
 
 export async function releaseMoyskladWorkerLock(
