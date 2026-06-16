@@ -65,6 +65,7 @@ const JOB_STATUS_SUCCESS = "success";
 const JOB_STATUS_ERROR = "error";
 const JOB_LOCK_STALE_MS = 15 * 60_000;
 const MAX_JOB_ATTEMPTS = 6;
+const ENQUEUE_LOCK_TIMEOUT_SECONDS = 5;
 
 type JobAction =
   | "create"
@@ -77,6 +78,29 @@ type JobAction =
 type JobEntityType = "order" | "payment" | "status" | "webhook";
 
 type OrderStatusMapping = Record<string, string>;
+
+function getSyncJobLockName(input: {
+  entityType: JobEntityType;
+  entityId: number;
+  action: JobAction;
+}) {
+  return `moysklad_sync_job:${input.entityType}:${input.entityId}:${input.action}`;
+}
+
+async function acquireNamedDbLock(db: ReturnType<typeof getDb>, lockName: string, timeoutSeconds: number) {
+  const result = await db.execute<{ acquired: number | bigint | null }[]>(
+    sql`SELECT GET_LOCK(${lockName}, ${timeoutSeconds}) AS acquired`
+  );
+  const rows = Array.isArray((result as { 0?: { acquired: number | bigint | null }[] })?.[0])
+    ? ((result as { 0?: { acquired: number | bigint | null }[] })[0] ?? [])
+    : (result as { acquired: number | bigint | null }[]);
+  const acquired = Number(rows?.[0]?.acquired ?? 0);
+  return acquired === 1;
+}
+
+async function releaseNamedDbLock(db: ReturnType<typeof getDb>, lockName: string) {
+  await db.execute(sql`DO RELEASE_LOCK(${lockName})`);
+}
 
 type LoadedOrder = {
   id: number;
@@ -486,38 +510,48 @@ export async function enqueueMoyskladSyncJob(input: {
   payloadSnapshot?: Record<string, unknown> | null;
 }) {
   const db = getDb();
-  const [existing] = await db
-    .select({ id: moyskladSyncJobs.id, status: moyskladSyncJobs.status })
-    .from(moyskladSyncJobs)
-    .where(
-      and(
-        eq(moyskladSyncJobs.entityType, input.entityType),
-        eq(moyskladSyncJobs.entityId, input.entityId),
-        eq(moyskladSyncJobs.action, input.action),
-        inArray(moyskladSyncJobs.status, [JOB_STATUS_PENDING, JOB_STATUS_PROCESSING])
-      )
-    )
-    .orderBy(desc(moyskladSyncJobs.createdAt))
-    .limit(1);
-
-  if (existing) {
-    return { queued: false, jobId: existing.id };
+  const lockName = getSyncJobLockName(input);
+  const acquired = await acquireNamedDbLock(db, lockName, ENQUEUE_LOCK_TIMEOUT_SECONDS);
+  if (!acquired) {
+    throw new Error("Не удалось поставить задачу синхронизации в очередь: lock очереди занят.");
   }
 
-  const result = await db.insert(moyskladSyncJobs).values({
-    entityType: input.entityType,
-    entityId: input.entityId,
-    action: input.action,
-    status: JOB_STATUS_PENDING,
-    attempts: 0,
-    nextRunAt: new Date(),
-    lockedAt: null,
-    lastError: null,
-    payloadSnapshot: input.payloadSnapshot ?? null,
-    updatedAt: new Date(),
-  });
+  try {
+    const [existing] = await db
+      .select({ id: moyskladSyncJobs.id, status: moyskladSyncJobs.status })
+      .from(moyskladSyncJobs)
+      .where(
+        and(
+          eq(moyskladSyncJobs.entityType, input.entityType),
+          eq(moyskladSyncJobs.entityId, input.entityId),
+          eq(moyskladSyncJobs.action, input.action),
+          inArray(moyskladSyncJobs.status, [JOB_STATUS_PENDING, JOB_STATUS_PROCESSING])
+        )
+      )
+      .orderBy(desc(moyskladSyncJobs.createdAt))
+      .limit(1);
 
-  return { queued: true, jobId: Number(result[0].insertId) };
+    if (existing) {
+      return { queued: false, jobId: existing.id };
+    }
+
+    const result = await db.insert(moyskladSyncJobs).values({
+      entityType: input.entityType,
+      entityId: input.entityId,
+      action: input.action,
+      status: JOB_STATUS_PENDING,
+      attempts: 0,
+      nextRunAt: new Date(),
+      lockedAt: null,
+      lastError: null,
+      payloadSnapshot: input.payloadSnapshot ?? null,
+      updatedAt: new Date(),
+    });
+
+    return { queued: true, jobId: Number(result[0].insertId) };
+  } finally {
+    await releaseNamedDbLock(db, lockName);
+  }
 }
 
 async function markOrderSyncState(input: {
