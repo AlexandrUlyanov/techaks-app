@@ -461,11 +461,11 @@ export default function CategoryLandingPage({
                               [section.slug]: !prev[section.slug],
                             }));
                           }}
-                            className={cn(
-                              "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
-                              isActive
-                              ? "bg-[linear-gradient(90deg,rgba(5,195,212,0.16),rgba(5,195,212,0.04))] text-foreground shadow-[inset_3px_0_0_0_#05C3D4] dark:text-white"
-                              : "text-muted-foreground hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
+                          className={cn(
+                            "flex min-h-12 w-full items-start justify-between gap-3 rounded-2xl px-3 py-3 text-left ring-1 ring-transparent transition-[border-color,background-color,color] duration-200 motion-reduce:transition-none",
+                            isActive
+                              ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-foreground ring-[rgba(5,195,212,0.22)] dark:text-white dark:ring-[#05C3D4]/26"
+                              : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))] hover:text-foreground hover:ring-[rgba(5,195,212,0.18)] dark:text-white/62 dark:hover:text-white dark:hover:ring-[#05C3D4]/20"
                           )}
                           aria-expanded={children.length > 0 ? expandedSectionSlugs[section.slug] ?? false : undefined}
                           aria-current={isActive ? "true" : undefined}
@@ -491,11 +491,11 @@ export default function CategoryLandingPage({
                           <div className="space-y-1 pl-4">
                             {children.map((child: CategoryRecord) => (
                               <Link
-                                key={child.id}
-                                to={`/catalog?cat=${child.slug}`}
-                                onClick={() => onNavigateCategory?.(child.slug, "sidebar")}
-                                aria-label={`Перейти в категорию ${formatCategoryLabel(child.name)}`}
-                                className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-[rgba(5,195,212,0.06)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
+                              key={child.id}
+                              to={`/catalog?cat=${child.slug}`}
+                              onClick={() => onNavigateCategory?.(child.slug, "sidebar")}
+                              aria-label={`Перейти в категорию ${formatCategoryLabel(child.name)}`}
+                              className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground ring-1 ring-transparent transition-[border-color,background-color,color] duration-200 motion-reduce:transition-none hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))] hover:text-foreground hover:ring-[rgba(5,195,212,0.16)] dark:text-white/62 dark:hover:text-white dark:hover:ring-[#05C3D4]/18"
                               >
                                 <span className="line-clamp-2 leading-5">{formatCategoryLabel(child.name)}</span>
                                 <ChevronRight size={14} className="mt-0.5 shrink-0 text-[#05C3D4]" />
@@ -522,7 +522,7 @@ export default function CategoryLandingPage({
                   <button
                     type="button"
                     onClick={() => setActiveSectionSlug(null)}
-                    className="inline-flex min-h-10 items-center rounded-full bg-white/84 px-4 text-sm font-semibold text-[var(--tech-color-primary)] ring-1 ring-[rgba(5,195,212,0.24)] transition hover:bg-white dark:bg-white/6 dark:hover:bg-[rgba(5,195,212,0.08)]"
+                    className="inline-flex min-h-10 items-center rounded-full bg-[var(--tech-color-surface)] px-4 text-sm font-semibold text-[var(--tech-color-primary)] ring-1 ring-[rgba(5,195,212,0.22)] transition-[border-color,background-color,color] duration-200 motion-reduce:transition-none hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))] hover:ring-[rgba(5,195,212,0.28)] dark:hover:ring-[#05C3D4]/28"
                   >
                     Все разделы категории
                   </button>

@@ -143,10 +143,10 @@ export default function RootCatalogNavigator({
             <li key={category.id} className="space-y-1">
               <div
                 className={cn(
-                  "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition-colors duration-200 motion-reduce:transition-none",
+                  "group flex items-center gap-2 rounded-2xl px-2.5 py-2 text-left ring-1 ring-transparent transition-[border-color,background-color,color] duration-200 motion-reduce:transition-none",
                   active
-                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_13%,transparent)] text-foreground dark:text-white"
-                    : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_8%,transparent)] hover:text-foreground dark:text-white/62 dark:hover:text-white"
+                    ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,var(--tech-color-surface))] text-foreground ring-[rgba(5,195,212,0.22)] dark:text-white dark:ring-[#05C3D4]/26"
+                    : "text-muted-foreground hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))] hover:text-foreground hover:ring-[rgba(5,195,212,0.18)] dark:text-white/62 dark:hover:text-white dark:hover:ring-[#05C3D4]/20"
                 )}
               >
                 <Link
