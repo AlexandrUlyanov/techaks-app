@@ -1222,6 +1222,32 @@ export const listingPages = mysqlTable("listing_pages", {
   urlUnique: unique("listing_pages_url_unique").on(table.url),
 }));
 
+export const listingDemandClusters = mysqlTable("listing_demand_clusters", {
+  id: serial("id").primaryKey(),
+  listingPageId: int("listing_page_id").notNull(),
+  primaryQuery: varchar("primary_query", { length: 255 }).notNull(),
+  supportingQueriesJson: json("supporting_queries_json"),
+  synonymsJson: json("synonyms_json"),
+  negativesJson: json("negatives_json"),
+  intent: varchar("intent", { length: 30 }).notNull().default("commercial"),
+  source: varchar("source", { length: 40 }).notNull().default("manual"),
+  sourceLabel: varchar("source_label", { length: 120 }),
+  impressions: int("impressions").notNull().default(0),
+  clicks: int("clicks").notNull().default(0),
+  ctr: decimal("ctr", { precision: 7, scale: 2 }),
+  avgPosition: decimal("avg_position", { precision: 7, scale: 2 }),
+  notes: text("notes"),
+  lastImportedAt: timestamp("last_imported_at"),
+  createdBy: int("created_by"),
+  updatedBy: int("updated_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  listingUnique: unique("listing_demand_clusters_listing_unique").on(table.listingPageId),
+  sourceIdx: index("listing_demand_clusters_source_idx").on(table.source, table.updatedAt),
+  intentIdx: index("listing_demand_clusters_intent_idx").on(table.intent, table.updatedAt),
+}));
+
 export const listingTemplates = mysqlTable("listing_templates", {
   id: serial("id").primaryKey(),
   scope: varchar("scope", { length: 30 }).notNull().default("category"),
