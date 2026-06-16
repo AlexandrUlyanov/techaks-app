@@ -23,8 +23,6 @@ type CategoryRecord = {
 type CategoryPreviewRecord = {
   categoryId: number;
   productCount: number;
-  previewImage?: string | null;
-  previewImageVariants?: unknown;
   hasChildren: boolean;
 };
 
@@ -69,21 +67,6 @@ function getChildren(
   return byParent.get(parentId) ?? [];
 }
 
-function getAncestors(
-  category: CategoryRecord,
-  categoryById: Map<number, CategoryRecord>
-) {
-  const result: CategoryRecord[] = [];
-  let currentParentId = category.parentId ?? null;
-  while (currentParentId !== null) {
-    const parent = categoryById.get(currentParentId);
-    if (!parent) break;
-    result.unshift(parent);
-    currentParentId = parent.parentId ?? null;
-  }
-  return result;
-}
-
 function getDescendants(
   category: CategoryRecord,
   byParent: Map<number | null, CategoryRecord[]>
@@ -104,31 +87,14 @@ function getBranchProductCount(
   );
 }
 
-function findBranchPreview(
-  category: CategoryRecord,
-  byParent: Map<number | null, CategoryRecord[]>,
-  previewsByCategoryId: Map<number, CategoryPreviewRecord>
-) {
-  const branch = [category, ...getDescendants(category, byParent)];
-  for (const item of branch) {
-    const preview = previewsByCategoryId.get(item.id);
-    if (preview?.previewImage) {
-      return preview;
-    }
-  }
-  return previewsByCategoryId.get(category.id);
-}
-
 function CategoryCard({
   category,
-  preview,
   productCount,
   variant,
   childNames,
   onNavigate,
 }: {
   category: CategoryRecord;
-  preview?: CategoryPreviewRecord | { previewImage?: string | null; previewImageVariants?: unknown } | null;
   productCount: number;
   variant: "parent" | "leaf";
   childNames?: string[];
@@ -216,6 +182,7 @@ function MobileCategoryAccordion({
   const [openSlugs, setOpenSlugs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpenSlugs(prev => {
       if (sections.length === 0) return prev;
       if (Object.keys(prev).length > 0) return prev;
@@ -277,14 +244,10 @@ function MobileCategoryAccordion({
               <div className="mt-4 grid grid-cols-1 gap-3">
                 {children.map(child => {
                   const childHasChildren = getChildren(byParent, child.id).length > 0;
-                  const preview = childHasChildren
-                    ? findBranchPreview(child, byParent, previewsByCategoryId)
-                    : previewsByCategoryId.get(child.id);
                   return (
                     <CategoryCard
                       key={child.id}
                       category={child}
-                      preview={preview}
                       productCount={childHasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
                       variant={childHasChildren ? "parent" : "leaf"}
                       onNavigate={onNavigateCategory ? (slug) => onNavigateCategory(slug, "accordion") : undefined}
@@ -334,6 +297,7 @@ export default function CategoryLandingPage({
   const compactLayout = sectionCategories.length <= 6;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveSectionSlug(prev =>
       prev && sectionCategories.some(category => category.slug === prev)
         ? prev
@@ -342,6 +306,7 @@ export default function CategoryLandingPage({
   }, [sectionCategories]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedSectionSlugs(prev => {
       const nextEntries = Object.entries(prev).filter(([slug]) =>
         sectionCategories.some(category => category.slug === slug)
@@ -575,14 +540,10 @@ export default function CategoryLandingPage({
                 >
                   {desktopCards.map(child => {
                     const hasChildren = getChildren(byParent, child.id).length > 0;
-                    const preview = hasChildren
-                      ? findBranchPreview(child, byParent, previewsByCategoryId)
-                      : previewsByCategoryId.get(child.id);
                     return (
                       <CategoryCard
                         key={child.id}
                         category={child}
-                        preview={preview}
                         productCount={hasChildren ? getBranchCount(child) : previewsByCategoryId.get(child.id)?.productCount ?? 0}
                       variant={hasChildren ? "parent" : "leaf"}
                       onNavigate={onNavigateCategory ? (slug) => onNavigateCategory(slug, "card") : undefined}

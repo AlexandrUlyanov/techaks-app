@@ -22,8 +22,6 @@ type CategoryRecord = {
 type CategoryPreviewRecord = {
   categoryId: number;
   productCount: number;
-  previewImage?: string | null;
-  previewImageVariants?: unknown;
   hasChildren: boolean;
 };
 
@@ -91,11 +89,6 @@ export default function RootCatalogNavigator({
     return result;
   };
 
-  const getBranchDescendants = (category: CategoryRecord): CategoryRecord[] => {
-    const children = byParent.get(category.id) ?? [];
-    return [category, ...children.flatMap(child => getBranchDescendants(child))];
-  };
-
   const effectiveBranch = useMemo(() => {
     if (activeBranchSlug && slugMap.has(activeBranchSlug)) {
       return slugMap.get(activeBranchSlug) ?? null;
@@ -109,32 +102,24 @@ export default function RootCatalogNavigator({
   );
 
   const branchStats = useMemo(() => {
-    const map = new Map<
-      number,
-      {
-        count: number;
-        previewImage?: string | null;
-        previewImageVariants?: unknown;
-      }
-    >();
+    const collectBranch = (category: CategoryRecord): CategoryRecord[] => {
+      const children = byParent.get(category.id) ?? [];
+      return [category, ...children.flatMap(child => collectBranch(child))];
+    };
+
+    const map = new Map<number, { count: number }>();
     for (const category of categories) {
-      const branch = getBranchDescendants(category);
+      const branch = collectBranch(category);
       let count = 0;
-      let previewImage: string | null | undefined;
-      let previewImageVariants: unknown;
 
       for (const item of branch) {
         const stats = previewByCategoryId.get(item.id);
         count += stats?.productCount ?? 0;
-        if (!previewImage && stats?.previewImage) {
-          previewImage = stats.previewImage;
-          previewImageVariants = stats.previewImageVariants;
-        }
       }
-      map.set(category.id, { count, previewImage, previewImageVariants });
+      map.set(category.id, { count });
     }
     return map;
-  }, [categories, previewByCategoryId]);
+  }, [byParent, categories, previewByCategoryId]);
 
   const toggleExpanded = (slug: string) => {
     setExpandedSlugs(prev => ({ ...prev, [slug]: !prev[slug] }));
@@ -245,11 +230,7 @@ export default function RootCatalogNavigator({
   const getCardCount = (
     stats:
       | CategoryPreviewRecord
-      | {
-          count: number;
-          previewImage?: string | null;
-          previewImageVariants?: unknown;
-        }
+      | { count: number }
       | undefined
   ) => {
     if (!stats) return 0;
@@ -263,7 +244,7 @@ export default function RootCatalogNavigator({
     imageSizes: string
   ) => (
     <div className={layoutClassName}>
-      {items.map((category, index) => {
+      {items.map(category => {
         const hasChildren = (byParent.get(category.id) ?? []).length > 0;
         const stats =
           hasChildren
@@ -306,8 +287,7 @@ export default function RootCatalogNavigator({
                 ? `Открыть раздел каталога ${categoryLabel}`
                 : `Перейти в категорию ${categoryLabel}`
             }
-            className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 active:scale-[0.995] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
-            style={{ animationDelay: `${index * 30}ms` }}
+            className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
           >
             <div className="flex h-[152px] items-center justify-center bg-white p-5 dark:bg-white">
               {imageProps ? (
