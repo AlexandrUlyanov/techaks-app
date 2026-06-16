@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
@@ -74,9 +74,14 @@ function formatProductCount(count: number) {
   return `${count} товаров`;
 }
 
-function parsePositiveNumber(value: string | null) {
+function parseNonNegativeNumber(value: string | null) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
+}
+
+function parseStrictPositiveNumber(value: string | null) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
 }
 
 export default function CatalogPage() {
@@ -88,8 +93,17 @@ export default function CatalogPage() {
   const activeBrand = searchParams.get("brand") || "";
   const activeTreeSlugFromHash = decodeURIComponent(location.hash.replace(/^#/, "").trim());
   const forceProductsView = searchParams.get("show") === "products";
-  const priceFrom = parsePositiveNumber(searchParams.get("priceFrom"));
-  const priceTo = parsePositiveNumber(searchParams.get("priceTo"));
+  const rawPriceFrom = parseNonNegativeNumber(searchParams.get("priceFrom"));
+  const rawPriceTo = parseStrictPositiveNumber(searchParams.get("priceTo"));
+  const hasBrokenPriceRange =
+    (typeof rawPriceTo !== "number" && searchParams.has("priceTo")) ||
+    (typeof rawPriceFrom === "number" &&
+      typeof rawPriceTo === "number" &&
+      rawPriceFrom > rawPriceTo);
+  const priceFrom =
+    hasBrokenPriceRange ? undefined : rawPriceFrom;
+  const priceTo =
+    hasBrokenPriceRange ? undefined : rawPriceTo;
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
     return searchParams
@@ -260,17 +274,31 @@ export default function CatalogPage() {
         ? categoryNavigationPreviewsQuery.isLoading
         : categoryProductsQuery.isLoading;
 
-  const updateCatalogParams = (updates: Record<string, string | null>, replace = true) => {
-    const nextParams = new URLSearchParams(searchParams);
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === "") {
-        nextParams.delete(key);
-      } else {
-        nextParams.set(key, value);
-      }
-    });
-    navigate(`/catalog?${nextParams.toString()}`, { replace });
-  };
+  const updateCatalogParams = useCallback(
+    (updates: Record<string, string | null>, replace = true) => {
+      const nextParams = new URLSearchParams(searchParams);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null || value === "") {
+          nextParams.delete(key);
+        } else {
+          nextParams.set(key, value);
+        }
+      });
+      navigate(`/catalog?${nextParams.toString()}`, { replace });
+    },
+    [navigate, searchParams]
+  );
+
+  useEffect(() => {
+    if (!hasBrokenPriceRange) return;
+    updateCatalogParams(
+      {
+        priceFrom: null,
+        priceTo: null,
+      },
+      true
+    );
+  }, [hasBrokenPriceRange, updateCatalogParams]);
 
   const updateFilters = (nextFilters: SelectedSpecFilter[]) => {
     const nextParams = new URLSearchParams(searchParams);
