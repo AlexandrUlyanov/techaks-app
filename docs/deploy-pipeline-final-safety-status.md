@@ -1,94 +1,85 @@
 # Deploy Pipeline Final Safety Status
 
-Дата фиксации: 2026-05-15  
+Дата фиксации: 2026-05-16  
 Окружение: production  
 Проект: TechAks
 
 ## Итог
 
-Обычный deploy pipeline приведён в безопасное состояние:
-
-- push в `master` больше не должен автоматически менять production-БД;
-- deploy выполняет только кодовый rollout и перезапуск приложения;
-- database operations вынесены из обычного deploy flow;
-- production schema не должна мутировать при стандартном GitHub Actions deploy.
-
-## Что делает обычный deploy
-
-Обычный workflow deploy выполняет только:
-
-- checkout / получение кода;
-- установку зависимостей;
-- build проекта;
-- выкладку кода на сервер;
-- перезапуск PM2 process `techaks`;
-- healthcheck приложения.
-
-## Что обычный deploy больше НЕ делает
-
-Из обычного deploy flow убрано:
-
-- `npm run db:push`
-- `drizzle-kit push`
-- любые автоматические migrations
-- inline SQL (`ALTER`, `UPDATE`, `INSERT`, `DELETE`)
-- автоматический backfill
-- автоматический schema sync
-
-## Что подтверждено после push
-
-После реального push/deploy подтверждено:
-
-- GitHub Actions deploy прошёл успешно;
-- production pages отвечают `200 OK`;
-- PM2 process `techaks` был перезапущен;
-- healthcheck прошёл;
-- повторные автоматические DB mutations не выполнялись.
-
-## Manual DB workflow
-
-Для операций с production-БД подготовлен отдельный manual workflow.
-
-Принцип:
-
-- он не должен запускаться автоматически;
-- он требует явного ручного подтверждения;
-- обычный push в `master` не должен активировать DB-операции.
-
-## Важные правила эксплуатации
-
-Для production действуют следующие правила:
-
-- deploy приложения и изменение БД — это разные процессы;
-- любые DB operations должны запускаться отдельно;
-- перед любой production DB operation нужен backup;
-- `db:push --force` нельзя использовать как часть обычного deploy;
-- inline SQL в deploy workflow запрещён;
-- additive schema rollout должен выполняться только как отдельная контролируемая процедура.
-
-## Связь с Orders Phase 3
-
-Это особенно важно после ручного additive rollout для раздела `Заказы`:
-
-- Phase 3 / 3.1 schema changes уже были применены вручную и контролируемо;
-- повторный автоматический `db:push` поверх production нежелателен;
-- compatibility mode должен оставаться включённым до отдельной следующей фазы;
-- дальнейшие DB-изменения должны проходить только через manual controlled rollout.
-
-## Что НЕ делалось
+Deploy pipeline находится в безопасном состоянии для обычного code rollout.
 
 Подтверждено:
 
-- production-БД не менялась автоматически во время обычного deploy;
-- `db:push` после push в `master` не запускался;
+- push в `master` больше не должен автоматически менять production-БД;
+- обычный deploy выполняет только code rollout;
+- DB-операции вынесены из автоматического flow;
+- production app после обычного deploy поднимается через `pm2 restart techaks` и healthcheck.
+
+## Что делает обычный deploy
+
+Current automatic deploy:
+
+- checkout / sync code;
+- install dependencies;
+- build;
+- deploy application files on server;
+- update nginx config;
+- restart PM2 process `techaks`;
+- run healthcheck.
+
+## Что обычный deploy больше НЕ делает
+
+Из automatic deploy flow убрано:
+
+- `npm run db:push`
+- `drizzle-kit push`
+- автоматические migrations
+- inline SQL (`ALTER`, `UPDATE`, `INSERT`, `DELETE`)
+- schema sync
+- automatic backfill
+- ручные data-fix sequences
+
+## Manual DB workflow
+
+Для production DB operations используется отдельный manual workflow:
+
+- [/.github/workflows/db-maintenance.yml](</E:/work/ru/tehax/s/app/.github/workflows/db-maintenance.yml>)
+
+Он:
+
+- не запускается автоматически;
+- требует explicit confirmation phrase;
+- по умолчанию не содержит автоматического schema-изменения.
+
+## Почему это важно
+
+Это особенно критично для TechAks после нескольких controlled DB rollout-фаз:
+
+- Orders Phase 3 / 3.1;
+- product visibility schema rollout;
+- product visibility controlled backfill.
+
+Обычный code deploy не должен повторно вмешиваться в production schema или данные после таких ручных фаз.
+
+## Что подтверждено практикой
+
+Подтверждено после реальных push/deploy:
+
+- pages отвечают `200`;
+- `pm2` успешно перезапускается;
+- healthcheck проходит;
+- обычный deploy не выполняет автоматические DB mutations.
+
+## Operational rule
+
+Правило на будущее:
+
+> приложение деплоится автоматически, БД меняется только отдельно и осознанно.
+
+## Что НЕ делалось в рамках обычного deploy
+
+- production-БД не менялась автоматически;
+- `db:push` не запускался;
 - migrations автоматически не запускались;
 - backfill автоматически не запускался;
 - destructive DB changes не выполнялись.
-
-## Вывод
-
-Текущее состояние deploy pipeline можно считать безопасным для обычной синхронизации кода с production.
-
-Это не отменяет необходимости осторожности при DB rollout, но снимает главный риск:
-
-> обычный push/deploy больше не должен самовольно менять production-БД.

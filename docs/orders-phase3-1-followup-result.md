@@ -6,6 +6,12 @@
 
 Phase 3.1 выполнен как controlled production follow-up после partial additive rollout.
 
+Важно:
+
+- это point-in-time rollout result;
+- указанные в документе тестовые заказы и counts относятся к моменту выполнения follow-up;
+- после последующей очистки test orders документ нужно читать как historical engineering record.
+
 Итог:
 
 - remaining schema/code mismatch закрыт;

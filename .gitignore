@@ -39,3 +39,16 @@ build/
 # Test coverage
 coverage/
 .nyc_output/
+
+# Local QA artifacts
+.codex-screens/
+.codex-screens-live/
+.playwright-cli/
+output/
+tmp-*.png
+tmp-*.html
+tmp-*.patch
+tmp_*.png
+tmp_*.html
+tmp_*.patch
+admin-home-check.png

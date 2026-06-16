@@ -1,76 +1,120 @@
 # Deployment Safety
 
-## Principle
+Дата обновления: 2026-05-16  
+Проект: TechAks
 
-Regular application deploys must not mutate the production database.
+## Принцип
 
-Code deploy and database maintenance are separate operational tracks:
+Обычный deploy приложения не должен менять production-БД.
 
-- regular deploy: code only;
-- database changes: manual, reviewed, backed up, and explicitly approved.
+Для проекта действуют два разных operational track:
 
-## Current rule set
+1. code deploy;
+2. DB maintenance.
 
-1. Automatic deploy on push to `master` must not run:
-   - `npm run db:push`
-   - `drizzle-kit push`
-   - `drizzle-kit migrate`
-   - inline `ALTER TABLE`
-   - inline `INSERT`, `UPDATE`, `DELETE`
-   - backfill scripts
-   - ad hoc production SQL
+Они не должны смешиваться в одном автоматическом шаге.
 
-2. Any production DB operation requires:
-   - a fresh backup;
-   - an explicit rollout plan;
-   - a manual trigger;
-   - post-change validation;
-   - a documented result.
+## Текущая безопасная модель
 
-3. `db:push --force` is not allowed as part of normal production deploy.
+### Regular deploy
 
-## Why this matters for TechAks
+Обычный deploy на push в `master` должен делать только:
 
-Phase 3.1 for orders schema compatibility was already applied manually on production.
-Repeating schema sync automatically is undesirable because:
+- получить код;
+- обновить рабочую копию на сервере;
+- установить зависимости;
+- собрать приложение;
+- обновить nginx config;
+- перезапустить PM2 process `techaks`;
+- выполнить healthcheck.
 
-- production may already be ahead of repository artifacts in a controlled way;
-- repeated `db:push --force` can apply unintended schema drift;
-- inline SQL in deploy workflows is hard to audit and easy to rerun accidentally.
+### Regular deploy не должен делать
 
-## Safe production model
+Запрещено в обычном deploy:
+
+- `npm run db:push`
+- `drizzle-kit push`
+- `drizzle-kit migrate`
+- inline SQL (`ALTER`, `INSERT`, `UPDATE`, `DELETE`)
+- schema sync
+- backfill
+- ручные data-fix скрипты
+
+## Что это значит practically
+
+Если меняется только код:
+
+- достаточно обычного push/deploy.
+
+Если меняется production-БД:
+
+- нужен отдельный rollout;
+- нужен backup;
+- нужен preflight;
+- нужен post-check;
+- нужен документированный результат.
+
+## Почему это важно именно для TechAks
+
+В проекте уже были ручные controlled rollout-фазы:
+
+- additive rollout по `Orders`;
+- follow-up Phase 3.1;
+- product visibility schema rollout;
+- product visibility controlled backfill.
+
+Повторный автоматический schema sync поверх production здесь опасен, потому что:
+
+- production уже менялся контролируемыми отдельными шагами;
+- repo history и production schema могут расходиться по времени применения;
+- `db:push --force` может повторно применить нежелательные изменения.
+
+## Workflow model
 
 ### Automatic deploy
 
-Allowed:
+Используется:
 
-- checkout
-- install dependencies
-- build
-- upload/sync code
-- restart PM2
-- healthcheck
+- [/.github/workflows/deploy.yml](</E:/work/ru/tehax/s/app/.github/workflows/deploy.yml>)
 
-Not allowed:
-
-- schema sync
-- migrations
-- backfill
-- store data mutation
-- user/admin data mutation
+Этот workflow должен оставаться code-only.
 
 ### Manual DB maintenance
 
-Any DB operation must go through a separate manual workflow and must be reviewed case by case.
-If a workflow touches production DB, it must require an explicit confirmation phrase and should default to doing nothing.
+Используется:
 
-## Orders-specific note
+- [/.github/workflows/db-maintenance.yml](</E:/work/ru/tehax/s/app/.github/workflows/db-maintenance.yml>)
 
-Orders Phase 3.1 already completed manually on production:
+Он:
 
-- additive schema only;
-- no destructive migrations;
-- no backfill;
-- compatibility mode remains enabled.
+- запускается только вручную;
+- требует explicit confirmation;
+- по умолчанию не делает DB-операций автоматически.
 
-Because of that, a normal Git sync must not rerun schema operations automatically.
+## Обязательные правила перед production DB operation
+
+Перед любой production DB change:
+
+1. сделать backup;
+2. подтвердить target DB;
+3. выполнить read-only sanity check;
+4. применить только согласованный SQL/rollout;
+5. сделать post-validation;
+6. зафиксировать результат документом.
+
+## Что уже подтверждено
+
+Подтверждено operationally:
+
+- обычный push/deploy больше не должен автоматически мутировать production-БД;
+- Phase 3.1 по orders был применён вручную и не должен повторяться автоматикой;
+- product visibility backfill тоже выполнялся отдельно, не как часть deploy.
+
+## Что запрещено без отдельного решения
+
+- `db:push --force` против production;
+- destructive migrations;
+- drop колонок/таблиц;
+- bulk backfill как часть обычного deploy;
+- inline SQL inside deploy workflow;
+- отключение compatibility mode как “побочный эффект” deploy.

@@ -1,191 +1,194 @@
 # TechAks E-commerce Platform
 
-Modern, high-performance e-commerce platform with deep MoySklad (МойСклад) synchronization, built with React, Hono, tRPC, and Drizzle ORM.
+TechAks is an internet store built with React, Vite, Hono, tRPC, and Drizzle ORM.  
+The project includes:
 
-## 🚀 Tech Stack
+- a public storefront;
+- an admin panel;
+- MoySklad synchronization;
+- order management with compatibility support for legacy data;
+- product visibility controls for zero-price and invalid-price products;
+- a safe deploy pipeline where regular deploys do not mutate production DB.
+
+## Project status
+
+Current operational entrypoint:
+
+- [docs/operations-index.md](</E:/work/ru/tehax/s/app/docs/operations-index.md>)
+
+Current project snapshot:
+
+- production app deploy is code-only by default;
+- production DB changes are handled only through separate controlled procedures;
+- orders additive rollout is complete and compatibility mode remains enabled;
+- product visibility protection for zero-price products is implemented in code and in production data;
+- `npm run check`, `npm run build`, and `npm test` currently pass locally.
+
+## Stack
 
 ### Frontend
-- **Framework:** React 19 + Vite
-- **Routing:** React Router v7
-- **Styling:** Tailwind CSS + UI components (Radix UI, Lucide icons)
-- **State/Data Fetching:** tRPC (React Query) + Zustand
-- **Animations:** GSAP
+
+- React 19
+- React Router v7
+- Vite
+- Tailwind CSS
+- Radix UI
+- Zustand
+- TanStack Query via tRPC
 
 ### Backend
-- **Framework:** Hono (Node.js Adapter)
-- **API:** tRPC
-- **Database:** MySQL
-- **ORM:** Drizzle ORM
 
----
+- Hono
+- tRPC
+- Node.js
+- MySQL / MariaDB-compatible DB
+- Drizzle ORM
 
-## 🛠️ Local Development Setup
-
-1. **Clone & Install:**
-   ```bash
-   git clone https://github.com/AlexandrUlyanov/techaks-app.git
-   cd techaks-app/app
-   npm install
-   ```
-
-2. **Environment Variables:**
-   Create a `.env` file in the `app` directory:
-   ```env
-   DATABASE_URL="mysql://root:root@localhost:3306/tehax"
-   PORT=3000
-   NODE_ENV=development
-   ```
-
-3. **Database Setup:**
-   Ensure MySQL is running locally and the database exists. Then push the schema:
-   ```bash
-   npm run db:push
-   ```
-
-4. **Start Development Server:**
-   ```bash
-   npm run dev
-   ```
-   The app will be available at `http://localhost:3000`.
-
----
-
-## 🔄 MoySklad (МойСклад) Synchronization
-
-The platform includes a robust, 4-step wizard in the Admin Panel (`/admin/sync`) for pulling data from MoySklad API v1.2.
-
-### Features
-1. **Hierarchical Categories:** Preserves nested folders from MoySklad. Parent logic is linked via 2-pass DB updating.
-2. **Auto-Slugs:** Converts Cyrillic names to Latin SEO-friendly URLs (`slugify`). Uses `ms_id` to prevent duplication on re-sync.
-3. **Images Persistence:** Images are downloaded into category-specific folders under `public/images/`. This ensures files survive backend rebuilds.
-4. **Fuzzy Store Matching:** Accurately maps MoySklad warehouses/stores to local DB stores by analyzing `name` and `address` strings.
-5. **Store-to-Warehouse Binding:** Local stores now keep `stores.ms_id` with explicit warehouse binding. In Admin Stores, each card supports manual binding via "Привязать склад" and selection from live MoySklad warehouse list.
-5. **Detailed Logging:** Sync operations log deeply to both the DB (`sync_logs` table) and local `.log` files in `public/logs/`.
-
-### Store Binding in Admin
-
-- Page: `/admin/stores`
-- Each store card shows current binding status.
-- Action flow:
-  1. Click `Привязать склад`.
-  2. Select warehouse from list (fetched via `sync.getStores`).
-  3. Click `Сохранить`.
-- Binding is persisted in `stores.ms_id` and reused during stock synchronization.
-
----
-
-## 🧩 Catalog & UX Notes (Current)
-
-- Catalog top switcher `Категории/Производители` removed from customer page header.
-- Brand strip removed from product list pages; brand filtering remains in filters.
-- Product list filters can display small brand logos for `Производитель/Бренд`.
-- Sorting control on catalog page uses a custom dropdown (non-blocking), replacing Radix `Select` to avoid mobile scroll lock/layout jump.
-- Mobile header simplified:
-  - profile and cart icons removed from top bar;
-  - catalog trigger displays text-only `Каталог` on mobile.
-- Mobile bottom bar updated:
-  - removed `Главная` and `Каталог`;
-  - added call action button (`tel:+79273750555`);
-  - cart icon aligned to product-card style (`ShoppingCart`).
-
----
-
-## 🌍 Production Deployment (REG.RU VPS)
-
-The application is deployed on an **Ubuntu VPS** via **GitHub Actions**.
-
-### Architecture
-- **Server size:** 1 vCPU, 1 GB RAM, 10 GB disk.
-- **Process Manager:** PM2 keeps the Node.js compiled script (`dist/boot.js`) running.
-- **Reverse Proxy:** Nginx listens on port 80 and proxies requests to `127.0.0.1:3000`.
-- **Database:** MySQL 8 running natively on the VPS.
-
-Production maintenance jobs must account for the small VPS size: keep them
-sequential, use explicit batch limits, and avoid loading the whole catalog into
-memory at once.
-
-### CI/CD Workflow
-Located in `.github/workflows/deploy.yml`. On every push to `master`:
-1. SSH into the VPS (`195.208.2.100`).
-2. Pull latest code from GitHub.
-3. `npm ci` and `npm run db:push` (Schema migrations).
-4. Apply deterministic SQL updates for store profiles (name/address/hours/phone/rating/review_count/image/map_url/sort_order), including fallback insert for Zastava card if missing.
-4. `npm run build` (Vite compiles frontend to `dist/public` and backend to `dist/boot.js`).
-5. `pm2 restart techaks` applies the new build.
-
-### Useful Server Commands (SSH)
-```bash
-# Check app logs
-pm2 logs techaks
-
-# Restart app
-pm2 restart techaks
-
-# Check Nginx config
-nginx -t
-```
-
-## 🌐 Primary Domain: `techaks.ru`
-
-Use `techaks.ru` as the only canonical storefront host.
-
-### 1) DNS
-Create records at your DNS provider:
-
-- `A` record: `techaks.ru` -> `195.208.2.100`
-- `A` record: `www.techaks.ru` -> `195.208.2.100`
-- `A` record: `xn--80ajq2abt.xn--p1ai` -> `195.208.2.100` (`техакс.рф`)
-- `A` record: `www.xn--80ajq2abt.xn--p1ai` -> `195.208.2.100` (`www.техакс.рф`)
-
-Recommended TTL for cutover: `300`.
-
-### 2) Nginx (HTTP + canonical redirect)
-On the server:
+## Main scripts
 
 ```bash
-sudo cp /var/www/techaks/nginx.conf.example /etc/nginx/sites-available/techaks
-sudo ln -sf /etc/nginx/sites-available/techaks /etc/nginx/sites-enabled/techaks
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
+npm run dev
+npm run build
+npm run start
+npm run check
+npm run test
+npm run lint
 ```
 
-This config redirects all alternate hosts (`www`, `.рф`, punycode) to `https://techaks.ru` with `301` and preserves path/query.
-
-### 3) SSL (Let's Encrypt)
-Issue certificates and enable HTTPS redirect:
+Database-related scripts exist, but must be treated carefully:
 
 ```bash
-sudo apt update
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx \
-  -d techaks.ru \
-  -d www.techaks.ru \
-  -d xn--80ajq2abt.xn--p1ai \
-  -d www.xn--80ajq2abt.xn--p1ai \
-  --redirect -m info@techaks.ru --agree-tos --no-eff-email
+npm run db:generate
+npm run db:migrate
+npm run db:push
 ```
 
-### 4) Verification
+Important:
+
+- `db:push` is a dangerous schema-sync tool and must not be used casually against production;
+- production DB work should be done only through reviewed, explicit rollout steps.
+
+## Local development
+
+1. Install dependencies:
+
 ```bash
-curl -I http://www.techaks.ru
-curl -I http://techaks.ru
-curl -I https://techaks.ru
+npm install
 ```
 
-Expected:
-- `www` -> `301` to `https://techaks.ru/...`
-- `техакс.рф` / `xn--80ajq2abt.xn--p1ai` -> `301` to `https://techaks.ru/...`
-- `http://techaks.ru` -> `301` to `https://techaks.ru/...`
-- `https://techaks.ru` -> `200`
+2. Create `.env` in the project root:
 
-### 5) SEO endpoints
+```env
+DATABASE_URL="mysql://root:root@localhost:3306/tehax"
+PORT=3000
+NODE_ENV=development
+```
 
-The backend now serves:
+3. Make sure local MySQL is available and the target DB exists.
 
-- `https://techaks.ru/robots.txt`
-- `https://techaks.ru/sitemap.xml` (index)
-- `https://techaks.ru/sitemap-categories.xml`
-- `https://techaks.ru/sitemap-products-1.xml`
-- `https://techaks.ru/sitemap-pages.xml`
-- `https://techaks.ru/sitemap-images.xml`
+4. If you really need schema sync locally, do it intentionally:
+
+```bash
+npm run db:push
+```
+
+5. Start dev server:
+
+```bash
+npm run dev
+```
+
+App URL:
+
+- [http://localhost:3000](http://localhost:3000)
+
+## Production deploy
+
+Automatic deploy is handled by:
+
+- [/.github/workflows/deploy.yml](</E:/work/ru/tehax/s/app/.github/workflows/deploy.yml>)
+
+Regular deploy on push to `master` does:
+
+- checkout / sync code;
+- install dependencies;
+- build;
+- update nginx config;
+- restart PM2 process `techaks`;
+- run healthcheck.
+
+Regular deploy does **not** do:
+
+- `db:push`
+- automatic migrations
+- inline SQL
+- backfill
+- schema sync
+
+DB operations are separated into a manual workflow:
+
+- [/.github/workflows/db-maintenance.yml](</E:/work/ru/tehax/s/app/.github/workflows/db-maintenance.yml>)
+
+Deployment safety reference:
+
+- [docs/deployment-safety.md](</E:/work/ru/tehax/s/app/docs/deployment-safety.md>)
+- [docs/deploy-pipeline-final-safety-status.md](</E:/work/ru/tehax/s/app/docs/deploy-pipeline-final-safety-status.md>)
+
+## Orders
+
+Orders are one of the most operationally sensitive areas of the project.
+
+Current references:
+
+- [docs/orders-phase3-final-production-status.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-final-production-status.md>)
+- [docs/orders-phase3-1-followup-result.md](</E:/work/ru/tehax/s/app/docs/orders-phase3-1-followup-result.md>)
+- [docs/orders-documents-status.md](</E:/work/ru/tehax/s/app/docs/orders-documents-status.md>)
+
+Important:
+
+- compatibility mode is still part of the production architecture;
+- historical rollout docs are preserved and must be read as point-in-time reports;
+- do not treat every old order doc as current operational state.
+
+## Product visibility
+
+The storefront now hides products that should not be sold publicly.
+
+Public visibility rule:
+
+```txt
+visibleOnSite = isActive && !isAutoBlocked && price > 0
+```
+
+Meaning:
+
+- `isActive` is a manual admin decision;
+- `isAutoBlocked` is a system safeguard;
+- zero-price / invalid-price products stay visible in admin, but are hidden from the public site and blocked from checkout.
+
+References:
+
+- [docs/product-visibility-final-production-status.md](</E:/work/ru/tehax/s/app/docs/product-visibility-final-production-status.md>)
+- [docs/product-visibility-backfill-plan.md](</E:/work/ru/tehax/s/app/docs/product-visibility-backfill-plan.md>)
+
+## Admin and sync
+
+Admin operational notes:
+
+- [docs/admin-operations.md](</E:/work/ru/tehax/s/app/docs/admin-operations.md>)
+
+Other reference docs:
+
+- [docs/product-spec-normalization.md](</E:/work/ru/tehax/s/app/docs/product-spec-normalization.md>)
+- [docs/sync-epic-plan.md](</E:/work/ru/tehax/s/app/docs/sync-epic-plan.md>)
+
+## Important safety rules
+
+Do not do the following without an explicit rollout decision:
+
+- destructive migrations;
+- dropping production tables or columns;
+- changing column types on live production tables;
+- running bulk backfill as part of normal deploy;
+- using `db:push --force` against production as a convenience shortcut;
+- mixing app deploy with DB maintenance in one unreviewed step.
