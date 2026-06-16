@@ -224,38 +224,46 @@ async function acquireSyncLock() {
     startedAt: now,
     expiresAt: now + SYNC_LOCK_TTL_MS,
   };
+  const rawPayload = JSON.stringify(nextPayload);
+
+  await db.execute(sql`
+    INSERT INTO app_settings (\`key\`, \`value\`, \`updated_at\`)
+    VALUES (${SYNC_LOCK_KEY}, ${rawPayload}, NOW())
+    ON DUPLICATE KEY UPDATE
+      \`value\` = IF(
+        \`value\` IS NULL
+        OR JSON_EXTRACT(\`value\`, '$.expiresAt') IS NULL
+        OR CAST(JSON_UNQUOTE(JSON_EXTRACT(\`value\`, '$.expiresAt')) AS UNSIGNED) <= ${now},
+        VALUES(\`value\`),
+        \`value\`
+      ),
+      \`updated_at\` = IF(
+        \`value\` IS NULL
+        OR JSON_EXTRACT(\`value\`, '$.expiresAt') IS NULL
+        OR CAST(JSON_UNQUOTE(JSON_EXTRACT(\`value\`, '$.expiresAt')) AS UNSIGNED) <= ${now},
+        VALUES(\`updated_at\`),
+        \`updated_at\`
+      )
+  `);
 
   const [row] = await db
-    .select({ key: schema.appSettings.key, value: schema.appSettings.value })
+    .select({ value: schema.appSettings.value })
     .from(schema.appSettings)
     .where(eq(schema.appSettings.key, SYNC_LOCK_KEY))
     .limit(1);
 
-  if (!row) {
-    await db.insert(schema.appSettings).values({
-      key: SYNC_LOCK_KEY,
-      value: JSON.stringify(nextPayload),
-      updatedAt: new Date(),
-    });
-    return { acquired: true as const, owner };
+  const currentPayload = parseLockPayload(row?.value ?? null);
+  if (!currentPayload) {
+    return { acquired: false as const, reason: "already_running" as const };
   }
 
-  const currentPayload = parseLockPayload(row.value);
-  if (currentPayload && currentPayload.expiresAt > now) {
+  if (currentPayload.owner !== owner) {
     return {
       acquired: false as const,
       reason: "already_running",
       expiresAt: currentPayload.expiresAt,
     };
   }
-
-  await db
-    .update(schema.appSettings)
-    .set({
-      value: JSON.stringify(nextPayload),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.appSettings.key, SYNC_LOCK_KEY));
 
   return { acquired: true as const, owner };
 }
