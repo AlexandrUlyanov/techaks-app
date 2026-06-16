@@ -1407,15 +1407,20 @@ export async function searchSite(args: {
       settings,
     });
 
-    let filtered = candidates.filter(candidate => {
+    const baseFiltered = candidates.filter(candidate => {
       if (candidate.entityType !== "product") return true;
       if (!settings.showZeroPrice && (!candidate.price || candidate.price <= 0)) return false;
       if (!settings.showInactive && (!candidate.isActive || !candidate.isVisible)) return false;
       if (args.categoryId && candidate.categoryId !== args.categoryId) return false;
       if (args.brandId && candidate.brandId !== args.brandId) return false;
+      if (args.inStockOnly && !candidate.inStock) return false;
+      return true;
+    });
+
+    let filtered = baseFiltered.filter(candidate => {
+      if (candidate.entityType !== "product") return true;
       if (typeof args.priceFrom === "number" && typeof candidate.price === "number" && candidate.price < args.priceFrom) return false;
       if (typeof args.priceTo === "number" && typeof candidate.price === "number" && candidate.price > args.priceTo) return false;
-      if (args.inStockOnly && !candidate.inStock) return false;
       return true;
     });
 
@@ -1451,9 +1456,10 @@ export async function searchSite(args: {
       });
 
     const productDocs = filtered.filter(item => item.entityType === "product");
+    const facetProductDocs = baseFiltered.filter(item => item.entityType === "product");
     const categoryDocs = filtered.filter(item => item.entityType === "category").slice(0, 8);
     const pageDocs = filtered.filter(item => item.entityType === "page").slice(0, 8);
-    const facets = buildSearchFacets(productDocs);
+    const facets = buildSearchFacets(facetProductDocs);
 
     const productIds = productDocs.map(item => item.entityId);
     const db = getDb();

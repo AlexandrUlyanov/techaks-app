@@ -27,6 +27,10 @@ function parseNumber(value: string | null) {
   return Number.isFinite(candidate) && candidate > 0 ? candidate : undefined;
 }
 
+function formatPrice(value: number) {
+  return `${new Intl.NumberFormat("ru-RU").format(Math.round(value))} ₽`;
+}
+
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -105,6 +109,26 @@ export default function SearchPage() {
     if (!data) return `Ищем совпадения по запросу «${query}»`;
     return `Найдено ${data.total} товаров по запросу «${query}»`;
   }, [data, query]);
+
+  const activeCategoryLabel = useMemo(() => {
+    if (!data || !categoryId) return null;
+    return data.facets.categories.find(item => item.id === categoryId)?.name ?? null;
+  }, [categoryId, data]);
+
+  const activeBrandLabel = useMemo(() => {
+    if (!data || !brandId) return null;
+    return data.facets.brands.find(item => item.id === brandId)?.name ?? null;
+  }, [brandId, data]);
+
+  const hasPriceFilter =
+    Boolean(
+      data &&
+      ((typeof priceFrom === "number" && priceFrom > data.facets.price.min) ||
+        (typeof priceTo === "number" && priceTo < data.facets.price.max))
+    );
+
+  const hasActiveFilters =
+    Boolean(categoryId || brandId || inStockOnly || hasPriceFilter);
 
   const handleResultClick = async (
     url: string,
@@ -245,6 +269,87 @@ export default function SearchPage() {
                       />
                     </div>
                   </div>
+
+                  {hasActiveFilters ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {activeCategoryLabel ? (
+                        <button
+                          type="button"
+                          onClick={() => updateSearch({ categoryId: undefined, page: 1 })}
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
+                        >
+                          <span className="truncate max-w-[220px]">Категория: {activeCategoryLabel}</span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                            ×
+                          </span>
+                        </button>
+                      ) : null}
+
+                      {activeBrandLabel ? (
+                        <button
+                          type="button"
+                          onClick={() => updateSearch({ brandId: undefined, page: 1 })}
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
+                        >
+                          <span className="truncate max-w-[220px]">Бренд: {activeBrandLabel}</span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                            ×
+                          </span>
+                        </button>
+                      ) : null}
+
+                      {inStockOnly ? (
+                        <button
+                          type="button"
+                          onClick={() => updateSearch({ inStockOnly: undefined, page: 1 })}
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
+                        >
+                          <span>Только в наличии</span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                            ×
+                          </span>
+                        </button>
+                      ) : null}
+
+                      {hasPriceFilter && data ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateSearch({
+                              priceFrom: undefined,
+                              priceTo: undefined,
+                              page: 1,
+                            })
+                          }
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
+                        >
+                          <span>
+                            Цена: {formatPrice(typeof priceFrom === "number" ? priceFrom : data.facets.price.min)} - {formatPrice(typeof priceTo === "number" ? priceTo : data.facets.price.max)}
+                          </span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                            ×
+                          </span>
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSearch({
+                            categoryId: undefined,
+                            brandId: undefined,
+                            priceFrom: undefined,
+                            priceTo: undefined,
+                            inStockOnly: undefined,
+                            page: 1,
+                          })
+                        }
+                        className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--tech-color-surface)] px-3.5 text-[13px] font-semibold text-foreground transition hover:brightness-95"
+                      >
+                        Сбросить все
+                      </button>
+                    </div>
+                  ) : null}
 
                   {(data.categories.length > 0 || data.pages.length > 0) && (
                     <div className="grid gap-5 xl:grid-cols-2">
