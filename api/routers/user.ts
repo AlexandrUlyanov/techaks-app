@@ -9,13 +9,181 @@ import {
   orderHistory,
   orders,
   passwordResetTokens,
+  products,
   pushSubscriptions,
   syncLogs,
+  userFavorites,
   users,
+  categories,
 } from "@db/schema";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import {
+  attachVisibleMerchandisingBadges,
+  publicProductSelectFields,
+  publicProductVisibilityCondition,
+} from "../lib/public-products";
+import * as schema from "@db/schema";
 
 export const userRouter = createRouter({
+  getFavoriteIds: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select({ productId: userFavorites.productId })
+      .from(userFavorites)
+      .innerJoin(products, eq(products.id, userFavorites.productId))
+      .where(
+        and(
+          eq(userFavorites.userId, ctx.user!.id),
+          publicProductVisibilityCondition
+        )
+      )
+      .orderBy(desc(userFavorites.createdAt));
+
+    return rows.map(row => row.productId);
+  }),
+
+  getFavorites: protectedProcedure.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select(publicProductSelectFields)
+      .from(userFavorites)
+      .innerJoin(products, eq(products.id, userFavorites.productId))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(
+        schema.productMerchandising,
+        eq(schema.productMerchandising.productId, products.id)
+      )
+      .where(
+        and(
+          eq(userFavorites.userId, ctx.user!.id),
+          publicProductVisibilityCondition
+        )
+      )
+      .orderBy(desc(userFavorites.createdAt));
+
+    return attachVisibleMerchandisingBadges(rows);
+  }),
+
+  setFavorite: protectedProcedure
+    .input(
+      z.object({
+        productId: z.number().int().positive(),
+        isFavorite: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+
+      if (!input.isFavorite) {
+        await db
+          .delete(userFavorites)
+          .where(
+            and(
+              eq(userFavorites.userId, ctx.user!.id),
+              eq(userFavorites.productId, input.productId)
+            )
+          );
+
+        return {
+          success: true,
+          productId: input.productId,
+          isFavorite: false,
+        };
+      }
+
+      const [product] = await db
+        .select({
+          id: products.id,
+        })
+        .from(products)
+        .where(
+          and(eq(products.id, input.productId), publicProductVisibilityCondition)
+        )
+        .limit(1);
+
+      if (!product) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Товар не найден или недоступен.",
+        });
+      }
+
+      await db
+        .insert(userFavorites)
+        .values({
+          userId: ctx.user!.id,
+          productId: input.productId,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            createdAt: new Date(),
+          },
+        });
+
+      return {
+        success: true,
+        productId: input.productId,
+        isFavorite: true,
+      };
+    }),
+
+  syncFavorites: protectedProcedure
+    .input(
+      z.object({
+        productIds: z.array(z.number().int().positive()).max(200).default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const normalizedIds = Array.from(new Set(input.productIds));
+
+      if (normalizedIds.length > 0) {
+        const visibleProducts = await db
+          .select({ id: products.id })
+          .from(products)
+          .where(
+            and(
+              inArray(products.id, normalizedIds),
+              publicProductVisibilityCondition
+            )
+          );
+
+        const visibleIds = visibleProducts.map(product => product.id);
+
+        if (visibleIds.length > 0) {
+          await db
+            .insert(userFavorites)
+            .values(
+              visibleIds.map(productId => ({
+                userId: ctx.user!.id,
+                productId,
+              }))
+            )
+            .onDuplicateKeyUpdate({
+              set: {
+                createdAt: new Date(),
+              },
+            });
+        }
+      }
+
+      const rows = await db
+        .select({ productId: userFavorites.productId })
+        .from(userFavorites)
+        .innerJoin(products, eq(products.id, userFavorites.productId))
+        .where(
+          and(
+            eq(userFavorites.userId, ctx.user!.id),
+            publicProductVisibilityCondition
+          )
+        )
+        .orderBy(desc(userFavorites.createdAt));
+
+      return {
+        productIds: rows.map(row => row.productId),
+      };
+    }),
+
   getAll: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "User");
     const db = getDb();

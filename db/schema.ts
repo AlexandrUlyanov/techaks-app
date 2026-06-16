@@ -297,6 +297,20 @@ export const users = mysqlTable("users", {
   emailIdx: index("users_email_idx").on(table.email),
 }));
 
+export const userFavorites = mysqlTable("user_favorites", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  productId: int("product_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index("user_favorites_user_idx").on(table.userId, table.createdAt),
+  productIdx: index("user_favorites_product_idx").on(table.productId),
+  userProductUnique: unique("user_favorites_user_product_unique").on(
+    table.userId,
+    table.productId
+  ),
+}));
+
 export const pushSubscriptions = mysqlTable("push_subscriptions", {
   id: serial("id").primaryKey(),
   userId: int("user_id").notNull(),

@@ -3,8 +3,8 @@ import { Link, Navigate, useNavigate } from "react-router";
 import {
   ChevronDown,
   ChevronRight,
-  CreditCard,
   ExternalLink,
+  Heart,
   Loader2,
   LogOut,
   MessageSquare,
@@ -26,6 +26,7 @@ import { trackOrderMessage } from "@/lib/yandex-metrika";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
+import ProductCard from "@/components/ProductCard";
 
 type AccountOrder = {
   id: number;
@@ -816,6 +817,10 @@ export default function AccountPage() {
     enabled: isAuthenticated,
     retry: false,
   });
+  const { data: favoriteProducts = [] } = trpc.user.getFavorites.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -913,6 +918,30 @@ export default function AccountPage() {
                 ))}
               </div>
             )}
+
+            <section className="space-y-5">
+              <div className="flex items-center gap-3">
+                <Heart size={18} className="text-[#05C3D4]" />
+                <h2 className="text-xl font-black tracking-tight">Избранное</h2>
+              </div>
+
+              {favoriteProducts.length === 0 ? (
+                <div className="rounded-[1.75rem] bg-muted/25 p-8 text-center">
+                  <p className="text-sm font-semibold text-foreground">
+                    Вы пока ничего не добавили в избранное
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Сохраняйте товары сердечком в каталоге, и они появятся здесь.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {favoriteProducts.map(product => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
 
           <aside className="space-y-5 lg:sticky lg:top-24">

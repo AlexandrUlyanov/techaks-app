@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
+import { useFavorites } from "@/hooks/use-favorites";
 import { Heart, Minus, Plus, Star } from "lucide-react";
 import { toast } from "sonner";
 import { CartIcon } from "@/components/product/ProductActionIcons";
@@ -24,7 +25,7 @@ interface ProductCardProps {
     image: string;
     imageVariants?: unknown;
     categoryId: number;
-    categoryName?: string;
+    categoryName?: string | null;
     rating?: string | number | null;
     reviewCount?: number | null;
     inStock?: boolean | null;
@@ -42,10 +43,12 @@ export default function ProductCard({
   onNavigate,
 }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const cartItem = items.find(
     item => item.id === product.id && (item.variantId ?? null) === null
   );
   const isInStock = Boolean(product.inStock);
+  const favoriteActive = isFavorite(product.id);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -126,6 +129,15 @@ export default function ProductCard({
     if (!onNavigate) return;
     event.preventDefault();
     await onNavigate(`/product/${product.slug}`);
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite({
+      id: product.id,
+      name: product.name,
+    });
   };
 
   const cartControl = !isInStock ? (
@@ -235,14 +247,15 @@ export default function ProductCard({
                 {cartControl}
                 <button
                   type="button"
-                  className="hidden h-11 w-11 items-center justify-center rounded-full bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)] sm:flex"
-                  aria-label="В избранное"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
+                  className={`hidden h-11 w-11 items-center justify-center rounded-full transition-colors sm:flex ${
+                    favoriteActive
+                      ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]"
+                      : "bg-[var(--tech-color-surface-muted)] text-muted-foreground hover:text-[var(--tech-color-primary)]"
+                  }`}
+                  aria-label={favoriteActive ? "Убрать из избранного" : "В избранное"}
+                  onClick={handleToggleFavorite}
                 >
-                  <Heart size={15} />
+                  <Heart size={15} className={favoriteActive ? "fill-current" : ""} />
                 </button>
               </div>
             </div>
@@ -317,14 +330,15 @@ export default function ProductCard({
         <div className="flex items-center gap-2 justify-self-end">
         <button
           type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--tech-color-surface-muted)] text-muted-foreground transition-colors hover:text-[var(--tech-color-primary)]"
-          aria-label="В избранное"
-          onClick={e => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
+          className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+            favoriteActive
+              ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]"
+              : "bg-[var(--tech-color-surface-muted)] text-muted-foreground hover:text-[var(--tech-color-primary)]"
+          }`}
+          aria-label={favoriteActive ? "Убрать из избранного" : "В избранное"}
+          onClick={handleToggleFavorite}
         >
-          <Heart size={15} />
+          <Heart size={15} className={favoriteActive ? "fill-current" : ""} />
         </button>
           {cartControl}
         </div>

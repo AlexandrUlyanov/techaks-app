@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import StickyBottomBar from "@/components/StickyBottomBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import FavoritesBootstrap from "@/components/FavoritesBootstrap";
 import DesignThemeBridge from "@/design-system/DesignThemeBridge";
 import HomePage from "@/pages/HomePage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
@@ -117,6 +118,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
       <DesignThemeBridge />
+      <FavoritesBootstrap />
       <CatalogMenu />
       {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
