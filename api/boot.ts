@@ -212,7 +212,6 @@ app.get("/robots.txt", c => {
     "Disallow: /*layout=",
     "Disallow: /*show=",
     "Disallow: /*limit=",
-    "Disallow: /*filter=",
     "Disallow: /*price=",
     "Disallow: /*color=",
     "Disallow: /*?utm_",
@@ -437,11 +436,30 @@ app.get("/sitemap-categories.xml", async c => {
       return `<url><loc>${SEO_HOST}/catalog?cat=${encodeURIComponent(category.slug)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>`;
     })
     .join("");
+  const filterRows = await db
+    .select({
+      url: schema.listingPages.url,
+      updatedAt: schema.listingPages.updatedAt,
+    })
+    .from(schema.listingPages)
+    .where(
+      and(
+        eq(schema.listingPages.type, "filter"),
+        eq(schema.listingPages.isPublished, true),
+        eq(schema.listingPages.indexationMode, "index")
+      )
+    );
+  const filterUrls = filterRows
+    .map(item => {
+      const lastmod = toIsoDate(item.updatedAt);
+      return `<url><loc>${SEO_HOST}${item.url}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.7</priority></url>`;
+    })
+    .join("");
   const catalogLastmod = [...propagatedLastmods.values()].sort().at(-1);
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${SEO_HOST}/catalog</loc>${catalogLastmod ? `<lastmod>${catalogLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.9</priority></url>
-  ${rows}
+  ${rows}${filterUrls}
 </urlset>`;
   return c.body(body, 200, {
     "Content-Type": "application/xml; charset=utf-8",

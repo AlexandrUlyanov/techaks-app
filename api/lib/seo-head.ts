@@ -25,6 +25,7 @@ import {
 import { getDb } from "../queries/connection";
 import {
   normalizeCanonicalUrl,
+  resolveFilterListing,
   shouldNoindexCategoryListing,
 } from "./listing-pages";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -914,7 +915,15 @@ async function buildCatalogSeoData(url: URL) {
   const catalogView = searchParams.get("view") === "brands" ? "brands" : "categories";
   const activeCategory = searchParams.get("cat") || "all";
   const activeBrand = searchParams.get("brand") || "";
-  const hasFilters = searchParams.getAll("filter").length > 0;
+  const activeFilters = searchParams
+    .getAll("filter")
+    .map(value => {
+      const [filterKey, filterValue] = value.split(":");
+      return filterKey && filterValue ? { filterKey, filterValue } : null;
+    })
+    .filter(Boolean) as { filterKey: string; filterValue: string }[];
+  const singleFilter = activeFilters.length === 1 ? activeFilters[0] : null;
+  const hasFilters = activeFilters.length > 0;
   const hasLayout = (searchParams.get("layout") || "grid") !== "grid";
   const hasSort = (searchParams.get("sort") || "default") !== "default";
   const forceProductsView = searchParams.get("show") === "products";
@@ -1197,17 +1206,27 @@ async function buildCatalogSeoData(url: URL) {
     return buildBasePageData("/catalog", { noindex: true });
   }
 
-  const [categoryListing] = await db
-    .select()
-    .from(schema.listingPages)
-    .where(
-      and(
-        eq(schema.listingPages.type, "category"),
-        eq(schema.listingPages.categoryId, currentCategory.id),
-        eq(schema.listingPages.isPublished, true)
+  const [categoryListing, filterListing] = await Promise.all([
+    db
+      .select()
+      .from(schema.listingPages)
+      .where(
+        and(
+          eq(schema.listingPages.type, "category"),
+          eq(schema.listingPages.categoryId, currentCategory.id),
+          eq(schema.listingPages.isPublished, true)
+        )
       )
-    )
-    .limit(1);
+      .limit(1)
+      .then(rows => rows[0]),
+    singleFilter
+      ? resolveFilterListing({
+          categorySlug: currentCategory.slug,
+          filterKey: singleFilter.filterKey,
+          filterValue: singleFilter.filterValue,
+        })
+      : Promise.resolve(null),
+  ]);
 
   const categoriesById = new Map(categoryRows.map(category => [category.id, category] as const));
   const breadcrumbItems: BreadcrumbItem[] = [
@@ -1229,6 +1248,7 @@ async function buildCatalogSeoData(url: URL) {
   }
 
   const readableCategoryName = toSeoReadableName(currentCategory.name);
+  const activeListing = singleFilter && filterListing ? filterListing : categoryListing;
   const childCategories = categoryRows
     .filter(category => category.parentId === currentCategory.id)
     .slice(0, 16);
@@ -1284,17 +1304,17 @@ async function buildCatalogSeoData(url: URL) {
     hasChildren: childCategories.length > 0,
   });
   const description = normalizeDescription(
-    categoryListing?.metaDescription ||
+    activeListing?.metaDescription ||
       currentCategory.metaDescription ||
       currentCategory.description,
     categorySeo.description
   );
   const title =
-    categoryListing?.title?.trim() ||
+    activeListing?.title?.trim() ||
     currentCategory.metaTitle?.trim() ||
     categorySeo.title;
   const bodyDescription = normalizeDescription(
-    categoryListing?.introText || currentCategory.description || description,
+    activeListing?.introText || currentCategory.description || description,
     description
   );
   const categoryFaqItems = buildCategoryFaqItems({
@@ -1386,35 +1406,45 @@ async function buildCatalogSeoData(url: URL) {
           }))
         )}</section>`
       : "",
-    categoryListing?.bottomText?.trim()
+    activeListing?.bottomText?.trim()
       ? `<section class="seo-section"><h2>Дополнительно</h2><p>${escapeHtml(
-          categoryListing.bottomText.trim()
+          activeListing.bottomText.trim()
         )}</p></section>`
       : "",
   ].join("");
 
-  const listingCanonical = normalizeCanonicalUrl(categoryListing?.canonicalUrl);
+  const listingCanonical = normalizeCanonicalUrl(activeListing?.canonicalUrl);
   const canonicalUrl =
     listingCanonical && listingCanonical.startsWith("http")
       ? listingCanonical
-      : `${SEO_HOST}${listingCanonical || `/catalog?cat=${encodeURIComponent(activeCategory)}`}`;
+      : `${SEO_HOST}${
+          listingCanonical ||
+          (singleFilter && !filterListing
+            ? `/catalog?cat=${encodeURIComponent(activeCategory)}`
+            : singleFilter
+              ? `/catalog?cat=${encodeURIComponent(activeCategory)}&filter=${encodeURIComponent(
+                  `${singleFilter.filterKey}:${singleFilter.filterValue}`
+                )}`
+              : `/catalog?cat=${encodeURIComponent(activeCategory)}`)
+        }`;
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
     title,
     description,
     canonicalUrl,
     noindex:
-      hasFilters ||
+      activeFilters.length > 1 ||
       hasLayout ||
       hasSort ||
       forceProductsView ||
-      shouldNoindexCategoryListing(categoryListing?.indexationMode),
+      shouldNoindexCategoryListing(activeListing?.indexationMode) ||
+      (Boolean(singleFilter) && !filterListing),
     structuredData: [
       buildBreadcrumbStructuredData(breadcrumbItems),
       {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        name: categoryListing?.h1?.trim() || readableCategoryName,
+        name: activeListing?.h1?.trim() || readableCategoryName,
         description,
         url: canonicalUrl,
       },
@@ -1437,7 +1467,7 @@ async function buildCatalogSeoData(url: URL) {
     bodyHtml: renderSeoBodyShell({
       breadcrumbs: breadcrumbItems,
       eyebrow: "Категория",
-      title: categoryListing?.h1?.trim() || readableCategoryName,
+      title: activeListing?.h1?.trim() || readableCategoryName,
       description: bodyDescription,
       content,
     }),

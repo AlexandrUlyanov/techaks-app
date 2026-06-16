@@ -56,7 +56,10 @@ function buildFormState(data?: any): ListingFormState {
 
 export default function AdminListings() {
   const [search, setSearch] = useState("");
+  const [editorMode, setEditorMode] = useState<"category" | "filter">("category");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedFilterComposite, setSelectedFilterComposite] = useState<string | null>(null);
+  const [filterSearch, setFilterSearch] = useState("");
   const [form, setForm] = useState<ListingFormState>(EMPTY_FORM);
 
   const utils = trpc.useUtils();
@@ -84,16 +87,65 @@ export default function AdminListings() {
     [items, selectedCategoryId]
   );
 
-  const listingDetailsQuery = trpc.listing.getCategoryListing.useQuery(
+  const categoryListingDetailsQuery = trpc.listing.getCategoryListing.useQuery(
     { categoryId: selectedCategoryId ?? 0 },
-    { enabled: selectedCategoryId !== null }
+    { enabled: selectedCategoryId !== null && editorMode === "category" }
+  );
+
+  const filterCandidatesQuery = trpc.listing.listFilterListingCandidates.useQuery(
+    {
+      categoryId: selectedCategoryId ?? 0,
+      search: filterSearch.trim() || undefined,
+    },
+    {
+      enabled: selectedCategoryId !== null && editorMode === "filter",
+    }
+  );
+
+  const filterCandidates = filterCandidatesQuery.data ?? [];
+  const selectedFilterCandidate = useMemo(
+    () =>
+      filterCandidates.find(
+        item => `${item.normalizedKey}:${item.normalizedValue}` === selectedFilterComposite
+      ) ?? null,
+    [filterCandidates, selectedFilterComposite]
+  );
+
+  const filterListingDetailsQuery = trpc.listing.getFilterListing.useQuery(
+    {
+      categoryId: selectedCategoryId ?? 0,
+      filterKey: selectedFilterCandidate?.normalizedKey ?? "__disabled__",
+      filterValue: selectedFilterCandidate?.normalizedValue ?? "__disabled__",
+    },
+    {
+      enabled:
+        selectedCategoryId !== null &&
+        editorMode === "filter" &&
+        Boolean(selectedFilterCandidate),
+    }
   );
 
   useEffect(() => {
-    if (listingDetailsQuery.data) {
-      setForm(buildFormState(listingDetailsQuery.data));
+    if (editorMode === "category" && categoryListingDetailsQuery.data) {
+      setForm(buildFormState(categoryListingDetailsQuery.data));
     }
-  }, [listingDetailsQuery.data]);
+    if (editorMode === "filter" && filterListingDetailsQuery.data) {
+      setForm(buildFormState(filterListingDetailsQuery.data));
+    }
+  }, [categoryListingDetailsQuery.data, editorMode, filterListingDetailsQuery.data]);
+
+  useEffect(() => {
+    if (editorMode !== "filter") return;
+    if (!filterCandidates.length) {
+      setSelectedFilterComposite(null);
+      return;
+    }
+    setSelectedFilterComposite(current =>
+      current && filterCandidates.some(item => `${item.normalizedKey}:${item.normalizedValue}` === current)
+        ? current
+        : `${filterCandidates[0].normalizedKey}:${filterCandidates[0].normalizedValue}`
+    );
+  }, [editorMode, filterCandidates]);
 
   const upsertListing = trpc.listing.upsertCategoryListing.useMutation({
     onSuccess: async () => {
@@ -101,7 +153,17 @@ export default function AdminListings() {
       await Promise.all([
         utils.listing.listCategoryListings.invalidate(),
         selectedCategoryId
+          ? utils.listing.listFilterListingCandidates.invalidate({ categoryId: selectedCategoryId })
+          : Promise.resolve(),
+        selectedCategoryId
           ? utils.listing.getCategoryListing.invalidate({ categoryId: selectedCategoryId })
+          : Promise.resolve(),
+        selectedCategoryId && selectedFilterCandidate
+          ? utils.listing.getFilterListing.invalidate({
+              categoryId: selectedCategoryId,
+              filterKey: selectedFilterCandidate.normalizedKey,
+              filterValue: selectedFilterCandidate.normalizedValue,
+            })
           : Promise.resolve(),
       ]);
     },
@@ -110,13 +172,58 @@ export default function AdminListings() {
     },
   });
 
+  const upsertFilterListing = trpc.listing.upsertFilterListing.useMutation({
+    onSuccess: async () => {
+      toast.success("Фильтр-листинг сохранён");
+      await Promise.all([
+        utils.listing.listFilterListingCandidates.invalidate({ categoryId: selectedCategoryId ?? 0 }),
+        selectedCategoryId && selectedFilterCandidate
+          ? utils.listing.getFilterListing.invalidate({
+              categoryId: selectedCategoryId,
+              filterKey: selectedFilterCandidate.normalizedKey,
+              filterValue: selectedFilterCandidate.normalizedValue,
+            })
+          : Promise.resolve(),
+      ]);
+    },
+    onError: error => {
+      toast.error(error.message || "Не удалось сохранить фильтр-листинг");
+    },
+  });
+
   const dirty =
-    JSON.stringify(form) !== JSON.stringify(buildFormState(listingDetailsQuery.data));
+    JSON.stringify(form) !==
+    JSON.stringify(
+      buildFormState(
+        editorMode === "category"
+          ? categoryListingDetailsQuery.data
+          : filterListingDetailsQuery.data
+      )
+    );
 
   const handleSave = () => {
     if (!selectedCategoryId) return;
-    upsertListing.mutate({
+    if (editorMode === "category") {
+      upsertListing.mutate({
+        categoryId: selectedCategoryId,
+        data: {
+          ...form,
+          title: form.title || null,
+          metaDescription: form.metaDescription || null,
+          h1: form.h1 || null,
+          introText: form.introText || null,
+          bottomText: form.bottomText || null,
+          canonicalUrl: form.canonicalUrl || null,
+        },
+      });
+      return;
+    }
+
+    if (!selectedFilterCandidate) return;
+    upsertFilterListing.mutate({
       categoryId: selectedCategoryId,
+      filterKey: selectedFilterCandidate.normalizedKey,
+      filterValue: selectedFilterCandidate.normalizedValue,
       data: {
         ...form,
         title: form.title || null,
@@ -134,12 +241,39 @@ export default function AdminListings() {
       <AdminPageHeader
         eyebrow="Каталог"
         title="Листинги"
-        description="Первый контур управления посадочными страницами каталога. Здесь мы держим category pages как отдельные управляемые сущности: контент, индексируемость, canonical и редакторский статус."
+        description="Управляем category pages и посадочными страницами вида категория + один фильтр из одной модели: контент, индексируемость, canonical и редакторский статус."
         actions={
           <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-full border border-border bg-background p-1">
+              <button
+                type="button"
+                onClick={() => setEditorMode("category")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  editorMode === "category"
+                    ? "bg-[var(--tech-color-primary)] text-white"
+                    : "text-foreground"
+                }`}
+              >
+                Категории
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode("filter")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  editorMode === "filter"
+                    ? "bg-[var(--tech-color-primary)] text-white"
+                    : "text-foreground"
+                }`}
+              >
+                Категория + фильтр
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => listingsQuery.refetch()}
+              onClick={() => {
+                listingsQuery.refetch();
+                filterCandidatesQuery.refetch();
+              }}
               className="inline-flex items-center justify-center rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
             >
               Обновить
@@ -181,8 +315,16 @@ export default function AdminListings() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
         <AdminSection
-          title="Все категорийные листинги"
-          description="Пока в контуре только category pages. Filter-pages добавим следующим этапом поверх этой базы."
+          title={
+            editorMode === "category"
+              ? "Все категорийные листинги"
+              : "Категории для filter pages"
+          }
+          description={
+            editorMode === "category"
+              ? "Список category pages с fallback на данные категории."
+              : "Выберите категорию слева, потом справа настроим конкретную страницу вида категория + один фильтр."
+          }
           actions={
             <label className="relative block w-full max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -255,17 +397,37 @@ export default function AdminListings() {
         </AdminSection>
 
         <AdminSection
-          title={selectedItem ? `Листинг: ${selectedItem.categoryName}` : "Карточка листинга"}
+          title={
+            editorMode === "category"
+              ? selectedItem
+                ? `Листинг: ${selectedItem.categoryName}`
+                : "Карточка листинга"
+              : selectedItem
+                ? `Фильтр-листинг: ${selectedItem.categoryName}`
+                : "Фильтр-листинг"
+          }
           description={
-            selectedItem
-              ? `URL: ${selectedItem.url}`
-              : "Выберите листинг слева, чтобы редактировать контент и правила индексации."
+            editorMode === "category"
+              ? selectedItem
+                ? `URL: ${selectedItem.url}`
+                : "Выберите листинг слева, чтобы редактировать контент и правила индексации."
+              : selectedFilterCandidate
+                ? `${selectedFilterCandidate.key}: ${selectedFilterCandidate.value}`
+                : "Выберите категорию, затем конкретный фильтр для посадочной страницы."
           }
           actions={
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setForm(buildFormState(listingDetailsQuery.data))}
+                onClick={() =>
+                  setForm(
+                    buildFormState(
+                      editorMode === "category"
+                        ? categoryListingDetailsQuery.data
+                        : filterListingDetailsQuery.data
+                    )
+                  )
+                }
                 disabled={!selectedItem || !dirty}
                 className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -274,21 +436,80 @@ export default function AdminListings() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!selectedItem || upsertListing.isPending || !dirty}
+                disabled={
+                  !selectedItem ||
+                  !dirty ||
+                  (editorMode === "category" ? upsertListing.isPending : upsertFilterListing.isPending)
+                }
                 className="rounded-full bg-[var(--tech-color-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {upsertListing.isPending ? "Сохраняем..." : "Сохранить"}
+                {editorMode === "category"
+                  ? upsertListing.isPending
+                    ? "Сохраняем..."
+                    : "Сохранить"
+                  : upsertFilterListing.isPending
+                    ? "Сохраняем..."
+                    : "Сохранить"}
               </button>
             </div>
           }
         >
-          {!selectedItem || listingDetailsQuery.isLoading ? (
+          {!selectedItem ||
+          (editorMode === "category"
+            ? categoryListingDetailsQuery.isLoading
+            : Boolean(selectedFilterCandidate) && filterListingDetailsQuery.isLoading) ? (
             <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Загружаем карточку
             </div>
           ) : (
             <div className="space-y-6">
+              {editorMode === "filter" ? (
+                <div className="space-y-3 rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <label className="relative block flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        value={filterSearch}
+                        onChange={event => setFilterSearch(event.target.value)}
+                        placeholder="Поиск по значению фильтра"
+                        className="h-11 w-full rounded-2xl border border-border bg-background pl-10 pr-4 text-sm text-foreground outline-none transition focus:border-[var(--tech-color-primary)]"
+                      />
+                    </label>
+                    <select
+                      value={selectedFilterComposite ?? ""}
+                      onChange={event => setSelectedFilterComposite(event.target.value)}
+                      className="h-11 min-w-[320px] rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-[var(--tech-color-primary)]"
+                    >
+                      {filterCandidates.map(item => (
+                        <option
+                          key={`${item.normalizedKey}:${item.normalizedValue}`}
+                          value={`${item.normalizedKey}:${item.normalizedValue}`}
+                        >
+                          {item.key}: {item.value} · {item.productCount} тов.
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedFilterCandidate ? (
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">
+                        {selectedFilterCandidate.key}
+                      </span>
+                      <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">
+                        {selectedFilterCandidate.value}
+                      </span>
+                      <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">
+                        {selectedFilterCandidate.productCount} тов.
+                      </span>
+                      <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">
+                        дубль: {selectedFilterCandidate.duplicateRisk}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
                   <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
@@ -306,10 +527,20 @@ export default function AdminListings() {
                     Покрытие
                   </div>
                   <div className="mt-2 text-base font-semibold text-foreground">
-                    {selectedItem.productCount} товаров
+                    {editorMode === "filter"
+                      ? filterListingDetailsQuery.data?.productCount ?? 0
+                      : selectedItem.productCount}{" "}
+                    товаров
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    content score {selectedItem.contentScore}, demand score {selectedItem.demandScore}
+                    content score{" "}
+                    {editorMode === "filter"
+                      ? filterListingDetailsQuery.data?.contentScore ?? 0
+                      : selectedItem.contentScore}
+                    , demand score{" "}
+                    {editorMode === "filter"
+                      ? filterListingDetailsQuery.data?.demandScore ?? 0
+                      : selectedItem.demandScore}
                   </div>
                 </div>
               </div>

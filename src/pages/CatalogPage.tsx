@@ -155,6 +155,30 @@ export default function CatalogPage() {
     }
   );
   const publicCategoryListing = publicCategoryListingQuery.data ?? null;
+  const primarySelectedFilter =
+    catalogView === "categories" && selectedFilters.length === 1 ? selectedFilters[0] : null;
+  const publicFilterListingQuery = trpc.listing.getPublicFilterListing.useQuery(
+    primarySelectedFilter && activeCategory !== "all"
+      ? {
+          categorySlug: activeCategory,
+          filterKey: primarySelectedFilter.normalizedKey,
+          filterValue: primarySelectedFilter.normalizedValue,
+        }
+      : {
+          categorySlug: "__disabled__",
+          filterKey: "__disabled__",
+          filterValue: "__disabled__",
+        },
+    {
+      enabled:
+        catalogView === "categories" &&
+        activeCategory !== "all" &&
+        selectedFilters.length === 1 &&
+        isProductListingPage,
+      placeholderData: prev => prev,
+    }
+  );
+  const publicFilterListing = publicFilterListingQuery.data ?? null;
   const secondaryShelfCategorySlug =
     isCategoryLandingPage && currentCategory
       ? currentCategory.slug
@@ -387,6 +411,7 @@ export default function CatalogPage() {
     });
   }, [selectedFilters, specFilters]);
   const hasSelectedFilters = selectedFilterLabels.length > 0;
+  const primarySelectedFilterLabel = selectedFilterLabels.length === 1 ? selectedFilterLabels[0] : null;
 
   const currentManufacturer = currentManufacturerQuery.data ?? null;
   const hashedRootCategory = rootActiveBranch;
@@ -398,6 +423,8 @@ export default function CatalogPage() {
     navigate(`/catalog?cat=${hashedRootCategory.slug}`, { replace: true });
   }, [hashedRootCategory, isRootCatalogNavigator, navigate]);
 
+  const activeListing =
+    publicFilterListing && selectedFilters.length === 1 ? publicFilterListing : publicCategoryListing;
   const activeCategoryName = useMemo(() => {
     if (activeCategory === "all") return "Все";
     return currentCategory ? formatCategoryLabel(currentCategory.name) : "Каталог";
@@ -451,20 +478,20 @@ export default function CatalogPage() {
   const headerTitle = catalogView === "brands"
     ? currentManufacturer?.name || "Производители"
     : activeCategory !== "all"
-      ? publicCategoryListing?.h1?.trim() || activeCategoryName
+      ? activeListing?.h1?.trim() || activeCategoryName
       : activeCategoryName;
   const showProductSection = isProductListingPage;
   const currentResultCount = sortedProducts.length;
   const currentIntroText = currentManufacturer
     ? currentManufacturer.description?.trim() || ""
     : currentCategory && activeCategory !== "all"
-      ? publicCategoryListing?.introText?.trim() ||
+      ? activeListing?.introText?.trim() ||
         currentCategory.description?.trim() ||
         ""
       : "";
   const currentBottomText =
     currentCategory && activeCategory !== "all"
-      ? publicCategoryListing?.bottomText?.trim() || ""
+      ? activeListing?.bottomText?.trim() || ""
       : "";
   const rootCatalogSeo = buildRootCatalogSeoCopy();
   const brandSeo = currentManufacturer
@@ -491,7 +518,7 @@ export default function CatalogPage() {
   const seoTitle = currentManufacturer
     ? currentManufacturer.metaTitle?.trim() || brandSeo?.title || rootCatalogSeo.title
     : currentCategory && activeCategory !== "all"
-      ? publicCategoryListing?.title?.trim() ||
+      ? activeListing?.title?.trim() ||
         currentCategory.metaTitle?.trim() ||
         categorySeo?.title ||
         rootCatalogSeo.title
@@ -503,16 +530,25 @@ export default function CatalogPage() {
       brandSeo?.description ||
       rootCatalogSeo.description
     : currentCategory && activeCategory !== "all"
-      ? publicCategoryListing?.metaDescription?.trim() ||
+      ? activeListing?.metaDescription?.trim() ||
         currentCategory.metaDescription?.trim() ||
         currentCategory.description?.trim() ||
         categorySeo?.description ||
         rootCatalogSeo.description
       : rootCatalogSeo.description;
 
-  const listingCanonical = normalizeCanonical(publicCategoryListing?.canonicalUrl);
+  const listingCanonical = normalizeCanonical(activeListing?.canonicalUrl);
 
   const seoCanonicalPath = (() => {
+    if (
+      catalogView === "categories" &&
+      activeCategory !== "all" &&
+      selectedFilters.length === 1 &&
+      !publicFilterListing
+    ) {
+      return `/catalog?cat=${encodeURIComponent(activeCategory)}`;
+    }
+
     if (listingCanonical && !listingCanonical.startsWith("http")) {
       return listingCanonical;
     }
@@ -533,11 +569,12 @@ export default function CatalogPage() {
   })();
 
   const shouldNoindexCatalog =
-    selectedFilters.length > 0 ||
+    selectedFilters.length > 1 ||
     sortBy !== "default" ||
     viewMode !== "grid" ||
     forceProductsView ||
-    publicCategoryListing?.indexationMode === "noindex";
+    activeListing?.indexationMode === "noindex" ||
+    (selectedFilters.length === 1 && !publicFilterListing);
 
   const seoStructuredData = useMemo(() => {
     const breadcrumbItems =
@@ -679,8 +716,8 @@ export default function CatalogPage() {
                 currentCategory={currentCategory}
                 categories={categories}
                 previews={categoryNavigationPreviews}
-                displayTitle={publicCategoryListing?.h1?.trim() || undefined}
-                displayDescription={publicCategoryListing?.introText?.trim() || undefined}
+                displayTitle={activeListing?.h1?.trim() || undefined}
+                displayDescription={activeListing?.introText?.trim() || undefined}
                 onShowAllProducts={handleShowAllProducts}
                 onNavigateCategory={handleLandingCategoryOpen}
               />
@@ -866,7 +903,11 @@ export default function CatalogPage() {
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <div className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
-                          {activeCategory === "all" ? "Все товары" : headerTitle}
+                          {activeCategory === "all"
+                            ? "Все товары"
+                            : selectedFilters.length === 1 && primarySelectedFilterLabel
+                              ? `${headerTitle} · ${primarySelectedFilterLabel.value}`
+                              : headerTitle}
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           {currentResultCount > 0
