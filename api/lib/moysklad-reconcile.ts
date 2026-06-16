@@ -4,6 +4,11 @@ import { eq, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
 import { getAppSetting } from "./app-settings";
+import {
+  acquireMoyskladWorkerLock,
+  releaseMoyskladWorkerLock,
+  reportMoyskladPressure,
+} from "./moysklad-runtime";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -33,45 +38,49 @@ function parseLock(raw: string | null): { expiresAt: number } | null {
 }
 
 export async function runMoyskladStockReconcile() {
+  const workerLock = await acquireMoyskladWorkerLock("reconcile", 45 * 60_000);
+  if (!workerLock) {
+    return { skipped: true as const, reason: "worker_locked" as const };
+  }
+
   const db = getDb();
-  const token = (await getAppSetting("moysklad_token"))?.trim();
-  if (!token) throw new Error("Не найден токен МойСклад");
-
-  const fullSyncLockRaw = await getAppSetting("moysklad_full_sync_lock");
-  const fullSyncLock = parseLock(fullSyncLockRaw);
-  if (fullSyncLock && fullSyncLock.expiresAt > Date.now()) {
-    return { skipped: true as const, reason: "full_sync_running" as const };
-  }
-
-  let activeProfile: typeof schema.syncProfiles.$inferSelect | null = null;
-  let selectedStores: string[] = [];
+  let runId: number | null = null;
   try {
-    const [profileRow] = await db
-      .select()
-      .from(schema.syncProfiles)
-      .where(
-        sql`${schema.syncProfiles.provider} = 'moysklad' AND ${schema.syncProfiles.isDefault} = true`
-      )
-      .limit(1);
-    activeProfile = profileRow ?? null;
-    const cfg = (activeProfile?.configJson ?? {}) as { selectedStores?: string[] };
-    selectedStores = Array.isArray(cfg.selectedStores) ? cfg.selectedStores : [];
-  } catch (error) {
-    // Backward compatibility: in case sync_profiles table is not yet migrated on server.
-    // Reconcile still runs globally instead of crashing.
-    console.warn("[reconcile] sync_profiles unavailable, fallback to all stores:", error);
-  }
+    const token = (await getAppSetting("moysklad_token"))?.trim();
+    if (!token) throw new Error("Не найден токен МойСклад");
 
-  const [runRes] = await db.insert(schema.syncRuns).values({
-    profileId: activeProfile?.id ?? null,
-    runType: "reconcile",
-    status: "running",
-    message: "Reconcile остатков запущен",
-    configSnapshot: { selectedStores },
-  });
-  const runId = runRes.insertId;
+    const fullSyncLockRaw = await getAppSetting("moysklad_full_sync_lock");
+    const fullSyncLock = parseLock(fullSyncLockRaw);
+    if (fullSyncLock && fullSyncLock.expiresAt > Date.now()) {
+      return { skipped: true as const, reason: "full_sync_running" as const };
+    }
 
-  try {
+    let activeProfile: typeof schema.syncProfiles.$inferSelect | null = null;
+    let selectedStores: string[] = [];
+    try {
+      const [profileRow] = await db
+        .select()
+        .from(schema.syncProfiles)
+        .where(
+          sql`${schema.syncProfiles.provider} = 'moysklad' AND ${schema.syncProfiles.isDefault} = true`
+        )
+        .limit(1);
+      activeProfile = profileRow ?? null;
+      const cfg = (activeProfile?.configJson ?? {}) as { selectedStores?: string[] };
+      selectedStores = Array.isArray(cfg.selectedStores) ? cfg.selectedStores : [];
+    } catch (error) {
+      console.warn("[reconcile] sync_profiles unavailable, fallback to all stores:", error);
+    }
+
+    const [runRes] = await db.insert(schema.syncRuns).values({
+      profileId: activeProfile?.id ?? null,
+      runType: "reconcile",
+      status: "running",
+      message: "Reconcile остатков запущен",
+      configSnapshot: { selectedStores },
+    });
+    runId = Number(runRes.insertId);
+
     const localProducts = await db
       .select({ id: schema.products.id, msId: schema.products.msId })
       .from(schema.products);
@@ -176,15 +185,36 @@ export async function runMoyskladStockReconcile() {
       storesFiltered: selectedStores.length,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "reconcile failed";
-    await db
-      .update(schema.syncRuns)
-      .set({
-        status: "error",
-        message,
-        finishedAt: new Date(),
-      })
-      .where(eq(schema.syncRuns.id, runId));
+    if (runId) {
+      const message = error instanceof Error ? error.message : "reconcile failed";
+      await db
+        .update(schema.syncRuns)
+        .set({
+          status: "error",
+          message,
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.syncRuns.id, runId));
+    }
+    if (axios.isAxiosError(error)) {
+      await reportMoyskladPressure({
+        kind:
+          error.response?.status === 429
+            ? "rate_limit"
+            : typeof error.response?.status === "number" && error.response.status >= 500
+              ? "server"
+              : /timeout|etimedout|aborted/i.test(String(error.message || ""))
+                ? "timeout"
+                : /econnreset|socket hang up|network/i.test(String(error.message || ""))
+                  ? "network"
+                  : "unknown",
+        endpoint: "/report/stock/bystore",
+        message: error.message,
+        retry: false,
+      });
+    }
     throw error;
+  } finally {
+    await releaseMoyskladWorkerLock("reconcile", workerLock.owner);
   }
 }

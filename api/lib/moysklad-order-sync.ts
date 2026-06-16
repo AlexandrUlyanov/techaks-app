@@ -15,6 +15,16 @@ import {
 import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
 import { getMoyskladClient, MoyskladApiError } from "./moysklad-client";
+import {
+  acquireMoyskladWorkerLock,
+  getCachedMoyskladOrderMetadata,
+  getMoyskladPressureSnapshot,
+  isFullSyncActive,
+  releaseMoyskladWorkerLock,
+  reportMoyskladPressure,
+  setCachedMoyskladOrderMetadata,
+  updateMoyskladRuntimeFlags,
+} from "./moysklad-runtime";
 
 const ORDER_SYNC_SETTINGS_KEYS = [
   "moysklad_orders_sync_enabled",
@@ -151,6 +161,8 @@ type MetadataLoadResult = {
     salesChannels: string | null;
   };
 };
+
+const ORDER_METADATA_CACHE_TTL_MS = 10 * 60_000;
 
 function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value == null) return fallback;
@@ -347,7 +359,12 @@ function getErrorText(error: unknown) {
   return "Неизвестная ошибка";
 }
 
-export async function loadMoyskladMetadata(): Promise<MetadataLoadResult> {
+export async function loadMoyskladMetadata(forceFresh = false): Promise<MetadataLoadResult> {
+  if (!forceFresh) {
+    const cached = await getCachedMoyskladOrderMetadata<MetadataLoadResult>();
+    if (cached) return cached;
+  }
+
   const [statesResult, organizationResult, storeResult, salesChannelsResult] =
     await Promise.allSettled([
       getCustomerOrderStates(),
@@ -356,7 +373,7 @@ export async function loadMoyskladMetadata(): Promise<MetadataLoadResult> {
       getSalesChannel(),
     ]);
 
-  return {
+  const result: MetadataLoadResult = {
     states: statesResult.status === "fulfilled" ? statesResult.value : [],
     organization:
       organizationResult.status === "fulfilled" ? organizationResult.value : null,
@@ -382,6 +399,8 @@ export async function loadMoyskladMetadata(): Promise<MetadataLoadResult> {
           : null,
     },
   };
+  await setCachedMoyskladOrderMetadata(result, ORDER_METADATA_CACHE_TTL_MS);
+  return result;
 }
 
 export async function validateMoyskladConfig() {
@@ -1089,26 +1108,57 @@ function getRetryDelayMs(attempts: number, error: unknown) {
   return 0;
 }
 
-async function failJob(jobId: number, orderId: number | null, error: unknown, attempts: number) {
+function classifyTransientError(error: unknown) {
+  if (error instanceof MoyskladApiError && error.status === 429) return "rate_limit";
+  if (error instanceof MoyskladApiError && error.status && error.status >= 500) return "server";
+  if (
+    error instanceof Error &&
+    /timeout|etimedout|aborted/i.test(error.message)
+  ) {
+    return "timeout";
+  }
+  if (
+    error instanceof Error &&
+    /econnreset|socket hang up|network/i.test(error.message)
+  ) {
+    return "network";
+  }
+  return "logic";
+}
+
+async function failJob(
+  job: {
+    id: number;
+    entityType: string;
+    entityId: number;
+    action: string;
+    attempts: number;
+  },
+  orderId: number | null,
+  error: unknown
+) {
   const db = getDb();
   const message = error instanceof Error ? error.message : "Ошибка синхронизации";
-  const retryDelayMs = getRetryDelayMs(attempts, error);
-  const shouldRetry = retryDelayMs > 0 && attempts + 1 < MAX_JOB_ATTEMPTS;
+  const retryDelayMs = getRetryDelayMs(job.attempts, error);
+  const shouldRetry = retryDelayMs > 0 && job.attempts + 1 < MAX_JOB_ATTEMPTS;
   const nextRunAt = shouldRetry
     ? new Date(Date.now() + retryDelayMs)
     : new Date(Date.now() + 365 * 24 * 60 * 60_000);
+  const errorKind = classifyTransientError(error);
+  const requestId = error instanceof MoyskladApiError ? error.requestId : null;
+  const endpoint = error instanceof MoyskladApiError ? error.endpoint : null;
 
   await db
     .update(moyskladSyncJobs)
     .set({
       status: JOB_STATUS_ERROR,
-      attempts: attempts + 1,
+      attempts: job.attempts + 1,
       lastError: message,
       nextRunAt,
       lockedAt: null,
       updatedAt: new Date(),
     })
-    .where(eq(moyskladSyncJobs.id, jobId));
+    .where(eq(moyskladSyncJobs.id, job.id));
 
   if (orderId) {
     await markOrderSyncState({
@@ -1118,12 +1168,31 @@ async function failJob(jobId: number, orderId: number | null, error: unknown, at
     });
   }
 
-  await writeOrderSyncLog("error", `Ошибка sync job #${jobId}: ${message}`, {
-    jobId,
+  await writeOrderSyncLog("error", `Ошибка sync job #${job.id}: ${message}`, {
+    jobId: job.id,
     orderId,
+    entityType: job.entityType,
+    entityId: job.entityId,
+    action: job.action,
+    attempt: job.attempts + 1,
     nextRunAt: nextRunAt.toISOString(),
     retriable: shouldRetry,
+    retryDelayMs,
+    errorKind,
+    endpoint,
+    requestId,
   });
+
+  if (errorKind !== "logic") {
+    await reportMoyskladPressure({
+      kind: errorKind,
+      endpoint,
+      message,
+      requestId,
+      retry: shouldRetry,
+      backoffMs: retryDelayMs,
+    });
+  }
 }
 
 async function completeJob(jobId: number) {
@@ -1280,45 +1349,60 @@ async function processWebhookEvent(eventId: number) {
 }
 
 export async function processMoyskladOrderSyncJobs(limit = 5) {
+  const workerLock = await acquireMoyskladWorkerLock("order_sync");
+  if (!workerLock) {
+    return { processed: 0, success: 0, failed: 0, skipped: true, reason: "worker_locked" as const };
+  }
+
   const db = getDb();
   let processed = 0;
   let success = 0;
   let failed = 0;
+  const fullSyncActive = await isFullSyncActive();
+  const effectiveLimit = fullSyncActive ? Math.min(limit, 1) : limit;
+  await updateMoyskladRuntimeFlags({
+    fullSyncActive,
+    orderSyncSlowed: fullSyncActive,
+  });
 
-  while (processed < limit) {
-    const job = await claimNextMoyskladSyncJob(db);
-    if (!job) break;
-    processed += 1;
+  try {
+    while (processed < effectiveLimit) {
+      const job = await claimNextMoyskladSyncJob(db);
+      if (!job) break;
+      processed += 1;
 
-    try {
-      if (job.entityType === "webhook" && job.action === "webhook_process") {
-        await processWebhookEvent(job.entityId);
+      try {
+        if (job.entityType === "webhook" && job.action === "webhook_process") {
+          await processWebhookEvent(job.entityId);
+          await completeJob(job.id);
+          success += 1;
+          continue;
+        }
+
+        if (job.entityType === "payment" && job.action === "payment") {
+          await syncOrderPaymentToMoysklad(job.entityId);
+          await completeJob(job.id);
+          success += 1;
+          continue;
+        }
+
+        if (job.entityType !== "order" && job.entityType !== "status") {
+          throw new Error(`Неподдерживаемый тип sync job: ${job.entityType}`);
+        }
+
+        await syncOrderToMoysklad(job.entityId, job.action);
         await completeJob(job.id);
         success += 1;
-        continue;
+      } catch (error) {
+        failed += 1;
+        await failJob(job, job.entityType === "webhook" ? null : job.entityId, error);
       }
-
-      if (job.entityType === "payment" && job.action === "payment") {
-        await syncOrderPaymentToMoysklad(job.entityId);
-        await completeJob(job.id);
-        success += 1;
-        continue;
-      }
-
-      if (job.entityType !== "order" && job.entityType !== "status") {
-        throw new Error(`Неподдерживаемый тип sync job: ${job.entityType}`);
-      }
-
-      await syncOrderToMoysklad(job.entityId, job.action);
-      await completeJob(job.id);
-      success += 1;
-    } catch (error) {
-      failed += 1;
-      await failJob(job.id, job.entityType === "webhook" ? null : job.entityId, error, job.attempts);
     }
+  } finally {
+    await releaseMoyskladWorkerLock("order_sync", workerLock.owner);
   }
 
-  return { processed, success, failed };
+  return { processed, success, failed, skipped: false, fullSyncActive, effectiveLimit };
 }
 
 export async function retryMoyskladSyncJob(jobId: number) {
@@ -1380,6 +1464,7 @@ export async function getMoyskladOrderSyncOverview() {
   const db = getDb();
   const settings = await getMoyskladOrderSyncSettings();
   const config = await validateMoyskladConfig();
+  const pressure = await getMoyskladPressureSnapshot();
 
   const [queueCounts] = await db
     .select({
@@ -1415,14 +1500,32 @@ export async function getMoyskladOrderSyncOverview() {
     .orderBy(desc(syncLogs.createdAt))
     .limit(20);
 
+  const errorJobs = await db
+    .select({
+      lastError: moyskladSyncJobs.lastError,
+    })
+    .from(moyskladSyncJobs)
+    .where(eq(moyskladSyncJobs.status, JOB_STATUS_ERROR))
+    .limit(200);
+
+  const transientErrorCount = errorJobs.filter(row =>
+    /429|timeout|etimedout|econnreset|socket hang up|network|tempor|503|502|504/i.test(
+      row.lastError ?? ""
+    )
+  ).length;
+  const logicErrorCount = Math.max(0, errorJobs.length - transientErrorCount);
+
   return {
     settings,
     config,
+    pressure,
     queueCounts: {
       pending: Number(queueCounts?.pending ?? 0),
       processing: Number(queueCounts?.processing ?? 0),
       errors: Number(queueCounts?.errors ?? 0),
       success: Number(queueCounts?.success ?? 0),
+      transientErrors: transientErrorCount,
+      logicErrors: logicErrorCount,
     },
     recentOrders,
     recentLogs,

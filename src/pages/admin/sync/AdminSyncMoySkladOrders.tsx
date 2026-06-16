@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { RefreshCw, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
@@ -27,6 +27,36 @@ const LOCAL_STATUSES = [
   "cancelled",
   "returned",
 ];
+
+function buildOrderSyncSettingsForm(
+  settings:
+    | {
+        enabled: boolean;
+        organizationHref?: string | null;
+        storeHref?: string | null;
+        salesChannelHref?: string | null;
+        createCounterparties: boolean;
+        statusMapping?: Record<string, string> | null;
+      }
+    | null
+    | undefined,
+  metadata?:
+    | {
+        organization?: { href?: string | null } | null;
+        store?: { href?: string | null } | null;
+      }
+    | null
+    | undefined
+): OrderSyncSettingsForm {
+  return {
+    enabled: settings?.enabled ?? true,
+    organizationHref: settings?.organizationHref ?? metadata?.organization?.href ?? "",
+    storeHref: settings?.storeHref ?? metadata?.store?.href ?? "",
+    salesChannelHref: settings?.salesChannelHref ?? "",
+    createCounterparties: settings?.createCounterparties ?? true,
+    statusMapping: settings?.statusMapping ?? {},
+  };
+}
 
 export default function AdminSyncMoySkladOrders() {
   const [draftSettings, setDraftSettings] = useState<OrderSyncSettingsForm | null>(null);
@@ -80,58 +110,13 @@ export default function AdminSyncMoySkladOrders() {
     onError: error => toast.error(error.message),
   });
 
-  const settingsForm = useMemo<OrderSyncSettingsForm>(() => {
-    if (draftSettings) return draftSettings;
-    if (overviewQuery.data?.settings) {
-      return {
-        enabled: overviewQuery.data.settings.enabled,
-        organizationHref: overviewQuery.data.settings.organizationHref ?? "",
-        storeHref: overviewQuery.data.settings.storeHref ?? "",
-        salesChannelHref: overviewQuery.data.settings.salesChannelHref ?? "",
-        createCounterparties: overviewQuery.data.settings.createCounterparties,
-        statusMapping: overviewQuery.data.settings.statusMapping ?? {},
-      };
-    }
-    return {
-      enabled: true,
-      organizationHref: "",
-      storeHref: "",
-      salesChannelHref: "",
-      createCounterparties: true,
-      statusMapping: {},
-    };
-  }, [draftSettings, overviewQuery.data?.settings]);
-
-  useEffect(() => {
-    if (draftSettings) return;
-    if (!overviewQuery.data?.settings || !metadataQuery.data) return;
-
-    const nextOrganizationHref =
-      overviewQuery.data.settings.organizationHref ??
-      metadataQuery.data.organization?.href ??
-      "";
-    const nextStoreHref =
-      overviewQuery.data.settings.storeHref ?? metadataQuery.data.store?.href ?? "";
-
-    if (
-      nextOrganizationHref === (overviewQuery.data.settings.organizationHref ?? "") &&
-      nextStoreHref === (overviewQuery.data.settings.storeHref ?? "")
-    ) {
-      return;
-    }
-
-    setDraftSettings({
-      enabled: overviewQuery.data.settings.enabled,
-      organizationHref: nextOrganizationHref,
-      storeHref: nextStoreHref,
-      salesChannelHref: overviewQuery.data.settings.salesChannelHref ?? "",
-      createCounterparties: overviewQuery.data.settings.createCounterparties,
-      statusMapping: overviewQuery.data.settings.statusMapping ?? {},
-    });
-  }, [draftSettings, metadataQuery.data, overviewQuery.data?.settings]);
+  const settingsForm =
+    draftSettings ??
+    buildOrderSyncSettingsForm(overviewQuery.data?.settings, metadataQuery.data);
 
   const queueCounts = overviewQuery.data?.queueCounts;
   const config = overviewQuery.data?.config;
+  const pressure = overviewQuery.data?.pressure;
   const connectionTone =
     config?.ok && config.organizationOk && config.storeOk
       ? "success"
@@ -148,6 +133,52 @@ export default function AdminSyncMoySkladOrders() {
       ),
     [queueQuery.data]
   );
+
+  const classifyJobError = (message?: string | null) => {
+    const normalized = (message ?? "").toLowerCase();
+    if (!normalized.trim()) return "none" as const;
+    if (
+      /429|timeout|etimedout|econnreset|socket hang up|network|tempor|503|502|504/.test(
+        normalized
+      )
+    ) {
+      return "transient" as const;
+    }
+    return "logic" as const;
+  };
+
+  const lastApiSignalSummary = pressure?.lastErrorKind
+    ? [
+        pressure.lastErrorKind === "rate_limit"
+          ? "Rate limit"
+          : pressure.lastErrorKind === "timeout"
+            ? "Timeout"
+            : pressure.lastErrorKind === "network"
+              ? "Сеть"
+              : pressure.lastErrorKind === "server"
+                ? "5xx"
+                : "Unknown",
+        pressure.lastEndpoint ? `endpoint: ${pressure.lastEndpoint}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+  const pressureLabel =
+    pressure?.level === "high"
+      ? "Высокая"
+      : pressure?.level === "elevated"
+        ? "Повышенная"
+        : "Нормальная";
+
+  const parseLogDetails = (value: unknown) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return {} as Record<string, unknown>;
+    }
+    return value as Record<string, unknown>;
+  };
+
+  const formatDateTime = (value?: string | Date | null) =>
+    value ? new Date(value).toLocaleString("ru-RU") : "—";
 
   return (
     <div className="space-y-8">
@@ -191,7 +222,7 @@ export default function AdminSyncMoySkladOrders() {
         <AdminStatCard
           label="Ошибки"
           value={queueCounts?.errors ?? 0}
-          hint={(recentErrors[0]?.lastError as string | undefined) ?? "Без ошибок"}
+          hint={`transient: ${queueCounts?.transientErrors ?? 0}, logic: ${queueCounts?.logicErrors ?? 0}`}
           tone={(queueCounts?.errors ?? 0) > 0 ? "warning" : "success"}
         />
         <AdminStatCard
@@ -200,7 +231,36 @@ export default function AdminSyncMoySkladOrders() {
           hint="Счётчик по журналу очереди"
           tone="success"
         />
+        <AdminStatCard
+          label="Давление API"
+          value={pressureLabel}
+          hint={
+            pressure?.lastSeenAt
+              ? `Последний сигнал: ${new Date(pressure.lastSeenAt).toLocaleString("ru-RU")}`
+              : "Transient-сбоев не видно"
+          }
+          tone={
+            pressure?.level === "high"
+              ? "warning"
+              : pressure?.level === "elevated"
+                ? "accent"
+                : "success"
+          }
+        />
       </div>
+
+      {pressure?.orderSyncSlowed ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          Сейчас активен full sync, поэтому очередь заказов намеренно притормаживается и обрабатывается более щадяще.
+        </div>
+      ) : null}
+
+      {lastApiSignalSummary ? (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
+          Последний API-сигнал: {lastApiSignalSummary}
+          {pressure?.lastMessage ? ` · ${pressure.lastMessage}` : ""}
+        </div>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <AdminSection
@@ -459,17 +519,23 @@ export default function AdminSyncMoySkladOrders() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-500">Заказ</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-500">Action</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-500">Статус</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500">Тип</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-500">Ошибка</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-500">Действия</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(queueQuery.data ?? []).map(item => (
+                  {(queueQuery.data ?? []).map(item => {
+                    const errorType = classifyJobError(item.lastError);
+                    return (
                     <tr key={item.id}>
                       <td className="px-4 py-4">
                         <div className="font-semibold text-[#15171A]">#{item.id}</div>
                         <div className="text-xs text-gray-500">
                           попыток: {item.attempts}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          next run: {formatDateTime(item.nextRunAt)}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -485,6 +551,21 @@ export default function AdminSyncMoySkladOrders() {
                         <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-[#15171A]">
                           {item.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {errorType === "transient" ? (
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                            transient
+                          </span>
+                        ) : errorType === "logic" ? (
+                          <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800">
+                            logic/data
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                            ok
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-xs text-gray-500">
                         {item.lastError || "—"}
@@ -516,10 +597,10 @@ export default function AdminSyncMoySkladOrders() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                   {(queueQuery.data ?? []).length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                      <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                         Очередь пока пуста.
                       </td>
                     </tr>
@@ -572,6 +653,12 @@ export default function AdminSyncMoySkladOrders() {
                     <div className="mt-2 text-xs text-gray-500">
                       {job.lastError || "Ошибок не зафиксировано"}
                     </div>
+                    <div className="mt-2 grid gap-2 text-xs text-gray-500 md:grid-cols-2">
+                      <div>attempts: {job.attempts}</div>
+                      <div>next run: {formatDateTime(job.nextRunAt)}</div>
+                      <div>locked: {formatDateTime(job.lockedAt)}</div>
+                      <div>updated: {formatDateTime(job.updatedAt)}</div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -615,23 +702,95 @@ export default function AdminSyncMoySkladOrders() {
           </div>
 
           <div className="space-y-3">
-            {recentErrors.slice(0, 8).map(job => (
+            {recentErrors.slice(0, 8).map(job => {
+              const errorType = classifyJobError(job.lastError);
+              return (
               <div
                 key={job.id}
-                className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4"
+                className={`rounded-2xl px-4 py-4 ${
+                  errorType === "transient"
+                    ? "border border-amber-200 bg-amber-50"
+                    : "border border-rose-200 bg-rose-50"
+                }`}
               >
-                <div className="font-semibold text-amber-900">
-                  Job #{job.id} / {job.action}
+                <div className="flex items-center justify-between gap-3">
+                  <div className={errorType === "transient" ? "font-semibold text-amber-900" : "font-semibold text-rose-900"}>
+                    Job #{job.id} / {job.action}
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] ${
+                      errorType === "transient"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                  >
+                    {errorType === "transient" ? "временная" : "логика"}
+                  </span>
                 </div>
-                <div className="mt-1 text-sm text-amber-800">{job.lastError}</div>
+                <div className={`mt-1 text-sm ${errorType === "transient" ? "text-amber-800" : "text-rose-800"}`}>{job.lastError}</div>
               </div>
-            ))}
+            )})}
             {recentErrors.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
                 Ошибок очереди сейчас не видно.
               </div>
             ) : null}
           </div>
+        </div>
+      </AdminSection>
+
+      <AdminSection
+        title="Журнал order sync"
+        description="Короткая лента последних событий по очереди: что именно упало, на каком endpoint и когда система попробует ещё раз."
+      >
+        <div className="space-y-3">
+          {(overviewQuery.data?.recentLogs ?? []).slice(0, 8).map(log => {
+            const details = parseLogDetails(log.details);
+            const errorKind =
+              typeof details.errorKind === "string" ? details.errorKind : null;
+            const endpoint =
+              typeof details.endpoint === "string" ? details.endpoint : null;
+            const requestId =
+              typeof details.requestId === "string" ? details.requestId : null;
+            const retryDelayMs =
+              typeof details.retryDelayMs === "number" ? details.retryDelayMs : null;
+            const nextRunAt =
+              typeof details.nextRunAt === "string" ? details.nextRunAt : null;
+
+            return (
+              <div
+                key={log.id}
+                className="rounded-2xl border border-gray-100 bg-white px-4 py-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="font-semibold text-[#15171A]">{log.message}</div>
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-[#15171A]">
+                    {log.status}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {formatDateTime(log.createdAt)}
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-gray-600 md:grid-cols-2 xl:grid-cols-4">
+                  <div>тип: {errorKind ?? "—"}</div>
+                  <div>endpoint: {endpoint ?? "—"}</div>
+                  <div>request id: {requestId ?? "—"}</div>
+                  <div>
+                    retry delay:{" "}
+                    {retryDelayMs !== null ? `${Math.round(retryDelayMs / 1000)}с` : "—"}
+                  </div>
+                  <div className="md:col-span-2 xl:col-span-4">
+                    next run: {nextRunAt ? formatDateTime(nextRunAt) : "—"}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {(overviewQuery.data?.recentLogs ?? []).length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
+              Журнал пока пуст.
+            </div>
+          ) : null}
         </div>
       </AdminSection>
     </div>

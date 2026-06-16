@@ -44,6 +44,11 @@ import {
   rebuildSearchDocumentsForCategories,
   rebuildSearchDocumentsForProducts,
 } from "../lib/search";
+import {
+  getMoyskladPressureSnapshot,
+  reportMoyskladPressure,
+  updateMoyskladRuntimeFlags,
+} from "../lib/moysklad-runtime";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -954,6 +959,7 @@ export const syncRouter = createRouter({
       failedCount: Number(failedDeadCounts?.failed ?? 0),
       deadCount: Number(failedDeadCounts?.dead ?? 0),
       webhookLagMinutes: lagMinutes,
+      pressure: await getMoyskladPressureSnapshot(),
     };
   }),
 
@@ -1233,6 +1239,11 @@ export const syncRouter = createRouter({
       let currentPhase = "starting";
       let nextHeartbeatAt = 0;
 
+      await updateMoyskladRuntimeFlags({
+        fullSyncActive: true,
+        orderSyncSlowed: true,
+      });
+
       const shouldHeartbeat = () => Date.now() >= nextHeartbeatAt;
 
       const saveLogFile = () => {
@@ -1268,6 +1279,16 @@ export const syncRouter = createRouter({
         writeLog(
           `[MoySklad:${kind}] ${scope} failed, retry in ${Math.round(waitMs / 1000)}s (${retriesLeft} left). ${message}`
         );
+        void reportMoyskladPressure({
+          kind:
+            kind === "rate_limit" || kind === "timeout" || kind === "network" || kind === "server"
+              ? kind
+              : "unknown",
+          endpoint: scope,
+          message,
+          retry: true,
+          backoffMs: waitMs,
+        });
       };
 
       const requestMoyskladPage = async (
@@ -2277,6 +2298,10 @@ export const syncRouter = createRouter({
         });
         throw new Error(getErrorMessage(error, "Ошибка синхронизации"));
       } finally {
+        await updateMoyskladRuntimeFlags({
+          fullSyncActive: false,
+          orderSyncSlowed: false,
+        });
         await releaseSyncLock(lockOwner);
       }
     }),

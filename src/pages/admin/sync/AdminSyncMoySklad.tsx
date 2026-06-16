@@ -245,6 +245,7 @@ export default function AdminSyncMoySklad() {
 
   useEffect(() => {
     if (!runtimeSettings) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRuntimeForm({
       webhookWorkerEnabled: runtimeSettings.webhookWorkerEnabled,
       webhookWorkerIntervalSeconds: runtimeSettings.webhookWorkerIntervalSeconds,
@@ -435,23 +436,12 @@ export default function AdminSyncMoySklad() {
   const formatDateTime = (value?: string | Date | null) =>
     value ? new Date(value).toLocaleString("ru-RU") : "—";
 
-  const getMinutesAgo = (value?: string | Date | null) => {
-    if (!value) return null;
-    const ms = new Date(value).getTime();
-    if (!Number.isFinite(ms)) return null;
-    return Math.max(0, Math.floor((Date.now() - ms) / 60000));
-  };
-
   const getProgressSnapshot = (value: unknown): ProgressSnapshot => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     return value as ProgressSnapshot;
   };
 
   const currentProgress = getProgressSnapshot(currentRunStatus?.progressJson);
-  const heartbeatAgeMinutes = getMinutesAgo(currentRunStatus?.heartbeatAt);
-  const lockAgeMinutes = lockStatus?.startedAt
-    ? Math.max(0, Math.floor((Date.now() - lockStatus.startedAt) / 60000))
-    : null;
   const activeProfile = profiles.find(profile => profile.isDefault) ?? null;
   const latestReconcileRun = reconcileRuns[0];
   const latestReconcileStats = latestReconcileRun
@@ -465,6 +455,13 @@ export default function AdminSyncMoySklad() {
         : "Категории и запуск";
   const hasRunningFullSync = currentRunStatus?.status === "running";
   const failedWebhookCount = (queueByStatus.failed ?? 0) + (queueByStatus.dead ?? 0);
+  const pressure = syncOverview?.pressure;
+  const pressureLabel =
+    pressure?.level === "high"
+      ? "Высокая"
+      : pressure?.level === "elevated"
+        ? "Повышенная"
+        : "Нормальная";
 
   return (
     <div className="space-y-8">
@@ -511,7 +508,7 @@ export default function AdminSyncMoySklad() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <AdminStatCard
           label="Последний full sync"
           value={
@@ -552,7 +549,29 @@ export default function AdminSyncMoySklad() {
           }
           tone="default"
         />
+        <AdminStatCard
+          label="Давление API"
+          value={pressureLabel}
+          hint={
+            pressure?.lastSeenAt
+              ? `Последний сигнал: ${new Date(pressure.lastSeenAt).toLocaleString("ru-RU")}`
+              : "Transient-сбоев не видно"
+          }
+          tone={
+            pressure?.level === "high"
+              ? "warning"
+              : pressure?.level === "elevated"
+                ? "accent"
+                : "success"
+          }
+        />
       </div>
+
+      {pressure?.orderSyncSlowed ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          Сейчас идёт full sync, поэтому order sync автоматически замедлен и берёт меньше job за цикл.
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {[
@@ -653,7 +672,7 @@ export default function AdminSyncMoySklad() {
                     <div className="flex items-center justify-between">
                       <span>Возраст lock</span>
                       <span className="font-semibold text-[#15171A]">
-                        {lockAgeMinutes !== null ? `${lockAgeMinutes}м` : "—"}
+                        {formatDateTime(lockStatus?.startedAt ? new Date(lockStatus.startedAt) : null)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1374,9 +1393,6 @@ export default function AdminSyncMoySklad() {
                         </div>
                         <div className="mt-1 text-sm font-semibold">
                           {formatDateTime(currentRunStatus.heartbeatAt)}
-                          {heartbeatAgeMinutes !== null
-                            ? ` (${heartbeatAgeMinutes}м назад)`
-                            : ""}
                         </div>
                       </div>
                     </div>
@@ -1487,7 +1503,7 @@ export default function AdminSyncMoySklad() {
                   <div className="mt-1">
                     Возраст lock:{" "}
                     <span className="font-semibold">
-                      {lockAgeMinutes !== null ? `${lockAgeMinutes}м` : "—"}
+                      {formatDateTime(lockStatus?.startedAt ? new Date(lockStatus.startedAt) : null)}
                     </span>
                   </div>
                   <div className="mt-1">

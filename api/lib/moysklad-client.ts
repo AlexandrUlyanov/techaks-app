@@ -2,9 +2,11 @@ import axios, { AxiosError, type AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import { getAppSetting } from "./app-settings";
 import { env } from "./env";
+import { reportMoyskladPressure } from "./moysklad-runtime";
 
 const MOYSKLAD_BASE_URL = "https://api.moysklad.ru/api/remap/1.2";
-const DEFAULT_TIMEOUT_MS = 120_000;
+const GET_TIMEOUT_MS = 45_000;
+const WRITE_TIMEOUT_MS = 60_000;
 const DEFAULT_GET_RETRIES = 3;
 
 export class MoyskladApiError extends Error {
@@ -81,7 +83,7 @@ export async function getMoyskladClient() {
       "Accept-Encoding": "gzip",
       "Content-Type": "application/json",
     },
-    timeout: DEFAULT_TIMEOUT_MS,
+    timeout: WRITE_TIMEOUT_MS,
   });
 
   axiosRetry(instance, {
@@ -100,6 +102,23 @@ export async function getMoyskladClient() {
     },
     retryDelay: getRetryDelay,
     onRetry: (retryCount, error, requestConfig) => {
+      void reportMoyskladPressure({
+        kind:
+          error.response?.status === 429
+            ? "rate_limit"
+            : typeof error.response?.status === "number" && error.response.status >= 500
+              ? "server"
+              : /timeout|etimedout|aborted/i.test(String(error.message || ""))
+                ? "timeout"
+                : /econnreset|socket hang up|network/i.test(String(error.message || ""))
+                  ? "network"
+                  : "unknown",
+        endpoint: requestConfig.url ?? null,
+        message: error.message,
+        requestId: getRequestId(error.response?.headers as Record<string, unknown>),
+        retry: true,
+        backoffMs: getRetryDelay(retryCount, error),
+      }).catch(() => undefined);
       console.warn("[moysklad-client:retry]", {
         retryCount,
         method: requestConfig.method,
@@ -148,6 +167,7 @@ export class MoyskladClient {
         url: path,
         data: body,
         params,
+        timeout: method === "get" ? GET_TIMEOUT_MS : WRITE_TIMEOUT_MS,
       });
       return response.data;
     } catch (error) {
@@ -175,6 +195,22 @@ function toMoyskladApiError(error: unknown, endpoint: string) {
       message,
       body,
     });
+    void reportMoyskladPressure({
+      kind:
+        status === 429
+          ? "rate_limit"
+          : typeof status === "number" && status >= 500
+            ? "server"
+            : /timeout|etimedout|aborted/i.test(String(message || ""))
+              ? "timeout"
+              : /econnreset|socket hang up|network/i.test(String(message || ""))
+                ? "network"
+                : "unknown",
+      endpoint,
+      message,
+      requestId,
+      retry: false,
+    }).catch(() => undefined);
 
     return new MoyskladApiError({
       message,
@@ -193,6 +229,18 @@ function toMoyskladApiError(error: unknown, endpoint: string) {
     message: error instanceof Error ? error.message : "Unknown MoySklad error",
     body: null,
   });
+  void reportMoyskladPressure({
+    kind:
+      error instanceof Error && /timeout|etimedout|aborted/i.test(error.message)
+        ? "timeout"
+        : error instanceof Error && /econnreset|socket hang up|network/i.test(error.message)
+          ? "network"
+          : "unknown",
+    endpoint,
+    message: error instanceof Error ? error.message : "Unknown MoySklad error",
+    requestId: null,
+    retry: false,
+  }).catch(() => undefined);
 
   return new MoyskladApiError({
     message: error instanceof Error ? error.message : "Unknown MoySklad error",

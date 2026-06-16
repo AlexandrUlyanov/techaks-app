@@ -1,6 +1,10 @@
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { getDb } from "../queries/connection";
+import {
+  acquireMoyskladWorkerLock,
+  releaseMoyskladWorkerLock,
+} from "./moysklad-runtime";
 
 const MAX_ATTEMPTS = 6;
 
@@ -154,35 +158,47 @@ async function processStockEvent(payload: Record<string, unknown>) {
 }
 
 export async function processMoyskladWebhookQueue(limit = 50) {
+  const workerLock = await acquireMoyskladWorkerLock("webhook", 10 * 60_000);
+  if (!workerLock) {
+    return {
+      processed: 0,
+      done: 0,
+      failed: 0,
+      dead: 0,
+      skipped: 0,
+      reason: "worker_locked" as const,
+    };
+  }
+
   const db = getDb();
-
-  const now = new Date();
-  const dueRows = await db
-    .select()
-    .from(schema.webhookEvents)
-    .where(
-      and(
-        eq(schema.webhookEvents.provider, "moysklad"),
-        inArray(schema.webhookEvents.status, ["new", "failed"]),
-        sql`(${schema.webhookEvents.processedAt} IS NULL OR ${schema.webhookEvents.processedAt} <= ${now})`,
-        lt(schema.webhookEvents.attempts, MAX_ATTEMPTS)
+  try {
+    const now = new Date();
+    const dueRows = await db
+      .select()
+      .from(schema.webhookEvents)
+      .where(
+        and(
+          eq(schema.webhookEvents.provider, "moysklad"),
+          inArray(schema.webhookEvents.status, ["new", "failed"]),
+          sql`(${schema.webhookEvents.processedAt} IS NULL OR ${schema.webhookEvents.processedAt} <= ${now})`,
+          lt(schema.webhookEvents.attempts, MAX_ATTEMPTS)
+        )
       )
-    )
-    .orderBy(asc(schema.webhookEvents.createdAt))
-    .limit(limit);
+      .orderBy(asc(schema.webhookEvents.createdAt))
+      .limit(limit);
 
-  let processed = 0;
-  let done = 0;
-  let failed = 0;
-  let dead = 0;
-  let skipped = 0;
+    let processed = 0;
+    let done = 0;
+    let failed = 0;
+    let dead = 0;
+    let skipped = 0;
 
-  for (const event of dueRows) {
-    processed += 1;
-    await db
-      .update(schema.webhookEvents)
-      .set({ status: "processing", attempts: event.attempts + 1, lastError: null })
-      .where(eq(schema.webhookEvents.id, event.id));
+    for (const event of dueRows) {
+      processed += 1;
+      await db
+        .update(schema.webhookEvents)
+        .set({ status: "processing", attempts: event.attempts + 1, lastError: null })
+        .where(eq(schema.webhookEvents.id, event.id));
 
     const payload = toObject(event.payloadJson);
     if (!payload) {
@@ -290,7 +306,10 @@ export async function processMoyskladWebhookQueue(limit = 50) {
         failed += 1;
       }
     }
-  }
+    }
 
-  return { processed, done, failed, dead, skipped };
+    return { processed, done, failed, dead, skipped };
+  } finally {
+    await releaseMoyskladWorkerLock("webhook", workerLock.owner);
+  }
 }
