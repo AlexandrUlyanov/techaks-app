@@ -119,6 +119,7 @@ export default function ProductFilters({
 }: ProductFiltersProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
+  const [priceResetNonce, setPriceResetNonce] = useState(0);
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { placeholderData: prev => prev }
@@ -181,7 +182,10 @@ export default function ProductFilters({
           <div className="flex items-center justify-end">
             <button
               type="button"
-              onClick={onClear}
+              onClick={() => {
+                setPriceResetNonce(value => value + 1);
+                onClear();
+              }}
               className="text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
             >
               Сбросить
@@ -190,7 +194,7 @@ export default function ProductFilters({
 
           {normalizedPriceRange && onPriceChange ? (
             <CatalogPriceSlider
-              key={`${normalizedPriceRange.sliderMin}-${normalizedPriceRange.sliderMax}-${normalizedPriceRange.currentMin}-${normalizedPriceRange.currentMax}`}
+              key={`${priceResetNonce}-${normalizedPriceRange.sliderMin}-${normalizedPriceRange.sliderMax}-${normalizedPriceRange.currentMin}-${normalizedPriceRange.currentMax}`}
               priceRange={normalizedPriceRange}
               onPriceChange={onPriceChange}
             />
