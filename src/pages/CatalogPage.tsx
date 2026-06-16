@@ -313,8 +313,25 @@ export default function CatalogPage() {
     const nextParams = new URLSearchParams(searchParams);
     const normalizedMin = Math.max(0, Math.floor(nextMin));
     const normalizedMax = Math.max(normalizedMin, Math.ceil(nextMax));
-    nextParams.set("priceFrom", String(normalizedMin));
-    nextParams.set("priceTo", String(normalizedMax));
+
+    if (priceBounds) {
+      const baseMin = Math.max(0, Math.floor(priceBounds.min));
+      const baseMax = Math.max(baseMin, Math.ceil(priceBounds.max));
+      const isFullRange =
+        normalizedMin <= baseMin && normalizedMax >= baseMax;
+
+      if (isFullRange) {
+        nextParams.delete("priceFrom");
+        nextParams.delete("priceTo");
+      } else {
+        nextParams.set("priceFrom", String(normalizedMin));
+        nextParams.set("priceTo", String(normalizedMax));
+      }
+    } else {
+      nextParams.set("priceFrom", String(normalizedMin));
+      nextParams.set("priceTo", String(normalizedMax));
+    }
+
     navigate(`/catalog?${nextParams.toString()}`, { replace: true });
   };
 
@@ -361,6 +378,7 @@ export default function CatalogPage() {
     updateCatalogParams({ show: "products" });
   };
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const priceBounds = useMemo(() => {
     const prices = products
       .map(product => Number(product.price ?? 0))
