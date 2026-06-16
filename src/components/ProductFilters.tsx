@@ -1,3 +1,4 @@
+import { Slider } from "@/components/ui/slider";
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { trpc } from "@/providers/trpc";
@@ -23,9 +24,65 @@ export type SelectedSpecFilter = {
 type ProductFiltersProps = {
   filters: FilterGroup[];
   selected: SelectedSpecFilter[];
+  priceRange?: {
+    min: number;
+    max: number;
+    currentMin: number;
+    currentMax: number;
+  } | null;
   onToggle: (filter: SelectedSpecFilter) => void;
+  onPriceChange?: (min: number, max: number) => void;
   onClear: () => void;
 };
+
+function CatalogPriceSlider({
+  priceRange,
+  onPriceChange,
+}: {
+  priceRange: {
+    sliderMin: number;
+    sliderMax: number;
+    currentMin: number;
+    currentMax: number;
+  };
+  onPriceChange: (min: number, max: number) => void;
+}) {
+  const [draftPrice, setDraftPrice] = useState<[number, number]>([
+    priceRange.currentMin,
+    priceRange.currentMax,
+  ]);
+
+  return (
+    <div className="pb-5">
+      <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        Цена
+      </div>
+      <div className="space-y-3">
+        <Slider
+          value={draftPrice}
+          min={priceRange.sliderMin}
+          max={priceRange.sliderMax}
+          step={10}
+          onValueChange={value =>
+            setDraftPrice([
+              value[0] ?? priceRange.sliderMin,
+              value[1] ?? priceRange.sliderMax,
+            ])
+          }
+          onValueCommit={value => {
+            const nextMin = value[0] ?? priceRange.sliderMin;
+            const nextMax = value[1] ?? priceRange.sliderMax;
+            onPriceChange(nextMin, nextMax);
+          }}
+        />
+        <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
+          <span>{new Intl.NumberFormat("ru-RU").format(draftPrice[0])} ₽</span>
+          <span>{new Intl.NumberFormat("ru-RU").format(draftPrice[1])} ₽</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const KEY_PRIORITY = [
   "тип",
@@ -55,8 +112,10 @@ function isSelected(selected: SelectedSpecFilter[], filter: SelectedSpecFilter) 
 export default function ProductFilters({
   filters,
   selected,
+  priceRange,
   onToggle,
-  onClear: _onClear,
+  onPriceChange,
+  onClear,
 }: ProductFiltersProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
@@ -99,12 +158,44 @@ export default function ProductFilters({
       .slice(0, 10);
   }, [filters]);
 
-  if (visibleFilters.length === 0) return null;
+  const normalizedPriceRange = useMemo(() => {
+    if (!priceRange) return null;
+    const sliderMin = Math.max(0, Math.floor(priceRange.min));
+    const sliderMax = Math.max(Math.ceil(priceRange.max), sliderMin + 1);
+    const currentMin = Math.min(Math.max(priceRange.currentMin, sliderMin), sliderMax);
+    const currentMax = Math.max(Math.min(priceRange.currentMax, sliderMax), currentMin);
+    return {
+      sliderMin,
+      sliderMax,
+      currentMin,
+      currentMax,
+    };
+  }, [priceRange]);
+
+  if (visibleFilters.length === 0 && !normalizedPriceRange) return null;
 
   return (
     <aside className="space-y-5">
       <div className="px-1">
         <div className="space-y-5">
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
+            >
+              Сбросить
+            </button>
+          </div>
+
+          {normalizedPriceRange && onPriceChange ? (
+            <CatalogPriceSlider
+              key={`${normalizedPriceRange.sliderMin}-${normalizedPriceRange.sliderMax}-${normalizedPriceRange.currentMin}-${normalizedPriceRange.currentMax}`}
+              priceRange={normalizedPriceRange}
+              onPriceChange={onPriceChange}
+            />
+          ) : null}
+
           {visibleFilters.map((group, index) => {
             const isOpen = openGroups[group.normalizedKey] ?? index < 2;
             const isExpanded = showAllGroups[group.normalizedKey] ?? false;

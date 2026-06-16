@@ -74,6 +74,11 @@ function formatProductCount(count: number) {
   return `${count} товаров`;
 }
 
+function parsePositiveNumber(value: string | null) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
+}
+
 export default function CatalogPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,6 +88,8 @@ export default function CatalogPage() {
   const activeBrand = searchParams.get("brand") || "";
   const activeTreeSlugFromHash = decodeURIComponent(location.hash.replace(/^#/, "").trim());
   const forceProductsView = searchParams.get("show") === "products";
+  const priceFrom = parsePositiveNumber(searchParams.get("priceFrom"));
+  const priceTo = parsePositiveNumber(searchParams.get("priceTo"));
   const selectedFilterKey = searchParams.getAll("filter").join("|");
   const selectedFilters = useMemo<SelectedSpecFilter[]>(() => {
     return searchParams
@@ -94,7 +101,7 @@ export default function CatalogPage() {
           : null;
       })
       .filter(Boolean) as SelectedSpecFilter[];
-  }, [searchParams, selectedFilterKey]);
+  }, [searchParams]);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [isMobileSortOpen, setIsMobileSortOpen] = useState(false);
   const sortBy = (searchParams.get("sort") as "default" | "price-asc" | "price-desc") || "default";
@@ -234,12 +241,18 @@ export default function CatalogPage() {
     }
   );
 
-  const specFilters =
-    catalogView === "brands" ? manufacturerSpecFilters : categorySpecFilters;
-  const products =
-    catalogView === "brands"
-      ? manufacturerProductsQuery.data ?? []
-      : categoryProductsQuery.data ?? [];
+  const specFilters = useMemo(
+    () => (catalogView === "brands" ? manufacturerSpecFilters : categorySpecFilters),
+    [catalogView, categorySpecFilters, manufacturerSpecFilters]
+  );
+  const products = useMemo(
+    () =>
+      catalogView === "brands"
+        ? manufacturerProductsQuery.data ?? []
+        : categoryProductsQuery.data ?? [],
+    [catalogView, categoryProductsQuery.data, manufacturerProductsQuery.data]
+  );
+  type CatalogProduct = (typeof products)[number];
   const isLoading =
     renderMode === "brands-products"
       ? currentManufacturerQuery.isLoading || manufacturerProductsQuery.isLoading
@@ -288,7 +301,22 @@ export default function CatalogPage() {
     );
   };
 
-  const clearFilters = () => updateFilters([]);
+  const clearAllFilters = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("filter");
+    nextParams.delete("priceFrom");
+    nextParams.delete("priceTo");
+    navigate(`/catalog?${nextParams.toString()}`, { replace: true });
+  };
+
+  const setPriceRange = (nextMin: number, nextMax: number) => {
+    const nextParams = new URLSearchParams(searchParams);
+    const normalizedMin = Math.max(0, Math.floor(nextMin));
+    const normalizedMax = Math.max(normalizedMin, Math.ceil(nextMax));
+    nextParams.set("priceFrom", String(normalizedMin));
+    nextParams.set("priceTo", String(normalizedMax));
+    navigate(`/catalog?${nextParams.toString()}`, { replace: true });
+  };
 
   const trackCatalogNavigation = (
     goal: "catalog_category_click" | "catalog_subcategory_click" | "catalog_show_all_products",
@@ -333,21 +361,54 @@ export default function CatalogPage() {
     updateCatalogParams({ show: "products" });
   };
 
+  const priceBounds = useMemo(() => {
+    const prices = products
+      .map(product => Number(product.price ?? 0))
+      .filter(price => Number.isFinite(price) && price > 0);
+
+    if (prices.length === 0) {
+      return null;
+    }
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return {
+      min,
+      max,
+      currentMin: typeof priceFrom === "number" ? Math.max(priceFrom, min) : min,
+      currentMax: typeof priceTo === "number" ? Math.min(priceTo, max) : max,
+    };
+  }, [priceFrom, priceTo, products]);
+
+  const filteredProducts = useMemo(() => {
+    if (!priceBounds) return products;
+
+    return products.filter(product => {
+      const price = Number(product.price ?? 0);
+      if (!Number.isFinite(price) || price <= 0) return false;
+      if (typeof priceFrom === "number" && price < priceFrom) return false;
+      if (typeof priceTo === "number" && price > priceTo) return false;
+      return true;
+    });
+  }, [priceBounds, priceFrom, priceTo, products]);
+
   const sortedProducts = useMemo(() => {
-    const result = [...products];
+    const result = [...filteredProducts];
     if (sortBy === "price-asc") {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-desc") {
       result.sort((a, b) => b.price - a.price);
     }
     return result;
-  }, [products, sortBy]);
+  }, [filteredProducts, sortBy]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisibleProductCount(PRODUCT_PAGE_SIZE);
-  }, [activeCategory, activeBrand, catalogView, sortBy, selectedFilterKey]);
+  }, [activeCategory, activeBrand, catalogView, priceFrom, priceTo, sortBy, selectedFilterKey]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowAllCategories(false);
   }, [activeCategory, activeBrand, catalogView]);
 
@@ -411,7 +472,14 @@ export default function CatalogPage() {
     });
   }, [selectedFilters, specFilters]);
   const hasSelectedFilters = selectedFilterLabels.length > 0;
-  const primarySelectedFilterLabel = selectedFilterLabels.length === 1 ? selectedFilterLabels[0] : null;
+  const hasPriceFilter =
+    Boolean(
+      priceBounds &&
+      (priceBounds.currentMin !== priceBounds.min ||
+        priceBounds.currentMax !== priceBounds.max)
+    );
+  const primarySelectedFilterLabel =
+    selectedFilterLabels.length === 1 && !hasPriceFilter ? selectedFilterLabels[0] : null;
 
   const currentManufacturer = currentManufacturerQuery.data ?? null;
   const hashedRootCategory = rootActiveBranch;
@@ -466,7 +534,7 @@ export default function CatalogPage() {
     }
     if (activeCategory === "all" || !currentCategory) return [];
     const trail = [];
-    let curr: any = currentCategory;
+    let curr: typeof currentCategory = currentCategory;
     while (curr) {
       trail.unshift(curr);
       const pid = curr.parentId;
@@ -893,8 +961,10 @@ export default function CatalogPage() {
                   <ProductFilters
                     filters={specFilters}
                     selected={selectedFilters}
+                    priceRange={priceBounds}
                     onToggle={toggleFilter}
-                    onClear={clearFilters}
+                    onPriceChange={setPriceRange}
+                    onClear={clearAllFilters}
                   />
                   </div>
                 </div>
@@ -991,8 +1061,10 @@ export default function CatalogPage() {
                           <ProductFilters
                             filters={specFilters}
                             selected={selectedFilters}
+                            priceRange={priceBounds}
                             onToggle={toggleFilter}
-                            onClear={clearFilters}
+                            onPriceChange={setPriceRange}
+                            onClear={clearAllFilters}
                           />
                         </SheetContent>
                       </Sheet>
@@ -1066,7 +1138,7 @@ export default function CatalogPage() {
                       </Popover>
                     </div>
 
-                    {hasSelectedFilters && (
+                    {(hasSelectedFilters || hasPriceFilter) && (
                       <div className="mt-3 flex flex-wrap items-center gap-2 pt-1">
                       {selectedFilterLabels.map(filter => (
                         <button
@@ -1086,9 +1158,28 @@ export default function CatalogPage() {
                           </span>
                         </button>
                       ))}
+                      {hasPriceFilter && priceBounds ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextParams = new URLSearchParams(searchParams);
+                            nextParams.delete("priceFrom");
+                            nextParams.delete("priceTo");
+                            navigate(`/catalog?${nextParams.toString()}`, { replace: true });
+                          }}
+                          className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
+                        >
+                          <span>
+                            Цена: {Math.round(priceBounds.currentMin)} ₽ - {Math.round(priceBounds.currentMax)} ₽
+                          </span>
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
+                            <X size={10} />
+                          </span>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        onClick={clearFilters}
+                        onClick={clearAllFilters}
                         className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--tech-color-surface)] px-3.5 text-[13px] font-semibold text-foreground transition hover:brightness-95"
                       >
                         Сбросить все
@@ -1102,7 +1193,7 @@ export default function CatalogPage() {
                       ? "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-4"
                       : "grid grid-cols-1 gap-4"
                   }>
-                    {visibleProducts.map((product: any) => (
+                    {visibleProducts.map((product: CatalogProduct) => (
                       <ProductCard key={product.id} product={product} variant={viewMode} />
                     ))}
                   </div>
@@ -1132,20 +1223,20 @@ export default function CatalogPage() {
                           <SlidersHorizontal size={22} />
                         </div>
                         <h2 className="mt-6 text-2xl font-black tracking-tight text-foreground">
-                          {hasSelectedFilters
+                          {hasSelectedFilters || hasPriceFilter
                             ? "Подходящих товаров сейчас нет"
                             : "Товары скоро появятся"}
                         </h2>
                         <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                          {hasSelectedFilters
+                          {hasSelectedFilters || hasPriceFilter
                             ? "Попробуйте снять часть фильтров или сбросить их полностью — тогда мы покажем больше подходящих товаров."
                             : "В этой категории пока пусто, но мы уже готовим подборку. Попробуйте открыть весь каталог или соседние категории."}
                         </p>
                         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                          {hasSelectedFilters ? (
+                          {hasSelectedFilters || hasPriceFilter ? (
                             <button
                               type="button"
-                              onClick={clearFilters}
+                              onClick={clearAllFilters}
                               className="inline-flex h-11 items-center gap-2 rounded-full bg-[#05C3D4] px-5 text-sm font-black text-white transition hover:bg-[#27E6F2] dark:text-black"
                             >
                               <RotateCcw size={15} />
