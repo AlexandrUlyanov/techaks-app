@@ -61,7 +61,7 @@ export default function AdminProducts() {
   }, [editingProduct]);
 
   const utils = trpc.useUtils();
-  const { data: categories = [] } = trpc.product.getCategories.useQuery();
+  const { data: categories = [] } = trpc.product.getCategories.useQuery({ includeInactive: true });
   const { data: pagedData, isLoading } = trpc.product.getPaginated.useQuery({
     page,
     limit,

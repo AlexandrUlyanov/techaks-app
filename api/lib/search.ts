@@ -22,6 +22,7 @@ import {
 } from "./site-profile-settings";
 import { getManufacturerNameFromProductSpecs } from "./manufacturers";
 import { publicAvailableStockQtySql } from "./public-products";
+import { buildPublicVisibleCategoryIdSet } from "./category-visibility";
 
 const SEARCH_SETTINGS_KEYS = [
   "search_include_description",
@@ -777,12 +778,23 @@ export async function rebuildSearchDocumentsForProducts(productIds?: number[]) {
 
 export async function rebuildSearchDocumentsForCategories(categoryIds?: number[]) {
   const db = getDb();
+  const allCategories = await db.select().from(categories);
   const rows = categoryIds?.length
-    ? await db.select().from(categories).where(inArray(categories.id, categoryIds))
-    : await db.select().from(categories);
+    ? allCategories.filter(row => categoryIds.includes(row.id))
+    : allCategories;
+  const visibleCategoryIds = buildPublicVisibleCategoryIdSet(allCategories);
+  const hiddenCategoryIds = rows
+    .filter(row => !visibleCategoryIds.has(row.id))
+    .map(row => row.id);
+
+  if (hiddenCategoryIds.length > 0) {
+    await removeSearchDocumentsForEntity("category", hiddenCategoryIds);
+  }
+
+  const visibleRows = rows.filter(row => visibleCategoryIds.has(row.id));
 
   const docs = [];
-  for (const row of rows) {
+  for (const row of visibleRows) {
     const [stats] = await db
       .select({
         productCount: sql<number>`count(*)`,

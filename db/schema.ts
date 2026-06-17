@@ -29,6 +29,7 @@ export const categories = mysqlTable("categories", {
   msId: varchar("ms_id", { length: 100 }), // MoySklad ID for syncing
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 512 }).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
   description: text("description"),
   metaTitle: varchar("meta_title", { length: 255 }),
   metaDescription: text("meta_description"),

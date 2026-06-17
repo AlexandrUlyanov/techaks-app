@@ -8,6 +8,7 @@ import {
 } from "@db/schema";
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
+import { filterPublicVisibleCategories } from "./category-visibility";
 
 export const listingIndexationModes = [
   "index",
@@ -239,7 +240,8 @@ async function fetchCategoryFilterGroups(category: CategoryRow) {
 
 export async function countVisibleProductsForCategory(categoryId: number) {
   const db = getDb();
-  const allCategories = await db.select().from(categories);
+  const allCategories = filterPublicVisibleCategories(await db.select().from(categories));
+  if (!allCategories.some(category => category.id === categoryId)) return 0;
   const categoryIds = collectDescendantCategoryIds(allCategories, categoryId);
   const [row] = await db
     .select({ productCount: sql<number>`count(*)` })
@@ -256,7 +258,8 @@ async function countVisibleProductsForCategoryFilter(
   filterValue: string
 ) {
   const db = getDb();
-  const allCategories = await db.select().from(categories);
+  const allCategories = filterPublicVisibleCategories(await db.select().from(categories));
+  if (!allCategories.some(item => item.id === category.id)) return 0;
   const categoryIds = collectDescendantCategoryIds(allCategories, category.id);
   const [row] = await db
     .select({ productCount: sql<number>`count(distinct ${products.id})` })
@@ -448,11 +451,8 @@ export async function resolveCategoryListingBySlug(
   options?: { includeUnpublished?: boolean }
 ) {
   const db = getDb();
-  const [category] = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.slug, categorySlug))
-    .limit(1);
+  const allCategories = filterPublicVisibleCategories(await db.select().from(categories));
+  const category = allCategories.find(item => item.slug === categorySlug) ?? null;
 
   if (!category) return null;
 
@@ -484,11 +484,8 @@ export async function resolveFilterListing(input: {
   includeUnpublished?: boolean;
 }) {
   const db = getDb();
-  const [category] = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.slug, input.categorySlug))
-    .limit(1);
+  const allCategories = filterPublicVisibleCategories(await db.select().from(categories));
+  const category = allCategories.find(item => item.slug === input.categorySlug) ?? null;
 
   if (!category) return null;
 

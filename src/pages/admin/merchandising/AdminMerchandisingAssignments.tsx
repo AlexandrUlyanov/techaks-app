@@ -9,7 +9,7 @@ export default function AdminMerchandisingAssignments() {
   const utils = trpc.useUtils();
   const [categoryId, setCategoryId] = useState("");
 
-  const categoriesQuery = trpc.product.getCategories.useQuery();
+  const categoriesQuery = trpc.product.getCategories.useQuery({ includeInactive: true });
   const previewQuery = trpc.merchandising.assignmentPreview.useQuery(
     { categoryId: categoryId ? Number(categoryId) : 0 },
     { enabled: Boolean(categoryId), refetchOnWindowFocus: false }

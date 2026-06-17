@@ -10,7 +10,7 @@ export default function AdminMerchandisingAi() {
   const [categoryId, setCategoryId] = useState("");
   const [edits, setEdits] = useState<Record<number, { label: string; description: string; notes: string }>>({});
 
-  const categoriesQuery = trpc.product.getCategories.useQuery();
+  const categoriesQuery = trpc.product.getCategories.useQuery({ includeInactive: true });
   const suggestionsQuery = trpc.merchandising.categorySuggestions.useQuery(
     { categoryId: categoryId ? Number(categoryId) : 0 },
     { enabled: Boolean(categoryId), refetchOnWindowFocus: false }

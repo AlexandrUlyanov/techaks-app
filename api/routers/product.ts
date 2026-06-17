@@ -53,6 +53,7 @@ import {
 } from "../lib/search";
 import { getProductVariants } from "../lib/product-variants";
 import { writeAdminAuditLog } from "../lib/admin-audit";
+import { buildPublicVisibleCategoryIdSet, filterPublicVisibleCategories } from "../lib/category-visibility";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -145,6 +146,7 @@ function normalizeCategoryPayload(
     parentId?: number | null;
     slug: string;
     name: string;
+    isActive?: boolean;
     description?: string | null;
     metaTitle?: string | null;
     metaDescription?: string | null;
@@ -157,6 +159,7 @@ function normalizeCategoryPayload(
     parentId: data.parentId ?? null,
     slug: data.slug.trim(),
     name: data.name.trim(),
+    isActive: data.isActive ?? true,
     description: data.description?.trim() ? data.description.trim() : null,
     metaTitle: data.metaTitle?.trim() ? data.metaTitle.trim() : null,
     metaDescription: data.metaDescription?.trim() ? data.metaDescription.trim() : null,
@@ -543,32 +546,55 @@ export const productRouter = createRouter({
       };
     }),
 
-  getCategories: publicQuery.query(async () => {
-    const db = getDb();
-    return await db
-      .select()
-      .from(categories)
-      .orderBy(asc(categories.sortOrder));
-  }),
+  getCategories: publicQuery
+    .input(
+      z
+        .object({
+          includeInactive: z.boolean().optional().default(false),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(categories)
+        .orderBy(asc(categories.sortOrder));
+
+      if (input?.includeInactive) {
+        if (!ctx.ability?.can("read", "Category")) {
+          return filterPublicVisibleCategories(rows);
+        }
+        return rows;
+      }
+
+      return filterPublicVisibleCategories(rows);
+    }),
 
   getCatalogCategoryPreviews: publicQuery
     .input(
       z
         .object({
           scopeCategoryId: z.number().int().positive().optional(),
+          includeInactive: z.boolean().optional().default(false),
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
     const db = getDb();
-    const allCategories = await db
+    const allCategoriesRaw = await db
       .select({
         id: categories.id,
         parentId: categories.parentId,
+        isActive: categories.isActive,
         imageUrl: categories.imageUrl,
       })
       .from(categories)
       .orderBy(asc(categories.sortOrder));
+    const canIncludeInactive = input?.includeInactive && ctx.ability?.can("read", "Category");
+    const allCategories = canIncludeInactive
+      ? allCategoriesRaw
+      : filterPublicVisibleCategories(allCategoriesRaw);
 
     const childrenByParentId = new Map<number | null, number[]>();
     for (const category of allCategories) {
@@ -723,6 +749,11 @@ export const productRouter = createRouter({
       const specFilters = input?.specFilters ?? [];
 
       if (categorySlug === "all") {
+        const visibleCategoryIds = Array.from(
+          buildPublicVisibleCategoryIdSet(await db.select().from(categories))
+        );
+        if (visibleCategoryIds.length === 0) return [];
+        const visibleCategoryCondition = inArray(products.categoryId, visibleCategoryIds);
         const specCondition = buildSpecFilterConditions(specFilters);
         const rows = await db
           .select(publicProductSelectFields)
@@ -731,13 +762,13 @@ export const productRouter = createRouter({
           .leftJoin(schema.productMerchandising, eq(schema.productMerchandising.productId, products.id))
           .where(
             specCondition
-              ? sql`${publicProductVisibilityCondition} AND ${specCondition}`
-              : publicProductVisibilityCondition
+              ? sql`${publicProductVisibilityCondition} AND ${visibleCategoryCondition} AND ${specCondition}`
+              : sql`${publicProductVisibilityCondition} AND ${visibleCategoryCondition}`
           );
         return attachVisibleMerchandisingBadges(rows);
       }
 
-      const allCats = await db.select().from(categories);
+      const allCats = filterPublicVisibleCategories(await db.select().from(categories));
       const targetCat = allCats.find(c => c.slug === categorySlug);
 
       if (!targetCat) return [];
@@ -1231,6 +1262,7 @@ export const productRouter = createRouter({
           parentId: z.number().nullable().optional(),
           slug: z.string(),
           name: z.string(),
+          isActive: z.boolean().optional().default(true),
           description: z.string().nullable(),
           metaTitle: z.string().nullable().optional(),
           metaDescription: z.string().nullable().optional(),
@@ -1284,6 +1316,54 @@ export const productRouter = createRouter({
         },
       });
       return { success: true, id: categoryId };
+    }),
+
+  updateCategoryActivity: protectedProcedure
+    .input(z.object({ id: z.number(), isActive: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
+      const db = getDb();
+      const allCategories = await db.select().from(categories);
+      const reindexIds = [
+        input.id,
+        ...collectDescendantCategoryIds(allCategories, input.id),
+      ];
+      const [previousCategory] = await db
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!previousCategory) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Категория не найдена.",
+        });
+      }
+
+      await db
+        .update(categories)
+        .set({ isActive: input.isActive })
+        .where(eq(categories.id, input.id));
+      await enqueueSearchReindexJob({
+        entityType: "category",
+        entityId: input.id,
+        reason: "category_activity_changed",
+      });
+      await rebuildSearchDocumentsForCategories(reindexIds);
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.activity",
+        entityType: "category",
+        entityId: previousCategory.id,
+        entityLabel: previousCategory.name,
+        before: previousCategory,
+        after: {
+          ...previousCategory,
+          isActive: input.isActive,
+        },
+      });
+      return { success: true };
     }),
 
   deleteCategory: protectedProcedure

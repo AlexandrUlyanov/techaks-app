@@ -80,7 +80,7 @@ export default function AdminMerchandising() {
     scopeCategoryId: "",
   });
 
-  const categoriesQuery = trpc.product.getCategories.useQuery();
+  const categoriesQuery = trpc.product.getCategories.useQuery({ includeInactive: true });
   const badgeSettings = trpc.merchandising.badgeSettings.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });

@@ -17,7 +17,7 @@ export default function AdminMerchandisingBadges() {
     scopeCategoryId: "",
   });
 
-  const categoriesQuery = trpc.product.getCategories.useQuery();
+  const categoriesQuery = trpc.product.getCategories.useQuery({ includeInactive: true });
   const catalogQuery = trpc.merchandising.catalog.useQuery(
     {
       search: search.trim() || undefined,

@@ -3,6 +3,8 @@ import {
   ChevronDown,
   ChevronRight,
   Edit2,
+  Eye,
+  EyeOff,
   FolderTree,
   Hash,
   Layers3,
@@ -28,6 +30,7 @@ type CategoryRecord = {
   msId?: string | null;
   slug: string;
   name: string;
+  isActive: boolean;
   description: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
@@ -36,19 +39,12 @@ type CategoryRecord = {
   sortOrder: number;
 };
 
-type CategoryPreviewRecord = {
-  categoryId: number;
-  productCount: number;
-  previewImage: string | null;
-  previewImageVariants?: unknown;
-  hasChildren: boolean;
-};
-
 type CategoryDraft = {
   id?: number;
   parentId: number | null;
   slug: string;
   name: string;
+  isActive: boolean;
   description: string;
   metaTitle: string;
   metaDescription: string;
@@ -61,6 +57,7 @@ const EMPTY_DRAFT: CategoryDraft = {
   parentId: null,
   slug: "",
   name: "",
+  isActive: true,
   description: "",
   metaTitle: "",
   metaDescription: "",
@@ -129,8 +126,12 @@ export default function AdminCategories() {
   const [manualSlug, setManualSlug] = useState(false);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
 
-  const { data: categories = [], isLoading } = trpc.product.getCategories.useQuery();
-  const { data: previews = [] } = trpc.product.getCatalogCategoryPreviews.useQuery();
+  const { data: categories = [], isLoading } = trpc.product.getCategories.useQuery({
+    includeInactive: true,
+  });
+  const { data: previews = [] } = trpc.product.getCatalogCategoryPreviews.useQuery({
+    includeInactive: true,
+  });
 
   const upsertCategory = trpc.product.upsertCategory.useMutation({
     onSuccess: result => {
@@ -163,6 +164,17 @@ export default function AdminCategories() {
       }
     },
     onError: error => toast.error(error.message || "Не удалось изменить порядок категории"),
+  });
+
+  const updateCategoryActivity = trpc.product.updateCategoryActivity.useMutation({
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.isActive ? "Категория активирована" : "Категория скрыта с сайта"
+      );
+      utils.product.getCategories.invalidate();
+      utils.product.getCatalogCategoryPreviews.invalidate();
+    },
+    onError: error => toast.error(error.message || "Не удалось изменить состояние категории"),
   });
 
   useEffect(() => {
@@ -265,6 +277,7 @@ export default function AdminCategories() {
       parentId: category.parentId ?? null,
       slug: category.slug,
       name: category.name,
+      isActive: category.isActive,
       description: category.description ?? "",
       metaTitle: category.metaTitle ?? "",
       metaDescription: category.metaDescription ?? "",
@@ -289,6 +302,7 @@ export default function AdminCategories() {
         parentId: editingCategory.parentId,
         slug: editingCategory.slug.trim(),
         name: editingCategory.name.trim(),
+        isActive: editingCategory.isActive,
         description: editingCategory.description.trim() || null,
         metaTitle: editingCategory.metaTitle.trim() || null,
         metaDescription: editingCategory.metaDescription.trim() || null,
@@ -325,7 +339,7 @@ export default function AdminCategories() {
     };
   }, [byParent, pendingDeleteCategory, previewByCategoryId]);
 
-  const renderTree = (nodes: CategoryRecord[], depth = 0): JSX.Element | null => {
+  const renderTree = (nodes: CategoryRecord[], depth = 0): React.ReactElement | null => {
     const visibleNodes = nodes.filter(node => visibleCategoryIds.has(node.id));
     if (visibleNodes.length === 0) return null;
 
@@ -341,7 +355,9 @@ export default function AdminCategories() {
           return (
             <div key={category.id} className="space-y-2">
               <div
-                className={`group flex items-start justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-4 transition-colors hover:border-[#05C3D4]/30 hover:bg-[#F7FEFF] ${
+                className={`group flex items-start justify-between gap-3 rounded-2xl border px-4 py-4 transition-colors hover:border-[#05C3D4]/30 hover:bg-[#F7FEFF] ${
+                  category.isActive ? "border-gray-100 bg-white" : "border-amber-100 bg-amber-50/60"
+                } ${
                   depth > 0 ? "ml-6" : ""
                 }`}
               >
@@ -387,6 +403,15 @@ export default function AdminCategories() {
                       <div className="text-sm font-black text-[#15171A]">{category.name}</div>
                       <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
                         {category.slug}
+                      </span>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          category.isActive
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {category.isActive ? "Активна" : "Скрыта"}
                       </span>
                       <span className="inline-flex rounded-full bg-[#F2FBFD] px-2.5 py-1 text-[11px] font-semibold text-[#047C89]">
                         {preview?.productCount ?? 0} тов.
@@ -434,6 +459,24 @@ export default function AdminCategories() {
                     title="Опустить ниже"
                   >
                     <ArrowDown size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateCategoryActivity.mutate({
+                        id: category.id,
+                        isActive: !category.isActive,
+                      })
+                    }
+                    disabled={updateCategoryActivity.isPending}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
+                      category.isActive
+                        ? "text-gray-400 hover:bg-amber-50 hover:text-amber-600"
+                        : "text-amber-500 hover:bg-emerald-50 hover:text-emerald-600"
+                    }`}
+                    title={category.isActive ? "Скрыть категорию с сайта" : "Активировать категорию"}
+                  >
+                    {category.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                   <button
                     type="button"
@@ -710,6 +753,27 @@ export default function AdminCategories() {
                   />
                 </label>
               </div>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={editingCategory.isActive}
+                  onChange={event =>
+                    setEditingCategory(prev =>
+                      prev ? { ...prev, isActive: event.target.checked } : prev
+                    )
+                  }
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#05C3D4] focus:ring-[#05C3D4]"
+                />
+                <span className="space-y-1">
+                  <span className="block text-sm font-semibold text-[#15171A]">
+                    Категория активна на сайте
+                  </span>
+                  <span className="block text-sm leading-6 text-gray-500">
+                    Если выключить категорию, она исчезнет из публичного каталога и навигации, но останется доступной в админке.
+                  </span>
+                </span>
+              </label>
 
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-gray-700">Описание</span>
