@@ -53,11 +53,11 @@ function CatalogPriceSlider({
   ]);
 
   return (
-    <div className="pb-5">
-      <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+    <div className="pb-3">
+      <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
         Цена
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <Slider
           value={draftPrice}
           min={priceRange.sliderMin}
@@ -176,9 +176,9 @@ export default function ProductFilters({
   if (visibleFilters.length === 0 && !normalizedPriceRange) return null;
 
   return (
-    <aside className="space-y-5">
+    <aside className="space-y-3">
       <div className="px-1">
-        <div className="space-y-5">
+        <div className="space-y-3.5">
           <div className="flex items-center justify-end">
             <button
               type="button"
@@ -210,7 +210,7 @@ export default function ProductFilters({
                 : group.values.slice(0, 6);
 
             return (
-              <div key={group.normalizedKey} className="pb-5 last:pb-0">
+              <div key={group.normalizedKey} className="pb-3 last:pb-0">
                 <button
                   type="button"
                   onClick={() =>
@@ -219,7 +219,7 @@ export default function ProductFilters({
                       [group.normalizedKey]: !isOpen,
                     }))
                   }
-                  className="mb-3 flex w-full items-center justify-between gap-3 text-left"
+                  className="mb-2 flex w-full items-center justify-between gap-3 text-left"
                   aria-expanded={isOpen}
                 >
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -236,7 +236,7 @@ export default function ProductFilters({
                     />
                   </span>
                 </button>
-                {isOpen ? <div className="space-y-1.5">
+                {isOpen ? <div className="space-y-1">
               {valuesToRender.map(value => {
                 const filter = {
                   normalizedKey: group.normalizedKey,
@@ -255,7 +255,7 @@ export default function ProductFilters({
                     key={`${group.normalizedKey}:${value.normalizedValue}`}
                     type="button"
                     onClick={() => onToggle(filter)}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-muted/35"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted/35"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -301,7 +301,7 @@ export default function ProductFilters({
                         [group.normalizedKey]: !isExpanded,
                       }))
                     }
-                    className="mt-3 text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
+                    className="mt-2 text-[11px] font-bold text-[var(--tech-color-primary)] transition hover:opacity-80"
                   >
                     {isExpanded ? "Свернуть" : "Показать все"}
                   </button>
