@@ -9,7 +9,6 @@ import ProductBreadcrumbsCompact, {
 } from "@/components/product/ProductBreadcrumbsCompact";
 import { formatCategoryLabel } from "@/lib/category-labels";
 import { trpc } from "@/providers/trpc";
-import { CategoryIcon } from "@/lib/category-icons";
 import {
   ArrowUpDown,
   Grid2X2,
@@ -936,53 +935,37 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 md:hidden -mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="flex gap-2.5 pb-1">
-                    {visibleCategories.map(cat => (
+                  <div className="mt-4 md:hidden -mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex gap-2 pb-1">
+                      {visibleCategories.map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
+                          className="inline-flex h-9 shrink-0 items-center rounded-full border border-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,transparent)] bg-[var(--tech-color-surface)] px-3.5 text-left text-[13px] font-semibold text-foreground transition-colors duration-200 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_34%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))]"
+                        >
+                          <span className="max-w-[190px] truncate">
+                            {cat.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 hidden md:flex md:flex-wrap md:gap-2">
+                    {visibleCategories.map((cat, index) => (
                       <button
                         key={cat.id}
                         type="button"
                         onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                        className="group inline-flex h-12 shrink-0 items-center gap-2.5 rounded-full bg-[var(--tech-color-surface-muted)]/85 px-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--tech-color-surface-muted)] active:scale-[0.98]"
+                        className="inline-flex h-9 items-center rounded-full border border-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,transparent)] bg-[var(--tech-color-surface)] px-4 text-left text-[13px] font-semibold text-foreground transition-colors duration-200 hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_34%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_5%,var(--tech-color-surface))] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                        style={{ animationDelay: `${index * 30}ms` }}
                       >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
-                          <CategoryIcon
-                            name={cat.name}
-                            slug={cat.slug}
-                            size={15}
-                            className="text-current"
-                          />
-                        </span>
-                        <span className="max-w-[170px] truncate text-sm font-semibold text-foreground">
+                        <span className="max-w-[260px] truncate">
                           {cat.name}
                         </span>
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 hidden md:flex md:flex-wrap md:gap-2.5">
-                  {visibleCategories.map((cat, index) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => navigate(`/catalog?cat=${cat.slug}`)}
-                      className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-[var(--tech-color-surface-muted)]/85 px-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--tech-color-surface-muted)] active:scale-[0.98] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
-                      style={{ animationDelay: `${index * 30}ms` }}
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_10%,white)] text-[var(--tech-color-primary)] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_16%,white)]">
-                        <CategoryIcon
-                          name={cat.name}
-                          slug={cat.slug}
-                          size={15}
-                          className="text-current"
-                        />
-                      </span>
-                      <span className="max-w-[240px] truncate text-sm font-semibold text-foreground">
-                        {cat.name}
-                      </span>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
