@@ -183,9 +183,6 @@ export default function ProductSpecsTab({
                   <h3 className="text-lg font-extrabold text-foreground">
                     {group.title}
                   </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {group.items.length} {group.items.length === 1 ? "параметр" : group.items.length < 5 ? "параметра" : "параметров"}
-                  </p>
                 </div>
               </div>
 
