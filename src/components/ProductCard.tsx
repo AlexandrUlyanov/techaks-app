@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useCallback, useMemo, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Heart, Minus, Plus, Star } from "lucide-react";
@@ -10,7 +11,11 @@ import {
   normalizeMerchandisingBadges,
 } from "@/lib/merchandising-badges";
 import { formatRussianCount } from "@/lib/russian-plurals";
-import { applyProductImageFallback, getProductCardImageProps } from "@/lib/product-images";
+import {
+  applyProductImageFallback,
+  getProductCardImageProps,
+  resolveProductImageCollection,
+} from "@/lib/product-images";
 
 interface ProductCardProps {
   product: {
@@ -24,6 +29,7 @@ interface ProductCardProps {
     merchandisingBadges?: unknown;
     image: string;
     imageVariants?: unknown;
+    images?: unknown;
     categoryId: number;
     categoryName?: string | null;
     rating?: string | number | null;
@@ -53,6 +59,18 @@ export default function ProductCard({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
   };
+  const productImages = useMemo(
+    () =>
+      resolveProductImageCollection(
+        product.image,
+        product.imageVariants,
+        product.images
+      ),
+    [product.image, product.imageVariants, product.images]
+  );
+  const hasImagePreview = productImages.length > 1;
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isImagePreviewActive, setIsImagePreviewActive] = useState(false);
 
   const badgeColors: Record<string, string> = {
     Акция: "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]",
@@ -79,8 +97,8 @@ export default function ProductCard({
       : []),
   ].slice(0, 2);
   const productImage = getProductCardImageProps({
-    image: product.image,
-    imageVariants: product.imageVariants,
+    image: productImages[activeImageIndex]?.original ?? product.image,
+    imageVariants: productImages[activeImageIndex] ?? product.imageVariants,
     priority: imagePriority,
     sizes:
       variant === "list"
@@ -95,6 +113,38 @@ export default function ProductCard({
     "отзыва",
     "отзывов",
   ]);
+
+  const updatePreviewFromPointer = useCallback(
+    (
+      event:
+        | React.MouseEvent<HTMLDivElement>
+        | React.PointerEvent<HTMLDivElement>
+    ) => {
+      if (!hasImagePreview) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      if (bounds.width <= 0) return;
+      const offsetX = Math.min(
+        Math.max(event.clientX - bounds.left, 0),
+        bounds.width
+      );
+      const nextIndex = Math.min(
+        productImages.length - 1,
+        Math.floor((offsetX / bounds.width) * productImages.length)
+      );
+      setActiveImageIndex(nextIndex);
+    },
+    [hasImagePreview, productImages.length]
+  );
+
+  const handleImagePreviewLeave = useCallback(() => {
+    setIsImagePreviewActive(false);
+    setActiveImageIndex(0);
+  }, []);
+
+  const handleImagePreviewEnter = useCallback(() => {
+    if (!hasImagePreview) return;
+    setIsImagePreviewActive(true);
+  }, [hasImagePreview]);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -189,7 +239,15 @@ export default function ProductCard({
           onClick={handleNavigate}
           className="grid grid-cols-[112px_1fr] gap-4 p-3 sm:grid-cols-[148px_1fr] sm:p-4"
         >
-          <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]">
+          <div
+            className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-white p-3 sm:h-[132px]"
+            onMouseEnter={handleImagePreviewEnter}
+            onMouseMove={updatePreviewFromPointer}
+            onMouseLeave={handleImagePreviewLeave}
+            onPointerEnter={handleImagePreviewEnter}
+            onPointerMove={updatePreviewFromPointer}
+            onPointerLeave={handleImagePreviewLeave}
+          >
             {topBadges.length > 0 && (
               <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
                 {topBadges.map(itemBadge => (
@@ -198,10 +256,37 @@ export default function ProductCard({
                     className={`${itemBadge.className} truncate rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.08em] opacity-75`}
                   >
                     {itemBadge.label}
-                  </span>
-                ))}
-              </div>
-            )}
+                </span>
+              ))}
+            </div>
+          )}
+            {hasImagePreview ? (
+              <>
+                <div
+                  className={`pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center rounded-full bg-[rgba(255,255,255,0.92)] px-2 py-1 text-[10px] font-bold text-[#20262E] transition-opacity duration-200 ${
+                    isImagePreviewActive ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  {activeImageIndex + 1} / {productImages.length}
+                </div>
+                <div
+                  className={`pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
+                    isImagePreviewActive ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  {productImages.map((_, index) => (
+                    <span
+                      key={`list-dot-${product.id}-${index}`}
+                      className={`h-1 rounded-full transition-all duration-200 ${
+                        index === activeImageIndex
+                          ? "w-4 bg-[var(--tech-color-primary)]"
+                          : "w-2 bg-[rgba(148,163,184,0.55)]"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
             <img
               src={productImage.src}
               srcSet={productImage.srcSet}
@@ -268,7 +353,15 @@ export default function ProductCard({
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-transparent bg-white ring-1 ring-transparent transition-[border-color,ring-color] duration-200 ease-out hover:border-[#05C3D4]/20 hover:ring-[#05C3D4]/18">
       <Link to={`/product/${product.slug}`} onClick={handleNavigate} className="flex flex-1 flex-col">
-        <div className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]">
+        <div
+          className="relative flex h-[170px] items-center justify-center overflow-hidden rounded-[22px] bg-white p-4 sm:h-[210px]"
+          onMouseEnter={handleImagePreviewEnter}
+          onMouseMove={updatePreviewFromPointer}
+          onMouseLeave={handleImagePreviewLeave}
+          onPointerEnter={handleImagePreviewEnter}
+          onPointerMove={updatePreviewFromPointer}
+          onPointerLeave={handleImagePreviewLeave}
+        >
           {topBadges.length > 0 && (
             <div className="absolute left-2 top-2 z-10 flex max-w-[calc(100%-16px)] items-start gap-1.5 overflow-hidden whitespace-nowrap">
               {topBadges.map(itemBadge => (
@@ -281,6 +374,33 @@ export default function ProductCard({
               ))}
             </div>
           )}
+          {hasImagePreview ? (
+            <>
+              <div
+                className={`pointer-events-none absolute right-3 top-3 z-10 inline-flex items-center rounded-full bg-[rgba(255,255,255,0.94)] px-2.5 py-1 text-[10px] font-bold text-[#20262E] transition-opacity duration-200 ${
+                  isImagePreviewActive ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {activeImageIndex + 1} / {productImages.length}
+              </div>
+              <div
+                className={`pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
+                  isImagePreviewActive ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {productImages.map((_, index) => (
+                  <span
+                    key={`grid-dot-${product.id}-${index}`}
+                    className={`h-1 rounded-full transition-all duration-200 ${
+                      index === activeImageIndex
+                        ? "w-4 bg-[var(--tech-color-primary)]"
+                        : "w-2 bg-[rgba(148,163,184,0.55)]"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
           <img
             src={productImage.src}
             srcSet={productImage.srcSet}
