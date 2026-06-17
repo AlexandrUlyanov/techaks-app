@@ -5,27 +5,92 @@ type HomeHeroProps = {
   loading?: boolean;
   hero?: {
     variant: "classic" | "interactive";
-    mode: "manual" | "automatic";
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-    description: string;
-    primaryCtaLabel: string;
-    primaryCtaHref: string;
-    secondaryCtaLabel: string;
-    secondaryCtaHref: string;
-    benefits: string[];
-    cards: Array<{
-      id: number;
-      slug: string;
-      name: string;
-      price: number;
-      oldPrice: number | null;
-      image: string;
-      badge: string | null;
-      inStock: boolean;
-      categoryName?: string | null;
-    }>;
+    slides: Array<
+      | {
+          id: string;
+          type: "products";
+          theme: "light" | "soft-cyan" | "mesh" | "dark";
+          eyebrow: string;
+          title: string;
+          subtitle: string;
+          description: string;
+          accent: string;
+          primaryCtaLabel: string;
+          primaryCtaHref: string;
+          secondaryCtaLabel: string;
+          secondaryCtaHref: string;
+          cards: Array<{
+            id: number;
+            slug: string;
+            name: string;
+            price: number;
+            oldPrice: number | null;
+            image: string;
+            badge: string | null;
+            inStock: boolean;
+            categoryName?: string | null;
+          }>;
+        }
+      | {
+          id: string;
+          type: "promo";
+          theme: "light" | "soft-cyan" | "mesh" | "dark";
+          eyebrow: string;
+          title: string;
+          subtitle: string;
+          description: string;
+          accent: string;
+          primaryCtaLabel: string;
+          primaryCtaHref: string;
+          secondaryCtaLabel: string;
+          secondaryCtaHref: string;
+        }
+      | {
+          id: string;
+          type: "categories";
+          theme: "light" | "soft-cyan" | "mesh" | "dark";
+          eyebrow: string;
+          title: string;
+          subtitle: string;
+          description: string;
+          accent: string;
+          primaryCtaLabel: string;
+          primaryCtaHref: string;
+          secondaryCtaLabel: string;
+          secondaryCtaHref: string;
+          categories: Array<{
+            id: number;
+            slug: string;
+            name: string;
+            imageUrl: string | null;
+            icon: string | null;
+            productCount: number;
+            href: string;
+          }>;
+        }
+      | {
+          id: string;
+          type: "brands";
+          theme: "light" | "soft-cyan" | "mesh" | "dark";
+          eyebrow: string;
+          title: string;
+          subtitle: string;
+          description: string;
+          accent: string;
+          primaryCtaLabel: string;
+          primaryCtaHref: string;
+          secondaryCtaLabel: string;
+          secondaryCtaHref: string;
+          brands: Array<{
+            id: number;
+            slug: string;
+            title: string;
+            logo: string;
+            productCount: number;
+            href: string;
+          }>;
+        }
+    >;
   } | null;
 };
 
@@ -77,7 +142,7 @@ export default function HomeHero({ hero, loading = false }: HomeHeroProps) {
     return <HomeHeroSkeleton />;
   }
 
-  if (hero?.variant === "interactive" && hero.cards.length > 0) {
+  if (hero?.variant === "interactive" && hero.slides.length > 0) {
     return <HeroPromoDynamic hero={hero} />;
   }
 

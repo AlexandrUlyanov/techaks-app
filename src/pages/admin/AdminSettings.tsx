@@ -1,6 +1,7 @@
 import {
   KeyRound,
   Loader2,
+  Plus,
   RefreshCcw,
   Route,
   Save,
@@ -8,6 +9,12 @@ import {
   Trash2,
   CreditCard,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Package2,
+  Sparkles,
+  Store,
+  FolderKanban,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -21,6 +28,119 @@ import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 
 type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
+
+type HomepageHeroSlideType = "products" | "promo" | "categories" | "brands";
+type HomepageHeroSlideTheme = "light" | "soft-cyan" | "mesh" | "dark";
+
+type HomepageHeroSlideForm = {
+  id: string;
+  enabled: boolean;
+  type: HomepageHeroSlideType;
+  theme: HomepageHeroSlideTheme;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  accent: string;
+  primaryCtaLabel: string;
+  primaryCtaHref: string;
+  secondaryCtaLabel: string;
+  secondaryCtaHref: string;
+  productSource: "manual" | "automatic";
+  autoSource: "recommended" | "latest" | "fallback";
+  itemsLimit: number;
+  manualProductIds: number[];
+  categorySlugs: string[];
+  manufacturerSlugs: string[];
+  activeFrom: string | null;
+  activeTo: string | null;
+};
+
+function createHeroSlideDraft(type: HomepageHeroSlideType): HomepageHeroSlideForm {
+  const baseId = `hero-slide-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const shared = {
+    id: baseId,
+    enabled: true,
+    theme: "soft-cyan" as HomepageHeroSlideTheme,
+    eyebrow: "",
+    title: "",
+    subtitle: "",
+    description: "",
+    accent: "",
+    primaryCtaLabel: "",
+    primaryCtaHref: "",
+    secondaryCtaLabel: "",
+    secondaryCtaHref: "",
+    productSource: "automatic" as const,
+    autoSource: "recommended" as const,
+    itemsLimit: 4,
+    manualProductIds: [] as number[],
+    categorySlugs: [] as string[],
+    manufacturerSlugs: [] as string[],
+    activeFrom: null as string | null,
+    activeTo: null as string | null,
+  };
+
+  if (type === "products") {
+    return {
+      ...shared,
+      type,
+      eyebrow: "В наличии",
+      title: "Новая товарная витрина",
+      subtitle: "Актуальные позиции прямо на первом экране.",
+      primaryCtaLabel: "Перейти в каталог",
+      primaryCtaHref: "/catalog",
+    };
+  }
+
+  if (type === "promo") {
+    return {
+      ...shared,
+      type,
+      eyebrow: "Акция",
+      title: "Промо-слайд главной",
+      subtitle: "Используйте hero для акций, запусков и сезонных кампаний.",
+      primaryCtaLabel: "Открыть каталог",
+      primaryCtaHref: "/catalog",
+    };
+  }
+
+  if (type === "categories") {
+    return {
+      ...shared,
+      type,
+      theme: "light",
+      eyebrow: "Быстрый выбор",
+      title: "Главные разделы каталога",
+      subtitle: "Покажем категории прямо в hero без лишней навигации.",
+      primaryCtaLabel: "Смотреть разделы",
+      primaryCtaHref: "/catalog",
+      itemsLimit: 6,
+    };
+  }
+
+  return {
+    ...shared,
+    type,
+    theme: "mesh",
+    eyebrow: "Производители",
+    title: "Проверенные бренды",
+    subtitle: "Соберите отдельный hero-слайд с брендами и логотипами.",
+    primaryCtaLabel: "Все производители",
+    primaryCtaHref: "/catalog?view=brands&brand=all",
+    itemsLimit: 6,
+  };
+}
+
+const heroSlideTypeMeta: Record<
+  HomepageHeroSlideType,
+  { label: string; icon: typeof Package2 }
+> = {
+  products: { label: "Товары", icon: Package2 },
+  promo: { label: "Промо", icon: Sparkles },
+  categories: { label: "Категории", icon: FolderKanban },
+  brands: { label: "Бренды", icon: Store },
+};
 
 export default function AdminSettings() {
   const location = useLocation();
@@ -71,34 +191,30 @@ export default function AdminSettings() {
   const [homepageHeroVariant, setHomepageHeroVariant] = useState<
     "classic" | "interactive"
   >("classic");
-  const [homepageHeroMode, setHomepageHeroMode] = useState<"manual" | "automatic">(
-    "automatic"
+  const [homepageHeroSlides, setHomepageHeroSlides] = useState<HomepageHeroSlideForm[]>(
+    []
   );
-  const [homepageHeroAutoSource, setHomepageHeroAutoSource] = useState<
-    "recommended" | "latest" | "fallback"
-  >("recommended");
-  const [homepageHeroItemsLimit, setHomepageHeroItemsLimit] = useState(4);
-  const [homepageHeroEyebrow, setHomepageHeroEyebrow] = useState("");
-  const [homepageHeroTitle, setHomepageHeroTitle] = useState("");
-  const [homepageHeroSubtitle, setHomepageHeroSubtitle] = useState("");
-  const [homepageHeroDescription, setHomepageHeroDescription] = useState("");
-  const [homepageHeroPrimaryLabel, setHomepageHeroPrimaryLabel] = useState("");
-  const [homepageHeroPrimaryHref, setHomepageHeroPrimaryHref] = useState("");
-  const [homepageHeroSecondaryLabel, setHomepageHeroSecondaryLabel] = useState("");
-  const [homepageHeroSecondaryHref, setHomepageHeroSecondaryHref] = useState("");
-  const [homepageHeroBenefits, setHomepageHeroBenefits] = useState<string[]>([
-    "",
-    "",
-    "",
-    "",
-  ]);
-  const [homepageHeroManualProductIds, setHomepageHeroManualProductIds] = useState<
-    number[]
-  >([]);
+  const [activeHeroSlideId, setActiveHeroSlideId] = useState<string | null>(null);
+
+  const activeHeroSlide = useMemo(
+    () => homepageHeroSlides.find(slide => slide.id === activeHeroSlideId) ?? null,
+    [activeHeroSlideId, homepageHeroSlides]
+  );
+  const homepageHeroAllManualProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          homepageHeroSlides.flatMap(slide =>
+            slide.type === "products" ? slide.manualProductIds : []
+          )
+        )
+      ),
+    [homepageHeroSlides]
+  );
   const { data: homepageHeroSelectedProducts } = trpc.product.getByIds.useQuery(
-    { ids: homepageHeroManualProductIds },
+    { ids: homepageHeroAllManualProductIds },
     {
-      enabled: activeTab === "site" && homepageHeroManualProductIds.length > 0,
+      enabled: activeTab === "site" && homepageHeroAllManualProductIds.length > 0,
       staleTime: 30_000,
     }
   );
@@ -189,21 +305,8 @@ export default function AdminSettings() {
   useEffect(() => {
     if (!homepageHeroAdminSettings) return;
     setHomepageHeroVariant(homepageHeroAdminSettings.variant);
-    setHomepageHeroMode(homepageHeroAdminSettings.mode);
-    setHomepageHeroAutoSource(homepageHeroAdminSettings.autoSource);
-    setHomepageHeroItemsLimit(homepageHeroAdminSettings.itemsLimit);
-    setHomepageHeroEyebrow(homepageHeroAdminSettings.eyebrow);
-    setHomepageHeroTitle(homepageHeroAdminSettings.title);
-    setHomepageHeroSubtitle(homepageHeroAdminSettings.subtitle);
-    setHomepageHeroDescription(homepageHeroAdminSettings.description);
-    setHomepageHeroPrimaryLabel(homepageHeroAdminSettings.primaryCtaLabel);
-    setHomepageHeroPrimaryHref(homepageHeroAdminSettings.primaryCtaHref);
-    setHomepageHeroSecondaryLabel(homepageHeroAdminSettings.secondaryCtaLabel);
-    setHomepageHeroSecondaryHref(homepageHeroAdminSettings.secondaryCtaHref);
-    setHomepageHeroBenefits(
-      [...homepageHeroAdminSettings.benefits, "", "", "", ""].slice(0, 4)
-    );
-    setHomepageHeroManualProductIds(homepageHeroAdminSettings.manualProductIds);
+    setHomepageHeroSlides(homepageHeroAdminSettings.slides);
+    setActiveHeroSlideId(homepageHeroAdminSettings.slides[0]?.id ?? null);
   }, [homepageHeroAdminSettings]);
 
   const saveMaintenanceMutation = trpc.settings.saveMaintenanceSettings.useMutation({
@@ -408,33 +511,75 @@ export default function AdminSettings() {
     }));
   };
 
-  const updateHeroBenefit = (index: number, value: string) => {
-    setHomepageHeroBenefits(prev =>
-      prev.map((item, itemIndex) => (itemIndex === index ? value : item))
+  const updateHeroSlide = (
+    slideId: string,
+    updater: (slide: HomepageHeroSlideForm) => HomepageHeroSlideForm
+  ) => {
+    setHomepageHeroSlides(prev =>
+      prev.map(slide => (slide.id === slideId ? updater(slide) : slide))
     );
   };
 
-  const addHeroManualProduct = (productId: number) => {
-    setHomepageHeroManualProductIds(prev =>
-      prev.includes(productId) ? prev : [...prev, productId].slice(0, 6)
-    );
+  const addHeroSlide = (type: HomepageHeroSlideType) => {
+    const draft = createHeroSlideDraft(type);
+    setHomepageHeroSlides(prev => [...prev, draft].slice(0, 8));
+    setActiveHeroSlideId(draft.id);
   };
 
-  const removeHeroManualProduct = (productId: number) => {
-    setHomepageHeroManualProductIds(prev =>
-      prev.filter(item => item !== productId)
-    );
+  const removeHeroSlide = (slideId: string) => {
+    setHomepageHeroSlides(prev => {
+      const next = prev.filter(slide => slide.id !== slideId);
+      if (activeHeroSlideId === slideId) {
+        setActiveHeroSlideId(next[0]?.id ?? null);
+      }
+      return next;
+    });
   };
 
-  const moveHeroManualProduct = (productId: number, direction: -1 | 1) => {
-    setHomepageHeroManualProductIds(prev => {
-      const index = prev.indexOf(productId);
+  const moveHeroSlide = (slideId: string, direction: -1 | 1) => {
+    setHomepageHeroSlides(prev => {
+      const index = prev.findIndex(slide => slide.id === slideId);
       if (index < 0) return prev;
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= prev.length) return prev;
       const next = [...prev];
       [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
       return next;
+    });
+  };
+
+  const addHeroManualProduct = (slideId: string, productId: number) => {
+    updateHeroSlide(slideId, slide => ({
+      ...slide,
+      manualProductIds: slide.manualProductIds.includes(productId)
+        ? slide.manualProductIds
+        : [...slide.manualProductIds, productId].slice(0, 8),
+    }));
+  };
+
+  const removeHeroManualProduct = (slideId: string, productId: number) => {
+    updateHeroSlide(slideId, slide => ({
+      ...slide,
+      manualProductIds: slide.manualProductIds.filter(item => item !== productId),
+    }));
+  };
+
+  const moveHeroManualProduct = (
+    slideId: string,
+    productId: number,
+    direction: -1 | 1
+  ) => {
+    updateHeroSlide(slideId, slide => {
+      const index = slide.manualProductIds.indexOf(productId);
+      if (index < 0) return slide;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= slide.manualProductIds.length) return slide;
+      const next = [...slide.manualProductIds];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return {
+        ...slide,
+        manualProductIds: next,
+      };
     });
   };
 
@@ -971,21 +1116,7 @@ export default function AdminSettings() {
                 onClick={() =>
                   saveHomepageHeroMutation.mutate({
                     variant: homepageHeroVariant,
-                    mode: homepageHeroMode,
-                    autoSource: homepageHeroAutoSource,
-                    itemsLimit: homepageHeroItemsLimit,
-                    eyebrow: homepageHeroEyebrow,
-                    title: homepageHeroTitle,
-                    subtitle: homepageHeroSubtitle,
-                    description: homepageHeroDescription,
-                    primaryCtaLabel: homepageHeroPrimaryLabel,
-                    primaryCtaHref: homepageHeroPrimaryHref,
-                    secondaryCtaLabel: homepageHeroSecondaryLabel,
-                    secondaryCtaHref: homepageHeroSecondaryHref,
-                    benefits: homepageHeroBenefits
-                      .map(item => item.trim())
-                      .filter(Boolean),
-                    manualProductIds: homepageHeroManualProductIds,
+                    slides: homepageHeroSlides,
                   })
                 }
                 disabled={
@@ -1041,269 +1172,540 @@ export default function AdminSettings() {
                 })}
               </div>
 
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">
-                        Режим наполнения
-                      </label>
-                      <select
-                        value={homepageHeroMode}
-                        onChange={e =>
-                          setHomepageHeroMode(e.target.value as "manual" | "automatic")
-                        }
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      >
-                        <option value="automatic">Автоматически</option>
-                        <option value="manual">Вручную</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">
-                        Количество карточек
-                      </label>
-                      <input
-                        type="number"
-                        min={2}
-                        max={6}
-                        value={homepageHeroItemsLimit}
-                        onChange={e =>
-                          setHomepageHeroItemsLimit(
-                            Math.min(6, Math.max(2, Number(e.target.value) || 4))
-                          )
-                        }
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-bold text-[#15171A]">Eyebrow</label>
-                      <input
-                        value={homepageHeroEyebrow}
-                        onChange={e => setHomepageHeroEyebrow(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-bold text-[#15171A]">Заголовок</label>
-                      <textarea
-                        rows={3}
-                        value={homepageHeroTitle}
-                        onChange={e => setHomepageHeroTitle(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-bold text-[#15171A]">Подзаголовок</label>
-                      <textarea
-                        rows={2}
-                        value={homepageHeroSubtitle}
-                        onChange={e => setHomepageHeroSubtitle(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-bold text-[#15171A]">Описание</label>
-                      <textarea
-                        rows={4}
-                        value={homepageHeroDescription}
-                        onChange={e => setHomepageHeroDescription(e.target.value)}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Основная кнопка</label>
-                      <input
-                        value={homepageHeroPrimaryLabel}
-                        onChange={e => setHomepageHeroPrimaryLabel(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Ссылка основной кнопки</label>
-                      <input
-                        value={homepageHeroPrimaryHref}
-                        onChange={e => setHomepageHeroPrimaryHref(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Вторичная кнопка</label>
-                      <input
-                        value={homepageHeroSecondaryLabel}
-                        onChange={e => setHomepageHeroSecondaryLabel(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#15171A]">Ссылка вторичной кнопки</label>
-                      <input
-                        value={homepageHeroSecondaryHref}
-                        onChange={e => setHomepageHeroSecondaryHref(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-bold text-[#15171A]">Плашки преимуществ</label>
-                      <p className="mt-1 text-xs text-gray-500">
-                        До четырёх коротких преимуществ под hero-блоком.
-                      </p>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {homepageHeroBenefits.map((benefit, index) => (
-                        <input
-                          key={index}
-                          value={benefit}
-                          onChange={e => updateHeroBenefit(index, e.target.value)}
-                          placeholder={`Преимущество ${index + 1}`}
-                          className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-[#15171A]">
-                      Источник товаров
-                    </label>
-                    <select
-                      value={homepageHeroAutoSource}
-                      onChange={e =>
-                        setHomepageHeroAutoSource(
-                          e.target.value as "recommended" | "latest" | "fallback"
-                        )
+              {homepageHeroVariant === "interactive" ? (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap gap-3">
+                    {(["products", "promo", "categories", "brands"] as HomepageHeroSlideType[]).map(
+                      type => {
+                        const meta = heroSlideTypeMeta[type];
+                        const Icon = meta.icon;
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => addHeroSlide(type)}
+                            className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-[#15171A] transition hover:border-[#05C3D4] hover:text-[#05C3D4]"
+                          >
+                            <Plus size={15} />
+                            <Icon size={15} />
+                            {meta.label}
+                          </button>
+                        );
                       }
-                      disabled={homepageHeroMode === "manual"}
-                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:bg-gray-50"
-                    >
-                      <option value="recommended">Рекомендованные товары</option>
-                      <option value="latest">Последние опубликованные</option>
-                      <option value="fallback">Fallback-выборка витрины</option>
-                    </select>
+                    )}
                   </div>
 
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <div className="text-sm font-black text-[#15171A]">
-                      Ручной список карточек
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">
-                      В manual-режиме эти товары идут в правую зону hero в указанном порядке.
-                    </p>
-
-                    <div className="mt-4 space-y-3">
-                      {homepageHeroManualProductIds.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
-                          Пока ничего не выбрано. Можно оставить automatic или подобрать товары вручную ниже.
-                        </div>
-                      ) : (
-                        homepageHeroManualProductIds.map((productId, index) => {
-                          const product = homepageHeroSelectedProducts?.find(
-                            item => item.id === productId
-                          );
-                          return (
-                            <div
-                              key={productId}
-                              className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
-                            >
-                              <div className="min-w-0">
-                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
-                                  Карточка {index + 1}
-                                </div>
-                                <div className="mt-1 truncate text-sm font-bold text-[#15171A]">
-                                  {product?.name || `Товар #${productId}`}
-                                </div>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => moveHeroManualProduct(productId, -1)}
-                                  disabled={index === 0}
-                                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveHeroManualProduct(productId, 1)}
-                                  disabled={index === homepageHeroManualProductIds.length - 1}
-                                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
-                                >
-                                  ↓
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeHeroManualProduct(productId)}
-                                  className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600"
-                                >
-                                  Убрать
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-bold text-[#15171A]">Подобрать товары</label>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Поиск работает по названию и slug. Добавляем только видимые карточки сайта.
-                      </p>
-                    </div>
-                    <input
-                      value={heroProductSearch}
-                      onChange={e => setHeroProductSearch(e.target.value)}
-                      placeholder="Например: iPhone, HOCO, колонка"
-                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                    />
-                    <div className="space-y-2">
-                      {(heroProductSearchResults?.items ?? []).map(product => (
+                  <div className="space-y-4">
+                    {homepageHeroSlides.map((slide, index) => {
+                      const meta = heroSlideTypeMeta[slide.type];
+                      const Icon = meta.icon;
+                      const isPickerTarget = activeHeroSlideId === slide.id;
+                      return (
                         <div
-                          key={product.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                          key={slide.id}
+                          className={`rounded-2xl border p-5 transition ${
+                            isPickerTarget
+                              ? "border-[#05C3D4] bg-[#EAFBFD]"
+                              : "border-gray-200 bg-white"
+                          }`}
                         >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-bold text-[#15171A]">
-                              {product.name}
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                                  <Icon size={14} />
+                                  {meta.label}
+                                </span>
+                                <span className="text-xs font-bold text-gray-500">
+                                  Слайд {index + 1}
+                                </span>
+                              </div>
+                              <div className="mt-3 text-lg font-black text-[#15171A]">
+                                {slide.title || "Без заголовка"}
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                {slide.subtitle || "Контент и визуальный сценарий этого слайда."}
+                              </div>
                             </div>
-                            <div className="mt-1 text-xs text-gray-500">
-                              {product.slug} · {product.categoryName || "Без категории"}
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setActiveHeroSlideId(slide.id)}
+                                className={`rounded-xl px-3 py-2 text-xs font-black ${
+                                  isPickerTarget
+                                    ? "bg-[#05C3D4] text-black"
+                                    : "border border-gray-200 text-gray-700"
+                                }`}
+                              >
+                                {slide.type === "products"
+                                  ? "Подбор товаров"
+                                  : "Выбран для редактирования"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveHeroSlide(slide.id, -1)}
+                                disabled={index === 0}
+                                className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-black text-gray-700 disabled:opacity-40"
+                              >
+                                <ChevronUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveHeroSlide(slide.id, 1)}
+                                disabled={index === homepageHeroSlides.length - 1}
+                                className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-black text-gray-700 disabled:opacity-40"
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeHeroSlide(slide.id)}
+                                className="rounded-xl border border-red-200 px-3 py-2 text-xs font-black text-red-600"
+                              >
+                                Удалить
+                              </button>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => addHeroManualProduct(product.id)}
-                            disabled={homepageHeroManualProductIds.includes(product.id)}
-                            className="shrink-0 rounded-xl bg-[#05C3D4] px-3 py-2 text-xs font-black text-black disabled:opacity-40"
-                          >
-                            {homepageHeroManualProductIds.includes(product.id)
-                              ? "Добавлен"
-                              : "Добавить"}
-                          </button>
+
+                          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">Тип</span>
+                              <select
+                                value={slide.type}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    type: e.target.value as HomepageHeroSlideType,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              >
+                                <option value="products">Товары</option>
+                                <option value="promo">Промо</option>
+                                <option value="categories">Категории</option>
+                                <option value="brands">Бренды</option>
+                              </select>
+                            </label>
+
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">Тема</span>
+                              <select
+                                value={slide.theme}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    theme: e.target.value as HomepageHeroSlideTheme,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              >
+                                <option value="soft-cyan">Soft cyan</option>
+                                <option value="light">Light</option>
+                                <option value="mesh">Mesh</option>
+                                <option value="dark">Dark</option>
+                              </select>
+                            </label>
+
+                            <label className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={slide.enabled}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    enabled: e.target.checked,
+                                  }))
+                                }
+                              />
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Слайд активен
+                              </span>
+                            </label>
+
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Кол-во элементов
+                              </span>
+                              <input
+                                type="number"
+                                min={2}
+                                max={8}
+                                value={slide.itemsLimit}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    itemsLimit: Math.min(
+                                      8,
+                                      Math.max(2, Number(e.target.value) || 4)
+                                    ),
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">Eyebrow</span>
+                              <input
+                                value={slide.eyebrow}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    eyebrow: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Акцент / плашка
+                              </span>
+                              <input
+                                value={slide.accent}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    accent: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2 md:col-span-2">
+                              <span className="text-sm font-bold text-[#15171A]">Заголовок</span>
+                              <textarea
+                                rows={2}
+                                value={slide.title}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    title: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2 md:col-span-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Подзаголовок
+                              </span>
+                              <textarea
+                                rows={2}
+                                value={slide.subtitle}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    subtitle: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2 md:col-span-2">
+                              <span className="text-sm font-bold text-[#15171A]">Описание</span>
+                              <textarea
+                                rows={3}
+                                value={slide.description}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    description: e.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Основная кнопка
+                              </span>
+                              <input
+                                value={slide.primaryCtaLabel}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    primaryCtaLabel: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Ссылка основной кнопки
+                              </span>
+                              <input
+                                value={slide.primaryCtaHref}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    primaryCtaHref: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Вторичная кнопка
+                              </span>
+                              <input
+                                value={slide.secondaryCtaLabel}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    secondaryCtaLabel: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Ссылка вторичной кнопки
+                              </span>
+                              <input
+                                value={slide.secondaryCtaHref}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    secondaryCtaHref: e.target.value,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Показывать с
+                              </span>
+                              <input
+                                type="datetime-local"
+                                value={slide.activeFrom ?? ""}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    activeFrom: e.target.value || null,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-sm font-bold text-[#15171A]">
+                                Показывать до
+                              </span>
+                              <input
+                                type="datetime-local"
+                                value={slide.activeTo ?? ""}
+                                onChange={e =>
+                                  updateHeroSlide(slide.id, current => ({
+                                    ...current,
+                                    activeTo: e.target.value || null,
+                                  }))
+                                }
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                              />
+                            </label>
+                          </div>
+
+                          {slide.type === "products" ? (
+                            <div className="mt-4 space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                              <div className="grid gap-4 md:grid-cols-3">
+                                <label className="space-y-2">
+                                  <span className="text-sm font-bold text-[#15171A]">
+                                    Источник товаров
+                                  </span>
+                                  <select
+                                    value={slide.productSource}
+                                    onChange={e =>
+                                      updateHeroSlide(slide.id, current => ({
+                                        ...current,
+                                        productSource: e.target.value as "manual" | "automatic",
+                                      }))
+                                    }
+                                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                                  >
+                                    <option value="automatic">Автоматически</option>
+                                    <option value="manual">Вручную</option>
+                                  </select>
+                                </label>
+                                <label className="space-y-2 md:col-span-2">
+                                  <span className="text-sm font-bold text-[#15171A]">
+                                    Автоматическая выборка
+                                  </span>
+                                  <select
+                                    value={slide.autoSource}
+                                    onChange={e =>
+                                      updateHeroSlide(slide.id, current => ({
+                                        ...current,
+                                        autoSource: e.target.value as
+                                          | "recommended"
+                                          | "latest"
+                                          | "fallback",
+                                      }))
+                                    }
+                                    disabled={slide.productSource === "manual"}
+                                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:bg-gray-100"
+                                  >
+                                    <option value="recommended">Рекомендованные товары</option>
+                                    <option value="latest">Последние опубликованные</option>
+                                    <option value="fallback">Fallback-выборка витрины</option>
+                                  </select>
+                                </label>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div className="text-sm font-black text-[#15171A]">
+                                  Ручной список товаров
+                                </div>
+                                {slide.manualProductIds.length === 0 ? (
+                                  <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
+                                    Пока ничего не выбрано. Для manual-режима выберите этот
+                                    слайд и добавьте товары ниже.
+                                  </div>
+                                ) : (
+                                  slide.manualProductIds.map((productId, productIndex) => {
+                                    const product = homepageHeroSelectedProducts?.find(
+                                      item => item.id === productId
+                                    );
+                                    return (
+                                      <div
+                                        key={productId}
+                                        className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                                      >
+                                        <div className="min-w-0">
+                                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                                            Карточка {productIndex + 1}
+                                          </div>
+                                          <div className="mt-1 truncate text-sm font-bold text-[#15171A]">
+                                            {product?.name || `Товар #${productId}`}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              moveHeroManualProduct(slide.id, productId, -1)
+                                            }
+                                            disabled={productIndex === 0}
+                                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                          >
+                                            ↑
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              moveHeroManualProduct(slide.id, productId, 1)
+                                            }
+                                            disabled={
+                                              productIndex === slide.manualProductIds.length - 1
+                                            }
+                                            className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                          >
+                                            ↓
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              removeHeroManualProduct(slide.id, productId)
+                                            }
+                                            className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600"
+                                          >
+                                            Убрать
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {slide.type === "categories" ? (
+                            <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm leading-6 text-gray-600">
+                              Если список slug пустой, storefront возьмёт верхние категории
+                              каталога автоматически. Позже сюда можно добавить ручной подбор
+                              разделов.
+                            </div>
+                          ) : null}
+
+                          {slide.type === "brands" ? (
+                            <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm leading-6 text-gray-600">
+                              Брендовый слайд собирает витрину из производителей с логотипами.
+                              Если slug-подбор не задан, покажем лидирующие бренды каталога.
+                            </div>
+                          ) : null}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
+
+                  {activeHeroSlide?.type === "products" ? (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <div className="flex items-center gap-2 text-sm font-black text-[#15171A]">
+                        <Package2 size={16} className="text-[#05C3D4]" />
+                        Подобрать товары для выбранного слайда
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-gray-500">
+                        Поиск работает по названию и slug. Добавляем только видимые карточки сайта.
+                      </p>
+                      <input
+                        value={heroProductSearch}
+                        onChange={e => setHeroProductSearch(e.target.value)}
+                        placeholder="Например: iPhone, HOCO, колонка"
+                        className="mt-4 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                      />
+                      <div className="mt-4 space-y-2">
+                        {(heroProductSearchResults?.items ?? []).map(product => (
+                          <div
+                            key={product.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-bold text-[#15171A]">
+                                {product.name}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-500">
+                                {product.slug} · {product.categoryName || "Без категории"}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                activeHeroSlide &&
+                                addHeroManualProduct(activeHeroSlide.id, product.id)
+                              }
+                              disabled={activeHeroSlide.manualProductIds.includes(product.id)}
+                              className="shrink-0 rounded-xl bg-[#05C3D4] px-3 py-2 text-xs font-black text-black disabled:opacity-40"
+                            >
+                              {activeHeroSlide.manualProductIds.includes(product.id)
+                                ? "Добавлен"
+                                : "Добавить"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
+              ) : null}
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 <span className="font-black text-[#15171A]">Сейчас на сайте:</span>{" "}
                 {homepageHeroVariant === "interactive"
-                  ? "динамический промо-hero"
+                  ? "визуальный promo-hero со слайдами"
                   : "классический hero (текущая версия)"}.
                 {homepageHeroSettings?.isDefault ? (
                   <span>
