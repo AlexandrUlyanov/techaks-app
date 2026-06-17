@@ -173,7 +173,7 @@ export default function ProductSpecsTab({
           return (
             <section
               key={group.title}
-              className="space-y-5 rounded-[1.9rem] bg-[var(--tech-color-surface-muted)]/28 px-5 py-5 md:px-6 md:py-6"
+              className="space-y-5 rounded-[1.9rem] bg-[var(--tech-color-surface-muted)]/22 px-5 py-5 md:px-6 md:py-6"
             >
               <div className="flex items-center gap-4">
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(5,195,212,0.12)] text-[#05C3D4]">
@@ -189,24 +189,20 @@ export default function ProductSpecsTab({
                 </div>
               </div>
 
-              <dl className="space-y-0">
-                {visibleItems.map(([key, value], index) => {
-                  const isLast = index === visibleItems.length - 1;
-
+              <dl className="max-w-[980px] space-y-2.5 md:space-y-3">
+                {visibleItems.map(([key, value]) => {
                   return (
                   <div
                     key={`${group.title}-${key}`}
                     className={cn(
-                      "grid items-start gap-2 rounded-[20px] px-4 py-4 transition-colors duration-200 md:grid-cols-[minmax(180px,220px)_minmax(44px,1fr)_minmax(260px,1.3fr)] md:gap-4 md:px-5",
-                      "hover:bg-white/50 dark:hover:bg-white/[0.03]",
-                      !isLast && "border-b border-[var(--tech-color-border)]/55"
+                      "grid items-start gap-2.5 rounded-[22px] bg-white/72 px-4 py-4 transition-colors duration-200 md:grid-cols-[minmax(168px,220px)_minmax(0,1fr)] md:items-baseline md:gap-8 md:px-5 md:py-[18px] dark:bg-white/[0.03]",
+                      "hover:bg-white dark:hover:bg-white/[0.05]"
                     )}
                   >
-                    <dt className="pt-0.5 text-sm font-medium text-muted-foreground">
+                    <dt className="pt-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/85 md:pr-3 md:text-[12px]">
                       {key}
                     </dt>
-                    <span className="hidden translate-y-[12px] border-b border-dotted border-[var(--tech-color-border)]/75 md:block" />
-                    <dd className="text-[15px] font-semibold leading-7 text-foreground md:text-left">
+                    <dd className="max-w-[720px] text-[15px] font-semibold leading-6 text-foreground md:text-[15px] md:leading-7 md:text-left">
                       {String(value)}
                     </dd>
                   </div>
