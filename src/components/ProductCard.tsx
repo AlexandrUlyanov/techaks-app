@@ -270,7 +270,7 @@ export default function ProductCard({
                   {activeImageIndex + 1} / {productImages.length}
                 </div>
                 <div
-                  className={`pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
+                  className={`pointer-events-none absolute inset-x-0 bottom-1 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
                     isImagePreviewActive ? "opacity-100" : "opacity-0"
                   }`}
                 >
@@ -384,7 +384,7 @@ export default function ProductCard({
                 {activeImageIndex + 1} / {productImages.length}
               </div>
               <div
-                className={`pointer-events-none absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
+                className={`pointer-events-none absolute inset-x-0 bottom-1.5 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
                   isImagePreviewActive ? "opacity-100" : "opacity-0"
                 }`}
               >
