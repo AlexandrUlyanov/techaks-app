@@ -79,7 +79,7 @@ export default function HomePage() {
     ],
   });
 
-  const { data: homepageData } = trpc.home.getPageData.useQuery(
+  const { data: homepageData, isLoading: isHomepageDataLoading } = trpc.home.getPageData.useQuery(
     undefined,
     HOME_QUERY_OPTIONS
   );
@@ -131,7 +131,10 @@ export default function HomePage() {
 
   return (
     <div className="pb-16 md:pb-0 bg-background text-foreground transition-colors duration-500">
-      <HomeHero hero={homepageData?.hero ?? null} />
+      <HomeHero
+        hero={homepageData?.hero ?? null}
+        loading={isHomepageDataLoading && !homepageData}
+      />
 
       {/* Category Grid */}
       <section className="py-16 bg-card border-t border-border">
