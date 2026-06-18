@@ -15,6 +15,8 @@ export interface CartItem {
   quantity: number;
 }
 
+const CART_STORAGE_KEY = "techaks-cart";
+
 function buildCartKey(productId: number, variantId?: number | null) {
   return `${productId}:${typeof variantId === "number" ? variantId : 0}`;
 }
@@ -82,7 +84,16 @@ export const useCart = create<CartStore>()(
             cartKey: item.cartKey || buildCartKey(item.id, item.variantId),
           })),
         }),
-      clearCart: () => set({ items: [] }),
+      clearCart: () => {
+        set({ items: [] });
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.removeItem(CART_STORAGE_KEY);
+          } catch {
+            // ignore storage cleanup errors; in-memory state is already empty
+          }
+        }
+      },
       getTotalPrice: () => {
         return get().items.reduce(
           (total, item) => total + item.price * item.quantity,
@@ -94,7 +105,7 @@ export const useCart = create<CartStore>()(
       },
     }),
     {
-      name: "techaks-cart",
+      name: CART_STORAGE_KEY,
       version: 2,
       migrate: (persistedState: any) => {
         const items = Array.isArray(persistedState?.items)

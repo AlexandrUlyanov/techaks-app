@@ -26,6 +26,7 @@ import AdminAuthSettingsPanel from "@/components/admin/AdminAuthSettingsPanel";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
+import HeroPromoDynamic, { type HeroData, type HeroSlide } from "@/components/HeroPromoDynamic";
 
 type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
 
@@ -142,6 +143,187 @@ const heroSlideTypeMeta: Record<
   brands: { label: "Бренды", icon: Store },
 };
 
+function buildHeroSlideWarnings(slide: HomepageHeroSlideForm) {
+  const warnings: string[] = [];
+  const titleLength = slide.title.trim().length;
+  const subtitleLength = slide.subtitle.trim().length;
+  const descriptionLength = slide.description.trim().length;
+
+  if (!slide.enabled) {
+    warnings.push("Слайд выключен и не попадёт на витрину.");
+  }
+
+  if (titleLength === 0) {
+    warnings.push("Нет заголовка — storefront покажет fallback-текст.");
+  } else if (titleLength > 96) {
+    warnings.push("Заголовок слишком длинный для первого экрана.");
+  }
+
+  if (subtitleLength > 180) {
+    warnings.push("Подзаголовок лучше сократить, иначе mobile станет тяжёлым.");
+  }
+
+  if (descriptionLength > 260) {
+    warnings.push("Описание уже слишком длинное для hero-сцены.");
+  }
+
+  if (!slide.primaryCtaLabel.trim() || !slide.primaryCtaHref.trim()) {
+    warnings.push("Нет основной CTA-кнопки или ссылки.");
+  }
+
+  if (slide.activeFrom && slide.activeTo && new Date(slide.activeFrom) > new Date(slide.activeTo)) {
+    warnings.push("Диапазон показа задан некорректно: дата начала позже даты окончания.");
+  }
+
+  if (slide.type === "products") {
+    if (slide.productSource === "manual" && slide.manualProductIds.length === 0) {
+      warnings.push("Manual-режим выбран, но товары не добавлены.");
+    }
+  }
+
+  if (slide.type === "categories" && slide.itemsLimit < 3) {
+    warnings.push("Для категорий лучше держать не меньше 3 элементов.");
+  }
+
+  if (slide.type === "brands" && slide.itemsLimit < 4) {
+    warnings.push("Брендовый слайд выглядит лучше с 4+ элементами.");
+  }
+
+  return warnings;
+}
+
+function mapSlideToHeroPreview(
+  slide: HomepageHeroSlideForm,
+  products: Array<{ id: number; slug: string; name: string; price: number; oldPrice?: number | null; imageUrl?: string | null; image?: string | null; inStock?: boolean; categoryName?: string | null }> | undefined
+): HeroSlide {
+  if (slide.type === "products") {
+    const resolvedCards = slide.manualProductIds
+      .map(productId => products?.find(product => product.id === productId))
+      .filter(Boolean)
+      .slice(0, slide.itemsLimit)
+      .map(product => ({
+        id: product!.id,
+        slug: product!.slug,
+        name: product!.name,
+        price: product!.price,
+        oldPrice: product!.oldPrice ?? null,
+          image: product!.imageUrl || product!.image || "/images/placeholder.jpg",
+        badge: slide.accent || null,
+        inStock: Boolean(product!.inStock),
+        categoryName: product!.categoryName ?? null,
+      }));
+
+    const previewCards =
+      resolvedCards.length > 0
+        ? resolvedCards
+        : Array.from({ length: Math.max(3, Math.min(slide.itemsLimit, 4)) }, (_, index) => ({
+            id: 10_000 + index,
+            slug: `preview-product-${index + 1}`,
+            name: `Товар витрины ${index + 1}`,
+            price: 1_990 + index * 500,
+            oldPrice: null,
+            image: "/images/placeholder.jpg",
+            badge: slide.accent || "Preview",
+            inStock: true,
+            categoryName: null,
+          }));
+
+    return {
+      id: slide.id,
+      type: "products",
+      theme: slide.theme,
+      eyebrow: slide.eyebrow,
+      title: slide.title,
+      subtitle: slide.subtitle,
+      description: slide.description,
+      accent: slide.accent,
+      primaryCtaLabel: slide.primaryCtaLabel,
+      primaryCtaHref: slide.primaryCtaHref,
+      secondaryCtaLabel: slide.secondaryCtaLabel,
+      secondaryCtaHref: slide.secondaryCtaHref,
+      cards: previewCards,
+    };
+  }
+
+  if (slide.type === "categories") {
+    const previewSlugs =
+      slide.categorySlugs.length > 0
+        ? slide.categorySlugs.slice(0, slide.itemsLimit)
+        : Array.from({ length: Math.max(3, Math.min(slide.itemsLimit, 6)) }, (_, index) =>
+            `preview-category-${index + 1}`
+          );
+    return {
+      id: slide.id,
+      type: "categories",
+      theme: slide.theme,
+      eyebrow: slide.eyebrow,
+      title: slide.title,
+      subtitle: slide.subtitle,
+      description: slide.description,
+      accent: slide.accent,
+      primaryCtaLabel: slide.primaryCtaLabel,
+      primaryCtaHref: slide.primaryCtaHref,
+      secondaryCtaLabel: slide.secondaryCtaLabel,
+      secondaryCtaHref: slide.secondaryCtaHref,
+      categories: previewSlugs.map((slug, index) => ({
+        id: index + 1,
+        slug,
+        name: slug.replace(/-/g, " "),
+        imageUrl: null,
+        icon: null,
+        productCount: 0,
+        href: `/catalog?cat=${slug}`,
+      })),
+    };
+  }
+
+  if (slide.type === "brands") {
+    const previewSlugs =
+      slide.manufacturerSlugs.length > 0
+        ? slide.manufacturerSlugs.slice(0, slide.itemsLimit)
+        : Array.from({ length: Math.max(4, Math.min(slide.itemsLimit, 6)) }, (_, index) =>
+            `preview-brand-${index + 1}`
+          );
+    return {
+      id: slide.id,
+      type: "brands",
+      theme: slide.theme,
+      eyebrow: slide.eyebrow,
+      title: slide.title,
+      subtitle: slide.subtitle,
+      description: slide.description,
+      accent: slide.accent,
+      primaryCtaLabel: slide.primaryCtaLabel,
+      primaryCtaHref: slide.primaryCtaHref,
+      secondaryCtaLabel: slide.secondaryCtaLabel,
+      secondaryCtaHref: slide.secondaryCtaHref,
+      brands: previewSlugs.map((slug, index) => ({
+        id: index + 1,
+        slug,
+        title: slug.replace(/-/g, " "),
+        logo: "/images/logo-light.svg",
+        productCount: 0,
+        href: `/catalog?view=brands&brand=${slug}`,
+      })),
+    };
+  }
+
+  return {
+    id: slide.id,
+    type: "promo",
+    theme: slide.theme,
+    eyebrow: slide.eyebrow,
+    title: slide.title,
+    subtitle: slide.subtitle,
+    description: slide.description,
+    accent: slide.accent,
+    primaryCtaLabel: slide.primaryCtaLabel,
+    primaryCtaHref: slide.primaryCtaHref,
+    secondaryCtaLabel: slide.secondaryCtaLabel,
+    secondaryCtaHref: slide.secondaryCtaHref,
+  };
+}
+
 export default function AdminSettings() {
   const location = useLocation();
   const utils = trpc.useUtils();
@@ -200,6 +382,10 @@ export default function AdminSettings() {
     () => homepageHeroSlides.find(slide => slide.id === activeHeroSlideId) ?? null,
     [activeHeroSlideId, homepageHeroSlides]
   );
+  const activeHeroSlideWarnings = useMemo(
+    () => (activeHeroSlide ? buildHeroSlideWarnings(activeHeroSlide) : []),
+    [activeHeroSlide]
+  );
   const homepageHeroAllManualProductIds = useMemo(
     () =>
       Array.from(
@@ -218,6 +404,12 @@ export default function AdminSettings() {
       staleTime: 30_000,
     }
   );
+  const activeHeroSlidePreview = useMemo<HeroData | null>(() => {
+    if (!activeHeroSlide) return null;
+    return {
+      slides: [mapSlideToHeroPreview(activeHeroSlide, homepageHeroSelectedProducts as any)],
+    };
+  }, [activeHeroSlide, homepageHeroSelectedProducts]);
   const [siteProfileForm, setSiteProfileForm] = useState({
     contacts: {
       primaryPhone: "",
@@ -1696,6 +1888,56 @@ export default function AdminSettings() {
                             </button>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeHeroSlide ? (
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.36fr)_minmax(0,0.64fr)]">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                        <div className="flex items-center gap-2 text-sm font-black text-[#15171A]">
+                          <ShieldCheck size={16} className="text-[#05C3D4]" />
+                          Проверка конфигурации
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {activeHeroSlideWarnings.length > 0 ? (
+                            activeHeroSlideWarnings.map(warning => (
+                              <div
+                                key={warning}
+                                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"
+                              >
+                                {warning}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800">
+                              Слайд выглядит валидно: можно публиковать без явных контентных рисков.
+                            </div>
+                          )}
+                          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
+                            Проверяем базовые риски: пустой anchor, слишком длинный текст,
+                            битые CTA и ручные product-слайды без карточек.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-4">
+                        <div className="mb-4 flex items-center justify-between gap-3 px-2">
+                          <div>
+                            <div className="text-sm font-black text-[#15171A]">Preview hero-слайда</div>
+                            <div className="mt-1 text-xs leading-5 text-gray-500">
+                              Быстрый storefront-preview без публикации.
+                            </div>
+                          </div>
+                          <span className="inline-flex rounded-full bg-[#EAFBFD] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                            {heroSlideTypeMeta[activeHeroSlide.type].label}
+                          </span>
+                        </div>
+                        {activeHeroSlidePreview ? (
+                          <div className="overflow-hidden rounded-[28px] border border-gray-100">
+                            <HeroPromoDynamic hero={activeHeroSlidePreview} preview />
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}

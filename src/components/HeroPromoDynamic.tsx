@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -41,7 +41,7 @@ type HeroBrandCard = {
   href: string;
 };
 
-type HeroSlide =
+export type HeroSlide =
   | {
       id: string;
       type: "products";
@@ -102,7 +102,7 @@ type HeroSlide =
       brands: HeroBrandCard[];
     };
 
-type HeroData = {
+export type HeroData = {
   slides: HeroSlide[];
 };
 
@@ -127,11 +127,30 @@ const themeShellClasses: Record<HeroSlide["theme"], string> = {
 };
 
 const themeStageClasses: Record<HeroSlide["theme"], string> = {
-  light: "bg-white/80",
-  "soft-cyan": "bg-white/74",
-  mesh: "bg-white/72",
-  dark: "bg-slate-950/30",
+  light: "bg-white/82",
+  "soft-cyan": "bg-white/76",
+  mesh: "bg-white/74",
+  dark: "bg-slate-950/36",
 };
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
@@ -156,29 +175,39 @@ function StageShell({
 }) {
   return (
     <div
-      className={`relative h-[420px] overflow-hidden rounded-[34px] p-6 md:h-[520px] md:p-8 ${themeStageClasses[slide.theme]}`}
+      className={`relative h-[320px] overflow-hidden rounded-[34px] p-4 sm:h-[360px] sm:p-5 md:h-[440px] md:p-6 xl:h-[520px] xl:p-8 ${themeStageClasses[slide.theme]}`}
     >
       <div className="pointer-events-none absolute inset-0 opacity-90">
-        <div className="absolute left-[12%] top-[10%] h-36 w-36 rounded-full bg-[#05C3D4]/10 blur-[70px]" />
-        <div className="absolute bottom-[10%] right-[8%] h-40 w-40 rounded-full bg-sky-200/35 blur-[90px] dark:bg-cyan-500/10" />
+        <div className="absolute left-[12%] top-[10%] h-28 w-28 rounded-full bg-[#05C3D4]/10 blur-[56px] sm:h-32 sm:w-32 md:h-36 md:w-36 md:blur-[70px]" />
+        <div className="absolute bottom-[10%] right-[8%] h-32 w-32 rounded-full bg-sky-200/35 blur-[68px] dark:bg-cyan-500/10 sm:h-36 sm:w-36 md:h-40 md:w-40 md:blur-[90px]" />
       </div>
       {children}
     </div>
   );
 }
 
-function ProductsStage({ slide }: { slide: Extract<HeroSlide, { type: "products" }> }) {
+function ProductsStage({
+  slide,
+  reducedMotion,
+}: {
+  slide: Extract<HeroSlide, { type: "products" }>;
+  reducedMotion: boolean;
+}) {
   return (
     <StageShell slide={slide}>
-      <div className="relative h-full">
+      <div className="relative hidden h-full lg:block">
         {slide.cards.slice(0, 6).map((card, index) => (
           <Link
             key={card.id}
             to={`/product/${card.slug}`}
-            className={`group absolute flex items-center justify-center rounded-full bg-white/96 p-5 transition-transform duration-300 hover:scale-[1.02] dark:bg-white ${bubbleLayout[index % bubbleLayout.length]}`}
-            style={{
-              animation: `heroStageFloat ${11 + index * 0.55}s ease-in-out ${index * -1.1}s infinite`,
-            }}
+            className={`group absolute flex items-center justify-center rounded-full bg-white/98 p-5 transition-opacity duration-300 dark:bg-white ${bubbleLayout[index % bubbleLayout.length]}`}
+            style={
+              reducedMotion
+                ? undefined
+                : {
+                    animation: `heroStageFloat ${11 + index * 0.55}s ease-in-out ${index * -1.1}s infinite`,
+                  }
+            }
           >
             <img
               src={card.image}
@@ -187,7 +216,7 @@ function ProductsStage({ slide }: { slide: Extract<HeroSlide, { type: "products"
               loading={index < 2 ? "eager" : "lazy"}
             />
 
-            <div className="pointer-events-none absolute -bottom-2 left-1/2 w-[220px] -translate-x-1/2 rounded-[24px] bg-white/92 p-4 opacity-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-opacity duration-300 group-hover:opacity-100">
+            <div className="pointer-events-none absolute -bottom-2 left-1/2 w-[220px] -translate-x-1/2 rounded-[24px] bg-white/94 p-4 opacity-0 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-opacity duration-300 group-hover:opacity-100">
               <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
                 {card.badge || (card.inStock ? "В наличии" : "Под заказ")}
               </div>
@@ -198,6 +227,32 @@ function ProductsStage({ slide }: { slide: Extract<HeroSlide, { type: "products"
                 {formatPrice(card.price)}
               </div>
             </div>
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex h-full gap-3 overflow-x-auto pb-1 lg:hidden">
+        {slide.cards.slice(0, 6).map(card => (
+          <Link
+            key={card.id}
+            to={`/product/${card.slug}`}
+            className="flex min-w-[220px] flex-1 flex-col rounded-[28px] bg-white/96 p-4 dark:bg-white"
+          >
+            <div className="flex min-h-[156px] items-center justify-center rounded-[24px] bg-white">
+              <img
+                src={card.image}
+                alt={card.name}
+                className="max-h-[132px] max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-[#05C3D4]">
+              {card.badge || (card.inStock ? "В наличии" : "Под заказ")}
+            </div>
+            <div className="mt-2 line-clamp-2 text-base font-black leading-6 text-slate-900">
+              {card.name}
+            </div>
+            <div className="mt-3 text-lg font-black text-slate-900">{formatPrice(card.price)}</div>
           </Link>
         ))}
       </div>
@@ -224,7 +279,7 @@ function PromoStage({ slide }: { slide: Extract<HeroSlide, { type: "promo" }> })
               ))}
             </div>
           ) : null}
-          <div className="max-w-[12ch] text-[clamp(2.4rem,4vw,4.1rem)] font-black leading-[0.92] tracking-[-0.05em]">
+          <div className="max-w-[12ch] text-[clamp(2.1rem,4vw,4.1rem)] font-black leading-[0.92] tracking-[-0.05em]">
             {slide.title || "Промо-витрина Techaks"}
           </div>
           {slide.subtitle ? (
@@ -234,7 +289,7 @@ function PromoStage({ slide }: { slide: Extract<HeroSlide, { type: "promo" }> })
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3">
           {[
             slide.description || "Показывайте акции, запуск новых категорий и сезонные подборки.",
             "Меняйте контент без релиза через админку.",
@@ -267,7 +322,7 @@ function CategoriesStage({
             to={category.href}
             className="group flex flex-col rounded-[28px] bg-white/94 p-4 transition-colors hover:bg-white dark:bg-slate-900/82 dark:hover:bg-slate-900"
           >
-            <div className="flex h-28 items-center justify-center rounded-[24px] bg-white">
+            <div className="flex h-24 items-center justify-center rounded-[24px] bg-white sm:h-28">
               {category.imageUrl ? (
                 <img
                   src={category.imageUrl}
@@ -354,21 +409,30 @@ function getFallbackTitle(slide: HeroSlide) {
   return "Проверенные бренды";
 }
 
-export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
+export default function HeroPromoDynamic({
+  hero,
+  preview = false,
+}: {
+  hero: HeroData;
+  preview?: boolean;
+}) {
   const slides = hero.slides;
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
+  const touchStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [slides.length]);
 
   useEffect(() => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || isPaused || reducedMotion) return;
     const timer = window.setInterval(() => {
       setActiveIndex(prev => (prev + 1) % slides.length);
     }, 7000);
     return () => window.clearInterval(timer);
-  }, [slides.length]);
+  }, [isPaused, reducedMotion, slides.length]);
 
   const activeSlide = slides[activeIndex] ?? slides[0];
   const SlideIcon = useMemo(() => (activeSlide ? getSlideIcon(activeSlide) : Sparkles), [
@@ -378,19 +442,47 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
   if (!activeSlide) return null;
 
   return (
-    <section className={`relative overflow-hidden transition-colors duration-500 ${themeShellClasses[activeSlide.theme]}`}>
+    <section
+      className={`relative overflow-hidden transition-colors duration-500 ${themeShellClasses[activeSlide.theme]}`}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={event => {
+        touchStartXRef.current = event.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={event => {
+        const startX = touchStartXRef.current;
+        const endX = event.changedTouches[0]?.clientX ?? null;
+        touchStartXRef.current = null;
+        if (startX == null || endX == null || slides.length <= 1) return;
+        const delta = endX - startX;
+        if (Math.abs(delta) < 48) return;
+        if (delta < 0) {
+          setActiveIndex(prev => (prev + 1) % slides.length);
+          return;
+        }
+        setActiveIndex(prev => (prev - 1 + slides.length) % slides.length);
+      }}
+    >
       <style>{`
         @keyframes heroStageFloat {
           0% { transform: translate3d(0, 0, 0); }
-          25% { transform: translate3d(0, -8px, 0); }
-          50% { transform: translate3d(5px, -2px, 0); }
-          75% { transform: translate3d(-4px, 6px, 0); }
+          25% { transform: translate3d(0, -6px, 0); }
+          50% { transform: translate3d(4px, -2px, 0); }
+          75% { transform: translate3d(-3px, 5px, 0); }
           100% { transform: translate3d(0, 0, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-promo-dynamic-animated {
+            animation: none !important;
+            transition: none !important;
+          }
         }
       `}</style>
 
-      <div className="container-main py-12 md:py-16 lg:py-20">
-        <div className="overflow-hidden rounded-[42px] bg-white/62 p-5 backdrop-blur-xl dark:bg-slate-950/30 md:p-8">
+      <div className={preview ? "py-0" : "container-main py-12 md:py-16 lg:py-20"}>
+        <div
+          className={`overflow-hidden rounded-[42px] bg-white/62 p-4 backdrop-blur-xl dark:bg-slate-950/30 sm:p-5 md:p-6 lg:p-8 ${preview ? "" : ""}`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/82 px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-[#05C3D4] dark:bg-slate-900/72">
               <SlideIcon size={14} />
@@ -421,7 +513,7 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
             ) : null}
           </div>
 
-          <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-center">
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-center lg:gap-8">
             <div className="flex h-full flex-col justify-between">
               <div>
                 {activeSlide.eyebrow ? (
@@ -429,11 +521,11 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
                     {activeSlide.eyebrow}
                   </div>
                 ) : null}
-                <h1 className="mt-4 max-w-[12ch] text-[clamp(2.7rem,5vw,4.8rem)] font-black leading-[0.92] tracking-[-0.06em]">
+                <h1 className="mt-4 max-w-[12ch] text-[clamp(2.45rem,5vw,4.8rem)] font-black leading-[0.92] tracking-[-0.06em]">
                   {getFallbackTitle(activeSlide)}
                 </h1>
                 {activeSlide.subtitle ? (
-                  <p className="mt-5 max-w-[34rem] text-lg font-semibold leading-relaxed text-foreground/78 dark:text-white/82">
+                  <p className="mt-5 max-w-[34rem] text-base font-semibold leading-relaxed text-foreground/78 dark:text-white/82 sm:text-lg">
                     {activeSlide.subtitle}
                   </p>
                 ) : null}
@@ -465,8 +557,13 @@ export default function HeroPromoDynamic({ hero }: { hero: HeroData }) {
               </div>
             </div>
 
-            <div key={activeSlide.id} className="animate-in fade-in duration-500">
-              {activeSlide.type === "products" ? <ProductsStage slide={activeSlide} /> : null}
+            <div
+              key={activeSlide.id}
+              className={reducedMotion ? "" : "animate-in fade-in duration-500"}
+            >
+              {activeSlide.type === "products" ? (
+                <ProductsStage slide={activeSlide} reducedMotion={reducedMotion} />
+              ) : null}
               {activeSlide.type === "promo" ? <PromoStage slide={activeSlide} /> : null}
               {activeSlide.type === "categories" ? <CategoriesStage slide={activeSlide} /> : null}
               {activeSlide.type === "brands" ? <BrandsStage slide={activeSlide} /> : null}

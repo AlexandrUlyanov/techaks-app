@@ -5,6 +5,11 @@ import { getDb } from "../queries/connection";
 import { enqueueMoyskladSyncJob } from "./moysklad-order-sync";
 import { getOrderDbCapabilities } from "./order-compat";
 import { getYooKassaRuntimeSettings } from "./payment-settings";
+import {
+  sendAdminPaymentFailedEmail,
+  sendOrderNotificationEmail,
+} from "./mail";
+import { getSiteEmailBranding } from "./site-profile-settings";
 
 type YooKassaConfirmationType = "embedded" | "redirect";
 
@@ -88,6 +93,94 @@ async function buildAvailablePaymentMetadataPatch(payment: YooKassaPaymentObject
   return capabilities.hasOrdersPaymentProviderMetadata
     ? buildPaymentMetadataPatch(payment)
     : {};
+}
+
+type PaymentNotificationOrderSnapshot = {
+  id: number;
+  orderNumber: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  totalPrice: number;
+  status: string | null;
+  paymentStatus: string | null;
+  paymentMethod: string | null;
+};
+
+async function notifyAboutPaymentTransition(
+  order: PaymentNotificationOrderSnapshot,
+  next: {
+    paymentStatus: string;
+    paymentError: string | null;
+    paidAt: Date | null;
+  },
+  payment: YooKassaPaymentObject,
+  options?: {
+    paymentUrl?: string | null;
+  }
+) {
+  if (order.paymentStatus === next.paymentStatus) return;
+
+  if (order.customerEmail && next.paymentStatus === "paid" && order.orderNumber) {
+    await sendOrderNotificationEmail({
+      email: order.customerEmail,
+      orderNumber: order.orderNumber,
+      eventType: "payment_success",
+      data: {
+        customerName: order.customerName,
+        orderStatus: "processing",
+        paymentMethod: order.paymentMethod || "yookassa",
+        paymentStatus: next.paymentStatus,
+        paidAmount: order.totalPrice,
+        paidAt: next.paidAt,
+        totalAmount: order.totalPrice,
+      },
+      message: "Оплата подтверждена. Заказ уже передан в обработку.",
+    }).catch(error => {
+      console.error("yookassa payment success email failed", error);
+    });
+  }
+
+  if (
+    order.customerEmail &&
+    next.paymentStatus === "payment_error" &&
+    order.orderNumber
+  ) {
+    await sendOrderNotificationEmail({
+      email: order.customerEmail,
+      orderNumber: order.orderNumber,
+      eventType: "payment_failed",
+      data: {
+        customerName: order.customerName,
+        orderStatus: order.status,
+        paymentMethod: order.paymentMethod || "yookassa",
+        paymentStatus: next.paymentStatus,
+        totalAmount: order.totalPrice,
+        paymentError: next.paymentError,
+        paymentUrl: options?.paymentUrl ?? null,
+      },
+      message:
+        "Платёж не был подтверждён. Заказ сохранён, можно попробовать оплатить его повторно.",
+    }).catch(error => {
+      console.error("yookassa payment failed email failed", error);
+    });
+  }
+
+  if (next.paymentStatus === "payment_error" && order.orderNumber) {
+    const brand = await getSiteEmailBranding();
+    await sendAdminPaymentFailedEmail({
+      email: brand.supportEmail,
+      data: {
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        totalAmount: order.totalPrice,
+        paymentMethod: order.paymentMethod || "yookassa",
+        paymentError: next.paymentError,
+      },
+    }).catch(error => {
+      console.error("yookassa admin payment failed email failed", error);
+    });
+  }
 }
 
 function toReturnUrl(baseUrl: string, orderId: number, orderNumber: string | null) {
@@ -325,7 +418,13 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
   const orderRows = await db
     .select({
       id: orders.id,
+      orderNumber: orders.orderNumber,
+      customerName: orders.customerName,
+      customerEmail: orders.customerEmail,
       totalPrice: orders.totalPrice,
+      status: orders.status,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
       paymentId: orders.paymentId,
       paymentTest: orders.paymentTest,
     })
@@ -351,19 +450,31 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
   );
   const mapped = mapPaymentStatus(payment, payment.status || "payment.checked");
   const paymentMetadataPatch = await buildAvailablePaymentMetadataPatch(payment);
+  const nextPaidAt = mapped.paidAt;
+  const nextPaymentError = mapped.error;
   await db
     .update(orders)
     .set({
       paymentStatus: mapped.paymentStatus,
       paidAmount:
         mapped.paidAmount === null ? order.totalPrice : mapped.paidAmount,
-      paidAt: mapped.paidAt,
-      paymentError: mapped.error,
+      paidAt: nextPaidAt,
+      paymentError: nextPaymentError,
       ...(mapped.orderStatus ? { status: mapped.orderStatus } : {}),
       ...paymentMetadataPatch,
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  await notifyAboutPaymentTransition(
+    order,
+    {
+      paymentStatus: mapped.paymentStatus,
+      paymentError: nextPaymentError,
+      paidAt: nextPaidAt,
+    },
+    payment
+  );
 
   await enqueueMoyskladPaymentSync(order.id, payment);
 
@@ -456,7 +567,13 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
   const orderRows = await db
     .select({
       id: orders.id,
+      orderNumber: orders.orderNumber,
+      customerName: orders.customerName,
+      customerEmail: orders.customerEmail,
       totalPrice: orders.totalPrice,
+      status: orders.status,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
       paymentTest: orders.paymentTest,
     })
     .from(orders)
@@ -517,19 +634,31 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
   const mapped = mapPaymentStatus(verifiedPayment, event);
   const paymentMetadataPatch =
     await buildAvailablePaymentMetadataPatch(verifiedPayment);
+  const nextPaidAt = mapped.paidAt;
+  const nextPaymentError = mapped.error;
   await db
     .update(orders)
     .set({
       paymentStatus: mapped.paymentStatus,
       paidAmount:
         mapped.paidAmount === null ? order.totalPrice : mapped.paidAmount,
-      paidAt: mapped.paidAt,
-      paymentError: mapped.error,
+      paidAt: nextPaidAt,
+      paymentError: nextPaymentError,
       ...(mapped.orderStatus ? { status: mapped.orderStatus } : {}),
       ...paymentMetadataPatch,
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  await notifyAboutPaymentTransition(
+    order,
+    {
+      paymentStatus: mapped.paymentStatus,
+      paymentError: nextPaymentError,
+      paidAt: nextPaidAt,
+    },
+    verifiedPayment
+  );
 
   await enqueueMoyskladPaymentSync(order.id, verifiedPayment);
 

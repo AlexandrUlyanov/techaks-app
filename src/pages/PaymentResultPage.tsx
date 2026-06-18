@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import { trackPurchase } from "@/lib/yandex-metrika";
+import { useCart } from "@/hooks/use-cart";
 
 function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
@@ -59,6 +60,7 @@ function getState(paymentStatus?: string | null) {
 }
 
 export default function PaymentResultPage() {
+  const clearCart = useCart(state => state.clearCart);
   useSeo({
     title: "Результат оплаты — ТЕХАКС",
     description: "Статус онлайн-оплаты заказа в интернет-магазине ТЕХАКС.",
@@ -85,6 +87,8 @@ export default function PaymentResultPage() {
     if (!order || order.paymentStatus !== "paid") return;
     if (typeof window === "undefined") return;
 
+    clearCart();
+
     const storageKey = `techaks:purchase:${order.id}:${order.paymentStatus}`;
     if (window.sessionStorage.getItem(storageKey)) return;
 
@@ -101,7 +105,7 @@ export default function PaymentResultPage() {
     });
 
     window.sessionStorage.setItem(storageKey, "1");
-  }, [order]);
+  }, [clearCart, order]);
 
   return (
     <div className="min-h-[70vh] bg-background px-4 py-16 text-foreground">

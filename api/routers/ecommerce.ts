@@ -2133,44 +2133,6 @@ export const ecommerceRouter = createRouter({
         return createdOrderId;
       });
 
-      // 4. (Optional) Trigger Telegram Notification to Admin
-      // This will be added in a separate utility
-      if (contactEmail) {
-        await sendOrderNotificationEmail({
-          email: contactEmail,
-          orderNumber,
-          eventType: "order_created",
-          data: {
-            customerName: normalizedFullName,
-            customerEmail: contactEmail,
-            customerPhone: normalizedPhone,
-            orderDate: new Date(),
-            orderStatus: "pending",
-            paymentMethod: input.paymentType,
-            paymentStatus:
-              input.paymentType === "yookassa" ? "awaiting_payment" : "unpaid",
-            deliveryMethod: input.deliveryType,
-            deliveryAddress: orderAddress,
-            subtotal: trustedTotal,
-            totalAmount: trustedTotal,
-            orderUrl: ACCOUNT_ORDERS_URL,
-            items: purchasableItems.map(item => {
-              return {
-                title: item.name,
-                sku: item.article ?? undefined,
-                quantity: item.quantity,
-                price: item.price,
-                total: item.price * item.quantity,
-              };
-            }),
-          },
-          message:
-            "Заказ создан и передан в обработку. Если потребуется уточнение, мы свяжемся с вами отдельно.",
-        }).catch(err => {
-          console.error("order_created email failed", err);
-        });
-      }
-
       await enqueueMoyskladSyncJob({
         entityType: "order",
         entityId: orderId,
@@ -2196,6 +2158,58 @@ export const ecommerceRouter = createRouter({
               })),
             })
           : null;
+
+      if (contactEmail) {
+        const emailItems = purchasableItems.map(item => ({
+          title: item.name,
+          sku: item.article ?? undefined,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+        }));
+
+        const baseEmailData = {
+          customerName: normalizedFullName,
+          customerEmail: contactEmail,
+          customerPhone: normalizedPhone,
+          orderDate: new Date(),
+          orderStatus:
+            input.paymentType === "yookassa" && payment?.status !== "succeeded"
+              ? "awaiting_payment"
+              : "pending",
+          paymentMethod: input.paymentType,
+          paymentStatus:
+            input.paymentType === "yookassa"
+              ? payment?.status === "succeeded"
+                ? "paid"
+                : "awaiting_payment"
+              : "unpaid",
+          deliveryMethod: input.deliveryType,
+          deliveryAddress: orderAddress,
+          subtotal: trustedTotal,
+          totalAmount: trustedTotal,
+          orderUrl: ACCOUNT_ORDERS_URL,
+          items: emailItems,
+        } as const;
+
+        const isYooKassaPending =
+          input.paymentType === "yookassa" && payment?.status !== "succeeded";
+
+        await sendOrderNotificationEmail({
+          email: contactEmail,
+          orderNumber,
+          eventType: isYooKassaPending ? "payment_pending" : "order_created",
+          data: {
+            ...baseEmailData,
+            paymentUrl: payment?.confirmationUrl ?? undefined,
+          },
+          message: isYooKassaPending
+            ? "Заказ создан. После оплаты мы автоматически передадим его в обработку."
+            : "Заказ создан и передан в обработку. Если потребуется уточнение, мы свяжемся с вами отдельно.",
+        }).catch(err => {
+          console.error("order notification email failed", err);
+        });
+      }
 
       return { success: true, orderId, payment };
     }),
@@ -3835,6 +3849,33 @@ export const ecommerceRouter = createRouter({
           message: `Оплата по заказу ${existing[0].orderNumber} успешно получена.`,
         }).catch(err => {
           console.error("payment_success email failed", err);
+        });
+      }
+      if (
+        existing[0].customerEmail &&
+        existing[0].orderNumber &&
+        input.paymentStatus === "payment_error"
+      ) {
+        await sendOrderNotificationEmail({
+          email: existing[0].customerEmail,
+          orderNumber: existing[0].orderNumber,
+          eventType: "payment_failed",
+          data: {
+            customerName: existing[0]?.customerName,
+            orderStatus: existing[0]?.status,
+            paymentMethod:
+              input.paymentMethod ||
+              existing[0]?.paymentMethod ||
+              existing[0]?.paymentType,
+            paymentStatus: input.paymentStatus,
+            totalAmount: existing[0]?.totalPrice ?? null,
+            paymentError: existing[0]?.paymentError || "Платёж не был подтверждён.",
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
+          message:
+            "Платёж по заказу не подтверждён. Вы можете вернуться к заказу и попробовать снова.",
+        }).catch(err => {
+          console.error("payment_failed email failed", err);
         });
       }
       if (input.paymentStatus === "paid") {

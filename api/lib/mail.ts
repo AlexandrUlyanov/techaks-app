@@ -21,8 +21,10 @@ const BRAND = {
 
 type OrderEventType =
   | "order_created"
+  | "payment_pending"
   | "order_status_changed"
   | "payment_success"
+  | "payment_failed"
   | "delivery_handed"
   | "order_cancelled"
   | "order_refund";
@@ -37,6 +39,7 @@ type TransactionalEmailType =
   | "ORDER_CREATED"
   | "ORDER_PENDING_PAYMENT"
   | "ORDER_PAID"
+  | "ORDER_PAYMENT_FAILED"
   | "ORDER_STATUS_CHANGED"
   | "ORDER_READY_FOR_PICKUP"
   | "ORDER_SHIPPED"
@@ -652,15 +655,20 @@ function createTemplateConfig(
       return {
         brand,
         subject: `Заказ ${data.orderNumber} ожидает оплаты`,
-        title: "Заказ ожидает оплаты",
-        intro: `Здравствуйте, ${customerName}! Ваш заказ ${data.orderNumber || ""} ожидает оплаты.`,
+        title: "Ожидаем оплату по заказу",
+        intro: `Здравствуйте, ${customerName}! Заказ ${data.orderNumber || ""} создан и ожидает оплату.`,
         action: data.paymentUrl ? { label: "Оплатить заказ", url: data.paymentUrl } : undefined,
         summaryRows: [
           { label: "Номер заказа", value: data.orderNumber },
+          { label: "Дата заказа", value: data.orderDate ? formatDate(data.orderDate) : null },
           { label: "Сумма к оплате", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
           { label: "Способ оплаты", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
+          { label: "Статус оплаты", value: data.paymentStatus ? mapPaymentStatus(data.paymentStatus) : "Ожидает оплаты" },
           { label: "Срок оплаты", value: data.paymentExpiresAt ? formatDate(data.paymentExpiresAt) : null },
         ],
+        items: data.items,
+        note:
+          "После подтверждения оплаты мы автоматически передадим заказ в обработку и обновим статус в личном кабинете.",
       };
     case "ORDER_PAID":
       return {
@@ -669,13 +677,37 @@ function createTemplateConfig(
         title: "Оплата получена",
         intro: `Здравствуйте, ${customerName}! Мы получили оплату по заказу ${data.orderNumber || ""}.`,
         action: { label: "Открыть заказ", url: orderUrl },
+        summaryRows: buildOrderSummaryRows({
+          ...data,
+          paymentStatus: data.paymentStatus || "paid",
+          paidAmount: typeof data.paidAmount === "number" ? data.paidAmount : data.totalAmount ?? null,
+        }),
+        items: data.items,
+        detailBlocks: data.managerComment
+          ? [{ title: "Комментарий менеджера", content: data.managerComment }]
+          : undefined,
+        note: "Заказ уже в работе. Все дальнейшие изменения статуса появятся в личном кабинете и придут на почту.",
+      };
+    case "ORDER_PAYMENT_FAILED":
+      return {
+        brand,
+        subject: `Оплата по заказу ${data.orderNumber} не завершена`,
+        title: "Оплата не завершена",
+        intro: `Здравствуйте, ${customerName}! Платёж по заказу ${data.orderNumber || ""} не был подтверждён.`,
+        action: data.paymentUrl
+          ? { label: "Попробовать оплатить снова", url: data.paymentUrl }
+          : { label: "Открыть заказ", url: orderUrl },
         summaryRows: [
           { label: "Номер заказа", value: data.orderNumber },
-          { label: "Сумма оплаты", value: typeof data.paidAmount === "number" ? formatMoney(data.paidAmount) : null },
-          { label: "Дата оплаты", value: data.paidAt ? formatDate(data.paidAt) : null },
+          { label: "Сумма", value: typeof data.totalAmount === "number" ? formatMoney(data.totalAmount) : null },
           { label: "Способ оплаты", value: data.paymentMethod ? mapPaymentMethod(data.paymentMethod) : null },
-          { label: "Статус заказа", value: data.orderStatus ? mapOrderStatus(data.orderStatus) : null },
+          { label: "Статус оплаты", value: data.paymentStatus ? mapPaymentStatus(data.paymentStatus) : "Ошибка оплаты" },
         ],
+        detailBlocks: data.paymentError
+          ? [{ title: "Причина", content: data.paymentError }]
+          : undefined,
+        warning:
+          "Если деньги списались, а статус не обновился, не оформляйте повторный заказ сразу. Напишите нам, и мы быстро всё проверим.",
       };
     case "ORDER_STATUS_CHANGED":
       return {
@@ -952,8 +984,10 @@ export async function sendOrderNotificationEmail(input: {
 }) {
   const templateTypeMap: Record<OrderEventType, TransactionalEmailType> = {
     order_created: "ORDER_CREATED",
+    payment_pending: "ORDER_PENDING_PAYMENT",
     order_status_changed: "ORDER_STATUS_CHANGED",
     payment_success: "ORDER_PAID",
+    payment_failed: "ORDER_PAYMENT_FAILED",
     delivery_handed: "ORDER_SHIPPED",
     order_cancelled: "ORDER_CANCELLED",
     order_refund: "ORDER_REFUNDED",

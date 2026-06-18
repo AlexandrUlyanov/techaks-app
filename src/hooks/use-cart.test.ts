@@ -3,6 +3,7 @@ import { useCart } from "./use-cart";
 
 describe("useCart", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     useCart.getState().clearCart();
   });
 
@@ -134,5 +135,20 @@ describe("useCart", () => {
       "1:10",
       "1:11",
     ]);
+  });
+
+  it("should clear persisted cart storage", () => {
+    useCart.getState().addItem({
+      id: 1,
+      slug: "test",
+      name: "Test Product",
+      price: 100,
+      image: "img.jpg",
+    });
+
+    useCart.getState().clearCart();
+
+    expect(useCart.getState().items).toHaveLength(0);
+    expect(window.localStorage.getItem("techaks-cart")).toBeNull();
   });
 });
