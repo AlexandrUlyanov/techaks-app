@@ -262,6 +262,23 @@ function getDeliveryStatusLabel(value: string | null | undefined) {
   }
 }
 
+function getLoyaltySyncStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "pending":
+      return "Ожидает синхронизации";
+    case "synced":
+      return "Синхронизирован";
+    case "cancelled":
+      return "Отменён";
+    case "rolled_back":
+      return "Сторнирован";
+    case "error":
+      return "Ошибка";
+    default:
+      return value || "Не задан";
+  }
+}
+
 function getOrderSourceLabel(value: string | null | undefined) {
   switch (value) {
     case "legacy":
@@ -403,6 +420,20 @@ export default function AdminOrderDetails() {
       toast.success(`Платёж YooKassa обновлён: ${getYooKassaPaymentStatusLabel(result.status)}`);
     },
     onError: err => toast.error(err.message || "Ошибка проверки платежа YooKassa"),
+  });
+  const resyncLoyaltyOrder = trpc.loyalty.resyncOrder.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.loyalty.getOverview.invalidate(),
+        utils.loyalty.listOrders.invalidate(),
+        utils.loyalty.listJobs.invalidate(),
+        utils.loyalty.listJournal.invalidate(),
+      ]);
+      toast.success("Бонусная синхронизация заказа запущена");
+    },
+    onError: err => toast.error(err.message || "Ошибка бонусной синхронизации"),
   });
 
   const formatPrice = (value: number | null | undefined) =>
@@ -1083,6 +1114,71 @@ export default function AdminOrderDetails() {
                     yookassaDiagnostics.paymentCancellationReason
                   )}
                 />
+              </div>
+            </AdminSection>
+          ) : null}
+
+          {(order.loyaltyBonusSpent > 0 ||
+            order.loyaltyBonusExpectedAccrued > 0 ||
+            order.loyaltyActualSpent > 0 ||
+            order.loyaltyActualAccrued > 0 ||
+            order.loyaltySyncStatus ||
+            order.loyaltyLastSyncedAt ||
+            order.loyaltyLastSyncError) ? (
+            <AdminSection
+              title="Бонусная программа"
+              description="Сводка по списанию, начислению и статусу синхронизации бонусов с МойСклад."
+              actions={
+                <button
+                  type="button"
+                  onClick={() => resyncLoyaltyOrder.mutate({ orderId })}
+                  disabled={resyncLoyaltyOrder.isPending}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
+                >
+                  {resyncLoyaltyOrder.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Wallet size={16} />
+                  )}
+                  Пересинхронизировать бонусы
+                </button>
+              }
+            >
+              <div className="space-y-3 text-sm">
+                <InfoRow
+                  label="Баланс до заказа"
+                  value={formatPrice(order.loyaltyBalanceBefore)}
+                />
+                <InfoRow
+                  label="Запрошено к списанию"
+                  value={formatPrice(order.loyaltyBonusRequested)}
+                />
+                <InfoRow
+                  label="Списано по факту"
+                  value={formatPrice(order.loyaltyActualSpent || order.loyaltyBonusSpent)}
+                />
+                <InfoRow
+                  label="Ожидалось к начислению"
+                  value={formatPrice(order.loyaltyBonusExpectedAccrued)}
+                />
+                <InfoRow
+                  label="Начислено по факту"
+                  value={formatPrice(order.loyaltyActualAccrued || order.loyaltyBonusAccrued)}
+                />
+                <InfoRow
+                  label="Статус синхронизации"
+                  value={getLoyaltySyncStatusLabel(order.loyaltySyncStatus)}
+                />
+                <InfoRow
+                  label="Последняя синхронизация"
+                  value={formatDateTime(order.loyaltyLastSyncedAt)}
+                />
+                {order.loyaltyLastSyncError ? (
+                  <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <span className="font-black">Последняя ошибка:</span>{" "}
+                    {order.loyaltyLastSyncError}
+                  </div>
+                ) : null}
               </div>
             </AdminSection>
           ) : null}
