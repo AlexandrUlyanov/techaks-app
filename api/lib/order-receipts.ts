@@ -159,6 +159,8 @@ function buildExternalFiscalReceiptUrl(payload: Record<string, any>) {
     "fp",
     "fiscal_document_attribute",
     "fiscalDocumentAttribute",
+    "fiscal_attribute",
+    "fiscalAttribute",
     "fiscal_sign",
     "fiscalSign",
   ]);
