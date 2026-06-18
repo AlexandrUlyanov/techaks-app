@@ -770,6 +770,20 @@ export default function AccountPage() {
     enabled: isAuthenticated,
     retry: false,
   });
+  const { data: loyaltyState } = trpc.ecommerce.getMyLoyaltyState.useQuery(
+    { refresh: false },
+    {
+      enabled: isAuthenticated,
+      retry: false,
+    }
+  );
+  const { data: bonusTransactions = [] } = trpc.ecommerce.getMyBonusTransactions.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated,
+      retry: false,
+    }
+  );
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -945,13 +959,77 @@ export default function AccountPage() {
             </Can>
 
             <section className="rounded-[1.75rem] bg-muted/25 p-6">
-              <h3 className="text-base font-black tracking-tight">Техакс привилегии</h3>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Ваша персональная скидка 5% на аксессуары активна.
-              </p>
-              <div className="mt-4 inline-flex rounded-full bg-[#05C3D4]/15 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#047f8b]">
-                Статус: постоянный клиент
-              </div>
+              <h3 className="text-base font-black tracking-tight">Бонусная программа</h3>
+              {loyaltyState?.enabled ? (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-2xl bg-background/90 px-4 py-4">
+                    <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                      Доступно бонусов
+                    </div>
+                    <div className="mt-2 text-3xl font-black text-[#05C3D4]">
+                      {formatPrice(loyaltyState.availableToSpend ?? 0)}
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Группа участия: {loyaltyState.groupName}
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      Лимит списания: {loyaltyState.maxWriteoffPercent}%
+                    </div>
+                  </div>
+
+                  {loyaltyState.lastError ? (
+                    <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {loyaltyState.lastError}
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                      Последние операции
+                    </div>
+                    {bonusTransactions.length === 0 ? (
+                      <div className="rounded-xl bg-background/90 px-4 py-3 text-sm text-muted-foreground">
+                        Операций по бонусам пока нет.
+                      </div>
+                    ) : (
+                      bonusTransactions.slice(0, 4).map(tx => (
+                        <div
+                          key={tx.id}
+                          className="rounded-xl bg-background/90 px-4 py-3 text-sm"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-semibold text-foreground">
+                              {tx.direction === "debit"
+                                ? "Списание"
+                                : tx.direction === "credit"
+                                  ? "Начисление"
+                                  : tx.direction === "rollback"
+                                    ? "Возврат бонусов"
+                                    : "Синхронизация"}
+                            </span>
+                            <span className="font-black text-[#05C3D4]">
+                              {formatPrice(tx.amount ?? 0)}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {tx.status === "applied"
+                              ? "Подтверждено"
+                              : tx.status === "cancelled"
+                                ? "Отменено"
+                                : tx.status === "error"
+                                  ? "Ошибка"
+                                  : "Ожидает подтверждения"}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Бонусная программа пока не активирована.
+                </p>
+              )}
             </section>
 
             <section className="rounded-[1.75rem] bg-muted/25 p-6">

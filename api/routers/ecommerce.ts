@@ -51,6 +51,14 @@ import {
   refreshYooKassaPaymentForOrder,
 } from "../lib/yookassa";
 import { extractReceiptMeta } from "../lib/order-receipts";
+import {
+  attachLoyaltyToOrder,
+  getUserLoyaltyState,
+  listUserBonusTransactions,
+  previewBonusWriteoff,
+  syncOrderLoyaltyFromMoysklad,
+  refreshUserLoyaltyState,
+} from "../lib/moysklad-loyalty";
 
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
@@ -1830,6 +1838,39 @@ export const ecommerceRouter = createRouter({
       );
     }),
 
+  getMyLoyaltyState: protectedProcedure
+    .input(
+      z
+        .object({
+          refresh: z.boolean().optional().default(false),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      return input?.refresh
+        ? refreshUserLoyaltyState(ctx.user.id)
+        : getUserLoyaltyState(ctx.user.id);
+    }),
+
+  previewBonusWriteoff: protectedProcedure
+    .input(
+      z.object({
+        subtotal: z.number().min(0),
+        requestedAmount: z.number().min(0).optional().nullable(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return previewBonusWriteoff({
+        userId: ctx.user.id,
+        subtotal: input.subtotal,
+        requestedAmount: input.requestedAmount ?? null,
+      });
+    }),
+
+  getMyBonusTransactions: protectedProcedure.query(async ({ ctx }) => {
+    return listUserBonusTransactions(ctx.user.id);
+  }),
+
   // Order creation (Progressive Checkout)
   placeOrder: publicQuery
     .input(
@@ -1852,6 +1893,7 @@ export const ecommerceRouter = createRouter({
         address: z.string().optional().nullable(),
         paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
+        loyaltyBonusAmount: z.number().min(0).optional().nullable(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1988,6 +2030,29 @@ export const ecommerceRouter = createRouter({
         userId = newUser[0].insertId;
       }
 
+      let loyaltyPreview: Awaited<ReturnType<typeof previewBonusWriteoff>> | null = null;
+      let loyaltyBonusSpent = 0;
+
+      if (userId && Number(input.loyaltyBonusAmount ?? 0) > 0) {
+        loyaltyPreview = await previewBonusWriteoff({
+          userId,
+          subtotal: trustedTotal,
+          requestedAmount: input.loyaltyBonusAmount ?? 0,
+        });
+        loyaltyBonusSpent = loyaltyPreview.appliedAmount;
+
+        if (loyaltyBonusSpent <= 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              loyaltyPreview.warning ||
+              "Бонусы нельзя применить к этому заказу.",
+          });
+        }
+      }
+
+      const finalTotal = Math.max(0, trustedTotal - loyaltyBonusSpent);
+
       const orderAddress =
         input.deliveryType === "pickup"
           ? pickupStore
@@ -2030,8 +2095,9 @@ export const ecommerceRouter = createRouter({
             customerPhone: normalizedPhone,
             customerEmail: contactEmail,
             source: "site",
-            totalPrice: trustedTotal,
+            totalPrice: finalTotal,
             subtotal: trustedTotal,
+            discountTotal: loyaltyBonusSpent,
             paidAmount: 0,
             deliveryType: input.deliveryType,
             address: orderAddress,
@@ -2057,7 +2123,7 @@ export const ecommerceRouter = createRouter({
             ) VALUES (
               ${userId},
               ${"pending"},
-              ${trustedTotal},
+              ${finalTotal},
               ${input.deliveryType},
               ${orderAddress},
               ${input.paymentType},
@@ -2134,6 +2200,16 @@ export const ecommerceRouter = createRouter({
         return createdOrderId;
       });
 
+      if (userId) {
+        await attachLoyaltyToOrder({
+          orderId,
+          userId,
+          subtotal: trustedTotal,
+          spent: loyaltyBonusSpent,
+          preview: loyaltyPreview,
+        });
+      }
+
       await enqueueMoyskladSyncJob({
         entityType: "order",
         entityId: orderId,
@@ -2149,7 +2225,7 @@ export const ecommerceRouter = createRouter({
           ? await createYooKassaPaymentForOrder({
               orderId,
               orderNumber,
-              totalPrice: trustedTotal,
+              totalPrice: finalTotal,
               customerPhone: normalizedPhone,
               customerEmail: contactEmail,
               items: purchasableItems.map(item => ({
@@ -2188,7 +2264,7 @@ export const ecommerceRouter = createRouter({
           deliveryMethod: input.deliveryType,
           deliveryAddress: orderAddress,
           subtotal: trustedTotal,
-          totalAmount: trustedTotal,
+          totalAmount: finalTotal,
           orderUrl: ACCOUNT_ORDERS_URL,
           items: emailItems,
         } as const;
@@ -3955,6 +4031,9 @@ export const ecommerceRouter = createRouter({
         }).catch(err => {
           console.error("moysklad payment sync enqueue failed", err);
         });
+        await syncOrderLoyaltyFromMoysklad(input.id).catch(err => {
+          console.error("loyalty sync after admin payment update failed", err);
+        });
       }
       return { success: true };
     }),
@@ -3976,6 +4055,9 @@ export const ecommerceRouter = createRouter({
           status: result.status,
           test: result.test,
         } as any,
+      });
+      await syncOrderLoyaltyFromMoysklad(input.id).catch(err => {
+        console.error("loyalty sync after payment refresh failed", err);
       });
       return result;
     }),

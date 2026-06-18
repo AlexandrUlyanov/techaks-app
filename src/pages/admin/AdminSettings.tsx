@@ -330,6 +330,7 @@ export default function AdminSettings() {
   const activeTab = resolveSettingsTab(location.pathname);
   const { data, isLoading } = trpc.settings.getGemini.useQuery();
   const { data: msData } = trpc.settings.getMoySklad.useQuery();
+  const { data: loyaltyData } = trpc.settings.getLoyaltySettings.useQuery();
   const { data: maintenanceData } = trpc.settings.getMaintenanceStatus.useQuery();
   const { data: reservationSettings } = trpc.settings.getReservationSettings.useQuery();
   const { data: siteProfileSettings } = trpc.settings.getSiteProfileSettings.useQuery();
@@ -367,6 +368,11 @@ export default function AdminSettings() {
   const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
   const [msToken, setMsToken] = useState("");
   const [msWebhookSecret, setMsWebhookSecret] = useState("");
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltyGroupName, setLoyaltyGroupName] = useState("техакс");
+  const [loyaltyParticipantTag, setLoyaltyParticipantTag] = useState("техакс");
+  const [loyaltyDefaultMaxWriteoffPercent, setLoyaltyDefaultMaxWriteoffPercent] =
+    useState(30);
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
@@ -462,6 +468,16 @@ export default function AdminSettings() {
   });
 
   useEffect(() => {
+    if (!loyaltyData) return;
+    setLoyaltyEnabled(Boolean(loyaltyData.enabled));
+    setLoyaltyGroupName(loyaltyData.groupName || "техакс");
+    setLoyaltyParticipantTag(loyaltyData.participantTag || loyaltyData.groupName || "техакс");
+    setLoyaltyDefaultMaxWriteoffPercent(
+      Number(loyaltyData.defaultMaxWriteoffPercent || 30)
+    );
+  }, [loyaltyData]);
+
+  useEffect(() => {
     if (maintenanceData) {
       setMaintenanceEnabled(maintenanceData.isEnabled);
       setMaintenanceReopenDate(maintenanceData.reopenDate || "");
@@ -542,6 +558,13 @@ export default function AdminSettings() {
         setMsWebhookSecret("");
       },
     });
+
+  const saveLoyaltyMutation = trpc.settings.saveLoyaltySettings.useMutation({
+    onSuccess: () => {
+      utils.settings.getLoyaltySettings.invalidate();
+      alert("Настройки бонусной программы сохранены.");
+    },
+  });
 
   const saveReservationSettingsMutation =
     trpc.settings.saveReservationSettings.useMutation({
@@ -1257,6 +1280,108 @@ export default function AdminSettings() {
                     Удалить секрет вебхука
                   </button>
                 </div>
+              </div>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Бонусная программа"
+            description="Контур лояльности для сайта. Пользователи автоматически помечаются тегом участия в МойСклад, а базовое ограничение списания используется как fallback, пока правила не пришли из внешнего профиля."
+          >
+            <div className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    Программа включена
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLoyaltyEnabled(value => !value)}
+                    className={`inline-flex h-11 w-full items-center justify-between rounded-xl border px-4 text-sm font-bold transition ${
+                      loyaltyEnabled
+                        ? "border-[#05C3D4] bg-[#E8FAFC] text-[#047987]"
+                        : "border-gray-200 bg-white text-[#464A50]"
+                    }`}
+                  >
+                    <span>{loyaltyEnabled ? "Включена" : "Выключена"}</span>
+                    {loyaltyEnabled ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    Группа в МойСклад
+                  </span>
+                  <input
+                    value={loyaltyGroupName}
+                    onChange={e => setLoyaltyGroupName(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    Тег участия
+                  </span>
+                  <input
+                    value={loyaltyParticipantTag}
+                    onChange={e => setLoyaltyParticipantTag(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    Fallback-лимит списания, %
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={loyaltyDefaultMaxWriteoffPercent}
+                    onChange={e =>
+                      setLoyaltyDefaultMaxWriteoffPercent(
+                        Math.min(100, Math.max(1, Number(e.target.value) || 30))
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+              </div>
+
+              {saveLoyaltyMutation.error ? (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {saveLoyaltyMutation.error.message}
+                </div>
+              ) : null}
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
+                Сейчас сайт использует безопасный fallback-предел списания и автоматически
+                помечает клиентов как участников программы. По мере наполнения внешнего
+                профиля в МойСклад эти данные будут подхватываться прямо в checkout и ЛК.
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveLoyaltyMutation.mutate({
+                      enabled: loyaltyEnabled,
+                      groupName: loyaltyGroupName,
+                      participantTag: loyaltyParticipantTag,
+                      defaultMaxWriteoffPercent: loyaltyDefaultMaxWriteoffPercent,
+                    })
+                  }
+                  disabled={saveLoyaltyMutation.isPending}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+                >
+                  {saveLoyaltyMutation.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Сохранить бонусную программу
+                </button>
               </div>
             </div>
           </AdminSection>

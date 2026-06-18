@@ -64,6 +64,8 @@ export default function CheckoutPage() {
   const { user, isAuthenticated } = useAuth();
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: yookassaStatus } = trpc.settings.getPublicYooKassaStatus.useQuery();
+  const [useBonuses, setUseBonuses] = useState(false);
+  const [bonusAmountInput, setBonusAmountInput] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -110,6 +112,31 @@ export default function CheckoutPage() {
     );
 
   const typedPickupStores = pickupStores as CheckoutPickupStore[];
+  const subtotal = getTotalPrice();
+  const parsedBonusAmount = Math.max(0, Number.parseInt(bonusAmountInput || "0", 10) || 0);
+  const { data: loyaltyState, isFetching: loyaltyStateRefreshing } =
+    trpc.ecommerce.getMyLoyaltyState.useQuery(
+      { refresh: false },
+      {
+        enabled: isAuthenticated,
+        refetchOnWindowFocus: false,
+      }
+    );
+  const { data: loyaltyPreview, isFetching: loyaltyPreviewLoading } =
+    trpc.ecommerce.previewBonusWriteoff.useQuery(
+      {
+        subtotal,
+        requestedAmount: useBonuses ? parsedBonusAmount : 0,
+      },
+      {
+        enabled: isAuthenticated && Boolean(loyaltyState?.enabled),
+        refetchOnWindowFocus: false,
+      }
+    );
+  const effectiveBonusSpent = useBonuses
+    ? Math.max(0, loyaltyPreview?.appliedAmount ?? 0)
+    : 0;
+  const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -234,7 +261,8 @@ export default function CheckoutPage() {
           ? normalizedAddress
           : "Самовывоз из магазина",
       paymentType,
-      totalPrice: getTotalPrice(),
+      totalPrice: totalWithBonuses,
+      loyaltyBonusAmount: useBonuses ? effectiveBonusSpent : 0,
     });
   };
 
@@ -641,6 +669,106 @@ export default function CheckoutPage() {
                   ))}
                 </div>
               </div>
+
+              {isAuthenticated && loyaltyState?.enabled ? (
+                <div className="p-8 rounded-3xl border border-border bg-card shadow-sm">
+                  <h2 className="text-xl font-black uppercase font-heading tracking-tight mb-8 flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-lg bg-[#05C3D4] text-black flex items-center justify-center text-sm">
+                      4
+                    </div>
+                    Бонусы
+                  </h2>
+
+                  <div className="space-y-5">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-2xl border border-border bg-background px-5 py-4">
+                        <div className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">
+                          Баланс
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-foreground">
+                          {formatPrice(loyaltyState.balance)}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-background px-5 py-4">
+                        <div className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">
+                          Можно списать
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-[#05C3D4]">
+                          {formatPrice(loyaltyPreview?.maxWriteoffAmount ?? 0)}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-border bg-background px-5 py-4">
+                        <div className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">
+                          Лимит программы
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-foreground">
+                          {loyaltyPreview?.maxWriteoffPercent ?? loyaltyState.maxWriteoffPercent}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background px-5 py-4">
+                      <div>
+                        <div className="text-sm font-bold text-foreground">
+                          Использовать бонусы
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Участвуют только покупатели из группы «{loyaltyState.groupName}».
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={useBonuses}
+                        onChange={e => setUseBonuses(e.target.checked)}
+                        className="h-5 w-5 rounded border-border"
+                      />
+                    </label>
+
+                    {useBonuses ? (
+                      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
+                            Сколько бонусов списать
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={loyaltyPreview?.maxWriteoffAmount ?? loyaltyState.availableToSpend}
+                            value={bonusAmountInput}
+                            onChange={e => setBonusAmountInput(e.target.value)}
+                            placeholder={`До ${loyaltyPreview?.maxWriteoffAmount ?? 0}`}
+                            className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
+                          />
+                        </div>
+                        <div className="rounded-2xl border border-border bg-background px-5 py-4">
+                          <div className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">
+                            Спишется сейчас
+                          </div>
+                          <div className="mt-2 text-2xl font-black text-[#05C3D4]">
+                            {formatPrice(effectiveBonusSpent)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {loyaltyPreview?.warning ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        {loyaltyPreview.warning}
+                      </div>
+                    ) : null}
+                    {loyaltyState.lastError ? (
+                      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {loyaltyState.lastError}
+                      </div>
+                    ) : null}
+                    {(loyaltyPreviewLoading || loyaltyStateRefreshing) && (
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Обновляем бонусный профиль...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -656,9 +784,17 @@ export default function CheckoutPage() {
                     Товары ({getItemCount()})
                   </span>
                   <span className="font-bold">
-                    {formatPrice(getTotalPrice())}
+                    {formatPrice(subtotal)}
                   </span>
                 </div>
+                {effectiveBonusSpent > 0 ? (
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-muted-foreground">Списание бонусов</span>
+                    <span className="font-bold text-[#05C3D4]">
+                      − {formatPrice(effectiveBonusSpent)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-sm font-medium">
                   <span className="text-muted-foreground">Доставка</span>
                   <span className="text-[#22c55e] font-bold">
@@ -671,7 +807,7 @@ export default function CheckoutPage() {
                     К оплате
                   </span>
                   <span className="text-3xl font-black text-[#05C3D4] font-heading leading-none">
-                    {formatPrice(getTotalPrice())}
+                    {formatPrice(totalWithBonuses)}
                   </span>
                 </div>
 

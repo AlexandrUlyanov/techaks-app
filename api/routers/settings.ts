@@ -18,6 +18,10 @@ import {
   testYooKassaConnection,
   yookassaSettingsInputSchema,
 } from "../lib/payment-settings";
+import {
+  getLoyaltyAdminSettings,
+  saveLoyaltyAdminSettings,
+} from "../lib/moysklad-loyalty";
 import { listAdminAuditLogs, writeAdminAuditLog } from "../lib/admin-audit";
 import {
   buildVkFeed,
@@ -95,6 +99,12 @@ const siteProfileSettingsSchema = z.object({
 });
 
 const homepageHeroVariantSchema = z.enum(["classic", "interactive"]);
+const loyaltySettingsInputSchema = z.object({
+  enabled: z.boolean(),
+  groupName: z.string().trim().min(2).max(120).default("техакс"),
+  participantTag: z.string().trim().min(2).max(120).default("техакс"),
+  defaultMaxWriteoffPercent: z.number().int().min(1).max(100).default(30),
+});
 
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();
 const SEO_AUDIT_BASE_URL =
@@ -734,6 +744,29 @@ export const settingsRouter = createRouter({
     requireAbility(ctx, "manage_payment_settings", "Settings");
     return getYooKassaAdminSettings();
   }),
+
+  getLoyaltySettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    return getLoyaltyAdminSettings();
+  }),
+
+  saveLoyaltySettings: protectedProcedure
+    .input(loyaltySettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getLoyaltyAdminSettings();
+      const result = await saveLoyaltyAdminSettings(input);
+      const after = await getLoyaltyAdminSettings();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.loyalty.update",
+        entityType: "settings",
+        entityLabel: "Бонусная программа МойСклад",
+        before,
+        after,
+      });
+      return result;
+    }),
 
   getFeedCatalog: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "read", "Settings");

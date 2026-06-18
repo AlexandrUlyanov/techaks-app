@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { orders, syncLogs, webhookEvents } from "@db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../queries/connection";
+import { syncOrderLoyaltyFromMoysklad } from "./moysklad-loyalty";
 import { enqueueMoyskladSyncJob } from "./moysklad-order-sync";
 import { getOrderDbCapabilities } from "./order-compat";
 import { getYooKassaRuntimeSettings } from "./payment-settings";
@@ -585,6 +586,9 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
   );
 
   await enqueueMoyskladPaymentSync(order.id, paymentWithReceipt);
+  await syncOrderLoyaltyFromMoysklad(order.id).catch(error => {
+    console.error("loyalty sync after YooKassa refresh failed", error);
+  });
 
   await logYooKassaPayment("success", "YooKassa payment refreshed", {
     orderId: order.id,
@@ -789,6 +793,9 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
   );
 
   await enqueueMoyskladPaymentSync(order.id, verifiedPayment);
+  await syncOrderLoyaltyFromMoysklad(order.id).catch(error => {
+    console.error("loyalty sync after YooKassa webhook failed", error);
+  });
 
   await db
     .update(webhookEvents)

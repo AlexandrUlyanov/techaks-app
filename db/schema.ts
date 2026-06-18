@@ -291,11 +291,37 @@ export const users = mysqlTable("users", {
   passwordHash: varchar("password_hash", { length: 255 }),
   role: varchar("role", { length: 40 }).notNull().default("customer"),
   status: varchar("status", { length: 40 }).notNull().default("active"),
+  moyskladCounterpartyId: varchar("moysklad_counterparty_id", { length: 120 }),
+  moyskladCounterpartyHref: text("moysklad_counterparty_href"),
+  moyskladCounterpartyVersion: int("moysklad_counterparty_version"),
+  moyskladCounterpartyExternalCode: varchar("moysklad_counterparty_external_code", {
+    length: 120,
+  }),
+  loyaltyParticipantGroup: varchar("loyalty_participant_group", { length: 120 }),
+  loyaltyParticipantTag: varchar("loyalty_participant_tag", { length: 120 }),
+  loyaltyParticipantAssignedAt: timestamp("loyalty_participant_assigned_at"),
+  loyaltyStatus: varchar("loyalty_status", { length: 30 }).notNull().default("pending"),
+  loyaltyBalance: int("loyalty_balance").notNull().default(0),
+  loyaltyAvailableToSpend: int("loyalty_available_to_spend").notNull().default(0),
+  loyaltyPendingAccrual: int("loyalty_pending_accrual").notNull().default(0),
+  loyaltyProgramName: varchar("loyalty_program_name", { length: 255 }),
+  loyaltyProgramMetaHref: text("loyalty_program_meta_href"),
+  loyaltyProfileJson: json("loyalty_profile_json"),
+  loyaltyRulesJson: json("loyalty_rules_json"),
+  loyaltyLastSyncedAt: timestamp("loyalty_last_synced_at"),
+  loyaltyLastError: text("loyalty_last_error"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   roleIdx: index("users_role_idx").on(table.role),
   statusIdx: index("users_status_idx").on(table.status),
   emailIdx: index("users_email_idx").on(table.email),
+  loyaltyStatusIdx: index("users_loyalty_status_idx").on(
+    table.loyaltyStatus,
+    table.loyaltyLastSyncedAt
+  ),
+  loyalyCounterpartyIdx: index("users_loyalty_counterparty_idx").on(
+    table.moyskladCounterpartyId
+  ),
 }));
 
 export const userFavorites = mysqlTable("user_favorites", {
@@ -375,6 +401,12 @@ export const orders = mysqlTable("orders", {
   discountTotal: int("discount_total").notNull().default(0),
   deliveryPrice: int("delivery_price").notNull().default(0),
   paidAmount: int("paid_amount").notNull().default(0),
+  loyaltyBonusSpent: int("loyalty_bonus_spent").notNull().default(0),
+  loyaltyBonusAccrued: int("loyalty_bonus_accrued").notNull().default(0),
+  loyaltyWriteoffPercentApplied: int("loyalty_writeoff_percent_applied")
+    .notNull()
+    .default(0),
+  loyaltyProgramSnapshotJson: json("loyalty_program_snapshot_json"),
   deliveryType: varchar("delivery_type", { length: 20 })
     .notNull()
     .default("pickup"), // pickup, delivery
@@ -483,6 +515,46 @@ export const orderHistory = mysqlTable("order_history", {
   orderIdx: index("order_history_order_idx").on(table.orderId, table.createdAt),
   actionIdx: index("order_history_action_idx").on(table.actionType, table.createdAt),
   userIdx: index("order_history_user_idx").on(table.userId),
+}));
+
+export const bonusTransactions = mysqlTable("bonus_transactions", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  orderId: int("order_id"),
+  direction: varchar("direction", { length: 20 }).notNull(), // debit | credit | rollback | sync
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | applied | cancelled | error
+  amount: int("amount").notNull().default(0),
+  balanceAfter: int("balance_after"),
+  source: varchar("source", { length: 40 }).notNull().default("site"),
+  externalId: varchar("external_id", { length: 160 }),
+  externalType: varchar("external_type", { length: 80 }),
+  note: text("note"),
+  payloadJson: json("payload_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: index("bonus_transactions_user_idx").on(table.userId, table.createdAt),
+  orderIdx: index("bonus_transactions_order_idx").on(table.orderId, table.createdAt),
+  statusIdx: index("bonus_transactions_status_idx").on(table.status, table.updatedAt),
+  externalIdx: index("bonus_transactions_external_idx").on(
+    table.externalType,
+    table.externalId
+  ),
+}));
+
+export const loyaltySyncLogs = mysqlTable("loyalty_sync_logs", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id"),
+  orderId: int("order_id"),
+  direction: varchar("direction", { length: 30 }).notNull().default("pull"), // pull | push
+  status: varchar("status", { length: 20 }).notNull().default("success"), // success | error | skipped
+  message: text("message"),
+  detailsJson: json("details_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: index("loyalty_sync_logs_user_idx").on(table.userId, table.createdAt),
+  orderIdx: index("loyalty_sync_logs_order_idx").on(table.orderId, table.createdAt),
+  statusIdx: index("loyalty_sync_logs_status_idx").on(table.status, table.createdAt),
 }));
 
 export const productStocks = mysqlTable("product_stocks", {
