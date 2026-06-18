@@ -401,12 +401,27 @@ export const orders = mysqlTable("orders", {
   discountTotal: int("discount_total").notNull().default(0),
   deliveryPrice: int("delivery_price").notNull().default(0),
   paidAmount: int("paid_amount").notNull().default(0),
+  loyaltyBalanceBefore: int("loyalty_balance_before").notNull().default(0),
+  loyaltyBonusRequested: int("loyalty_bonus_requested").notNull().default(0),
   loyaltyBonusSpent: int("loyalty_bonus_spent").notNull().default(0),
   loyaltyBonusAccrued: int("loyalty_bonus_accrued").notNull().default(0),
+  loyaltyBonusExpectedAccrued: int("loyalty_bonus_expected_accrued")
+    .notNull()
+    .default(0),
   loyaltyWriteoffPercentApplied: int("loyalty_writeoff_percent_applied")
     .notNull()
     .default(0),
+  loyaltyPreviewPayloadJson: json("loyalty_preview_payload_json"),
+  loyaltyRulesSnapshotJson: json("loyalty_rules_snapshot_json"),
   loyaltyProgramSnapshotJson: json("loyalty_program_snapshot_json"),
+  loyaltyActualSpent: int("loyalty_actual_spent").notNull().default(0),
+  loyaltyActualAccrued: int("loyalty_actual_accrued").notNull().default(0),
+  loyaltySyncStatus: varchar("loyalty_sync_status", { length: 20 })
+    .notNull()
+    .default("pending"),
+  loyaltyLastSyncError: text("loyalty_last_sync_error"),
+  loyaltyLastSyncedAt: timestamp("loyalty_last_synced_at"),
+  loyaltyRawResultJson: json("loyalty_raw_result_json"),
   deliveryType: varchar("delivery_type", { length: 20 })
     .notNull()
     .default("pickup"), // pickup, delivery
@@ -555,6 +570,30 @@ export const loyaltySyncLogs = mysqlTable("loyalty_sync_logs", {
   userIdx: index("loyalty_sync_logs_user_idx").on(table.userId, table.createdAt),
   orderIdx: index("loyalty_sync_logs_order_idx").on(table.orderId, table.createdAt),
   statusIdx: index("loyalty_sync_logs_status_idx").on(table.status, table.createdAt),
+}));
+
+export const loyaltySyncJobs = mysqlTable("loyalty_sync_jobs", {
+  id: serial("id").primaryKey(),
+  jobType: varchar("job_type", { length: 40 }).notNull(),
+  userId: int("user_id"),
+  orderId: int("order_id"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: int("attempts").notNull().default(0),
+  nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
+  lockedAt: timestamp("locked_at"),
+  lastError: text("last_error"),
+  payloadJson: json("payload_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  statusIdx: index("loyalty_sync_jobs_status_idx").on(
+    table.status,
+    table.nextRunAt,
+    table.createdAt
+  ),
+  userIdx: index("loyalty_sync_jobs_user_idx").on(table.userId, table.createdAt),
+  orderIdx: index("loyalty_sync_jobs_order_idx").on(table.orderId, table.createdAt),
+  typeIdx: index("loyalty_sync_jobs_type_idx").on(table.jobType, table.status, table.createdAt),
 }));
 
 export const productStocks = mysqlTable("product_stocks", {

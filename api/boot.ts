@@ -25,6 +25,10 @@ import { runMoyskladStockReconcile } from "./lib/moysklad-reconcile";
 import { runScheduledFullSync } from "./routers/sync";
 import { buildPublicProductVisibilityCondition } from "./lib/product-visibility";
 import {
+  processLoyaltySyncJobs,
+  scheduleLoyaltyMaintenanceJobs,
+} from "./lib/moysklad-loyalty";
+import {
   getSyncRuntimeSettings,
   getSyncSchedulerSlot,
   setSyncSchedulerLastFullSyncKey,
@@ -1030,6 +1034,18 @@ if (env.isProduction) {
       console.error("[moysklad-order-sync] queue cycle failed:", error);
     });
   }, 15_000);
+
+  setInterval(() => {
+    processLoyaltySyncJobs(6).catch(error => {
+      console.error("[loyalty-sync] queue cycle failed:", error);
+    });
+  }, 60_000);
+
+  setInterval(() => {
+    scheduleLoyaltyMaintenanceJobs(20).catch(error => {
+      console.error("[loyalty-maintenance] schedule cycle failed:", error);
+    });
+  }, 5 * 60_000);
 
   setInterval(() => {
     runMoyskladStockReconcile().catch(error => {

@@ -53,6 +53,7 @@ import {
 import { extractReceiptMeta } from "../lib/order-receipts";
 import {
   attachLoyaltyToOrder,
+  enqueueLoyaltySyncJob,
   getUserLoyaltyState,
   listUserBonusTransactions,
   previewBonusWriteoff,
@@ -3020,6 +3021,23 @@ export const ecommerceRouter = createRouter({
           previousStatus: existing[0]?.status ?? null,
         },
       });
+      if (
+        input.status === "cancelled" ||
+        input.status === "completed" ||
+        input.status === "return_requested"
+      ) {
+        await enqueueLoyaltySyncJob({
+          jobType: "order_loyalty_sync",
+          orderId: input.id,
+          payloadJson: {
+            reason: "order_status_changed",
+            status: input.status,
+            previousStatus: existing[0]?.status ?? null,
+          },
+        }).catch(err => {
+          console.error("loyalty order sync enqueue failed", err);
+        });
+      }
       return { success: true };
     }),
 
@@ -3049,6 +3067,20 @@ export const ecommerceRouter = createRouter({
             discountTotal: orders.discountTotal,
             deliveryPrice: orders.deliveryPrice,
             paidAmount: orders.paidAmount,
+            loyaltyBalanceBefore: orders.loyaltyBalanceBefore,
+            loyaltyBonusRequested: orders.loyaltyBonusRequested,
+            loyaltyBonusSpent: orders.loyaltyBonusSpent,
+            loyaltyBonusAccrued: orders.loyaltyBonusAccrued,
+            loyaltyBonusExpectedAccrued: orders.loyaltyBonusExpectedAccrued,
+            loyaltyActualSpent: orders.loyaltyActualSpent,
+            loyaltyActualAccrued: orders.loyaltyActualAccrued,
+            loyaltySyncStatus: orders.loyaltySyncStatus,
+            loyaltyLastSyncError: orders.loyaltyLastSyncError,
+            loyaltyLastSyncedAt: orders.loyaltyLastSyncedAt,
+            loyaltyProgramSnapshotJson: orders.loyaltyProgramSnapshotJson,
+            loyaltyPreviewPayloadJson: orders.loyaltyPreviewPayloadJson,
+            loyaltyRulesSnapshotJson: orders.loyaltyRulesSnapshotJson,
+            loyaltyRawResultJson: orders.loyaltyRawResultJson,
             paymentType: orders.paymentType,
             paymentMethod: orders.paymentMethod,
             paymentId: orders.paymentId,
@@ -4018,7 +4050,11 @@ export const ecommerceRouter = createRouter({
           console.error("payment_failed email failed", err);
         });
       }
-      if (input.paymentStatus === "paid") {
+      if (
+        input.paymentStatus === "paid" ||
+        input.paymentStatus === "refund" ||
+        input.paymentStatus === "partial_refund"
+      ) {
         await enqueueMoyskladSyncJob({
           entityType: "payment",
           entityId: input.id,
@@ -4030,6 +4066,20 @@ export const ecommerceRouter = createRouter({
           },
         }).catch(err => {
           console.error("moysklad payment sync enqueue failed", err);
+        });
+        await enqueueLoyaltySyncJob({
+          jobType: "order_loyalty_sync",
+          orderId: input.id,
+          payloadJson: {
+            reason: "payment_status_changed",
+            paymentStatus: input.paymentStatus,
+            paymentMethod:
+              input.paymentMethod ||
+              existing[0]?.paymentMethod ||
+              existing[0]?.paymentType,
+          },
+        }).catch(err => {
+          console.error("loyalty payment sync enqueue failed", err);
         });
         await syncOrderLoyaltyFromMoysklad(input.id).catch(err => {
           console.error("loyalty sync after admin payment update failed", err);

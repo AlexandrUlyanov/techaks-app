@@ -34,6 +34,7 @@ db/migrations/*.sql
 !db/migrations/0029_user_favorites.sql
 !db/migrations/0030_category_activity.sql
 !db/migrations/0031_loyalty_foundation.sql
+!db/migrations/0032_loyalty_jobs_and_snapshots.sql
 # TypeScript cache
 *.tsbuildinfo
 # Build outputs

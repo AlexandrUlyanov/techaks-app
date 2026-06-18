@@ -47,6 +47,7 @@ const AdminListings = lazy(() => import("@/pages/admin/AdminListings"));
 const AdminNormalizeSpecs = lazy(() => import("@/pages/admin/AdminNormalizeSpecs"));
 const AdminMerchandising = lazy(() => import("@/pages/admin/AdminMerchandising"));
 const AdminReviews = lazy(() => import("@/pages/admin/AdminReviews"));
+const AdminLoyalty = lazy(() => import("@/pages/admin/AdminLoyalty"));
 const AdminMerchandisingAi = lazy(
   () => import("@/pages/admin/merchandising/AdminMerchandisingAi")
 );
@@ -171,6 +172,7 @@ export default function App() {
                   element={<AdminMerchandisingQuality />}
                 />
                 <Route path="reviews" element={<AdminReviews />} />
+                <Route path="loyalty" element={<AdminLoyalty />} />
                 <Route path="blog" element={<AdminBlog />} />
                 <Route path="search" element={<AdminSearchPage />}>
                   <Route index element={<AdminSearchSettingsPage />} />

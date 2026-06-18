@@ -23,6 +23,7 @@ import {
   Star,
   Store,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
 
 export type AdminNavItem = {
@@ -63,6 +64,7 @@ export function buildAdminNavigation(
         { id: "orders", name: "Заказы", href: "/admin/leads", icon: MessageSquare },
         { id: "reservations", name: "Резервы", href: "/admin/reservations", icon: MapPinned },
         { id: "reviews", name: "Отзывы", href: "/admin/reviews", icon: Star },
+        { id: "loyalty", name: "Лояльность", href: "/admin/loyalty", icon: Wallet },
         {
           id: "sync",
           name: "Синхронизации",
