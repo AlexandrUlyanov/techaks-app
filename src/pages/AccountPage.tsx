@@ -203,54 +203,6 @@ function getDeliveryTypeLabel(type?: string | null) {
   return type;
 }
 
-function getOrderHistoryActionLabel(actionType?: string | null) {
-  switch (actionType) {
-    case "status_changed":
-      return "Статус заказа изменён";
-    case "status_changed_from_moysklad":
-      return "Статус обновлён из МойСклад";
-    case "payment_updated":
-      return "Оплата обновлена";
-    case "order_created":
-      return "Заказ создан";
-    case "one_click_order_created":
-      return "Заказ в один клик создан";
-    case "order_created_from_reservation":
-      return "Заказ создан из резерва";
-    case "customer_comment_added":
-      return "Ваше сообщение сохранено";
-    case "comment_added":
-      return "Добавлен комментарий";
-    case "delivery_updated":
-      return "Доставка обновлена";
-    case "delivery_update_skipped_not_required":
-      return "Доставка не требуется";
-    case "delivery_update_skipped_legacy":
-      return "Доставка не обновлена";
-    case "order_details_updated":
-      return "Данные заказа обновлены";
-    case "order_item_quantity_updated":
-      return "Количество товара изменено";
-    case "order_item_removed":
-      return "Товар удалён из заказа";
-    case "bulk_status_changed":
-      return "Статус изменён массово";
-    case "customer_review_created":
-      return "Отзыв отправлен";
-    case "customer_review_updated":
-      return "Отзыв обновлён";
-    case "customer_comment_skipped_legacy":
-      return "Сообщение клиента не сохранено";
-    case "comment_skipped_legacy":
-      return "Комментарий не сохранён";
-    case "customer_conversation_read":
-    case "manager_conversation_read":
-      return "Сообщения прочитаны";
-    default:
-      return actionType || "Событие заказа";
-  }
-}
-
 function resolveOrderActions(params: {
   orderStatus?: string | null;
   paymentStatus?: string | null;
@@ -650,27 +602,6 @@ function AccountOrderCard({
                         ))
                       )}
                     </div>
-                  </section>
-
-                  <section className="rounded-[1.75rem] bg-muted/25 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Лента заказа</h3>
-                    {(feed?.history ?? []).length === 0 ? (
-                      <div className="mt-4 text-sm text-muted-foreground">История изменений пока пуста.</div>
-                    ) : (
-                      <ul className="mt-4 divide-y divide-border/60">
-                        {(feed?.history ?? []).map(entry => (
-                          <li key={`history-${entry.id}`} className="py-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="font-semibold">{getOrderHistoryActionLabel(entry.actionType)}</div>
-                              <div className="text-xs text-muted-foreground">{formatDateTime(entry.createdAt)}</div>
-                            </div>
-                            {entry.comment ? (
-                              <div className="mt-1 text-sm text-muted-foreground">{entry.comment}</div>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </section>
 
                   <section className="rounded-[1.75rem] bg-muted/25 p-5 md:p-6">

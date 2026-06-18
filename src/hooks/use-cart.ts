@@ -17,7 +17,7 @@ export interface CartItem {
 
 const CART_STORAGE_KEY = "techaks-cart";
 
-function buildCartKey(productId: number, variantId?: number | null) {
+export function buildCartKey(productId: number, variantId?: number | null) {
   return `${productId}:${typeof variantId === "number" ? variantId : 0}`;
 }
 
@@ -25,6 +25,7 @@ interface CartStore {
   items: CartItem[];
   addItem: (product: Omit<CartItem, "quantity" | "cartKey">) => void;
   removeItem: (cartKey: string) => void;
+  removeItems: (cartKeys: string[]) => void;
   updateQuantity: (cartKey: string, quantity: number) => void;
   replaceItems: (items: CartItem[]) => void;
   clearCart: () => void;
@@ -64,6 +65,13 @@ export const useCart = create<CartStore>()(
       removeItem: cartKey => {
         set({
           items: get().items.filter(item => item.cartKey !== cartKey),
+        });
+      },
+      removeItems: cartKeys => {
+        if (!Array.isArray(cartKeys) || cartKeys.length === 0) return;
+        const keys = new Set(cartKeys);
+        set({
+          items: get().items.filter(item => !keys.has(item.cartKey)),
         });
       },
       updateQuantity: (cartKey, quantity) => {

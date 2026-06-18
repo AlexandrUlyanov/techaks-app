@@ -168,7 +168,7 @@ function buildExternalFiscalReceiptUrl(payload: Record<string, any>) {
     "receiptType",
     "operation_type",
     "operationType",
-  ]);
+  ]) || "1";
 
   if (!fn || !i || !fp || !n) {
     return null;

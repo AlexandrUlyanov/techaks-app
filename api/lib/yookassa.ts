@@ -35,6 +35,28 @@ type YooKassaPaymentObject = {
   confirmation?: YooKassaConfirmation;
   metadata?: Record<string, unknown>;
   test?: boolean;
+  fiscal_receipt?: YooKassaReceiptObject | null;
+  receiptUrl?: string | null;
+  receiptPdfUrl?: string | null;
+};
+
+type YooKassaReceiptObject = {
+  id?: string;
+  status?: string;
+  type?: string;
+  payment_id?: string;
+  fiscal_storage_number?: string | number;
+  fiscal_document_number?: string | number;
+  fiscal_document_attribute?: string | number;
+  receipt_registration_number?: string | number;
+  receiptUrl?: string | null;
+  receiptPdfUrl?: string | null;
+  [key: string]: unknown;
+};
+
+type YooKassaReceiptListResponse = {
+  type?: string;
+  items?: YooKassaReceiptObject[];
 };
 
 type YooKassaWebhookPayload = {
@@ -276,6 +298,77 @@ async function requestYooKassa<T>(
   return data as T;
 }
 
+function pickBestYooKassaReceipt(
+  items: YooKassaReceiptObject[] | null | undefined
+): YooKassaReceiptObject | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  return (
+    items.find(item => {
+      const status = String(item?.status || "").toLowerCase();
+      return (
+        status === "succeeded" ||
+        status === "succeeded_waiting_for_capture" ||
+        status === "ready"
+      );
+    }) ||
+    items.find(item => {
+      return Boolean(
+        item?.fiscal_storage_number ||
+          item?.fiscal_document_number ||
+          item?.fiscal_document_attribute
+      );
+    }) ||
+    items[0] ||
+    null
+  );
+}
+
+export async function fetchYooKassaReceiptForPayment(
+  paymentId: string,
+  mode?: "test" | "live"
+) {
+  const response = await requestYooKassa<YooKassaReceiptListResponse>(
+    `/receipts?payment_id=${encodeURIComponent(paymentId)}`,
+    { mode }
+  );
+
+  return pickBestYooKassaReceipt(response?.items);
+}
+
+async function enrichYooKassaPaymentWithReceipt(
+  payment: YooKassaPaymentObject,
+  mode?: "test" | "live"
+) {
+  if (!payment?.id) return payment;
+
+  try {
+    const receipt = await fetchYooKassaReceiptForPayment(payment.id, mode);
+    if (!receipt) return payment;
+
+    const enrichedPayment: YooKassaPaymentObject = {
+      ...payment,
+      fiscal_receipt: receipt,
+    };
+    const receiptUrl = extractReceiptUrl(enrichedPayment);
+    if (receiptUrl) {
+      enrichedPayment.receiptUrl = receiptUrl;
+    }
+    return enrichedPayment;
+  } catch (error) {
+    await logYooKassaPayment(
+      "info",
+      "YooKassa receipt fetch skipped",
+      {
+        paymentId: payment.id,
+        mode: mode ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    ).catch(() => undefined);
+    return payment;
+  }
+}
+
 export async function createYooKassaPaymentForOrder(
   input: CreateYooKassaPaymentInput
 ) {
@@ -443,16 +536,28 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
     });
   }
 
-  const payment = await fetchYooKassaPayment(
-    order.paymentId,
+  const paymentMode =
     typeof order.paymentTest === "boolean"
       ? order.paymentTest
         ? "test"
         : "live"
-      : undefined
+      : undefined;
+
+  const payment = await fetchYooKassaPayment(
+    order.paymentId,
+    paymentMode
   );
-  const mapped = mapPaymentStatus(payment, payment.status || "payment.checked");
-  const paymentMetadataPatch = await buildAvailablePaymentMetadataPatch(payment);
+  const paymentWithReceipt =
+    payment.status === "succeeded" || payment.paid
+      ? await enrichYooKassaPaymentWithReceipt(payment, paymentMode)
+      : payment;
+  const mapped = mapPaymentStatus(
+    paymentWithReceipt,
+    paymentWithReceipt.status || "payment.checked"
+  );
+  const paymentMetadataPatch = await buildAvailablePaymentMetadataPatch(
+    paymentWithReceipt
+  );
   const nextPaidAt = mapped.paidAt;
   const nextPaymentError = mapped.error;
   await db
@@ -476,23 +581,26 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
       paymentError: nextPaymentError,
       paidAt: nextPaidAt,
     },
-    payment
+    paymentWithReceipt
   );
 
-  await enqueueMoyskladPaymentSync(order.id, payment);
+  await enqueueMoyskladPaymentSync(order.id, paymentWithReceipt);
 
   await logYooKassaPayment("success", "YooKassa payment refreshed", {
     orderId: order.id,
     paymentId: order.paymentId,
-    paymentStatus: payment.status,
-    test: payment.test,
+    paymentStatus: paymentWithReceipt.status,
+    test: paymentWithReceipt.test,
   });
 
   return {
     paymentId: order.paymentId,
-    status: payment.status || null,
-    test: typeof payment.test === "boolean" ? payment.test : null,
-    cancellationDetails: payment.cancellation_details ?? null,
+    status: paymentWithReceipt.status || null,
+    test:
+      typeof paymentWithReceipt.test === "boolean"
+        ? paymentWithReceipt.test
+        : null,
+    cancellationDetails: paymentWithReceipt.cancellation_details ?? null,
   };
 }
 
@@ -632,6 +740,23 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
       );
       verifiedPayment = object;
     }
+  }
+
+  if (verifiedPayment.status === "succeeded" || verifiedPayment.paid) {
+    const paymentMode =
+      typeof order.paymentTest === "boolean"
+        ? order.paymentTest
+          ? "test"
+          : "live"
+        : typeof verifiedPayment.test === "boolean"
+          ? verifiedPayment.test
+            ? "test"
+            : "live"
+          : undefined;
+    verifiedPayment = await enrichYooKassaPaymentWithReceipt(
+      verifiedPayment,
+      paymentMode
+    );
   }
 
   const mapped = mapPaymentStatus(verifiedPayment, event);

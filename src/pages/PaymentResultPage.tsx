@@ -1,11 +1,15 @@
-import { Link, useSearchParams } from "react-router";
-import { useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import { trackPurchase } from "@/lib/yandex-metrika";
-import { useCart } from "@/hooks/use-cart";
+import { buildCartKey, useCart } from "@/hooks/use-cart";
+import {
+  clearCheckoutOrderSnapshot,
+  getCheckoutOrderSnapshot,
+} from "@/lib/checkout-order-session";
 
 function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
@@ -61,6 +65,9 @@ function getState(paymentStatus?: string | null) {
 
 export default function PaymentResultPage() {
   const clearCart = useCart(state => state.clearCart);
+  const removeItems = useCart(state => state.removeItems);
+  const navigate = useNavigate();
+  const [redirectIn, setRedirectIn] = useState<number | null>(null);
   useSeo({
     title: "Результат оплаты — ТЕХАКС",
     description: "Статус онлайн-оплаты заказа в интернет-магазине ТЕХАКС.",
@@ -87,7 +94,20 @@ export default function PaymentResultPage() {
     if (!order || order.paymentStatus !== "paid") return;
     if (typeof window === "undefined") return;
 
-    clearCart();
+    const snapshot = getCheckoutOrderSnapshot(order.id);
+    const purchasedCartKeys =
+      snapshot?.cartKeys?.length
+        ? snapshot.cartKeys
+        : (order.items || [])
+            .map(item => buildCartKey(item.productId, item.variantId))
+            .filter(Boolean);
+
+    if (purchasedCartKeys.length > 0) {
+      removeItems(purchasedCartKeys);
+    } else {
+      clearCart();
+    }
+    clearCheckoutOrderSnapshot(order.id);
 
     const storageKey = `techaks:purchase:${order.id}:${order.paymentStatus}`;
     if (window.sessionStorage.getItem(storageKey)) return;
@@ -105,7 +125,29 @@ export default function PaymentResultPage() {
     });
 
     window.sessionStorage.setItem(storageKey, "1");
-  }, [clearCart, order]);
+  }, [clearCart, order, removeItems]);
+
+  useEffect(() => {
+    if (!order || order.paymentStatus !== "paid") {
+      setRedirectIn(null);
+      return;
+    }
+
+    setRedirectIn(5);
+    const intervalId = window.setInterval(() => {
+      setRedirectIn(current => {
+        if (current === null) return null;
+        if (current <= 1) {
+          window.clearInterval(intervalId);
+          navigate("/account", { replace: true });
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [navigate, order]);
 
   return (
     <div className="min-h-[70vh] bg-background px-4 py-16 text-foreground">
@@ -147,6 +189,11 @@ export default function PaymentResultPage() {
                 <div className="mt-1 text-sm text-muted-foreground">
                   Статус оплаты: {getPaymentStatusLabel(order.paymentStatus)}
                 </div>
+                {order.paymentStatus === "paid" && redirectIn !== null ? (
+                  <div className="mt-2 text-xs font-semibold text-muted-foreground">
+                    Через {redirectIn} сек. откроем историю заказов.
+                  </div>
+                ) : null}
               </div>
               <div className="text-2xl font-black text-[#05C3D4]">
                 {formatPrice(order.totalPrice)}
@@ -157,11 +204,11 @@ export default function PaymentResultPage() {
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <Link to="/account">
-            <Button className="h-12 rounded-full px-8">Открыть заказы</Button>
+            <Button className="h-12 rounded-full px-8">Перейти в историю заказов</Button>
           </Link>
           <Link to="/catalog">
             <Button variant="outline" className="h-12 rounded-full px-8">
-              Вернуться в каталог
+              Вернуться в магазин
             </Button>
           </Link>
         </div>

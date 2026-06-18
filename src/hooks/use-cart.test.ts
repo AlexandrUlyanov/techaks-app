@@ -151,4 +151,35 @@ describe("useCart", () => {
     expect(useCart.getState().items).toHaveLength(0);
     expect(window.localStorage.getItem("techaks-cart")).toBeNull();
   });
+
+  it("should remove multiple purchased items by cart keys", () => {
+    useCart.getState().addItem({
+      id: 1,
+      slug: "phone",
+      name: "Phone",
+      price: 100,
+      image: "img.jpg",
+    });
+    useCart.getState().addItem({
+      id: 2,
+      variantId: 21,
+      variantName: "Blue",
+      slug: "cable",
+      name: "Cable",
+      price: 200,
+      image: "img2.jpg",
+    });
+    useCart.getState().addItem({
+      id: 3,
+      slug: "lamp",
+      name: "Lamp",
+      price: 300,
+      image: "img3.jpg",
+    });
+
+    useCart.getState().removeItems(["1:0", "2:21"]);
+
+    expect(useCart.getState().items).toHaveLength(1);
+    expect(useCart.getState().items[0].cartKey).toBe("3:0");
+  });
 });
