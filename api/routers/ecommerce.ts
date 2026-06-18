@@ -50,6 +50,7 @@ import {
   createYooKassaPaymentForOrder,
   refreshYooKassaPaymentForOrder,
 } from "../lib/yookassa";
+import { extractReceiptMeta } from "../lib/order-receipts";
 
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
@@ -3043,8 +3044,11 @@ export const ecommerceRouter = createRouter({
           .where(eq(orderItems.orderId, input.id))
           .orderBy(orderItems.id);
 
+        const receiptMeta = extractReceiptMeta(orderRows[0].paymentRawResponseJson);
+
         return {
           ...withFallbackDeliveryStatus(orderRows[0]),
+          ...receiptMeta,
           items,
           compatibilityMode: "modern" as const,
           compatibilityWarnings: [] as string[],
@@ -3158,7 +3162,7 @@ export const ecommerceRouter = createRouter({
       }
 
       if (canUseRichOrdersSchema(capabilities)) {
-        const orderRows = await db
+        let orderRows = await db
           .select({
             id: orders.id,
             orderNumber: orders.orderNumber,
@@ -3197,6 +3201,59 @@ export const ecommerceRouter = createRouter({
 
         if (!orderRows[0]) {
           throw new Error("Заказ не найден");
+        }
+
+        const initialReceiptMeta = extractReceiptMeta(
+          orderRows[0].paymentRawResponseJson
+        );
+        if (
+          orderRows[0].paymentMethod === "yookassa" &&
+          orderRows[0].paymentStatus === "paid" &&
+          orderRows[0].paymentId &&
+          !initialReceiptMeta.receiptUrl &&
+          !initialReceiptMeta.receiptPdfUrl
+        ) {
+          try {
+            await refreshYooKassaPaymentForOrder(input.orderId);
+            orderRows = await db
+              .select({
+                id: orders.id,
+                orderNumber: orders.orderNumber,
+                status: orders.status,
+                paymentStatus: orders.paymentStatus,
+                deliveryStatus: orders.deliveryStatus,
+                totalPrice: orders.totalPrice,
+                subtotal: orders.subtotal,
+                discountTotal: orders.discountTotal,
+                deliveryPrice: orders.deliveryPrice,
+                paidAmount: orders.paidAmount,
+                paymentType: orders.paymentType,
+                paymentMethod: orders.paymentMethod,
+                paymentId: orders.paymentId,
+                paymentProviderStatus: orders.paymentProviderStatus,
+                paymentTest: orders.paymentTest,
+                paymentCancellationParty: orders.paymentCancellationParty,
+                paymentCancellationReason: orders.paymentCancellationReason,
+                paymentRawResponseJson: orders.paymentRawResponseJson,
+                paidAt: orders.paidAt,
+                deliveryType: orders.deliveryType,
+                deliveryService: orders.deliveryService,
+                deliveryCity: orders.deliveryCity,
+                deliveryRegion: orders.deliveryRegion,
+                deliveryPostalCode: orders.deliveryPostalCode,
+                deliveryTrackNumber: orders.deliveryTrackNumber,
+                deliveryComment: orders.deliveryComment,
+                address: orders.address,
+                customerComment: orders.customerComment,
+                createdAt: orders.createdAt,
+                updatedAt: orders.updatedAt,
+              })
+              .from(orders)
+              .where(eq(orders.id, input.orderId))
+              .limit(1);
+          } catch (error) {
+            console.error("order receipt refresh skipped", error);
+          }
         }
 
         const items = await db
@@ -3291,8 +3348,15 @@ export const ecommerceRouter = createRouter({
       `);
       const legacyItemsRows = rowsFromExecute<any>(legacyItemsResult);
 
+      const mappedLegacy = mapLegacyOrderDetailsRow(legacyOrderRows[0]) as Record<
+        string,
+        any
+      >;
+      const receiptMeta = extractReceiptMeta(mappedLegacy.paymentRawResponseJson);
+
       return {
-        ...mapLegacyOrderDetailsRow(legacyOrderRows[0]),
+        ...mappedLegacy,
+        ...receiptMeta,
         items: legacyItemsRows.map(mapLegacyOrderItemRow),
         compatibilityMode: "legacy" as const,
         compatibilityWarnings: [

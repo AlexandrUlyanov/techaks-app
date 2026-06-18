@@ -10,6 +10,7 @@ import {
   sendOrderNotificationEmail,
 } from "./mail";
 import { getSiteEmailBranding } from "./site-profile-settings";
+import { extractReceiptUrl } from "./order-receipts";
 
 type YooKassaConfirmationType = "embedded" | "redirect";
 
@@ -121,6 +122,7 @@ async function notifyAboutPaymentTransition(
   if (order.paymentStatus === next.paymentStatus) return;
 
   if (order.customerEmail && next.paymentStatus === "paid" && order.orderNumber) {
+    const receiptUrl = extractReceiptUrl(payment);
     await sendOrderNotificationEmail({
       email: order.customerEmail,
       orderNumber: order.orderNumber,
@@ -133,6 +135,7 @@ async function notifyAboutPaymentTransition(
         paidAmount: order.totalPrice,
         paidAt: next.paidAt,
         totalAmount: order.totalPrice,
+        receiptUrl,
       },
       message: "Оплата подтверждена. Заказ уже передан в обработку.",
     }).catch(error => {

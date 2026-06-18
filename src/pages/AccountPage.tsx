@@ -398,7 +398,25 @@ function AccountOrderCard({
   ]);
 
   const detailsAny = details as Record<string, any> | undefined;
-  const receiptMeta = extractReceiptMeta(detailsAny?.paymentRawResponseJson);
+  const receiptMetaFromBackend =
+    detailsAny?.receiptUrl || detailsAny?.receiptPdfUrl || detailsAny?.receiptStatus
+      ? {
+          receiptUrl:
+            typeof detailsAny?.receiptUrl === "string" ? detailsAny.receiptUrl : undefined,
+          receiptPdfUrl:
+            typeof detailsAny?.receiptPdfUrl === "string"
+              ? detailsAny.receiptPdfUrl
+              : undefined,
+          receiptStatus:
+            detailsAny?.receiptStatus === "ready" ||
+            detailsAny?.receiptStatus === "pending" ||
+            detailsAny?.receiptStatus === "failed" ||
+            detailsAny?.receiptStatus === "not_required"
+              ? detailsAny.receiptStatus
+              : "not_required",
+        }
+      : null;
+  const receiptMeta = receiptMetaFromBackend ?? extractReceiptMeta(detailsAny?.paymentRawResponseJson);
   const canDownloadReceipt = Boolean(receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl);
   const receiptActionHref = receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl;
   const orderNumberLabel = order.orderNumber || `#${order.id}`;
@@ -526,7 +544,7 @@ function AccountOrderCard({
                       className="w-full rounded-full bg-[#05C3D4] text-black sm:w-auto"
                     >
                       <Receipt size={16} className="mr-2" />
-                      Скачать чек
+                      Открыть чек
                     </Button>
                   ) : actions.showPay ? (
                     <Button type="button" disabled className="w-full rounded-full sm:w-auto">
@@ -719,7 +737,7 @@ function AccountOrderCard({
                         }}
                       >
                         <Receipt size={16} className="mr-2" />
-                        {canDownloadReceipt ? "Скачать чек" : "Чек недоступен"}
+                        {canDownloadReceipt ? "Открыть чек" : "Чек недоступен"}
                       </Button>
                       {!canDownloadReceipt ? (
                         <Button type="button" variant="ghost" onClick={openOrderConversation}>

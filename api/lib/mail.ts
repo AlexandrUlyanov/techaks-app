@@ -93,6 +93,7 @@ export type EmailTemplateData = {
   paymentMethod?: string | null;
   paymentStatus?: string | null;
   paymentUrl?: string | null;
+  receiptUrl?: string | null;
   paymentExpiresAt?: string | Date | null;
   paidAt?: string | Date | null;
   paymentError?: string | null;
@@ -676,7 +677,9 @@ function createTemplateConfig(
         subject: `Оплата по заказу ${data.orderNumber} получена`,
         title: "Оплата получена",
         intro: `Здравствуйте, ${customerName}! Мы получили оплату по заказу ${data.orderNumber || ""}.`,
-        action: { label: "Открыть заказ", url: orderUrl },
+        action: data.receiptUrl
+          ? { label: "Открыть чек", url: data.receiptUrl }
+          : { label: "Открыть заказ", url: orderUrl },
         summaryRows: buildOrderSummaryRows({
           ...data,
           paymentStatus: data.paymentStatus || "paid",
@@ -686,7 +689,9 @@ function createTemplateConfig(
         detailBlocks: data.managerComment
           ? [{ title: "Комментарий менеджера", content: data.managerComment }]
           : undefined,
-        note: "Заказ уже в работе. Все дальнейшие изменения статуса появятся в личном кабинете и придут на почту.",
+        note: data.receiptUrl
+          ? "Чек уже доступен по кнопке выше, а сам заказ и дальнейшие изменения статуса остаются в личном кабинете."
+          : "Заказ уже в работе. Ссылка на электронный чек придёт на email, указанный при оплате, а дальнейшие изменения статуса появятся в личном кабинете.",
       };
     case "ORDER_PAYMENT_FAILED":
       return {
