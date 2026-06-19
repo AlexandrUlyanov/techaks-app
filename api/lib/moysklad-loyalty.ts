@@ -19,6 +19,8 @@ const LOYALTY_SETTING_KEYS = [
   "loyalty_participant_tag",
   "loyalty_default_max_writeoff_percent",
   "loyalty_sync_mode",
+  "loyalty_pos_cashier_uid",
+  "loyalty_pos_store_uid",
 ] as const;
 
 const DEFAULT_LOYALTY_GROUP_NAME = "техакс";
@@ -99,6 +101,8 @@ type LoyaltyRuntimeSettings = {
   participantTag: string;
   fallbackMaxWriteoffPercent: number;
   syncMode: "tag";
+  posCashierUid: string;
+  posStoreUid: string;
 };
 
 type LoyaltyOrderSnapshot = {
@@ -654,6 +658,12 @@ export async function getLoyaltyRuntimeSettings(): Promise<LoyaltyRuntimeSetting
       100
     ),
     syncMode: "tag",
+    posCashierUid:
+      settings.loyalty_pos_cashier_uid?.trim() ||
+      env.moyskladLoyaltyCashierUid.trim(),
+    posStoreUid:
+      settings.loyalty_pos_store_uid?.trim() ||
+      env.moyskladLoyaltyStoreUid.trim(),
   };
 }
 
@@ -665,6 +675,9 @@ export async function getLoyaltyAdminSettings() {
     participantTag: runtime.participantTag,
     defaultMaxWriteoffPercent: runtime.fallbackMaxWriteoffPercent,
     syncMode: runtime.syncMode,
+    posCashierUid: runtime.posCashierUid,
+    posStoreUid: runtime.posStoreUid,
+    posDetailConfigured: Boolean(runtime.posCashierUid.trim()),
   };
 }
 
@@ -673,6 +686,8 @@ export async function saveLoyaltyAdminSettings(input: {
   groupName?: string;
   participantTag?: string;
   defaultMaxWriteoffPercent?: number;
+  posCashierUid?: string;
+  posStoreUid?: string;
 }) {
   const groupName = input.groupName?.trim() || DEFAULT_LOYALTY_GROUP_NAME;
   const participantTag = input.participantTag?.trim() || groupName;
@@ -681,6 +696,8 @@ export async function saveLoyaltyAdminSettings(input: {
     1,
     100
   );
+  const posCashierUid = input.posCashierUid?.trim() || "";
+  const posStoreUid = input.posStoreUid?.trim() || "";
 
   await Promise.all([
     setAppSetting("loyalty_enabled", input.enabled ? "true" : "false"),
@@ -691,6 +708,8 @@ export async function saveLoyaltyAdminSettings(input: {
       String(defaultMaxWriteoffPercent)
     ),
     setAppSetting("loyalty_sync_mode", "tag"),
+    setAppSetting("loyalty_pos_cashier_uid", posCashierUid || null),
+    setAppSetting("loyalty_pos_store_uid", posStoreUid || null),
   ]);
 
   return getLoyaltyAdminSettings();
@@ -833,6 +852,12 @@ async function fetchPosCounterpartyDetail(counterpartyHref: string) {
   if (!token) {
     throw new Error("Токен МойСклад не настроен.");
   }
+  const runtime = await getLoyaltyRuntimeSettings();
+  if (!runtime.posCashierUid.trim()) {
+    throw new Error(
+      "Не настроен uid кассира POS API. Укажите его в настройках бонусной программы."
+    );
+  }
 
   const payload = await loadCounterpartyForPosDetail(counterpartyHref);
   const response = await fetch(`${POS_API_BASE_URL}/entity/counterparty/detail`, {
@@ -840,8 +865,13 @@ async function fetchPosCounterpartyDetail(counterpartyHref: string) {
     headers: {
       "Content-Type": "application/json",
       "Lognex-Pos-Auth-Token": token,
+      "Lognex-Pos-Auth-Uid": runtime.posCashierUid,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      uid: runtime.posCashierUid,
+      storeUid: runtime.posStoreUid || undefined,
+    }),
   });
 
   if (!response.ok) {

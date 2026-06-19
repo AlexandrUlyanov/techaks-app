@@ -100,6 +100,8 @@ export default function AdminLoyalty() {
   const [groupName, setGroupName] = useState("техакс");
   const [participantTag, setParticipantTag] = useState("техакс");
   const [maxWriteoffPercent, setMaxWriteoffPercent] = useState(30);
+  const [posCashierUid, setPosCashierUid] = useState("");
+  const [posStoreUid, setPosStoreUid] = useState("");
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -107,6 +109,8 @@ export default function AdminLoyalty() {
     setGroupName(settingsQuery.data.groupName || "техакс");
     setParticipantTag(settingsQuery.data.participantTag || "техакс");
     setMaxWriteoffPercent(Number(settingsQuery.data.defaultMaxWriteoffPercent || 30));
+    setPosCashierUid(settingsQuery.data.posCashierUid || "");
+    setPosStoreUid(settingsQuery.data.posStoreUid || "");
   }, [settingsQuery.data]);
 
   const invalidateAll = async () => {
@@ -282,6 +286,24 @@ export default function AdminLoyalty() {
               className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none transition focus:border-[#05C3D4]"
             />
           </label>
+          <label className="space-y-2 text-sm font-semibold text-[var(--tech-color-text-main)]">
+            <span>UID кассира POS API</span>
+            <input
+              value={posCashierUid}
+              onChange={event => setPosCashierUid(event.target.value)}
+              placeholder="Обязателен для bonus detail из POS API"
+              className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none transition focus:border-[#05C3D4]"
+            />
+          </label>
+          <label className="space-y-2 text-sm font-semibold text-[var(--tech-color-text-main)]">
+            <span>UID точки продаж / магазина</span>
+            <input
+              value={posStoreUid}
+              onChange={event => setPosStoreUid(event.target.value)}
+              placeholder="Опционально, если POS-контур требует контекст точки"
+              className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none transition focus:border-[#05C3D4]"
+            />
+          </label>
           <label className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-[var(--tech-color-text-main)]">
             <span>Включить программу</span>
             <input
@@ -292,6 +314,13 @@ export default function AdminLoyalty() {
             />
           </label>
         </div>
+        {enabled && !settingsQuery.data?.posDetailConfigured ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Для получения реального бонусного баланса и pending-начислений из POS API
+            нужно указать <span className="font-bold">UID кассира</span>. Пока он не
+            настроен, участники программы будут синхронизироваться без POS detail.
+          </div>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
             onClick={() =>
@@ -300,6 +329,8 @@ export default function AdminLoyalty() {
                 groupName,
                 participantTag,
                 defaultMaxWriteoffPercent: maxWriteoffPercent,
+                posCashierUid,
+                posStoreUid,
               })
             }
             disabled={saveSettings.isPending}

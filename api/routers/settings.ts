@@ -104,6 +104,8 @@ const loyaltySettingsInputSchema = z.object({
   groupName: z.string().trim().min(2).max(120).default("техакс"),
   participantTag: z.string().trim().min(2).max(120).default("техакс"),
   defaultMaxWriteoffPercent: z.number().int().min(1).max(100).default(30),
+  posCashierUid: z.string().trim().max(255).optional().default(""),
+  posStoreUid: z.string().trim().max(255).optional().default(""),
 });
 
 const publicProductVisibilityCondition = buildPublicProductVisibilityCondition();

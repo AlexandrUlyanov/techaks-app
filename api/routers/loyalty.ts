@@ -39,6 +39,8 @@ export const loyaltyRouter = createRouter({
         groupName: z.string().trim().optional(),
         participantTag: z.string().trim().optional(),
         defaultMaxWriteoffPercent: z.number().int().min(1).max(100).optional(),
+        posCashierUid: z.string().trim().max(255).optional(),
+        posStoreUid: z.string().trim().max(255).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

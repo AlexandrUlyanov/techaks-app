@@ -371,6 +371,8 @@ export default function AdminSettings() {
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [loyaltyGroupName, setLoyaltyGroupName] = useState("техакс");
   const [loyaltyParticipantTag, setLoyaltyParticipantTag] = useState("техакс");
+  const [loyaltyPosCashierUid, setLoyaltyPosCashierUid] = useState("");
+  const [loyaltyPosStoreUid, setLoyaltyPosStoreUid] = useState("");
   const [loyaltyDefaultMaxWriteoffPercent, setLoyaltyDefaultMaxWriteoffPercent] =
     useState(30);
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
@@ -472,6 +474,8 @@ export default function AdminSettings() {
     setLoyaltyEnabled(Boolean(loyaltyData.enabled));
     setLoyaltyGroupName(loyaltyData.groupName || "техакс");
     setLoyaltyParticipantTag(loyaltyData.participantTag || loyaltyData.groupName || "техакс");
+    setLoyaltyPosCashierUid(loyaltyData.posCashierUid || "");
+    setLoyaltyPosStoreUid(loyaltyData.posStoreUid || "");
     setLoyaltyDefaultMaxWriteoffPercent(
       Number(loyaltyData.defaultMaxWriteoffPercent || 30)
     );
@@ -1347,6 +1351,30 @@ export default function AdminSettings() {
                     className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
                   />
                 </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    UID кассира POS API
+                  </span>
+                  <input
+                    value={loyaltyPosCashierUid}
+                    onChange={e => setLoyaltyPosCashierUid(e.target.value)}
+                    placeholder="Нужен для bonus detail из POS API"
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-bold text-[#15171A]">
+                    UID точки продаж / магазина
+                  </span>
+                  <input
+                    value={loyaltyPosStoreUid}
+                    onChange={e => setLoyaltyPosStoreUid(e.target.value)}
+                    placeholder="Опционально"
+                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
               </div>
 
               {saveLoyaltyMutation.error ? (
@@ -1361,6 +1389,15 @@ export default function AdminSettings() {
                 профиля в МойСклад эти данные будут подхватываться прямо в checkout и ЛК.
               </div>
 
+              {loyaltyEnabled && !loyaltyData?.posDetailConfigured ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                  Для получения реальных бонусных деталей из POS API нужно указать UID
+                  кассира. Пока он не задан, сайт сможет работать с fallback-логикой, но
+                  баланс, доступно к списанию и pending-начисления не будут подтягиваться
+                  полноценно.
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -1369,6 +1406,8 @@ export default function AdminSettings() {
                       enabled: loyaltyEnabled,
                       groupName: loyaltyGroupName,
                       participantTag: loyaltyParticipantTag,
+                      posCashierUid: loyaltyPosCashierUid,
+                      posStoreUid: loyaltyPosStoreUid,
                       defaultMaxWriteoffPercent: loyaltyDefaultMaxWriteoffPercent,
                     })
                   }
