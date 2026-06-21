@@ -302,6 +302,7 @@ async function buildPublicProductSpecs(
     if (!normalizedValue) continue;
 
     const displayKey = normalizeSpecKeyForDisplay(String(rawKey));
+    if (isInternalProductSpecKey(displayKey)) continue;
     const normalizedKey = normalizeSpecToken(displayKey).slice(0, 120);
     const rule = mergedRules.get(normalizedKey);
 
@@ -326,6 +327,12 @@ function buildManufacturerCondition(normalizedName: string) {
       AND ${productSpecValues.normalizedKey} IN (${sql.join(keys, sql`, `)})
       AND ${productSpecValues.normalizedValue} = ${normalizedName}
   )`;
+}
+
+function isInternalProductSpecKey(key: string) {
+  const normalizedDisplayKey = normalizeSpecKeyForDisplay(String(key));
+  const normalizedToken = normalizeSpecToken(normalizedDisplayKey);
+  return /^kpi(?:\s|$|\d|_)/i.test(normalizedToken);
 }
 
 function buildAdminProductWhere(input?: {
@@ -914,6 +921,7 @@ export const productRouter = createRouter({
 
       for (const row of rows) {
         const rule = rulesByKey.get(row.normalizedKey);
+        if (isInternalProductSpecKey(rule?.targetKey ?? row.key)) continue;
         if (rule && (!rule.isVisible || !rule.isFilterable)) continue;
 
         const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
@@ -1018,6 +1026,7 @@ export const productRouter = createRouter({
 
       for (const row of rows) {
         const rule = rulesByCategoryId.get(row.categoryId)?.get(row.normalizedKey);
+        if (isInternalProductSpecKey(rule?.targetKey ?? row.key)) continue;
         if (rule && (!rule.isVisible || !rule.isFilterable)) continue;
 
         const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
