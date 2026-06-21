@@ -16,6 +16,7 @@ import { and, eq, asc, desc, inArray, like, ne, or, sql } from "drizzle-orm";
 import {
   applyCategorySpecStandardization,
   applyCategorySpecValueStandardization,
+  bulkManageSpecOverview,
   getCategorySpecStandardization,
   getCategorySpecValueStandardization,
   getSpecStandardizationOverviewRows,
@@ -1108,6 +1109,41 @@ export const productRouter = createRouter({
           valueCount: Number(row.valueCount ?? 0),
         };
       });
+    }),
+
+  bulkManageSpecOverview: protectedProcedure
+    .input(
+      z.object({
+        items: z
+          .array(
+            z.object({
+              categoryId: z.number().int().positive(),
+              sourceKey: z.string().min(1),
+              sourceNormalizedKey: z.string().min(1),
+            })
+          )
+          .min(1),
+        action: z.enum(["hide", "exclude_from_filters", "delete"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
+      const result = await bulkManageSpecOverview(input);
+      await writeAdminAuditLog({
+        ctx,
+        action: `product_specs.${input.action}`,
+        entityType: "product_specs",
+        entityLabel: "Массовое управление свойствами товаров",
+        meta: {
+          action: input.action,
+          selectedCount: input.items.length,
+          affectedProducts: result.affectedProducts,
+          affectedValues: result.affectedValues,
+          affectedRules: result.affectedRules,
+          sample: input.items.slice(0, 20),
+        },
+      });
+      return result;
     }),
 
   getSpecValueStandardization: publicQuery

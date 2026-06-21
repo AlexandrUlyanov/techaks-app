@@ -499,6 +499,160 @@ export async function getSpecStandardizationOverviewRows() {
   );
 }
 
+export async function bulkManageSpecOverview(input: {
+  items: Array<{
+    categoryId: number;
+    sourceKey: string;
+    sourceNormalizedKey: string;
+  }>;
+  action: "hide" | "exclude_from_filters" | "delete";
+}) {
+  const db = getDb();
+  const uniqueItems = Array.from(
+    new Map(
+      input.items.map(item => [
+        `${item.categoryId}:${item.sourceNormalizedKey}`,
+        {
+          categoryId: item.categoryId,
+          sourceKey: normalizeSpecKeyForDisplay(item.sourceKey).slice(0, 120),
+          sourceNormalizedKey: item.sourceNormalizedKey.slice(0, 120),
+        },
+      ])
+    ).values()
+  );
+
+  if (uniqueItems.length === 0) {
+    return {
+      success: true,
+      action: input.action,
+      affectedRules: 0,
+      affectedProducts: 0,
+      affectedValues: 0,
+    };
+  }
+
+  if (input.action === "hide" || input.action === "exclude_from_filters") {
+    const categoryIds = Array.from(new Set(uniqueItems.map(item => item.categoryId)));
+    const existingRules = await db
+      .select()
+      .from(schema.productSpecRules)
+      .where(sql`${schema.productSpecRules.categoryId} IN (${sql.join(categoryIds, sql`, `)})`);
+
+    const existingMap = new Map(
+      existingRules.map(rule => [`${rule.categoryId}:${rule.sourceNormalizedKey}`, rule])
+    );
+
+    let affectedRules = 0;
+    for (const item of uniqueItems) {
+      const existing = existingMap.get(`${item.categoryId}:${item.sourceNormalizedKey}`);
+      const targetKey = existing?.targetKey || item.sourceKey;
+      await upsertCategorySpecRule({
+        categoryId: item.categoryId,
+        sourceKey: item.sourceKey,
+        sourceNormalizedKey: item.sourceNormalizedKey,
+        targetKey,
+        isVisible: input.action === "hide" ? false : (existing?.isVisible ?? true),
+        isFilterable:
+          input.action === "exclude_from_filters"
+            ? false
+            : (existing?.isFilterable ?? true),
+        sortOrder: existing?.sortOrder ?? 0,
+      });
+      affectedRules++;
+    }
+
+    return {
+      success: true,
+      action: input.action,
+      affectedRules,
+      affectedProducts: 0,
+      affectedValues: 0,
+    };
+  }
+
+  const byCategory = new Map<number, Set<string>>();
+  for (const item of uniqueItems) {
+    const bucket = byCategory.get(item.categoryId) ?? new Set<string>();
+    bucket.add(item.sourceNormalizedKey);
+    byCategory.set(item.categoryId, bucket);
+  }
+
+  const categoryIds = Array.from(byCategory.keys());
+  const products = await db
+    .select({
+      id: schema.products.id,
+      name: schema.products.name,
+      slug: schema.products.slug,
+      categoryId: schema.products.categoryId,
+      specs: schema.products.specs,
+    })
+    .from(schema.products)
+    .where(sql`${schema.products.categoryId} IN (${sql.join(categoryIds, sql`, `)})`);
+
+  let affectedProducts = 0;
+  let affectedValues = 0;
+
+  for (const product of products as ProductRow[]) {
+    if (!isSpecsRecord(product.specs)) continue;
+    const keysToDelete = byCategory.get(product.categoryId);
+    if (!keysToDelete || keysToDelete.size === 0) continue;
+
+    const nextSpecs: Record<string, unknown> = {};
+    let changed = false;
+
+    for (const [rawKey, rawValue] of Object.entries(product.specs)) {
+      const normalizedKey = normalizeSpecToken(
+        normalizeSpecKeyForDisplay(String(rawKey))
+      ).slice(0, 120);
+      if (keysToDelete.has(normalizedKey)) {
+        changed = true;
+        affectedValues++;
+        continue;
+      }
+      nextSpecs[rawKey] = rawValue;
+    }
+
+    if (!changed) continue;
+
+    await db
+      .update(schema.products)
+      .set({ specs: nextSpecs })
+      .where(eq(schema.products.id, product.id));
+    await rebuildProductSpecIndexForProduct({
+      ...product,
+      specs: nextSpecs,
+    });
+    affectedProducts++;
+  }
+
+  for (const item of uniqueItems) {
+    await db
+      .delete(schema.productSpecRules)
+      .where(
+        and(
+          eq(schema.productSpecRules.categoryId, item.categoryId),
+          eq(schema.productSpecRules.sourceNormalizedKey, item.sourceNormalizedKey)
+        )
+      );
+    await db
+      .delete(schema.productSpecValueRules)
+      .where(
+        and(
+          eq(schema.productSpecValueRules.categoryId, item.categoryId),
+          eq(schema.productSpecValueRules.specNormalizedKey, item.sourceNormalizedKey)
+        )
+      );
+  }
+
+  return {
+    success: true,
+    action: input.action,
+    affectedRules: uniqueItems.length,
+    affectedProducts,
+    affectedValues,
+  };
+}
+
 export async function upsertCategorySpecValueRule(input: {
   categoryId: number;
   specNormalizedKey: string;
