@@ -34,13 +34,38 @@ type SectionKey = "keys" | "values";
 
 export default function ProductSpecStandardizationPanel({
   categories,
+  initialCategoryId = null,
 }: {
   categories: Category[];
+  initialCategoryId?: number | null;
 }) {
-  const rootCategories = useMemo(
-    () => categories.filter(category => !category.parentId),
+  const orderedCategories = useMemo(
+    () =>
+      [...categories].sort((a, b) =>
+        a.name.localeCompare(b.name, "ru", { sensitivity: "base" })
+      ),
     [categories]
   );
+  const categoryOptions = useMemo(() => {
+    const childrenByParent = new Map<number | null, Category[]>();
+    for (const category of orderedCategories) {
+      const bucket = childrenByParent.get(category.parentId ?? null) ?? [];
+      bucket.push(category);
+      childrenByParent.set(category.parentId ?? null, bucket);
+    }
+
+    const flattened: Array<Category & { depth: number }> = [];
+    const walk = (parentId: number | null, depth: number) => {
+      const children = childrenByParent.get(parentId) ?? [];
+      for (const child of children) {
+        flattened.push({ ...child, depth });
+        walk(child.id, depth + 1);
+      }
+    };
+
+    walk(null, 0);
+    return flattened;
+  }, [orderedCategories]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     keys: true,
@@ -52,10 +77,18 @@ export default function ProductSpecStandardizationPanel({
   const utils = trpc.useUtils();
 
   useEffect(() => {
-    if (!categoryId && rootCategories.length > 0) {
-      setCategoryId(rootCategories[0].id);
+    if (categoryId) return;
+    if (
+      initialCategoryId &&
+      categoryOptions.some(category => category.id === initialCategoryId)
+    ) {
+      setCategoryId(initialCategoryId);
+      return;
     }
-  }, [categoryId, rootCategories]);
+    if (categoryOptions.length > 0) {
+      setCategoryId(categoryOptions[0].id);
+    }
+  }, [categoryId, categoryOptions, initialCategoryId]);
 
   const standardization = trpc.product.getSpecStandardization.useQuery(
     { categoryId: categoryId ?? 0 },
@@ -224,8 +257,9 @@ export default function ProductSpecStandardizationPanel({
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500">
             Здесь приводим к стандарту и названия свойств, и их значения внутри
-            категории. Разделы свернуты в аккордеоны, чтобы не мешать обычной
-            работе с товарами.
+            категории. Если характеристика помечена как скрытая, она не должна
+            попадать на витрину, в фильтры и SEO-листинги. Разделы свернуты в
+            аккордеоны, чтобы не мешать обычной работе с товарами.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -238,9 +272,9 @@ export default function ProductSpecStandardizationPanel({
             }}
             className="h-11 min-w-[260px] rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
           >
-            {rootCategories.map(category => (
+            {categoryOptions.map(category => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {`${"— ".repeat(category.depth)}${category.name}`}
               </option>
             ))}
           </select>

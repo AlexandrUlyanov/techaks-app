@@ -12,15 +12,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
   Package,
   EyeOff,
   CircleDollarSign,
   Power,
   Download,
 } from "lucide-react";
-import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
-import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
 import {
   AUTO_BLOCK_REASON_ZERO_PRICE,
   hasInvalidProductPrice,
@@ -28,6 +25,7 @@ import {
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
+import { Link } from "react-router";
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,7 +33,6 @@ export default function AdminProducts() {
     "all" | "site_active" | "manual_disabled" | "auto_blocked" | "zero_price"
   >("all");
   const [page, setPage] = useState(1);
-  const [showCatalogUtilities, setShowCatalogUtilities] = useState(false);
   const limit = 20;
 
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -63,7 +60,6 @@ export default function AdminProducts() {
   }, [editingProduct]);
 
   const utils = trpc.useUtils();
-  const { data: categories = [] } = trpc.product.getCategories.useQuery({ includeInactive: true });
   const { data: allProducts = [], isLoading: isExportLoading } = trpc.product.getAdminAll.useQuery();
   const { data: pagedData, isLoading } = trpc.product.getPaginated.useQuery({
     page,
@@ -224,9 +220,15 @@ export default function AdminProducts() {
       <AdminPageHeader
         eyebrow="Каталог"
         title="Товары"
-        description="Основной рабочий сценарий здесь — поиск, просмотр и редактирование карточек. Служебные инструменты каталогизации и стандартизации остаются доступны, но не мешают ежедневному CRUD."
+        description="Здесь только список товаров и работа с карточками. Системные инструменты каталога вынесены в отдельные страницы настроек."
         actions={
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/admin/products/settings"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 transition-colors hover:border-[#05C3D4] hover:text-[#05C3D4]"
+            >
+              Настройки товаров
+            </Link>
             <button
               type="button"
               onClick={handleExportExcel}
@@ -273,7 +275,7 @@ export default function AdminProducts() {
 
       <AdminSection
         title="Список товаров"
-        description="Сначала работаем со списком. Инструментальные панели каталогизации и стандартизации вынесены ниже как отдельная служебная зона."
+        description="Сначала работаем со списком: поиск, проверка статуса публикации, редактирование и выгрузка."
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -307,16 +309,6 @@ export default function AdminProducts() {
               </select>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowCatalogUtilities(prev => !prev)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:border-[#05C3D4] hover:text-[#05C3D4]"
-            >
-              <ChevronsUpDown size={16} />
-              {showCatalogUtilities
-                ? "Скрыть служебные панели"
-                : "Показать служебные панели"}
-            </button>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-gray-200">
@@ -508,21 +500,6 @@ export default function AdminProducts() {
           </div>
         </div>
       </AdminSection>
-
-      {showCatalogUtilities ? (
-        <div className="space-y-6">
-          <AdminSection
-            title="Служебные панели каталога"
-            description="Эти инструменты нужны не в каждом ежедневном сценарии, поэтому они вынесены в отдельную рабочую зону и не давят на основной экран товаров."
-            tone="subtle"
-          >
-            <div className="space-y-6">
-              <ManufacturerCatalogPanel />
-              <ProductSpecStandardizationPanel categories={categories as any} />
-            </div>
-          </AdminSection>
-        </div>
-      ) : null}
 
       {editingProduct ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

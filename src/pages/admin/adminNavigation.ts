@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Blocks,
   Bot,
   FileText,
   FolderTree,
@@ -94,7 +93,23 @@ export function buildAdminNavigation(
       items: [
         { id: "categories", name: "Категории", href: "/admin/categories", icon: FolderTree },
         { id: "listings", name: "Листинги", href: "/admin/listings", icon: Layers3 },
-        { id: "products", name: "Товары", href: "/admin/products", icon: Package },
+        {
+          id: "products",
+          name: "Товары",
+          href: "/admin/products",
+          icon: Package,
+          match: hrefStartsWith("/admin/products"),
+          children: [
+            { id: "products-list", name: "Список товаров", href: "/admin/products" },
+            { id: "products-settings", name: "Настройки товаров", href: "/admin/products/settings" },
+            { id: "products-specs", name: "Все характеристики", href: "/admin/products/specs" },
+            {
+              id: "products-manufacturers",
+              name: "Производители",
+              href: "/admin/products/manufacturers",
+            },
+          ],
+        },
         { id: "stores", name: "Магазины", href: "/admin/stores", icon: Store },
         {
           id: "merchandising",

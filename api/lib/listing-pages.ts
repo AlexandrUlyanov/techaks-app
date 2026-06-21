@@ -166,6 +166,49 @@ function collectDescendantCategoryIds(
   return ids;
 }
 
+function collectAncestorCategoryIds(
+  allCategories: CategoryRow[],
+  categoryId: number
+) {
+  const byId = new Map(allCategories.map(category => [category.id, category]));
+  const ids: number[] = [];
+  let currentId: number | null = categoryId;
+
+  while (currentId) {
+    const category = byId.get(currentId);
+    if (!category) break;
+    ids.unshift(category.id);
+    currentId = category.parentId ?? null;
+  }
+
+  return ids;
+}
+
+function buildMergedSpecRulesForCategory(
+  allCategories: CategoryRow[],
+  rules: Array<typeof productSpecRules.$inferSelect>,
+  categoryId: number
+) {
+  const ancestorCategoryIds = collectAncestorCategoryIds(allCategories, categoryId);
+  const rulesByCategoryId = new Map<number, Array<(typeof rules)[number]>>();
+
+  for (const rule of rules) {
+    const bucket = rulesByCategoryId.get(rule.categoryId) ?? [];
+    bucket.push(rule);
+    rulesByCategoryId.set(rule.categoryId, bucket);
+  }
+
+  const mergedRules = new Map<string, (typeof rules)[number]>();
+  for (const ancestorCategoryId of ancestorCategoryIds) {
+    const categoryRules = rulesByCategoryId.get(ancestorCategoryId) ?? [];
+    for (const rule of categoryRules) {
+      mergedRules.set(rule.sourceNormalizedKey, rule);
+    }
+  }
+
+  return mergedRules;
+}
+
 function isWhitelistedFilterKey(normalizedKey: string) {
   return FILTER_LANDING_WHITELIST.has(normalizedKey);
 }
@@ -199,8 +242,13 @@ async function fetchCategoryFilterGroups(category: CategoryRow) {
   const rules = await db
     .select()
     .from(productSpecRules)
-    .where(eq(productSpecRules.categoryId, category.id));
-  const rulesByKey = new Map(rules.map(rule => [rule.sourceNormalizedKey, rule] as const));
+    .where(
+      sql`${productSpecRules.categoryId} IN (${sql.join(
+        collectAncestorCategoryIds(allCategories, category.id),
+        sql`, `
+      )})`
+    );
+  const rulesByKey = buildMergedSpecRulesForCategory(allCategories, rules, category.id);
 
   const filters = new Map<
     string,
@@ -213,7 +261,7 @@ async function fetchCategoryFilterGroups(category: CategoryRow) {
 
   for (const row of rows) {
     const rule = rulesByKey.get(row.normalizedKey);
-    if (rule && !rule.isFilterable) continue;
+    if (rule && (!rule.isVisible || !rule.isFilterable)) continue;
 
     const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
     if (!isWhitelistedFilterKey(filterKey)) continue;

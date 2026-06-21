@@ -36,6 +36,11 @@ const LegalDocumentPage = lazy(() => import("@/pages/LegalDocumentPage"));
 const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("@/pages/admin/AdminProducts"));
+const AdminProductSettings = lazy(() => import("@/pages/admin/AdminProductSettings"));
+const AdminProductSpecs = lazy(() => import("@/pages/admin/AdminProductSpecs"));
+const AdminProductManufacturers = lazy(
+  () => import("@/pages/admin/AdminProductManufacturers")
+);
 const AdminReservations = lazy(() => import("@/pages/admin/AdminReservations"));
 const AdminStores = lazy(() => import("@/pages/admin/AdminStores"));
 const AdminLeads = lazy(() => import("@/pages/admin/AdminLeads"));
@@ -158,6 +163,12 @@ export default function App() {
                 <Route path="categories" element={<AdminCategories />} />
                 <Route path="listings" element={<AdminListings />} />
                 <Route path="products" element={<AdminProducts />} />
+                <Route path="products/settings" element={<AdminProductSettings />} />
+                <Route path="products/specs" element={<AdminProductSpecs />} />
+                <Route
+                  path="products/manufacturers"
+                  element={<AdminProductManufacturers />}
+                />
                 <Route path="stores" element={<AdminStores />} />
                 <Route path="banners" element={<AdminBanners />} />
                 <Route path="merchandising" element={<AdminMerchandising />} />

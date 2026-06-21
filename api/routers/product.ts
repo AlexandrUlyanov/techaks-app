@@ -141,6 +141,31 @@ function collectAncestorCategoryIds(
   return ids;
 }
 
+function buildMergedSpecRulesForCategory(
+  allCategories: Array<typeof categories.$inferSelect>,
+  rules: Array<typeof schema.productSpecRules.$inferSelect>,
+  categoryId: number
+) {
+  const ancestorCategoryIds = collectAncestorCategoryIds(allCategories, categoryId);
+  const rulesByCategoryId = new Map<number, Array<(typeof rules)[number]>>();
+
+  for (const rule of rules) {
+    const bucket = rulesByCategoryId.get(rule.categoryId) ?? [];
+    bucket.push(rule);
+    rulesByCategoryId.set(rule.categoryId, bucket);
+  }
+
+  const mergedRules = new Map<string, (typeof rules)[number]>();
+  for (const ancestorCategoryId of ancestorCategoryIds) {
+    const categoryRules = rulesByCategoryId.get(ancestorCategoryId) ?? [];
+    for (const rule of categoryRules) {
+      mergedRules.set(rule.sourceNormalizedKey, rule);
+    }
+  }
+
+  return mergedRules;
+}
+
 function normalizeCategoryPayload(
   data: {
     parentId?: number | null;
@@ -264,20 +289,11 @@ async function buildPublicProductSpecs(
     .from(schema.productSpecRules)
     .where(inArray(schema.productSpecRules.categoryId, ancestorCategoryIds));
 
-  const rulesByCategoryId = new Map<number, typeof rules>();
-  for (const rule of rules) {
-    const bucket = rulesByCategoryId.get(rule.categoryId) ?? [];
-    bucket.push(rule);
-    rulesByCategoryId.set(rule.categoryId, bucket);
-  }
-
-  const mergedRules = new Map<string, (typeof rules)[number]>();
-  for (const categoryId of ancestorCategoryIds) {
-    const categoryRules = rulesByCategoryId.get(categoryId) ?? [];
-    for (const rule of categoryRules) {
-      mergedRules.set(rule.sourceNormalizedKey, rule);
-    }
-  }
+  const mergedRules = buildMergedSpecRulesForCategory(
+    allCategories,
+    rules,
+    product.categoryId
+  );
 
   const nextSpecs: Record<string, unknown> = {};
 
@@ -840,9 +856,10 @@ export const productRouter = createRouter({
       const categorySlug = input?.categorySlug ?? "all";
       let categoryIds: number[] | null = null;
       let rootCategoryId: number | null = null;
+      let allCats: Array<typeof categories.$inferSelect> = [];
 
       if (categorySlug !== "all") {
-        const allCats = await db.select().from(categories);
+        allCats = await db.select().from(categories);
         const targetCat = allCats.find(c => c.slug === categorySlug);
         if (!targetCat) return [];
         rootCategoryId = targetCat.id;
@@ -878,10 +895,16 @@ export const productRouter = createRouter({
           : await db
               .select()
               .from(schema.productSpecRules)
-              .where(eq(schema.productSpecRules.categoryId, rootCategoryId));
-      const rulesByKey = new Map(
-        rules.map(rule => [rule.sourceNormalizedKey, rule])
-      );
+              .where(
+                inArray(
+                  schema.productSpecRules.categoryId,
+                  collectAncestorCategoryIds(allCats, rootCategoryId)
+                )
+              );
+      const rulesByKey =
+        rootCategoryId === null
+          ? new Map<string, (typeof rules)[number]>()
+          : buildMergedSpecRulesForCategory(allCats, rules, rootCategoryId);
 
       const filters = new Map<string, {
         key: string;
@@ -891,7 +914,7 @@ export const productRouter = createRouter({
 
       for (const row of rows) {
         const rule = rulesByKey.get(row.normalizedKey);
-        if (rule && !rule.isFilterable) continue;
+        if (rule && (!rule.isVisible || !rule.isFilterable)) continue;
 
         const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
         const filterLabel = rule?.targetKey ?? row.key;
@@ -918,6 +941,7 @@ export const productRouter = createRouter({
     .input(z.object({ manufacturerSlug: z.string() }))
     .query(async ({ input }) => {
       const db = getDb();
+      const allCats = await db.select().from(categories);
       const [manufacturer] = await db
         .select()
         .from(manufacturers)
@@ -927,7 +951,7 @@ export const productRouter = createRouter({
       if (!manufacturer) return [];
 
       const matchingProducts = await db
-        .select({ id: products.id })
+        .select({ id: products.id, categoryId: products.categoryId })
         .from(products)
         .where(
           sql`${publicProductVisibilityCondition} AND ${buildManufacturerCondition(manufacturer.normalizedName)}`
@@ -936,8 +960,34 @@ export const productRouter = createRouter({
       if (matchingProducts.length === 0) return [];
 
       const productIds = matchingProducts.map(product => product.id);
+      const productCategoryIds = Array.from(
+        new Set(matchingProducts.map(product => product.categoryId))
+      );
+      const ruleCategoryIds = Array.from(
+        new Set(
+          productCategoryIds.flatMap(categoryId =>
+            collectAncestorCategoryIds(allCats, categoryId)
+          )
+        )
+      );
+      const rules =
+        ruleCategoryIds.length > 0
+          ? await db
+              .select()
+              .from(schema.productSpecRules)
+              .where(inArray(schema.productSpecRules.categoryId, ruleCategoryIds))
+          : [];
+      const rulesByCategoryId = new Map<number, Map<string, (typeof rules)[number]>>();
+      for (const categoryId of productCategoryIds) {
+        rulesByCategoryId.set(
+          categoryId,
+          buildMergedSpecRulesForCategory(allCats, rules, categoryId)
+        );
+      }
+
       const rows = await db
         .select({
+          categoryId: productSpecValues.categoryId,
           key: productSpecValues.specKey,
           normalizedKey: productSpecValues.normalizedKey,
           value: productSpecValues.specValue,
@@ -949,6 +999,7 @@ export const productRouter = createRouter({
           sql`${productSpecValues.productId} IN (${sql.join(productIds, sql`, `)})`
         )
         .groupBy(
+          productSpecValues.categoryId,
           productSpecValues.specKey,
           productSpecValues.normalizedKey,
           productSpecValues.specValue,
@@ -966,9 +1017,15 @@ export const productRouter = createRouter({
       >();
 
       for (const row of rows) {
-        const current = filters.get(row.normalizedKey) ?? {
-          key: row.key,
-          normalizedKey: row.normalizedKey,
+        const rule = rulesByCategoryId.get(row.categoryId)?.get(row.normalizedKey);
+        if (rule && (!rule.isVisible || !rule.isFilterable)) continue;
+
+        const filterKey = rule?.targetNormalizedKey ?? row.normalizedKey;
+        if (getManufacturerFilterKeys().includes(filterKey)) continue;
+
+        const current = filters.get(filterKey) ?? {
+          key: rule?.targetKey ?? row.key,
+          normalizedKey: filterKey,
           values: [],
         };
         current.values.push({
@@ -976,11 +1033,10 @@ export const productRouter = createRouter({
           normalizedValue: row.normalizedValue,
           count: Number(row.count),
         });
-        filters.set(row.normalizedKey, current);
+        filters.set(filterKey, current);
       }
 
       return Array.from(filters.values())
-        .filter(filter => !getManufacturerFilterKeys().includes(filter.normalizedKey))
         .map(filter => ({
           ...filter,
           values: filter.values.sort(
@@ -993,6 +1049,72 @@ export const productRouter = createRouter({
     .input(z.object({ categoryId: z.number() }))
     .query(async ({ input }) => {
       return getCategorySpecStandardization(input.categoryId);
+    }),
+
+  getSpecStandardizationOverview: protectedProcedure
+    .query(async ({ ctx }) => {
+      requireAbility(ctx, "read", "Product");
+      const db = getDb();
+      const [allCategories, rows, rules] = await Promise.all([
+        db.select().from(categories),
+        db
+          .select({
+            categoryId: productSpecValues.categoryId,
+            sourceKey: productSpecValues.specKey,
+            sourceNormalizedKey: productSpecValues.normalizedKey,
+            productCount: sql<number>`count(distinct ${productSpecValues.productId})`,
+            valueCount: sql<number>`count(distinct ${productSpecValues.normalizedValue})`,
+          })
+          .from(productSpecValues)
+          .groupBy(
+            productSpecValues.categoryId,
+            productSpecValues.specKey,
+            productSpecValues.normalizedKey
+          )
+          .orderBy(
+            asc(productSpecValues.categoryId),
+            desc(sql`count(distinct ${productSpecValues.productId})`)
+          ),
+        db.select().from(schema.productSpecRules),
+      ]);
+
+      const categoriesById = new Map(allCategories.map(category => [category.id, category]));
+      const mergedRulesByCategoryId = new Map<
+        number,
+        Map<string, (typeof rules)[number]>
+      >();
+
+      for (const row of rows) {
+        if (!mergedRulesByCategoryId.has(row.categoryId)) {
+          mergedRulesByCategoryId.set(
+            row.categoryId,
+            buildMergedSpecRulesForCategory(allCategories, rules, row.categoryId)
+          );
+        }
+      }
+
+      return rows.map(row => {
+        const rule = mergedRulesByCategoryId
+          .get(row.categoryId)
+          ?.get(row.sourceNormalizedKey);
+        const category = categoriesById.get(row.categoryId);
+
+        return {
+          categoryId: row.categoryId,
+          categoryName: category?.name ?? `Категория #${row.categoryId}`,
+          categorySlug: category?.slug ?? "",
+          sourceKey: row.sourceKey,
+          sourceNormalizedKey: row.sourceNormalizedKey,
+          targetKey: rule?.targetKey ?? row.sourceKey,
+          targetNormalizedKey:
+            rule?.targetNormalizedKey ??
+            normalizeSpecToken(row.sourceKey).slice(0, 120),
+          isVisible: rule?.isVisible ?? true,
+          isFilterable: rule?.isFilterable ?? true,
+          productCount: Number(row.productCount ?? 0),
+          valueCount: Number(row.valueCount ?? 0),
+        };
+      });
     }),
 
   getSpecValueStandardization: publicQuery
