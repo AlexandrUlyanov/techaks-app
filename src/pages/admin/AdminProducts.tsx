@@ -125,7 +125,11 @@ export default function AdminProducts() {
         : "https://techaks.ru";
 
     const rows = allProducts.map(product => ({
-      "Код МоегоСклада": product.externalCode?.trim() || product.msId?.trim() || "",
+      "Код МоегоСклада":
+        product.article?.trim() ||
+        product.externalCode?.trim() ||
+        product.msId?.trim() ||
+        "",
       "Ссылка на товар": `${origin}/product/${product.slug}`,
     }));
 
