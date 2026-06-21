@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/providers/trpc";
 import { slugify } from "@/lib/utils";
+import { utils as xlsxUtils, writeFile as writeXlsxFile } from "xlsx";
 import {
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
   EyeOff,
   CircleDollarSign,
   Power,
+  Download,
 } from "lucide-react";
 import ProductSpecStandardizationPanel from "@/components/admin/ProductSpecStandardizationPanel";
 import ManufacturerCatalogPanel from "@/components/admin/ManufacturerCatalogPanel";
@@ -62,6 +64,7 @@ export default function AdminProducts() {
 
   const utils = trpc.useUtils();
   const { data: categories = [] } = trpc.product.getCategories.useQuery({ includeInactive: true });
+  const { data: allProducts = [], isLoading: isExportLoading } = trpc.product.getAdminAll.useQuery();
   const { data: pagedData, isLoading } = trpc.product.getPaginated.useQuery({
     page,
     limit,
@@ -108,6 +111,34 @@ export default function AdminProducts() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setPage(1);
+  };
+
+  const handleExportExcel = () => {
+    if (allProducts.length === 0) {
+      window.alert("Пока нет данных для выгрузки.");
+      return;
+    }
+
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://techaks.ru";
+
+    const rows = allProducts.map(product => ({
+      "Код МоегоСклада": product.externalCode?.trim() || product.msId?.trim() || "",
+      "Ссылка на товар": `${origin}/product/${product.slug}`,
+    }));
+
+    const worksheet = xlsxUtils.json_to_sheet(rows);
+    const workbook = xlsxUtils.book_new();
+
+    worksheet["!cols"] = [{ wch: 24 }, { wch: 72 }];
+
+    xlsxUtils.book_append_sheet(workbook, worksheet, "Товары");
+    writeXlsxFile(
+      workbook,
+      `techaks-products-${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
   };
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
@@ -191,13 +222,24 @@ export default function AdminProducts() {
         title="Товары"
         description="Основной рабочий сценарий здесь — поиск, просмотр и редактирование карточек. Служебные инструменты каталогизации и стандартизации остаются доступны, но не мешают ежедневному CRUD."
         actions={
-          <button
-            onClick={() => setEditingProduct({})}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7]"
-          >
-            <Plus size={18} />
-            Добавить товар
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExportLoading || allProducts.length === 0}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 transition-colors hover:border-[#05C3D4] hover:text-[#05C3D4] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download size={18} />
+              Выгрузить в Excel
+            </button>
+            <button
+              onClick={() => setEditingProduct({})}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7]"
+            >
+              <Plus size={18} />
+              Добавить товар
+            </button>
+          </div>
         }
       />
 
