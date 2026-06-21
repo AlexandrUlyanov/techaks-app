@@ -31,6 +31,10 @@ import {
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
 import { getPublicSiteProfile } from "./site-profile-settings";
 import { getManufacturerNameFromProductSpecs } from "./manufacturers";
+import {
+  normalizeSpecKeyForDisplay,
+  normalizeSpecToken,
+} from "./product-normalization";
 
 const SEO_HOST = "https://techaks.ru";
 const SITE_NAME = "ТЕХАКС";
@@ -84,6 +88,12 @@ function stripHtml(value: string | null | undefined) {
     .replace(/&nbsp;/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isInternalProductSpecKey(key: string) {
+  const normalizedDisplayKey = normalizeSpecKeyForDisplay(String(key));
+  const normalizedToken = normalizeSpecToken(normalizedDisplayKey);
+  return /^kpi(?:\s|$|\d|_)/i.test(normalizedToken);
 }
 
 function truncateText(value: string | null | undefined, limit = 320) {
@@ -1570,12 +1580,19 @@ async function buildProductSeoData(url: URL) {
     url: `${SEO_HOST}/product/${encodeURIComponent(product.slug)}`,
   });
 
-  const manufacturerName = getManufacturerNameFromProductSpecs(product.specs) || SITE_NAME;
-  const specsEntries = Object.entries(
+  const visibleProductSpecs =
     product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
-      ? (product.specs as Record<string, unknown>)
-      : {}
-  )
+      ? Object.fromEntries(
+          Object.entries(product.specs as Record<string, unknown>).filter(
+            ([key, value]) =>
+              !isInternalProductSpecKey(key) &&
+              String(value ?? "").trim().length > 0
+          )
+        )
+      : {};
+  const manufacturerName =
+    getManufacturerNameFromProductSpecs(visibleProductSpecs) || SITE_NAME;
+  const specsEntries = Object.entries(visibleProductSpecs)
     .filter(([, value]) => String(value ?? "").trim().length > 0)
     .slice(0, 8)
     .map(([key, value]) => ({
@@ -1605,9 +1622,7 @@ async function buildProductSeoData(url: URL) {
     Number(product.reviewCount ?? 0) > 0 && Number(product.rating ?? 0) > 0;
   const isAvailable = storeAvailability.length > 0;
   const compatibilityValue = getSeoSpecValue(
-    product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
-      ? (product.specs as Record<string, unknown>)
-      : null,
+    visibleProductSpecs,
     ["Совместимость", "Поддержка", "Интерфейс", "Разъем", "Подключение"]
   );
   const productFacts = buildProductFactRows({
@@ -1629,10 +1644,7 @@ async function buildProductSeoData(url: URL) {
     manufacturerName,
     categoryName: product.categoryName,
     description: product.description,
-    specs:
-      product.specs && typeof product.specs === "object" && !Array.isArray(product.specs)
-        ? (product.specs as Record<string, unknown>)
-        : null,
+    specs: visibleProductSpecs,
     price: product.price,
     inStock: isAvailable,
   });
