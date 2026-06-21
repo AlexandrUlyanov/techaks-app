@@ -9,11 +9,16 @@ import { trpc } from "@/providers/trpc";
 type StatusFilter = "all" | "visible" | "hidden" | "filterable";
 type BulkAction = "hide" | "exclude_from_filters" | "delete";
 
+function isInternalSpecKey(value: string) {
+  return /^kpi(?:\s|$|\d|_)/i.test(value.trim());
+}
+
 export default function AdminProductSpecs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryIdFromQuery = Number(searchParams.get("categoryId") ?? 0) || null;
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showInternalOnly, setShowInternalOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
 
   const { data: categories = [] } = trpc.product.getCategories.useQuery({
@@ -49,13 +54,15 @@ export default function AdminProductSpecs() {
           item.sourceKey.toLocaleLowerCase("ru").includes(normalizedSearch) ||
           item.targetKey.toLocaleLowerCase("ru").includes(normalizedSearch);
 
+        const matchesInternal = !showInternalOnly || isInternalSpecKey(item.sourceKey);
+
         const matchesStatus =
           statusFilter === "all" ||
           (statusFilter === "visible" && item.isVisible) ||
           (statusFilter === "hidden" && !item.isVisible) ||
           (statusFilter === "filterable" && item.isFilterable);
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesInternal;
       })
       .sort(
         (a, b) =>
@@ -65,7 +72,7 @@ export default function AdminProductSpecs() {
           }) ||
           a.sourceKey.localeCompare(b.sourceKey, "ru", { sensitivity: "base" })
       );
-  }, [overview, searchTerm, statusFilter]);
+  }, [overview, searchTerm, statusFilter, showInternalOnly]);
 
   const makeRowId = (item: (typeof overview)[number]) =>
     `${item.categoryId}:${item.sourceNormalizedKey}`;
@@ -83,6 +90,20 @@ export default function AdminProductSpecs() {
 
   const runBulkAction = (action: BulkAction) => {
     if (selectedRows.length === 0) return;
+    if (action === "delete") {
+      const preview = selectedRows
+        .slice(0, 8)
+        .map(item => `${item.sourceKey} (${item.categoryName})`)
+        .join("\n");
+      const tail =
+        selectedRows.length > 8
+          ? `\n\nИ еще ${selectedRows.length - 8} свойств.`
+          : "";
+      const confirmed = window.confirm(
+        `Удалить выбранные свойства из товаров?\n\n${preview}${tail}\n\nЭто действие уберет свойства из карточек товаров и очистит связанные правила.`
+      );
+      if (!confirmed) return;
+    }
     bulkManage.mutate({
       action,
       items: selectedRows.map(item => ({
@@ -144,6 +165,23 @@ export default function AdminProductSpecs() {
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#15171A] transition-colors hover:border-[#05C3D4]">
+              <input
+                type="checkbox"
+                checked={showInternalOnly}
+                onChange={event => setShowInternalOnly(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Только служебные свойства
+            </label>
+            {showInternalOnly ? (
+              <span className="text-xs font-semibold text-gray-500">
+                Сейчас показаны только ключи вида `KPi_*` и похожие внутренние поля.
+              </span>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 rounded-3xl border border-dashed border-gray-200 bg-[#f8fbfc] p-4 lg:flex-row lg:items-center lg:justify-between">
