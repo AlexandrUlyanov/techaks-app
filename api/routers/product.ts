@@ -18,6 +18,7 @@ import {
   applyCategorySpecValueStandardization,
   getCategorySpecStandardization,
   getCategorySpecValueStandardization,
+  getSpecStandardizationOverviewRows,
   upsertCategorySpecRule,
   upsertCategorySpecRulesBulk,
   upsertCategorySpecValueRule,
@@ -1066,24 +1067,7 @@ export const productRouter = createRouter({
       const db = getDb();
       const [allCategories, rows, rules] = await Promise.all([
         db.select().from(categories),
-        db
-          .select({
-            categoryId: productSpecValues.categoryId,
-            sourceKey: productSpecValues.specKey,
-            sourceNormalizedKey: productSpecValues.normalizedKey,
-            productCount: sql<number>`count(distinct ${productSpecValues.productId})`,
-            valueCount: sql<number>`count(distinct ${productSpecValues.normalizedValue})`,
-          })
-          .from(productSpecValues)
-          .groupBy(
-            productSpecValues.categoryId,
-            productSpecValues.specKey,
-            productSpecValues.normalizedKey
-          )
-          .orderBy(
-            asc(productSpecValues.categoryId),
-            desc(sql`count(distinct ${productSpecValues.productId})`)
-          ),
+        getSpecStandardizationOverviewRows(),
         db.select().from(schema.productSpecRules),
       ]);
 

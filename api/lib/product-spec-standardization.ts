@@ -14,8 +14,127 @@ type ProductRow = Pick<
   "id" | "name" | "slug" | "categoryId" | "specs"
 >;
 
+type ProductSpecsIndexRow = Pick<
+  typeof schema.products.$inferSelect,
+  "id" | "categoryId" | "specs"
+>;
+
 function isSpecsRecord(specs: unknown): specs is Record<string, unknown> {
   return Boolean(specs) && typeof specs === "object" && !Array.isArray(specs);
+}
+
+function aggregateSpecKeyRows(
+  products: ProductSpecsIndexRow[],
+  options: {
+    groupByCategory: boolean;
+    normalizedKey?: string;
+  }
+) {
+  const buckets = new Map<
+    string,
+    {
+      categoryId: number;
+      sourceKey: string;
+      sourceNormalizedKey: string;
+      sampleValue: string;
+      productIds: Set<number>;
+      normalizedValues: Set<string>;
+    }
+  >();
+
+  for (const product of products) {
+    if (!isSpecsRecord(product.specs)) continue;
+
+    for (const [rawKey, rawValue] of Object.entries(product.specs)) {
+      const value = String(rawValue ?? "").trim();
+      if (!value) continue;
+
+      const sourceKey = normalizeSpecKeyForDisplay(String(rawKey)).slice(0, 120);
+      const sourceNormalizedKey = normalizeSpecToken(sourceKey).slice(0, 120);
+      if (!sourceKey || !sourceNormalizedKey) continue;
+      if (options.normalizedKey && sourceNormalizedKey !== options.normalizedKey) {
+        continue;
+      }
+
+      const bucketKey = options.groupByCategory
+        ? `${product.categoryId}:${sourceNormalizedKey}`
+        : sourceNormalizedKey;
+      const normalizedValue = normalizeSpecToken(value).slice(0, 512);
+      if (!normalizedValue) continue;
+
+      const current = buckets.get(bucketKey) ?? {
+        categoryId: product.categoryId,
+        sourceKey,
+        sourceNormalizedKey,
+        sampleValue: value,
+        productIds: new Set<number>(),
+        normalizedValues: new Set<string>(),
+      };
+      current.productIds.add(product.id);
+      current.normalizedValues.add(normalizedValue);
+      if (!current.sampleValue) {
+        current.sampleValue = value;
+      }
+      buckets.set(bucketKey, current);
+    }
+  }
+
+  return Array.from(buckets.values()).map(bucket => ({
+    categoryId: bucket.categoryId,
+    sourceKey: bucket.sourceKey,
+    sourceNormalizedKey: bucket.sourceNormalizedKey,
+    productCount: bucket.productIds.size,
+    valueCount: bucket.normalizedValues.size,
+    sampleValue: bucket.sampleValue,
+  }));
+}
+
+function aggregateSpecValueRows(
+  products: ProductSpecsIndexRow[],
+  sourceNormalizedKey: string
+) {
+  const buckets = new Map<
+    string,
+    {
+      sourceKey: string;
+      sourceNormalizedKey: string;
+      sourceValue: string;
+      sourceNormalizedValue: string;
+      productIds: Set<number>;
+    }
+  >();
+
+  for (const product of products) {
+    if (!isSpecsRecord(product.specs)) continue;
+
+    for (const [rawKey, rawValue] of Object.entries(product.specs)) {
+      const sourceKey = normalizeSpecKeyForDisplay(String(rawKey)).slice(0, 120);
+      const normalizedKey = normalizeSpecToken(sourceKey).slice(0, 120);
+      if (normalizedKey !== sourceNormalizedKey) continue;
+
+      const sourceValue = String(rawValue ?? "").trim().slice(0, 512);
+      const sourceNormalizedValue = normalizeSpecToken(sourceValue).slice(0, 512);
+      if (!sourceValue || !sourceNormalizedValue) continue;
+
+      const current = buckets.get(sourceNormalizedValue) ?? {
+        sourceKey,
+        sourceNormalizedKey,
+        sourceValue,
+        sourceNormalizedValue,
+        productIds: new Set<number>(),
+      };
+      current.productIds.add(product.id);
+      buckets.set(sourceNormalizedValue, current);
+    }
+  }
+
+  return Array.from(buckets.values()).map(bucket => ({
+    sourceKey: bucket.sourceKey,
+    sourceNormalizedKey: bucket.sourceNormalizedKey,
+    sourceValue: bucket.sourceValue,
+    sourceNormalizedValue: bucket.sourceNormalizedValue,
+    productCount: bucket.productIds.size,
+  }));
 }
 
 function getStandardizedCategoryIds(
@@ -181,23 +300,21 @@ export async function getCategorySpecStandardization(categoryId: number) {
       asc(schema.productSpecRules.targetKey)
     );
 
-  const rows = await db
+  const products = await db
     .select({
-      sourceKey: schema.productSpecValues.specKey,
-      sourceNormalizedKey: schema.productSpecValues.normalizedKey,
-      productCount: sql<number>`count(distinct ${schema.productSpecValues.productId})`,
-      valueCount: sql<number>`count(distinct ${schema.productSpecValues.normalizedValue})`,
-      sampleValue: sql<string>`min(${schema.productSpecValues.specValue})`,
+      id: schema.products.id,
+      categoryId: schema.products.categoryId,
+      specs: schema.products.specs,
     })
-    .from(schema.productSpecValues)
+    .from(schema.products)
     .where(
-      sql`${schema.productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)})`
+      sql`${schema.products.categoryId} IN (${sql.join(categoryIds, sql`, `)})`
     )
-    .groupBy(
-      schema.productSpecValues.specKey,
-      schema.productSpecValues.normalizedKey
-    )
-    .orderBy(desc(sql`count(distinct ${schema.productSpecValues.productId})`));
+    .orderBy(desc(schema.products.createdAt));
+
+  const rows = aggregateSpecKeyRows(products, { groupByCategory: false }).sort(
+    (a, b) => b.productCount - a.productCount || a.sourceKey.localeCompare(b.sourceKey, "ru")
+  );
 
   const rulesBySource = new Map(
     rules.map(rule => [rule.sourceNormalizedKey, rule])
@@ -325,26 +442,21 @@ export async function getCategorySpecValueStandardization(input: {
       asc(schema.productSpecValueRules.targetValue)
     );
 
-  const rows = await db
+  const products = await db
     .select({
-      sourceKey: schema.productSpecValues.specKey,
-      sourceNormalizedKey: schema.productSpecValues.normalizedKey,
-      sourceValue: schema.productSpecValues.specValue,
-      sourceNormalizedValue: schema.productSpecValues.normalizedValue,
-      productCount: sql<number>`count(distinct ${schema.productSpecValues.productId})`,
+      id: schema.products.id,
+      categoryId: schema.products.categoryId,
+      specs: schema.products.specs,
     })
-    .from(schema.productSpecValues)
+    .from(schema.products)
     .where(
-      sql`${schema.productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)})
-        AND ${schema.productSpecValues.normalizedKey} = ${input.sourceNormalizedKey}`
+      sql`${schema.products.categoryId} IN (${sql.join(categoryIds, sql`, `)})`
     )
-    .groupBy(
-      schema.productSpecValues.specKey,
-      schema.productSpecValues.normalizedKey,
-      schema.productSpecValues.specValue,
-      schema.productSpecValues.normalizedValue
-    )
-    .orderBy(desc(sql`count(distinct ${schema.productSpecValues.productId})`));
+    .orderBy(desc(schema.products.createdAt));
+
+  const rows = aggregateSpecValueRows(products, input.sourceNormalizedKey).sort(
+    (a, b) => b.productCount - a.productCount || a.sourceValue.localeCompare(b.sourceValue, "ru")
+  );
 
   const rulesBySource = new Map(
     rules.map(rule => [rule.sourceNormalizedValue, rule])
@@ -366,6 +478,25 @@ export async function getCategorySpecValueStandardization(input: {
       hasRule: Boolean(rule),
     };
   });
+}
+
+export async function getSpecStandardizationOverviewRows() {
+  const db = getDb();
+  const products = await db
+    .select({
+      id: schema.products.id,
+      categoryId: schema.products.categoryId,
+      specs: schema.products.specs,
+    })
+    .from(schema.products)
+    .orderBy(desc(schema.products.createdAt));
+
+  return aggregateSpecKeyRows(products, { groupByCategory: true }).sort(
+    (a, b) =>
+      a.categoryId - b.categoryId ||
+      b.productCount - a.productCount ||
+      a.sourceKey.localeCompare(b.sourceKey, "ru")
+  );
 }
 
 export async function upsertCategorySpecValueRule(input: {
