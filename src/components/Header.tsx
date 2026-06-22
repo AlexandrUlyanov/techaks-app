@@ -124,8 +124,8 @@ export default function Header() {
                   <span className="text-[11px] font-black uppercase tracking-widest text-foreground/60 group-hover:text-[#05C3D4] transition-colors mt-0.5">
                     Акции
                   </span>
-                  <span className="absolute top-0 -right-3 px-1.5 py-0.5 bg-[#05C3D4] text-white dark:text-black text-[7px] font-black rounded uppercase animate-pulse">
-                    Hot
+                  <span className="absolute top-0 -right-5 px-1.5 py-0.5 bg-[#05C3D4] text-white dark:text-black text-[7px] font-black rounded uppercase animate-pulse">
+                    Скидки
                   </span>
                 </Link>
                 <Link
