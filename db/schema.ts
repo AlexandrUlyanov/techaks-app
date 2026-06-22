@@ -78,6 +78,7 @@ export const productVariants = mysqlTable("product_variants", {
   image: varchar("image", { length: 255 }),
   imageVariants: json("image_variants"),
   price: int("price").notNull().default(0),
+  oldPrice: int("old_price"),
   stock: int("stock").notNull().default(0),
   attributesJson: json("attributes_json"),
   isActive: boolean("is_active").notNull().default(true),

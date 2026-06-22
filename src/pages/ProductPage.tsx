@@ -259,8 +259,16 @@ export default function ProductPage() {
     "отзыва",
     "отзывов",
   ]);
-  const hasOldPrice =
-    typeof product?.oldPrice === "number" && product.oldPrice > (product?.price ?? 0);
+  const productOldPrice =
+    typeof product?.oldPrice === "number" && product.oldPrice > (product?.price ?? 0)
+      ? product.oldPrice
+      : null;
+  const selectedVariantOldPrice =
+    selectedVariant &&
+    typeof selectedVariant.oldPrice === "number" &&
+    selectedVariant.oldPrice > (selectedVariant.price ?? 0)
+      ? selectedVariant.oldPrice
+      : null;
   const hasVariantPriceRange =
     hasVariants && new Set(variants.map(variant => variant.price)).size > 1;
   const displayedPrice = selectedVariant?.price ?? product?.price ?? 0;
@@ -549,15 +557,15 @@ export default function ProductPage() {
     ? Object.values(selectedVariant.attributes ?? {}).filter(Boolean).join(" · ") ||
       selectedVariant.name
     : null;
-  const oldPriceLabel =
-    hasOldPrice && !selectedVariant ? formatPrice(product.oldPrice as number) : null;
+  const oldPriceValue = selectedVariantOldPrice ?? productOldPrice;
+  const oldPriceLabel = oldPriceValue ? formatPrice(oldPriceValue) : null;
   const displayedPriceLabel =
     hasVariants && hasVariantPriceRange && !variantChosenManually
       ? `от ${formatPrice(displayedPrice)}`
       : formatPrice(displayedPrice);
   const discountLabel =
-    oldPriceLabel && product.oldPrice
-      ? `-${Math.round(((product.oldPrice - displayedPrice) / product.oldPrice) * 100)}%`
+    oldPriceValue
+      ? `-${Math.round(((oldPriceValue - displayedPrice) / oldPriceValue) * 100)}%`
       : null;
   const canPurchase =
     hasVariants

@@ -8,6 +8,7 @@ import {
   reviews,
   productStocks,
   productSpecValues,
+  productVariants,
   stores,
   manufacturers,
 } from "@db/schema";
@@ -84,9 +85,100 @@ const specFilterSchema = z.object({
   normalizedValue: z.string(),
 });
 
+const marketPriceReportRowSchema = z.object({
+  name: z.string().optional().nullable(),
+  link: z.string().optional().nullable(),
+  offerId: z.string().optional().nullable(),
+  currentPrice: z.number().nullable(),
+  marketPriceFrom: z.number().nullable(),
+  marketPriceTo: z.number().nullable(),
+  badge: z.string().optional().nullable(),
+});
+
 const adminVisibilityFilterSchema = z
   .enum(["all", "site_active", "manual_disabled", "auto_blocked", "zero_price"])
   .default("all");
+
+type CompetitivePricingMatch =
+  | { type: "variant"; variantId: number }
+  | { type: "product"; productId: number }
+  | { type: "slug"; slug: string };
+
+function normalizeOfferReportUrl(value?: string | null) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function resolveCompetitivePricingTarget(input: {
+  offerId?: string | null;
+  link?: string | null;
+}): CompetitivePricingMatch | null {
+  const offerId = input.offerId?.trim() || "";
+
+  const variantMatch = offerId.match(/^variant-(\d+)$/i);
+  if (variantMatch) {
+    return { type: "variant", variantId: Number(variantMatch[1]) };
+  }
+
+  const productMatch = offerId.match(/^product-(\d+)$/i);
+  if (productMatch) {
+    return { type: "product", productId: Number(productMatch[1]) };
+  }
+
+  const url = normalizeOfferReportUrl(input.link);
+  if (!url) return null;
+
+  const variantParam = url.searchParams.get("variant");
+  if (variantParam && /^\d+$/.test(variantParam)) {
+    return { type: "variant", variantId: Number(variantParam) };
+  }
+
+  const slugMatch = url.pathname.match(/\/product\/([^/?#]+)/i);
+  if (slugMatch?.[1]) {
+    return { type: "slug", slug: decodeURIComponent(slugMatch[1]) };
+  }
+
+  return null;
+}
+
+function normalizeWholeCurrency(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const rounded = Math.round(value);
+  return rounded > 0 ? rounded : null;
+}
+
+function shouldApplyCompetitiveOldPrice(input: {
+  currentPrice: number;
+  marketPriceFrom: number | null;
+  marketPriceTo: number | null;
+  badge?: string | null;
+}) {
+  const badge = input.badge?.trim().toLowerCase() || "";
+  const isBelowMarketBadge = badge === "belowmarket";
+  const marketFrom = normalizeWholeCurrency(input.marketPriceFrom);
+  const marketTo = normalizeWholeCurrency(input.marketPriceTo);
+  const marketUpperBound = marketTo ?? marketFrom;
+
+  if (!marketUpperBound || marketUpperBound <= input.currentPrice) {
+    return null;
+  }
+
+  if (isBelowMarketBadge) {
+    return marketUpperBound;
+  }
+
+  if (marketFrom && marketFrom > input.currentPrice) {
+    return marketUpperBound;
+  }
+
+  return null;
+}
 
 function buildSpecFilterConditions(specFilters?: z.infer<typeof specFilterSchema>[]) {
   if (!specFilters?.length) return undefined;
@@ -1546,6 +1638,272 @@ export const productRouter = createRouter({
       });
       await rebuildSearchDocumentsForProducts([input.id]);
       return { success: true };
+    }),
+
+  importCompetitivePricingReport: protectedProcedure
+    .input(
+      z.object({
+        rows: z.array(marketPriceReportRowSchema).max(20000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Product");
+      const db = getDb();
+
+      const matchedVariantIds = new Set<number>();
+      const affectedProductIds = new Set<number>();
+      const directProductUpdates = new Map<number, number | null>();
+      const unresolvedRows: Array<{
+        name: string | null;
+        offerId: string | null;
+        link: string | null;
+        reason: string;
+      }> = [];
+
+      let updatedVariants = 0;
+      let clearedVariants = 0;
+      let updatedProducts = 0;
+      let clearedProducts = 0;
+
+      for (const row of input.rows) {
+        const target = resolveCompetitivePricingTarget({
+          offerId: row.offerId,
+          link: row.link,
+        });
+
+        if (!target) {
+          unresolvedRows.push({
+            name: row.name ?? null,
+            offerId: row.offerId ?? null,
+            link: row.link ?? null,
+            reason: "Не удалось определить товар или модификацию по offer_id / ссылке.",
+          });
+          continue;
+        }
+
+        if (target.type === "variant") {
+          matchedVariantIds.add(target.variantId);
+          const [variant] = await db
+            .select({
+              id: productVariants.id,
+              productId: productVariants.productId,
+              price: productVariants.price,
+              oldPrice: productVariants.oldPrice,
+            })
+            .from(productVariants)
+            .where(eq(productVariants.id, target.variantId))
+            .limit(1);
+
+          if (!variant) {
+            unresolvedRows.push({
+              name: row.name ?? null,
+              offerId: row.offerId ?? null,
+              link: row.link ?? null,
+              reason: "Модификация из отчёта не найдена на сайте.",
+            });
+            continue;
+          }
+
+          const currentPrice = Number(variant.price ?? 0);
+          if (currentPrice <= 0) {
+            unresolvedRows.push({
+              name: row.name ?? null,
+              offerId: row.offerId ?? null,
+              link: row.link ?? null,
+              reason: "У модификации на сайте нет актуальной цены.",
+            });
+            continue;
+          }
+
+          const nextOldPrice = shouldApplyCompetitiveOldPrice({
+            currentPrice,
+            marketPriceFrom: row.marketPriceFrom,
+            marketPriceTo: row.marketPriceTo,
+            badge: row.badge,
+          });
+
+          if ((variant.oldPrice ?? null) !== nextOldPrice) {
+            await db
+              .update(productVariants)
+              .set({ oldPrice: nextOldPrice, updatedAt: new Date() })
+              .where(eq(productVariants.id, target.variantId));
+
+            if (nextOldPrice) {
+              updatedVariants += 1;
+            } else {
+              clearedVariants += 1;
+            }
+          }
+
+          affectedProductIds.add(variant.productId);
+          continue;
+        }
+
+        const [product] = await db
+          .select({
+            id: products.id,
+            price: products.price,
+            oldPrice: products.oldPrice,
+          })
+          .from(products)
+          .where(
+            target.type === "product"
+              ? eq(products.id, target.productId)
+              : eq(products.slug, target.slug)
+          )
+          .limit(1);
+
+        if (!product) {
+          unresolvedRows.push({
+            name: row.name ?? null,
+            offerId: row.offerId ?? null,
+            link: row.link ?? null,
+            reason: "Товар из отчёта не найден на сайте.",
+          });
+          continue;
+        }
+
+        const currentPrice = Number(product.price ?? 0);
+        if (currentPrice <= 0) {
+          unresolvedRows.push({
+            name: row.name ?? null,
+            offerId: row.offerId ?? null,
+            link: row.link ?? null,
+            reason: "У товара на сайте нет актуальной цены.",
+          });
+          continue;
+        }
+
+        const nextOldPrice = shouldApplyCompetitiveOldPrice({
+          currentPrice,
+          marketPriceFrom: row.marketPriceFrom,
+          marketPriceTo: row.marketPriceTo,
+          badge: row.badge,
+        });
+
+        directProductUpdates.set(product.id, nextOldPrice);
+        affectedProductIds.add(product.id);
+      }
+
+      if (matchedVariantIds.size > 0) {
+        const parentRows = await db
+          .select({
+            productId: productVariants.productId,
+          })
+          .from(productVariants)
+          .where(inArray(productVariants.id, Array.from(matchedVariantIds)));
+
+        for (const row of parentRows) {
+          affectedProductIds.add(row.productId);
+        }
+      }
+
+      const affectedIds = Array.from(affectedProductIds);
+
+      if (affectedIds.length > 0) {
+        const variantRows = await db
+          .select({
+            productId: productVariants.productId,
+            price: productVariants.price,
+            oldPrice: productVariants.oldPrice,
+            isActive: productVariants.isActive,
+          })
+          .from(productVariants)
+          .where(inArray(productVariants.productId, affectedIds));
+
+        const productRows = await db
+          .select({
+            id: products.id,
+            price: products.price,
+            oldPrice: products.oldPrice,
+          })
+          .from(products)
+          .where(inArray(products.id, affectedIds));
+
+        const variantsByProductId = new Map<number, typeof variantRows>();
+        for (const row of variantRows) {
+          const bucket = variantsByProductId.get(row.productId) ?? [];
+          bucket.push(row);
+          variantsByProductId.set(row.productId, bucket);
+        }
+
+        for (const product of productRows) {
+          const productId = product.id;
+          const currentProductPrice = Number(product.price ?? 0);
+          const productVariantsRows = variantsByProductId.get(productId) ?? [];
+          const hasVariants = productVariantsRows.length > 0;
+
+          let nextProductOldPrice = directProductUpdates.get(productId) ?? null;
+
+          if (hasVariants) {
+            const candidateVariantOldPrices = productVariantsRows
+              .filter(variant => variant.isActive)
+              .filter(variant => Number(variant.price ?? 0) === currentProductPrice)
+              .map(variant => normalizeWholeCurrency(variant.oldPrice))
+              .filter(
+                (price): price is number =>
+                  typeof price === "number" && price > currentProductPrice
+              );
+
+            nextProductOldPrice =
+              candidateVariantOldPrices.length > 0
+                ? Math.max(...candidateVariantOldPrices)
+                : null;
+          }
+
+          if ((product.oldPrice ?? null) !== nextProductOldPrice) {
+            await db
+              .update(products)
+              .set({ oldPrice: nextProductOldPrice })
+              .where(eq(products.id, productId));
+
+            if (nextProductOldPrice) {
+              updatedProducts += 1;
+            } else {
+              clearedProducts += 1;
+            }
+          }
+        }
+
+        for (const productId of affectedIds) {
+          await enqueueSearchReindexJob({
+            entityType: "product",
+            entityId: productId,
+            reason: "competitive_pricing_report_imported",
+          });
+        }
+        await rebuildSearchDocumentsForProducts(affectedIds);
+      }
+
+      await writeAdminAuditLog({
+        ctx,
+        action: "product.competitive_pricing_import",
+        entityType: "product",
+        entityLabel: "Импорт скидок из рыночного отчёта",
+        meta: {
+          rowsTotal: input.rows.length,
+          updatedVariants,
+          clearedVariants,
+          updatedProducts,
+          clearedProducts,
+          affectedProducts: affectedIds.length,
+          unresolvedRows: unresolvedRows.slice(0, 20),
+        },
+      });
+
+      return {
+        success: true,
+        summary: {
+          rowsTotal: input.rows.length,
+          updatedVariants,
+          clearedVariants,
+          updatedProducts,
+          clearedProducts,
+          affectedProducts: affectedIds.length,
+          unresolvedCount: unresolvedRows.length,
+          unresolvedRows: unresolvedRows.slice(0, 20),
+        },
+      };
     }),
 
   deleteProduct: protectedProcedure

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/providers/trpc";
 import { slugify } from "@/lib/utils";
-import { utils as xlsxUtils, writeFile as writeXlsxFile } from "xlsx";
+import { read as readXlsx, utils as xlsxUtils, writeFile as writeXlsxFile } from "xlsx";
 import {
   Plus,
   Search,
@@ -17,6 +17,9 @@ import {
   CircleDollarSign,
   Power,
   Download,
+  Upload,
+  FileSpreadsheet,
+  Sparkles,
 } from "lucide-react";
 import {
   AUTO_BLOCK_REASON_ZERO_PRICE,
@@ -26,6 +29,32 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import { Link } from "react-router";
+import { toast } from "sonner";
+
+type CompetitivePricingReportRow = {
+  name: string | null;
+  link: string | null;
+  offerId: string | null;
+  currentPrice: number | null;
+  marketPriceFrom: number | null;
+  marketPriceTo: number | null;
+  badge: string | null;
+};
+
+function parseCompetitivePricingNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.replace(/\s+/g, "").replace(",", ".").trim();
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
 
 export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,6 +69,10 @@ export default function AdminProducts() {
   const [manualSlug, setManualSlug] = useState(false);
   const [draftPrice, setDraftPrice] = useState<string>("");
   const [draftIsActive, setDraftIsActive] = useState(true);
+  const [competitivePricingFileName, setCompetitivePricingFileName] = useState("");
+  const [competitivePricingRows, setCompetitivePricingRows] = useState<
+    CompetitivePricingReportRow[]
+  >([]);
 
   useEffect(() => {
     if (editingProduct) {
@@ -100,6 +133,27 @@ export default function AdminProducts() {
       utils.product.getPaginated.invalidate();
     },
   });
+  const importCompetitivePricingReportMutation =
+    trpc.product.importCompetitivePricingReport.useMutation({
+      onSuccess: result => {
+        utils.product.getPaginated.invalidate();
+        utils.product.getAdminAll.invalidate();
+        setCompetitivePricingRows([]);
+        setCompetitivePricingFileName("");
+        const summary = result.summary;
+        toast.success(
+          `Импорт применён: модификаций ${summary.updatedVariants}, товаров ${summary.updatedProducts}.`
+        );
+        if (summary.unresolvedCount > 0) {
+          toast.warning(
+            `Не удалось сопоставить ${summary.unresolvedCount} строк. Их можно посмотреть в сводке ниже.`
+          );
+        }
+      },
+      onError: error => {
+        toast.error(error.message || "Не удалось применить отчёт по рыночным ценам.");
+      },
+    });
 
   const handleDelete = (id: number) => {
     if (confirm("Вы уверены, что хотите удалить этот товар?")) {
@@ -142,6 +196,67 @@ export default function AdminProducts() {
       workbook,
       `techaks-products-${new Date().toISOString().slice(0, 10)}.xlsx`
     );
+  };
+
+  const handleCompetitivePricingFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = readXlsx(buffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+
+      if (!firstSheetName) {
+        toast.error("В файле не найдено ни одного листа.");
+        return;
+      }
+
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = xlsxUtils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: "",
+      });
+
+      const parsedRows: CompetitivePricingReportRow[] = rows
+        .map(row => ({
+          name:
+            typeof row["Название"] === "string" && row["Название"].trim()
+              ? row["Название"].trim()
+              : null,
+          link:
+            typeof row["Ссылка"] === "string" && row["Ссылка"].trim()
+              ? row["Ссылка"].trim()
+              : null,
+          offerId:
+            typeof row["offer_id"] === "string" && row["offer_id"].trim()
+              ? row["offer_id"].trim()
+              : null,
+          currentPrice: parseCompetitivePricingNumber(row["Цена"]),
+          marketPriceFrom: parseCompetitivePricingNumber(row["Диапазон ОК-цены ОТ"]),
+          marketPriceTo: parseCompetitivePricingNumber(row["Диапазон ОК-цены ДО"]),
+          badge:
+            typeof row["Значок"] === "string" && row["Значок"].trim()
+              ? row["Значок"].trim()
+              : null,
+        }))
+        .filter(row => row.offerId || row.link || row.name);
+
+      if (parsedRows.length === 0) {
+        toast.error("В отчёте не найдено строк для импорта.");
+        return;
+      }
+
+      setCompetitivePricingRows(parsedRows);
+      setCompetitivePricingFileName(file.name);
+      toast.success(`Загрузили ${parsedRows.length} строк из отчёта.`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Не удалось прочитать Excel-файл. Проверь формат отчёта.");
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
@@ -217,6 +332,13 @@ export default function AdminProducts() {
       hasInvalidProductPrice(product.price)
     );
   }).length;
+
+  const competitivePricingBelowMarketRows = competitivePricingRows.filter(row => {
+    const currentPrice = row.currentPrice ?? 0;
+    const marketFrom = row.marketPriceFrom ?? 0;
+    const badge = (row.badge || "").trim().toLowerCase();
+    return badge === "belowmarket" || marketFrom > currentPrice;
+  });
 
   return (
     <div className="space-y-6">
@@ -501,6 +623,177 @@ export default function AdminProducts() {
               </div>
             ) : null}
           </div>
+        </div>
+      </AdminSection>
+
+      <AdminSection
+        title="Импорт скидок из рыночного отчёта"
+        description="Загружайте Excel-отчёт с текущей ценой и рыночным диапазоном. Для товаров ниже рынка оставим текущую цену как новую, а верхнюю границу диапазона поставим как старую."
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-[#F8FBFC] p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#15171A]">
+                <FileSpreadsheet size={16} className="text-[#05C3D4]" />
+                Отчёт по конкурентным ценам
+              </div>
+              <p className="text-sm text-gray-500">
+                Поддерживается текущий формат с колонками: Название, Ссылка, offer_id, Цена, Диапазон ОК-цены ОТ, Диапазон ОК-цены ДО, Значок.
+              </p>
+              {competitivePricingFileName ? (
+                <div className="text-xs font-medium text-[#05C3D4]">
+                  Загружен файл: {competitivePricingFileName}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:border-[#05C3D4] hover:text-[#05C3D4]">
+                <Upload size={16} />
+                Загрузить Excel
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleCompetitivePricingFile}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={
+                  competitivePricingRows.length === 0 ||
+                  importCompetitivePricingReportMutation.isPending
+                }
+                onClick={() =>
+                  importCompetitivePricingReportMutation.mutate({
+                    rows: competitivePricingRows,
+                  })
+                }
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importCompetitivePricingReportMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                Применить скидки
+              </button>
+            </div>
+          </div>
+
+          {competitivePricingRows.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                  Всего строк
+                </div>
+                <div className="mt-2 text-2xl font-black text-[#15171A]">
+                  {competitivePricingRows.length}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                  Ниже рынка
+                </div>
+                <div className="mt-2 text-2xl font-black text-[#15171A]">
+                  {competitivePricingBelowMarketRows.length}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                  Готово к обновлению
+                </div>
+                <div className="mt-2 text-2xl font-black text-[#15171A]">
+                  {competitivePricingBelowMarketRows.filter(
+                    row => (row.marketPriceTo ?? 0) > (row.currentPrice ?? 0)
+                  ).length}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {competitivePricingRows.length > 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="border-b border-gray-200 px-4 py-3 text-sm font-semibold text-[#15171A]">
+                Предпросмотр первых строк
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-xs uppercase tracking-[0.16em] text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3">offer_id</th>
+                      <th className="px-4 py-3">Товар</th>
+                      <th className="px-4 py-3">Текущая цена</th>
+                      <th className="px-4 py-3">Рынок от</th>
+                      <th className="px-4 py-3">Рынок до</th>
+                      <th className="px-4 py-3">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {competitivePricingRows.slice(0, 8).map((row, index) => {
+                      const isBelowMarket =
+                        ((row.badge || "").trim().toLowerCase() === "belowmarket") ||
+                        (row.marketPriceFrom ?? 0) > (row.currentPrice ?? 0);
+
+                      return (
+                        <tr key={`${row.offerId || row.link || row.name || "row"}-${index}`}>
+                          <td className="px-4 py-3 font-medium text-[#15171A]">
+                            {row.offerId || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{row.name || "—"}</td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {row.currentPrice != null
+                              ? `${new Intl.NumberFormat("ru-RU").format(row.currentPrice)} ₽`
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {row.marketPriceFrom != null
+                              ? `${new Intl.NumberFormat("ru-RU").format(row.marketPriceFrom)} ₽`
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {row.marketPriceTo != null
+                              ? `${new Intl.NumberFormat("ru-RU").format(row.marketPriceTo)} ₽`
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                isBelowMarket
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {isBelowMarket ? "Ниже рынка" : "Без скидки"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
+          {importCompetitivePricingReportMutation.data?.summary.unresolvedCount ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="text-sm font-semibold text-amber-900">
+                Не удалось сопоставить часть строк
+              </div>
+              <div className="mt-2 space-y-2 text-sm text-amber-800">
+                {importCompetitivePricingReportMutation.data.summary.unresolvedRows.map(
+                  (row, index) => (
+                    <div key={`${row.offerId || row.link || row.name || "unresolved"}-${index}`}>
+                      <span className="font-medium">{row.offerId || row.name || "Строка"}</span>
+                      {": "}
+                      {row.reason}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </AdminSection>
 

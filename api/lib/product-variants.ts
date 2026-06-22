@@ -39,6 +39,7 @@ export async function getProductVariants(db: ReturnType<typeof getDb>, productId
       image: productVariants.image,
       imageVariants: productVariants.imageVariants,
       price: productVariants.price,
+      oldPrice: productVariants.oldPrice,
       stock: productVariants.stock,
       attributesJson: productVariants.attributesJson,
       isActive: productVariants.isActive,
@@ -58,6 +59,7 @@ export async function getProductVariants(db: ReturnType<typeof getDb>, productId
   return rows.map(row => ({
     ...row,
     price: Number(row.price ?? 0),
+    oldPrice: row.oldPrice == null ? null : Number(row.oldPrice),
     stock: Number(row.stock ?? 0),
     attributes: normalizeVariantAttributes(row.attributesJson),
   }));
@@ -78,6 +80,7 @@ export async function assertProductVariant(
       image: productVariants.image,
       imageVariants: productVariants.imageVariants,
       price: productVariants.price,
+      oldPrice: productVariants.oldPrice,
       stock: productVariants.stock,
       attributesJson: productVariants.attributesJson,
       isActive: productVariants.isActive,
@@ -108,6 +111,7 @@ export async function assertProductVariant(
   return {
     ...variant,
     price: Number(variant.price ?? 0),
+    oldPrice: variant.oldPrice == null ? null : Number(variant.oldPrice),
     stock: Number(variant.stock ?? 0),
     attributes: normalizeVariantAttributes(variant.attributesJson),
   };
