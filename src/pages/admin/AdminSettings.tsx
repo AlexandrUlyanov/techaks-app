@@ -379,7 +379,7 @@ export default function AdminSettings() {
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
   const [homepageHeroVariant, setHomepageHeroVariant] = useState<
-    "classic" | "interactive"
+    "classic" | "interactive" | "promo_showcase"
   >("classic");
   const [homepageHeroSlides, setHomepageHeroSlides] = useState<HomepageHeroSlideForm[]>(
     []
@@ -2106,13 +2106,32 @@ export default function AdminSettings() {
                     </div>
                   ) : null}
                 </div>
+              ) : homepageHeroVariant === "promo_showcase" ? (
+                <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="text-sm font-black text-[#15171A]">
+                    Умная промо-витрина активируется автоматически
+                  </div>
+                  <p className="mt-2 max-w-[60rem] text-sm leading-6 text-gray-500">
+                    Этот режим собирает hero из реальных товаров со скидкой: лучшие
+                    предложения, чемпионы скидок, выбор ТЕХАКС, новые скидки и сценарий
+                    "успей купить". Текущая итерация уже работает от storefront-данных,
+                    snapshot и public visibility. Ручные закрепления, исключения и preview
+                    отдельного сценария докрутим следующим этапом прямо в этом же разделе.
+                  </p>
+                  <div className="mt-4 rounded-2xl border border-[#05C3D4]/16 bg-[#EAFBFD] px-4 py-4 text-sm leading-6 text-slate-700">
+                    Сейчас для запуска достаточно выбрать этот вариант и сохранить hero.
+                    Сайт начнёт отдавать новую промо-витрину без ручного наполнения.
+                  </div>
+                </div>
               ) : null}
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 <span className="font-black text-[#15171A]">Сейчас на сайте:</span>{" "}
                 {homepageHeroVariant === "interactive"
                   ? "визуальный promo-hero со слайдами"
-                  : "классический hero (текущая версия)"}.
+                  : homepageHeroVariant === "promo_showcase"
+                    ? "умная promo-витрина скидочных товаров"
+                    : "классический hero (текущая версия)"}.
                 {homepageHeroSettings?.isDefault ? (
                   <span>
                     {" "}

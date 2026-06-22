@@ -1,10 +1,11 @@
 import Hero from "@/components/Hero";
 import HeroPromoDynamic from "@/components/HeroPromoDynamic";
+import HeroPromoShowcase from "@/components/HeroPromoShowcase";
 
 type HomeHeroProps = {
   loading?: boolean;
   hero?: {
-    variant: "classic" | "interactive";
+    variant: "classic" | "interactive" | "promo_showcase";
     slides: Array<
       | {
           id: string;
@@ -91,6 +92,52 @@ type HomeHeroProps = {
           }>;
         }
     >;
+    showcase?: {
+      eyebrow: string;
+      title: string;
+      subtitle: string;
+      description: string;
+      accent: string;
+      primaryCtaLabel: string;
+      primaryCtaHref: string;
+      secondaryCtaLabel: string;
+      secondaryCtaHref: string;
+      spotlight: {
+        id: number;
+        slug: string;
+        name: string;
+        price: number;
+        oldPrice: number | null;
+        image: string;
+        badge: string | null;
+        inStock: boolean;
+        categoryName?: string | null;
+      } | null;
+      categoryRail: Array<{
+        slug: string;
+        name: string;
+        productCount: number;
+        href: string;
+      }>;
+      tabs: Array<{
+        id: string;
+        label: string;
+        eyebrow: string;
+        description: string;
+        href: string;
+        products: Array<{
+          id: number;
+          slug: string;
+          name: string;
+          price: number;
+          oldPrice: number | null;
+          image: string;
+          badge: string | null;
+          inStock: boolean;
+          categoryName?: string | null;
+        }>;
+      }>;
+    } | null;
   } | null;
 };
 
@@ -144,6 +191,10 @@ export default function HomeHero({ hero, loading = false }: HomeHeroProps) {
 
   if (hero?.variant === "interactive" && hero.slides.length > 0) {
     return <HeroPromoDynamic hero={hero} />;
+  }
+
+  if (hero?.variant === "promo_showcase" && hero.showcase) {
+    return <HeroPromoShowcase showcase={hero.showcase} />;
   }
 
   return <Hero />;

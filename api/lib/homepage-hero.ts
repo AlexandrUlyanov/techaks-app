@@ -4,6 +4,11 @@ import { categories, products } from "@db/schema";
 import * as schema from "@db/schema";
 import { getDb } from "../queries/connection";
 import { getAppSettings, setAppSetting } from "./app-settings";
+import {
+  buildHomepagePromoShowcaseData,
+  homepagePromoShowcaseSettingsSchema,
+  type HomepagePromoShowcaseStorefrontData,
+} from "./homepage-promo-showcase";
 import { getRecommendedProducts } from "./merchandising-score";
 import {
   attachVisibleMerchandisingBadges,
@@ -15,7 +20,7 @@ import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 
 const HERO_CONTENT_KEY = "homepage_hero_content";
 
-const heroVariantSchema = z.enum(["classic", "interactive"]);
+const heroVariantSchema = z.enum(["classic", "interactive", "promo_showcase"]);
 const heroSlideTypeSchema = z.enum(["products", "promo", "categories", "brands"]);
 const heroSlideThemeSchema = z.enum(["light", "soft-cyan", "mesh", "dark"]);
 
@@ -86,6 +91,9 @@ export const homepageHeroSlideSchema = z.object({
 export const homepageHeroAdminSettingsSchema = z.object({
   variant: heroVariantSchema.default("classic"),
   slides: z.array(homepageHeroSlideSchema).max(8).default([]),
+  promoShowcase: homepagePromoShowcaseSettingsSchema.default(
+    homepagePromoShowcaseSettingsSchema.parse({})
+  ),
 });
 
 export type HomepageHeroSlideSettings = z.infer<typeof homepageHeroSlideSchema>;
@@ -157,8 +165,9 @@ export type HomepageHeroStorefrontSlide =
     });
 
 export type HomepageHeroStorefrontData = {
-  variant: "classic" | "interactive";
+  variant: "classic" | "interactive" | "promo_showcase";
   slides: HomepageHeroStorefrontSlide[];
+  showcase?: HomepagePromoShowcaseStorefrontData | null;
   diagnostics: {
     activeSlides: number;
     totalSlides: number;
@@ -268,6 +277,7 @@ function normalizeAdminSettings(input: HomepageHeroAdminSettings): HomepageHeroA
   return {
     variant: input.variant,
     slides: slides.length > 0 ? slides : buildDefaultInteractiveSlides(),
+    promoShowcase: homepagePromoShowcaseSettingsSchema.parse(input.promoShowcase ?? {}),
   };
 }
 
@@ -276,6 +286,7 @@ function parseStoredHeroSettings(raw: string | null): HomepageHeroAdminSettings 
     return homepageHeroAdminSettingsSchema.parse({
       variant: "classic",
       slides: buildDefaultInteractiveSlides(),
+      promoShowcase: homepagePromoShowcaseSettingsSchema.parse({}),
     });
   }
 
@@ -288,11 +299,13 @@ function parseStoredHeroSettings(raw: string | null): HomepageHeroAdminSettings 
       return {
         variant: legacy.variant,
         slides: migrateLegacySettingsToSlides(legacy),
+        promoShowcase: homepagePromoShowcaseSettingsSchema.parse({}),
       };
     } catch {
       return homepageHeroAdminSettingsSchema.parse({
         variant: "classic",
         slides: buildDefaultInteractiveSlides(),
+        promoShowcase: homepagePromoShowcaseSettingsSchema.parse({}),
       });
     }
   }
@@ -306,7 +319,9 @@ export async function getHomepageHeroAdminSettings(): Promise<HomepageHeroAdminS
   return {
     ...parsed,
     variant:
-      storedVariant === "interactive" || storedVariant === "classic"
+      storedVariant === "interactive" ||
+      storedVariant === "classic" ||
+      storedVariant === "promo_showcase"
         ? storedVariant
         : parsed.variant,
   };
@@ -548,6 +563,24 @@ async function resolveSlide(
 
 export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroStorefrontData> {
   const settings = await getHomepageHeroAdminSettings();
+
+  if (settings.variant === "promo_showcase") {
+    const showcase = await buildHomepagePromoShowcaseData(settings.promoShowcase);
+
+    if (showcase) {
+      return {
+        variant: "promo_showcase",
+        slides: [],
+        showcase,
+        diagnostics: {
+          activeSlides: showcase.diagnostics.activeTabs,
+          totalSlides: showcase.diagnostics.activeTabs,
+          resolvedTypes: showcase.tabs.map(tab => tab.id),
+        },
+      };
+    }
+  }
+
   const now = new Date();
   const activeSlides = settings.slides.filter(slide => isSlideActive(slide, now));
   const candidateSlides = activeSlides.length > 0 ? activeSlides : buildDefaultInteractiveSlides();
@@ -559,6 +592,7 @@ export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroSto
     return {
       variant: "classic",
       slides: [],
+      showcase: null,
       diagnostics: {
         activeSlides: resolvedSlides.length,
         totalSlides: settings.slides.length,
@@ -570,6 +604,7 @@ export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroSto
   return {
     variant: "interactive",
     slides: resolvedSlides,
+    showcase: null,
     diagnostics: {
       activeSlides: resolvedSlides.length,
       totalSlides: settings.slides.length,
