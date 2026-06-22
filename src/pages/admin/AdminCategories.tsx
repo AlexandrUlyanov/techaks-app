@@ -7,9 +7,11 @@ import {
   EyeOff,
   FolderTree,
   Hash,
+  ImagePlus,
   Layers3,
   Loader2,
   Plus,
+  RefreshCw,
   Search,
   ArrowUp,
   ArrowDown,
@@ -132,6 +134,7 @@ export default function AdminCategories() {
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<CategoryRecord | null>(null);
   const [manualSlug, setManualSlug] = useState(false);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
+  const [inlinePreviewBusyId, setInlinePreviewBusyId] = useState<number | null>(null);
 
   const { data: categories = [], isLoading } = trpc.product.getCategories.useQuery({
     includeInactive: true,
@@ -160,6 +163,25 @@ export default function AdminCategories() {
       utils.product.getCatalogCategoryPreviews.invalidate();
     },
     onError: error => toast.error(error.message || "Не удалось обновить миниатюры категорий"),
+  });
+  const updateCategoryPreviewImages = trpc.product.updateCategoryPreviewImages.useMutation({
+    onSuccess: () => {
+      utils.product.getCategories.invalidate();
+      utils.product.getCatalogCategoryPreviews.invalidate();
+    },
+    onError: error => toast.error(error.message || "Не удалось обновить миниатюры категории"),
+  });
+  const refreshCategoryPreviewImages = trpc.product.refreshCategoryPreviewImages.useMutation({
+    onSuccess: result => {
+      utils.product.getCategories.invalidate();
+      utils.product.getCatalogCategoryPreviews.invalidate();
+      toast.success(
+        result.previewImages.length > 0
+          ? `Миниатюры обновили: ${result.previewImages.length} шт.`
+          : "Подходящих изображений для миниатюр не нашлось."
+      );
+    },
+    onError: error => toast.error(error.message || "Не удалось подобрать миниатюры категории"),
   });
 
   const upsertCategory = trpc.product.upsertCategory.useMutation({
@@ -407,6 +429,57 @@ export default function AdminCategories() {
     );
   };
 
+  const handleInlineExcludePreviewImage = async (category: CategoryRecord, imageUrl: string) => {
+    const previewImages = normalizeCategoryPreviewImages(category.previewImages);
+    const previewImageExclusions = normalizeCategoryPreviewImages(category.previewImageExclusions, 32);
+    const normalized = imageUrl.trim();
+    if (!normalized) return;
+
+    setInlinePreviewBusyId(category.id);
+    try {
+      await updateCategoryPreviewImages.mutateAsync({
+        id: category.id,
+        previewImages: previewImages.filter(item => item !== normalized),
+        previewImageExclusions: previewImageExclusions.includes(normalized)
+          ? previewImageExclusions
+          : [...previewImageExclusions, normalized],
+      });
+      toast.success("Миниатюра исключена из автоподбора.");
+    } finally {
+      setInlinePreviewBusyId(null);
+    }
+  };
+
+  const handleInlineRestorePreviewImage = async (category: CategoryRecord, imageUrl: string) => {
+    const previewImages = normalizeCategoryPreviewImages(category.previewImages);
+    const previewImageExclusions = normalizeCategoryPreviewImages(category.previewImageExclusions, 32);
+
+    setInlinePreviewBusyId(category.id);
+    try {
+      await updateCategoryPreviewImages.mutateAsync({
+        id: category.id,
+        previewImages,
+        previewImageExclusions: previewImageExclusions.filter(item => item !== imageUrl),
+      });
+      toast.success("Изображение снова участвует в автоподборе.");
+    } finally {
+      setInlinePreviewBusyId(null);
+    }
+  };
+
+  const handleInlineRefreshPreviewImages = async (category: CategoryRecord) => {
+    const previewImageExclusions = normalizeCategoryPreviewImages(category.previewImageExclusions, 32);
+    setInlinePreviewBusyId(category.id);
+    try {
+      await refreshCategoryPreviewImages.mutateAsync({
+        id: category.id,
+        excludedImages: previewImageExclusions,
+      });
+    } finally {
+      setInlinePreviewBusyId(null);
+    }
+  };
+
   const getSiblingMeta = (category: CategoryRecord) => {
     const siblings = (byParent.get(category.parentId ?? null) ?? []).filter(node =>
       visibleCategoryIds.has(node.id)
@@ -441,6 +514,11 @@ export default function AdminCategories() {
           const siblingMeta = getSiblingMeta(category);
 
           const previewImages = normalizeCategoryPreviewImages(category.previewImages);
+          const excludedPreviewImages = normalizeCategoryPreviewImages(
+            category.previewImageExclusions,
+            32
+          );
+          const isInlinePreviewBusy = inlinePreviewBusyId === category.id;
 
           return (
             <div key={category.id} className="space-y-2">
@@ -526,6 +604,85 @@ export default function AdminCategories() {
                         {category.description}
                       </div>
                     ) : null}
+                    {(previewImages.length > 0 || excludedPreviewImages.length > 0) ? (
+                      <div className="space-y-2 pt-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {previewImages.length > 0 ? (
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+                              Активные миниатюры
+                            </span>
+                          ) : null}
+                          {previewImages.map(imageUrl => (
+                            <button
+                              key={imageUrl}
+                              type="button"
+                              onClick={() => handleInlineExcludePreviewImage(category, imageUrl)}
+                              disabled={isInlinePreviewBusy}
+                              className="group relative h-14 w-14 overflow-hidden rounded-2xl border border-gray-200 bg-white transition-colors hover:border-[#05C3D4] disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Не использовать это изображение"
+                            >
+                              <img
+                                src={imageUrl}
+                                alt={category.name}
+                                loading="lazy"
+                                decoding="async"
+                                className="h-full w-full object-contain p-1.5"
+                              />
+                              <span className="pointer-events-none absolute inset-x-0 bottom-0 inline-flex items-center justify-center bg-white/92 px-1 py-1 text-[10px] font-bold text-[#047C89] opacity-0 transition-opacity group-hover:opacity-100">
+                                Исключить
+                              </span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => handleInlineRefreshPreviewImages(category)}
+                            disabled={isInlinePreviewBusy}
+                            className="inline-flex h-14 items-center gap-2 rounded-2xl border border-dashed border-[#05C3D4]/35 bg-[#F7FEFF] px-3 text-xs font-bold text-[#047C89] transition-colors hover:bg-[#F2FBFD] disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Подобрать миниатюры заново"
+                          >
+                            {isInlinePreviewBusy ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <ImagePlus size={14} />
+                            )}
+                            <span>Подобрать заново</span>
+                          </button>
+                        </div>
+                        {excludedPreviewImages.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+                              Исключены
+                            </span>
+                            {excludedPreviewImages.slice(0, 8).map(imageUrl => (
+                              <button
+                                key={imageUrl}
+                                type="button"
+                                onClick={() => handleInlineRestorePreviewImage(category, imageUrl)}
+                                disabled={isInlinePreviewBusy}
+                                className="group relative h-12 w-12 overflow-hidden rounded-2xl border border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-[#05C3D4] hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Снова разрешить это изображение"
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={category.name}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="h-full w-full object-contain p-1.5 opacity-60"
+                                />
+                                <span className="pointer-events-none absolute inset-x-0 bottom-0 inline-flex items-center justify-center bg-white/92 px-1 py-1 text-[10px] font-bold text-gray-500 opacity-0 transition-opacity group-hover:opacity-100">
+                                  Вернуть
+                                </span>
+                              </button>
+                            ))}
+                            {excludedPreviewImages.length > 8 ? (
+                              <span className="inline-flex h-12 items-center rounded-2xl bg-gray-100 px-3 text-xs font-semibold text-gray-500">
+                                +{excludedPreviewImages.length - 8}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -591,6 +748,19 @@ export default function AdminCategories() {
                     title="Редактировать категорию"
                   >
                     <Edit2 size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInlineRefreshPreviewImages(category)}
+                    disabled={isInlinePreviewBusy}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-[#F2FBFD] hover:text-[#05C3D4] disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Подобрать миниатюры заново"
+                  >
+                    {isInlinePreviewBusy ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={16} />
+                    )}
                   </button>
                   <button
                     type="button"

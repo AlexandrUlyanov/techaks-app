@@ -1786,6 +1786,133 @@ export const productRouter = createRouter({
       return { success: true, updated };
     }),
 
+  updateCategoryPreviewImages: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        previewImages: z.array(z.string()).max(CATEGORY_PREVIEW_IMAGE_LIMIT),
+        previewImageExclusions: z
+          .array(z.string())
+          .max(CATEGORY_PREVIEW_IMAGE_LIMIT * 4)
+          .default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
+      const db = getDb();
+      const [previousCategory] = await db
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!previousCategory) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Категория не найдена.",
+        });
+      }
+
+      const previewImages = normalizeCategoryPreviewImages(
+        input.previewImages,
+        CATEGORY_PREVIEW_IMAGE_LIMIT
+      );
+      const previewImageExclusions = normalizeCategoryPreviewImages(
+        input.previewImageExclusions,
+        CATEGORY_PREVIEW_IMAGE_LIMIT * 4
+      );
+
+      await db
+        .update(categories)
+        .set({
+          previewImages,
+          previewImageExclusions,
+        })
+        .where(eq(categories.id, input.id));
+
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.preview_images.update",
+        entityType: "category",
+        entityId: previousCategory.id,
+        entityLabel: previousCategory.name,
+        before: {
+          previewImages: previousCategory.previewImages,
+          previewImageExclusions: previousCategory.previewImageExclusions,
+        },
+        after: {
+          previewImages,
+          previewImageExclusions,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  refreshCategoryPreviewImages: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        excludedImages: z
+          .array(z.string())
+          .max(CATEGORY_PREVIEW_IMAGE_LIMIT * 4)
+          .optional()
+          .default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
+      const db = getDb();
+      const [previousCategory] = await db
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!previousCategory) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Категория не найдена.",
+        });
+      }
+
+      const previewImageExclusions = normalizeCategoryPreviewImages(
+        input.excludedImages,
+        CATEGORY_PREVIEW_IMAGE_LIMIT * 4
+      );
+      const previewImages = await collectCategoryPreviewImageSuggestions(
+        input.id,
+        undefined,
+        previewImageExclusions
+      );
+
+      await db
+        .update(categories)
+        .set({
+          previewImages,
+          previewImageExclusions,
+        })
+        .where(eq(categories.id, input.id));
+
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.preview_images.refresh",
+        entityType: "category",
+        entityId: previousCategory.id,
+        entityLabel: previousCategory.name,
+        before: {
+          previewImages: previousCategory.previewImages,
+          previewImageExclusions: previousCategory.previewImageExclusions,
+        },
+        after: {
+          previewImages,
+          previewImageExclusions,
+        },
+      });
+
+      return { success: true, previewImages, previewImageExclusions };
+    }),
+
   reorderCategory: protectedProcedure
     .input(
       z.object({
