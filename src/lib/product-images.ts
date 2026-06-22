@@ -6,6 +6,17 @@ import {
 
 export const PRODUCT_NOFOTO_SRC = "/images/nofoto.jpg";
 
+function inferVariantPathFromOriginal(
+  originalPath: string | null,
+  variant: "thumb" | "card" | "medium"
+) {
+  if (!originalPath) return null;
+  const normalized = originalPath.trim();
+  if (!normalized.startsWith("/images/")) return null;
+  const replaced = normalized.replace(/-original\.[a-z0-9]+$/i, `-${variant}.webp`);
+  return replaced !== normalized ? replaced : null;
+}
+
 function sanitizeImagePath(value?: string | null) {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized || normalized === "undefined" || normalized === "null") {
@@ -24,12 +35,16 @@ export function resolveProductImageVariantSet(
 ): ProductImageVariantSet {
   const fallbackOriginal = resolveProductImageSrc(image);
   const parsed = normalizeProductImageVariantSet(imageVariants, fallbackOriginal);
+  const parsedOriginal = sanitizeImagePath(parsed?.original) || fallbackOriginal;
 
   return {
-    original: sanitizeImagePath(parsed?.original) || fallbackOriginal,
-    thumb: sanitizeImagePath(parsed?.thumb),
-    card: sanitizeImagePath(parsed?.card),
-    medium: sanitizeImagePath(parsed?.medium),
+    original: parsedOriginal,
+    thumb:
+      sanitizeImagePath(parsed?.thumb) || inferVariantPathFromOriginal(parsedOriginal, "thumb"),
+    card:
+      sanitizeImagePath(parsed?.card) || inferVariantPathFromOriginal(parsedOriginal, "card"),
+    medium:
+      sanitizeImagePath(parsed?.medium) || inferVariantPathFromOriginal(parsedOriginal, "medium"),
     hash: typeof parsed?.hash === "string" ? parsed.hash : null,
     width: typeof parsed?.width === "number" ? parsed.width : null,
     height: typeof parsed?.height === "number" ? parsed.height : null,
