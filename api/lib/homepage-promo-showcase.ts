@@ -176,6 +176,7 @@ async function listDiscountCandidates(limit = 160): Promise<DiscountCandidate[]>
     .where(
       and(
         publicProductVisibilityCondition,
+        sql`${publicAvailableStockQtySql} > 0`,
         or(
           sql`${products.oldPrice} IS NOT NULL AND ${products.oldPrice} > ${products.price}`,
           sql`lower(coalesce(${products.badge}, '')) = 'акция'`
@@ -358,8 +359,12 @@ export async function buildHomepagePromoShowcaseData(
     candidate => !excludedIds.has(candidate.id) && !pinnedCandidateIds.has(candidate.id)
   );
   const filteredPinnedCandidates = pinnedCandidates.filter(candidate => !excludedIds.has(candidate.id));
+  const promoPoolSize = new Set([
+    ...candidates.map(candidate => candidate.id),
+    ...filteredPinnedCandidates.map(candidate => candidate.id),
+  ]).size;
 
-  if (candidates.length === 0 && filteredPinnedCandidates.length === 0) {
+  if (promoPoolSize < 4) {
     const fallbackRows = await listHomepageFallbackProducts(6);
     const fallbackCards = normalizeHeroCardRows(fallbackRows);
     if (fallbackCards.length === 0) return null;

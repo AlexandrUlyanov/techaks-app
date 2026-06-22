@@ -565,7 +565,13 @@ export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroSto
   const settings = await getHomepageHeroAdminSettings();
 
   if (settings.variant === "promo_showcase") {
-    const showcase = await buildHomepagePromoShowcaseData(settings.promoShowcase);
+    let showcase = null;
+    try {
+      showcase = await buildHomepagePromoShowcaseData(settings.promoShowcase);
+    } catch (error) {
+      console.error("[homepage-hero] failed to build promo showcase, fallback to classic", error);
+      showcase = null;
+    }
 
     if (showcase) {
       return {
