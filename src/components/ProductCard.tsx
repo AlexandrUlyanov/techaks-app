@@ -100,10 +100,11 @@ export default function ProductCard({
     image: productImages[activeImageIndex]?.original ?? product.image,
     imageVariants: productImages[activeImageIndex] ?? product.imageVariants,
     priority: imagePriority,
+    maxVariant: "card",
     sizes:
       variant === "list"
         ? "(max-width: 640px) 112px, 148px"
-        : "(max-width: 768px) 45vw, (max-width: 1280px) 30vw, 300px",
+        : "(max-width: 768px) 42vw, (max-width: 1280px) 240px, 260px",
   });
 
   const rating = Number(product.rating ?? 0);

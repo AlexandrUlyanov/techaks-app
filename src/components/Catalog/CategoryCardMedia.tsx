@@ -36,6 +36,7 @@ export default function CategoryCardMedia({
   const imageProps = getProductCardImageProps({
     image: images[activeImageIndex] ?? imageUrl,
     imageVariants: null,
+    maxVariant: "thumb",
     sizes: imageSizes,
   });
 

@@ -61,6 +61,7 @@ import {
   normalizeCategoryPreviewImages,
   resolveCategoryPreviewImages,
 } from "../../src/contracts/category-preview-images";
+import { normalizeProductImageVariantSet } from "@contracts/product-images";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -229,6 +230,7 @@ async function collectCategoryPreviewImageSuggestions(
     .select({
       categoryId: products.categoryId,
       image: products.image,
+      imageVariants: products.imageVariants,
     })
     .from(products)
     .where(inArray(products.categoryId, categoryIds))
@@ -268,8 +270,15 @@ async function collectCategoryPreviewImageSuggestions(
   const suggestions: string[] = [];
 
   for (const row of rows) {
-    const image = typeof row.image === "string" ? row.image.trim() : "";
-    if (!image || excludedImages.has(image)) continue;
+    const fallbackOriginal = typeof row.image === "string" ? row.image.trim() : "";
+    const variants = normalizeProductImageVariantSet(row.imageVariants, fallbackOriginal);
+    const image =
+      variants.thumb ||
+      variants.card ||
+      variants.medium ||
+      variants.original ||
+      fallbackOriginal;
+    if (!image || excludedImages.has(image) || excludedImages.has(fallbackOriginal)) continue;
 
     const bucketKey = rootBucketByCategoryId.get(row.categoryId) ?? "self";
     const bucket = bucketedImages.get(bucketKey) ?? [];
@@ -845,10 +854,21 @@ export const productRouter = createRouter({
       const previewProduct = previewByProductId.get(
         previewProductIdByCategoryId.get(category.id) ?? 0
       );
-      const fallbackPreviewImage =
-        previewProduct?.image && !excludedImages.has(previewProduct.image)
-          ? previewProduct.image
-          : null;
+      const fallbackPreviewImage = (() => {
+        const fallbackOriginal = typeof previewProduct?.image === "string" ? previewProduct.image.trim() : "";
+        if (!fallbackOriginal || excludedImages.has(fallbackOriginal)) return null;
+        const variants = normalizeProductImageVariantSet(
+          previewProduct?.imageVariants,
+          fallbackOriginal
+        );
+        const optimized =
+          variants.thumb ||
+          variants.card ||
+          variants.medium ||
+          variants.original ||
+          fallbackOriginal;
+        return excludedImages.has(optimized) ? null : optimized;
+      })();
 
       return {
         categoryId: category.id,

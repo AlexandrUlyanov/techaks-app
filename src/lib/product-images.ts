@@ -70,20 +70,47 @@ function buildSrcSetEntries(variantSet: ProductImageVariantSet) {
   return Array.from(new Set(entries));
 }
 
+function buildLimitedSrcSetEntries(
+  variantSet: ProductImageVariantSet,
+  maxVariant: "thumb" | "card" | "medium" | "original"
+) {
+  const priorityOrder = ["thumb", "card", "medium", "original"] as const;
+  const allowed = new Set(
+    priorityOrder.slice(0, priorityOrder.indexOf(maxVariant) + 1)
+  );
+  const entries = [
+    allowed.has("thumb") && variantSet.thumb ? `${variantSet.thumb} 120w` : null,
+    allowed.has("card") && variantSet.card ? `${variantSet.card} 400w` : null,
+    allowed.has("medium") && variantSet.medium ? `${variantSet.medium} 800w` : null,
+    allowed.has("original") && variantSet.original ? `${variantSet.original} 1200w` : null,
+  ].filter((entry): entry is string => Boolean(entry));
+
+  return Array.from(new Set(entries));
+}
+
 export function getProductCardImageProps(args: {
   image?: string | null;
   imageVariants?: unknown;
   priority?: boolean;
   sizes?: string;
+  maxVariant?: "thumb" | "card" | "medium" | "original";
 }) {
   const variantSet = resolveProductImageVariantSet(args.image, args.imageVariants);
+  const maxVariant = args.maxVariant ?? "card";
   const src =
+    (maxVariant === "thumb"
+      ? variantSet.thumb
+      : maxVariant === "card"
+        ? variantSet.card || variantSet.thumb
+        : maxVariant === "medium"
+          ? variantSet.medium || variantSet.card || variantSet.thumb
+          : variantSet.original || variantSet.medium || variantSet.card || variantSet.thumb) ||
     variantSet.card ||
     variantSet.thumb ||
     variantSet.medium ||
     variantSet.original ||
     PRODUCT_NOFOTO_SRC;
-  const srcSetEntries = buildSrcSetEntries(variantSet);
+  const srcSetEntries = buildLimitedSrcSetEntries(variantSet, maxVariant);
   const loading: "eager" | "lazy" = args.priority ? "eager" : "lazy";
 
   return {
