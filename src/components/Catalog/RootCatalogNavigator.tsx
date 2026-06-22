@@ -2,12 +2,9 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ChevronDown, ChevronRight, FolderTree, Search } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { CategoryIcon } from "@/lib/category-icons";
 import { formatCategoryLabel } from "@/lib/category-labels";
 import { cn } from "@/lib/utils";
-import {
-  getProductCardImageProps,
-} from "@/lib/product-images";
+import CategoryCardMedia from "@/components/Catalog/CategoryCardMedia";
 
 type CategoryRecord = {
   id: number;
@@ -16,6 +13,7 @@ type CategoryRecord = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
+  previewImages?: unknown;
   icon?: string | null;
 };
 
@@ -250,14 +248,6 @@ export default function RootCatalogNavigator({
           hasChildren
             ? branchStats.get(category.id)
             : previewByCategoryId.get(category.id) ?? branchStats.get(category.id);
-        const imageProps =
-          category.imageUrl
-            ? getProductCardImageProps({
-                image: category.imageUrl,
-                imageVariants: null,
-                sizes: imageSizes,
-              })
-            : null;
         const categoryLabel = formatCategoryLabel(category.name);
 
         return (
@@ -289,23 +279,15 @@ export default function RootCatalogNavigator({
             }
             className="group block overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] text-left ring-1 ring-transparent transition-[border-color] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 motion-reduce:transition-none dark:hover:ring-[#05C3D4]/30"
           >
-            <div className="flex h-[152px] items-center justify-center bg-white p-5 dark:bg-white">
-              {imageProps ? (
-                <img
-                  src={imageProps.src}
-                  srcSet={imageProps.srcSet}
-                  sizes={imageProps.sizes}
-                  alt={categoryLabel}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center rounded-[1.25rem] bg-[var(--tech-color-surface-muted)]/60 text-[var(--tech-color-primary)]">
-                  <CategoryIcon name={category.name} slug={category.slug} size={hasChildren ? 52 : 42} className="text-current" />
-                </div>
-              )}
-            </div>
+            <CategoryCardMedia
+              categoryName={categoryLabel}
+              categorySlug={category.slug}
+              imageUrl={category.imageUrl}
+              previewImages={category.previewImages}
+              imageSizes={imageSizes}
+              iconSize={hasChildren ? 52 : 42}
+              className="relative flex h-[152px] items-center justify-center bg-white p-5 dark:bg-white"
+            />
             <div className="space-y-2 px-4 py-4 md:px-5">
               <div className={cn(
                 "line-clamp-2 text-foreground dark:text-white/92",

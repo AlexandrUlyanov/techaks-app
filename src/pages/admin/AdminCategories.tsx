@@ -23,6 +23,7 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 import { CategoryIcon } from "@/lib/category-icons";
 import { slugify } from "@/lib/utils";
 import { trpc } from "@/providers/trpc";
+import { normalizeCategoryPreviewImages } from "@/contracts/category-preview-images";
 
 type CategoryRecord = {
   id: number;
@@ -35,6 +36,7 @@ type CategoryRecord = {
   metaTitle: string | null;
   metaDescription: string | null;
   imageUrl: string | null;
+  previewImages?: unknown;
   icon: string | null;
   sortOrder: number;
 };
@@ -49,6 +51,7 @@ type CategoryDraft = {
   metaTitle: string;
   metaDescription: string;
   imageUrl: string;
+  previewImages: string[];
   icon: string;
   sortOrder: number;
 };
@@ -62,6 +65,7 @@ const EMPTY_DRAFT: CategoryDraft = {
   metaTitle: "",
   metaDescription: "",
   imageUrl: "",
+  previewImages: [],
   icon: "",
   sortOrder: 0,
 };
@@ -129,6 +133,15 @@ export default function AdminCategories() {
   const { data: categories = [], isLoading } = trpc.product.getCategories.useQuery({
     includeInactive: true,
   });
+  const categoryPreviewSuggestions = trpc.product.getCategoryPreviewImageSuggestions.useQuery(
+    {
+      categoryId: editingCategory?.id ?? 0,
+    },
+    {
+      enabled: false,
+      retry: false,
+    }
+  );
   const { data: previews = [] } = trpc.product.getCatalogCategoryPreviews.useQuery({
     includeInactive: true,
   });
@@ -282,6 +295,7 @@ export default function AdminCategories() {
       metaTitle: category.metaTitle ?? "",
       metaDescription: category.metaDescription ?? "",
       imageUrl: category.imageUrl ?? "",
+      previewImages: normalizeCategoryPreviewImages(category.previewImages),
       icon: category.icon ?? "",
       sortOrder: category.sortOrder,
     });
@@ -307,10 +321,41 @@ export default function AdminCategories() {
         metaTitle: editingCategory.metaTitle.trim() || null,
         metaDescription: editingCategory.metaDescription.trim() || null,
         imageUrl: editingCategory.imageUrl.trim() || null,
+        previewImages: editingCategory.previewImages,
         icon: editingCategory.icon.trim() || null,
         sortOrder: Number(editingCategory.sortOrder) || 0,
       },
     });
+  };
+
+  const handleApplyPreviewSuggestions = async () => {
+    if (!editingCategory?.id) {
+      toast.error("Сначала сохраните категорию, затем можно подтянуть миниатюры из товаров.");
+      return;
+    }
+
+    const result = await categoryPreviewSuggestions.refetch();
+    if (result.error) {
+      toast.error(result.error.message || "Не удалось подобрать миниатюры.");
+      return;
+    }
+
+    const suggestions = result.data ?? [];
+    setEditingCategory(prev =>
+      prev
+        ? {
+            ...prev,
+            previewImages: suggestions,
+          }
+        : prev
+    );
+
+    if (suggestions.length === 0) {
+      toast.message("Подходящих изображений в товарах этой категории пока не нашлось.");
+      return;
+    }
+
+    toast.success(`Подобрали ${suggestions.length} миниатюр из товаров категории.`);
   };
 
   const toggleExpanded = (id: number) => {
@@ -352,6 +397,8 @@ export default function AdminCategories() {
           const preview = previewByCategoryId.get(category.id);
           const siblingMeta = getSiblingMeta(category);
 
+          const previewImages = normalizeCategoryPreviewImages(category.previewImages);
+
           return (
             <div key={category.id} className="space-y-2">
               <div
@@ -385,7 +432,15 @@ export default function AdminCategories() {
                   </button>
 
                   <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-[#05C3D4]">
-                    {category.imageUrl ? (
+                    {previewImages[0] ? (
+                      <img
+                        src={previewImages[0]}
+                        alt={category.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : category.imageUrl ? (
                       <img
                         src={category.imageUrl}
                         alt={category.name}
@@ -802,6 +857,106 @@ export default function AdminCategories() {
                   className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition-colors focus:border-[#05C3D4]"
                 />
               </label>
+
+              <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-[#15171A]">
+                      Миниатюры для карточки категории
+                    </div>
+                    <div className="text-sm leading-6 text-gray-500">
+                      До 5 изображений. Именно они будут анимированно переключаться на карточках категории в каталоге.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplyPreviewSuggestions}
+                    disabled={!editingCategory.id || categoryPreviewSuggestions.isFetching}
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-[#05C3D4]/20 bg-white px-4 text-sm font-semibold text-[#047C89] transition-colors hover:bg-[#F2FBFD] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {categoryPreviewSuggestions.isFetching ? (
+                      <>
+                        <Loader2 size={14} className="mr-2 animate-spin" />
+                        Подбираю…
+                      </>
+                    ) : (
+                      "Подобрать из товаров категории"
+                    )}
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {editingCategory.previewImages.map((imageUrl, index) => (
+                    <div
+                      key={`${imageUrl}-${index}`}
+                      className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3"
+                    >
+                      <div className="flex h-28 items-center justify-center overflow-hidden rounded-xl bg-white">
+                        <img
+                          src={imageUrl}
+                          alt={`Миниатюра ${index + 1}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                      <input
+                        value={imageUrl}
+                        onChange={event =>
+                          setEditingCategory(prev =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  previewImages: prev.previewImages.map((item, itemIndex) =>
+                                    itemIndex === index ? event.target.value : item
+                                  ),
+                                }
+                              : prev
+                          )
+                        }
+                        placeholder="https://... или /uploads/..."
+                        className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition-colors focus:border-[#05C3D4]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingCategory(prev =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  previewImages: prev.previewImages.filter((_, itemIndex) => itemIndex !== index),
+                                }
+                              : prev
+                          )
+                        }
+                        className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        Удалить миниатюру
+                      </button>
+                    </div>
+                  ))}
+
+                  {editingCategory.previewImages.length < 5 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingCategory(prev =>
+                          prev
+                            ? {
+                                ...prev,
+                                previewImages: [...prev.previewImages, ""],
+                              }
+                            : prev
+                        )
+                      }
+                      className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white text-sm font-semibold text-gray-500 transition-colors hover:border-[#05C3D4]/30 hover:bg-[#F7FEFF] hover:text-[#047C89]"
+                    >
+                      <Plus size={18} />
+                      Добавить миниатюру
+                    </button>
+                  ) : null}
+                </div>
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1.5">

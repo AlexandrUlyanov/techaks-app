@@ -56,6 +56,10 @@ import {
 import { getProductVariants } from "../lib/product-variants";
 import { writeAdminAuditLog } from "../lib/admin-audit";
 import { buildPublicVisibleCategoryIdSet, filterPublicVisibleCategories } from "../lib/category-visibility";
+import {
+  normalizeCategoryPreviewImages,
+  resolveCategoryPreviewImages,
+} from "../../src/contracts/category-preview-images";
 
 const productSchema = z.object({
   slug: z.string(),
@@ -178,6 +182,7 @@ function normalizeCategoryPayload(
     metaTitle?: string | null;
     metaDescription?: string | null;
     imageUrl?: string | null;
+    previewImages?: unknown;
     icon?: string | null;
     sortOrder: number;
   }
@@ -191,9 +196,40 @@ function normalizeCategoryPayload(
     metaTitle: data.metaTitle?.trim() ? data.metaTitle.trim() : null,
     metaDescription: data.metaDescription?.trim() ? data.metaDescription.trim() : null,
     imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
+    previewImages: normalizeCategoryPreviewImages(data.previewImages),
     icon: data.icon?.trim() ? data.icon.trim() : null,
     sortOrder: data.sortOrder,
   };
+}
+
+async function collectCategoryPreviewImageSuggestions(
+  categoryId: number
+) {
+  const db = getDb();
+  const allCategories = await db.select().from(categories);
+  const categoryIds = collectDescendantCategoryIds(allCategories, categoryId);
+
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      image: products.image,
+    })
+    .from(products)
+    .where(inArray(products.categoryId, categoryIds))
+    .orderBy(asc(products.id));
+
+  const suggestions: string[] = [];
+  for (const row of rows) {
+    const image = typeof row.image === "string" ? row.image.trim() : "";
+    if (!image || suggestions.includes(image)) continue;
+    suggestions.push(image);
+    if (suggestions.length >= 5) break;
+  }
+
+  return suggestions;
 }
 
 async function validateCategoryMutationInput(input: {
@@ -613,6 +649,7 @@ export const productRouter = createRouter({
         parentId: categories.parentId,
         isActive: categories.isActive,
         imageUrl: categories.imageUrl,
+        previewImages: categories.previewImages,
       })
       .from(categories)
       .orderBy(asc(categories.sortOrder));
@@ -713,11 +750,22 @@ export const productRouter = createRouter({
       return {
         categoryId: category.id,
         productCount: countByCategoryId.get(category.id) ?? 0,
-        previewImage: category.imageUrl ?? previewProduct?.image ?? null,
+        previewImage:
+          resolveCategoryPreviewImages(category.previewImages, category.imageUrl)[0] ??
+          previewProduct?.image ??
+          null,
+        previewImages: resolveCategoryPreviewImages(category.previewImages, category.imageUrl),
         previewImageVariants: previewProduct?.imageVariants ?? null,
         hasChildren: (childrenByParentId.get(category.id)?.length ?? 0) > 0,
       };
       });
+    }),
+
+  getCategoryPreviewImageSuggestions: protectedProcedure
+    .input(z.object({ categoryId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Category");
+      return collectCategoryPreviewImageSuggestions(input.categoryId);
     }),
 
   getByManufacturer: publicQuery
@@ -1418,6 +1466,7 @@ export const productRouter = createRouter({
           metaTitle: z.string().nullable().optional(),
           metaDescription: z.string().nullable().optional(),
           imageUrl: z.string().nullable().optional(),
+          previewImages: z.array(z.string()).max(5).optional().default([]),
           icon: z.string().nullable(),
           sortOrder: z.number(),
         }),

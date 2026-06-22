@@ -4,12 +4,9 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { CategoryIcon } from "@/lib/category-icons";
 import { formatCategoryLabel } from "@/lib/category-labels";
 import { cn } from "@/lib/utils";
-import {
-  getProductCardImageProps,
-} from "@/lib/product-images";
+import CategoryCardMedia from "@/components/Catalog/CategoryCardMedia";
 
 type CategoryRecord = {
   id: number;
@@ -18,6 +15,7 @@ type CategoryRecord = {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
+  previewImages?: unknown;
 };
 
 type CategoryPreviewRecord = {
@@ -100,14 +98,6 @@ function CategoryCard({
   childNames?: string[];
   onNavigate?: (slug: string, source: "card") => void;
 }) {
-  const imageProps =
-    category.imageUrl
-      ? getProductCardImageProps({
-          image: category.imageUrl,
-          imageVariants: null,
-          sizes: "(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 240px",
-        })
-      : null;
   const categoryLabel = formatCategoryLabel(category.name);
 
   return (
@@ -121,26 +111,14 @@ function CategoryCard({
       }
       className="group overflow-hidden rounded-[1.5rem] bg-[var(--tech-color-surface)] p-4 ring-1 ring-transparent transition-[border-color,box-shadow] duration-200 hover:ring-[rgba(5,195,212,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tech-color-primary)]/40 dark:hover:ring-[#05C3D4]/30"
     >
-      <div className="flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white p-4 dark:bg-white">
-        {imageProps ? (
-          <img
-            src={imageProps.src}
-            srcSet={imageProps.srcSet}
-            sizes={imageProps.sizes}
-            alt={categoryLabel}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <CategoryIcon
-            name={category.name}
-            slug={category.slug}
-            size={44}
-            className="text-[var(--tech-color-primary)]"
-          />
-        )}
-      </div>
+      <CategoryCardMedia
+        categoryName={categoryLabel}
+        categorySlug={category.slug}
+        imageUrl={category.imageUrl}
+        previewImages={category.previewImages}
+        imageSizes="(max-width: 768px) 44vw, (max-width: 1280px) 26vw, 240px"
+        className="relative flex h-[132px] items-center justify-center rounded-[1.25rem] bg-white p-4 dark:bg-white"
+      />
 
       <div className="mt-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
