@@ -1,3 +1,5 @@
+export const CATEGORY_PREVIEW_IMAGE_LIMIT = 8;
+
 function sanitizeCategoryPreviewImage(value: unknown) {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
@@ -9,7 +11,7 @@ function sanitizeCategoryPreviewImage(value: unknown) {
 
 export function normalizeCategoryPreviewImages(
   input: unknown,
-  maxItems = 5
+  maxItems = CATEGORY_PREVIEW_IMAGE_LIMIT
 ) {
   const result: string[] = [];
 
@@ -28,7 +30,7 @@ export function normalizeCategoryPreviewImages(
 export function resolveCategoryPreviewImages(
   input: unknown,
   fallbackImage?: string | null,
-  maxItems = 5
+  maxItems = CATEGORY_PREVIEW_IMAGE_LIMIT
 ) {
   const normalized = normalizeCategoryPreviewImages(input, maxItems);
   const fallback = sanitizeCategoryPreviewImage(fallbackImage);

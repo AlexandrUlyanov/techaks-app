@@ -57,6 +57,7 @@ import { getProductVariants } from "../lib/product-variants";
 import { writeAdminAuditLog } from "../lib/admin-audit";
 import { buildPublicVisibleCategoryIdSet, filterPublicVisibleCategories } from "../lib/category-visibility";
 import {
+  CATEGORY_PREVIEW_IMAGE_LIMIT,
   normalizeCategoryPreviewImages,
   resolveCategoryPreviewImages,
 } from "../../src/contracts/category-preview-images";
@@ -183,6 +184,7 @@ function normalizeCategoryPayload(
     metaDescription?: string | null;
     imageUrl?: string | null;
     previewImages?: unknown;
+    previewImageExclusions?: unknown;
     icon?: string | null;
     sortOrder: number;
   }
@@ -197,17 +199,27 @@ function normalizeCategoryPayload(
     metaDescription: data.metaDescription?.trim() ? data.metaDescription.trim() : null,
     imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
     previewImages: normalizeCategoryPreviewImages(data.previewImages),
+    previewImageExclusions: normalizeCategoryPreviewImages(data.previewImageExclusions),
     icon: data.icon?.trim() ? data.icon.trim() : null,
     sortOrder: data.sortOrder,
   };
 }
 
 async function collectCategoryPreviewImageSuggestions(
-  categoryId: number
+  categoryId: number,
+  allCategoriesOverride?: Array<typeof categories.$inferSelect>,
+  excludedImagesOverride?: unknown
 ) {
   const db = getDb();
-  const allCategories = await db.select().from(categories);
+  const allCategories = allCategoriesOverride ?? (await db.select().from(categories));
+  const currentCategory = allCategories.find(category => category.id === categoryId);
   const categoryIds = collectDescendantCategoryIds(allCategories, categoryId);
+  const excludedImages = new Set(
+    normalizeCategoryPreviewImages(
+      excludedImagesOverride ?? currentCategory?.previewImageExclusions,
+      CATEGORY_PREVIEW_IMAGE_LIMIT * 4
+    )
+  );
 
   if (categoryIds.length === 0) {
     return [];
@@ -257,7 +269,7 @@ async function collectCategoryPreviewImageSuggestions(
 
   for (const row of rows) {
     const image = typeof row.image === "string" ? row.image.trim() : "";
-    if (!image) continue;
+    if (!image || excludedImages.has(image)) continue;
 
     const bucketKey = rootBucketByCategoryId.get(row.categoryId) ?? "self";
     const bucket = bucketedImages.get(bucketKey) ?? [];
@@ -274,12 +286,12 @@ async function collectCategoryPreviewImageSuggestions(
       if (!bucket || bucket.length === 0) continue;
 
       const nextImage = bucket.shift();
-      if (!nextImage || suggestions.includes(nextImage)) continue;
+      if (!nextImage || suggestions.includes(nextImage) || excludedImages.has(nextImage)) continue;
 
       suggestions.push(nextImage);
       added = true;
 
-      if (suggestions.length >= 5) {
+      if (suggestions.length >= CATEGORY_PREVIEW_IMAGE_LIMIT) {
         return true;
       }
     }
@@ -288,13 +300,13 @@ async function collectCategoryPreviewImageSuggestions(
   };
 
   if (rootBucketOrder.length > 0) {
-    while (suggestions.length < 5) {
+    while (suggestions.length < CATEGORY_PREVIEW_IMAGE_LIMIT) {
       const added = pickNextFromBuckets(rootBucketOrder);
       if (!added) break;
     }
   }
 
-  if (suggestions.length < 5) {
+  if (suggestions.length < CATEGORY_PREVIEW_IMAGE_LIMIT) {
     const remainingBucketOrder = [
       ...rootBucketOrder,
       "self" as const,
@@ -303,7 +315,7 @@ async function collectCategoryPreviewImageSuggestions(
       ),
     ];
 
-    while (suggestions.length < 5) {
+    while (suggestions.length < CATEGORY_PREVIEW_IMAGE_LIMIT) {
       const added = pickNextFromBuckets(remainingBucketOrder);
       if (!added) break;
     }
@@ -823,18 +835,29 @@ export const productRouter = createRouter({
     return allCategories
       .filter(category => (scopedCategorySet ? scopedCategorySet.has(category.id) : true))
       .map(category => {
+      const excludedImages = new Set(
+        normalizeCategoryPreviewImages(
+          category.previewImageExclusions,
+          CATEGORY_PREVIEW_IMAGE_LIMIT * 4
+        )
+      );
+      const resolvedPreviewImages = resolveCategoryPreviewImages(category.previewImages, category.imageUrl);
       const previewProduct = previewByProductId.get(
         previewProductIdByCategoryId.get(category.id) ?? 0
       );
+      const fallbackPreviewImage =
+        previewProduct?.image && !excludedImages.has(previewProduct.image)
+          ? previewProduct.image
+          : null;
 
       return {
         categoryId: category.id,
         productCount: countByCategoryId.get(category.id) ?? 0,
         previewImage:
-          resolveCategoryPreviewImages(category.previewImages, category.imageUrl)[0] ??
-          previewProduct?.image ??
+          resolvedPreviewImages[0] ??
+          fallbackPreviewImage ??
           null,
-        previewImages: resolveCategoryPreviewImages(category.previewImages, category.imageUrl),
+        previewImages: resolvedPreviewImages,
         previewImageVariants: previewProduct?.imageVariants ?? null,
         hasChildren: (childrenByParentId.get(category.id)?.length ?? 0) > 0,
       };
@@ -842,10 +865,19 @@ export const productRouter = createRouter({
     }),
 
   getCategoryPreviewImageSuggestions: protectedProcedure
-    .input(z.object({ categoryId: z.number().int().positive() }))
+    .input(
+      z.object({
+        categoryId: z.number().int().positive(),
+        excludedImages: z.array(z.string()).max(CATEGORY_PREVIEW_IMAGE_LIMIT * 4).optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "manage", "Category");
-      return collectCategoryPreviewImageSuggestions(input.categoryId);
+      return collectCategoryPreviewImageSuggestions(
+        input.categoryId,
+        undefined,
+        input.excludedImages
+      );
     }),
 
   getByManufacturer: publicQuery
@@ -1546,7 +1578,12 @@ export const productRouter = createRouter({
           metaTitle: z.string().nullable().optional(),
           metaDescription: z.string().nullable().optional(),
           imageUrl: z.string().nullable().optional(),
-          previewImages: z.array(z.string()).max(5).optional().default([]),
+          previewImages: z.array(z.string()).max(CATEGORY_PREVIEW_IMAGE_LIMIT).optional().default([]),
+          previewImageExclusions: z
+            .array(z.string())
+            .max(CATEGORY_PREVIEW_IMAGE_LIMIT * 4)
+            .optional()
+            .default([]),
           icon: z.string().nullable(),
           sortOrder: z.number(),
         }),
@@ -1708,6 +1745,45 @@ export const productRouter = createRouter({
       });
 
       return { success: true };
+    }),
+
+  refreshAllCategoryPreviewImages: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      requireAbility(ctx, "manage", "Category");
+      const db = getDb();
+      const allCategories = await db.select().from(categories);
+      let updated = 0;
+
+      for (const category of allCategories) {
+        const nextPreviewImages = await collectCategoryPreviewImageSuggestions(
+          category.id,
+          allCategories
+        );
+
+        const normalizedCurrent = normalizeCategoryPreviewImages(category.previewImages);
+        const changed =
+          normalizedCurrent.length !== nextPreviewImages.length ||
+          normalizedCurrent.some((item, index) => item !== nextPreviewImages[index]);
+
+        if (!changed) continue;
+
+        await db
+          .update(categories)
+          .set({ previewImages: nextPreviewImages })
+          .where(eq(categories.id, category.id));
+        updated += 1;
+      }
+
+      await writeAdminAuditLog({
+        ctx,
+        action: "category.preview_images.refresh_all",
+        entityType: "category",
+        entityId: null,
+        entityLabel: "all",
+        after: { updated },
+      });
+
+      return { success: true, updated };
     }),
 
   reorderCategory: protectedProcedure

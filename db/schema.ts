@@ -35,6 +35,7 @@ export const categories = mysqlTable("categories", {
   metaDescription: text("meta_description"),
   imageUrl: varchar("image_url", { length: 512 }),
   previewImages: json("preview_images"),
+  previewImageExclusions: json("preview_image_exclusions"),
   icon: varchar("icon", { length: 50 }),
   sortOrder: int("sort_order").notNull().default(0),
 });

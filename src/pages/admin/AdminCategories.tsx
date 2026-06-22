@@ -37,6 +37,7 @@ type CategoryRecord = {
   metaDescription: string | null;
   imageUrl: string | null;
   previewImages?: unknown;
+  previewImageExclusions?: unknown;
   icon: string | null;
   sortOrder: number;
 };
@@ -52,6 +53,7 @@ type CategoryDraft = {
   metaDescription: string;
   imageUrl: string;
   previewImages: string[];
+  previewImageExclusions: string[];
   icon: string;
   sortOrder: number;
 };
@@ -66,6 +68,7 @@ const EMPTY_DRAFT: CategoryDraft = {
   metaDescription: "",
   imageUrl: "",
   previewImages: [],
+  previewImageExclusions: [],
   icon: "",
   sortOrder: 0,
 };
@@ -136,6 +139,7 @@ export default function AdminCategories() {
   const categoryPreviewSuggestions = trpc.product.getCategoryPreviewImageSuggestions.useQuery(
     {
       categoryId: editingCategory?.id ?? 0,
+      excludedImages: editingCategory?.previewImageExclusions ?? [],
     },
     {
       enabled: false,
@@ -144,6 +148,18 @@ export default function AdminCategories() {
   );
   const { data: previews = [] } = trpc.product.getCatalogCategoryPreviews.useQuery({
     includeInactive: true,
+  });
+  const refreshAllCategoryPreviewImages = trpc.product.refreshAllCategoryPreviewImages.useMutation({
+    onSuccess: result => {
+      toast.success(
+        result.updated > 0
+          ? `Обновили миниатюры у ${result.updated} категорий.`
+          : "Миниатюры уже актуальны у всех категорий."
+      );
+      utils.product.getCategories.invalidate();
+      utils.product.getCatalogCategoryPreviews.invalidate();
+    },
+    onError: error => toast.error(error.message || "Не удалось обновить миниатюры категорий"),
   });
 
   const upsertCategory = trpc.product.upsertCategory.useMutation({
@@ -296,6 +312,7 @@ export default function AdminCategories() {
       metaDescription: category.metaDescription ?? "",
       imageUrl: category.imageUrl ?? "",
       previewImages: normalizeCategoryPreviewImages(category.previewImages),
+      previewImageExclusions: normalizeCategoryPreviewImages(category.previewImageExclusions, 32),
       icon: category.icon ?? "",
       sortOrder: category.sortOrder,
     });
@@ -322,6 +339,7 @@ export default function AdminCategories() {
         metaDescription: editingCategory.metaDescription.trim() || null,
         imageUrl: editingCategory.imageUrl.trim() || null,
         previewImages: editingCategory.previewImages,
+        previewImageExclusions: editingCategory.previewImageExclusions,
         icon: editingCategory.icon.trim() || null,
         sortOrder: Number(editingCategory.sortOrder) || 0,
       },
@@ -356,6 +374,31 @@ export default function AdminCategories() {
     }
 
     toast.success(`Подобрали ${suggestions.length} миниатюр из товаров категории.`);
+  };
+
+  const handleExcludePreviewImage = (imageUrl: string) => {
+    setEditingCategory(prev => {
+      if (!prev) return prev;
+      const normalized = imageUrl.trim();
+      if (!normalized) return prev;
+      return {
+        ...prev,
+        previewImages: prev.previewImages.filter(item => item !== normalized),
+        previewImageExclusions: prev.previewImageExclusions.includes(normalized)
+          ? prev.previewImageExclusions
+          : [...prev.previewImageExclusions, normalized],
+      };
+    });
+  };
+
+  const handleRestoreExcludedPreviewImage = (imageUrl: string) => {
+    setEditingCategory(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        previewImageExclusions: prev.previewImageExclusions.filter(item => item !== imageUrl),
+      };
+    });
   };
 
   const toggleExpanded = (id: number) => {
@@ -589,14 +632,31 @@ export default function AdminCategories() {
         title="Категории"
         description="Здесь мы управляем структурой каталога: создаём разделы, переносим их по дереву и держим slug под контролем. Удаление работает только для пустых категорий — без товаров и без дочерних разделов."
         actions={
-          <button
-            type="button"
-            onClick={() => openCreateModal(null)}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7]"
-          >
-            <Plus size={18} />
-            Создать категорию
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => refreshAllCategoryPreviewImages.mutate()}
+              disabled={refreshAllCategoryPreviewImages.isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#05C3D4]/20 bg-white px-4 text-sm font-bold text-[#047C89] transition-colors hover:bg-[#F2FBFD] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {refreshAllCategoryPreviewImages.isPending ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Обновляю миниатюры…
+                </>
+              ) : (
+                "Обновить все миниатюры"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => openCreateModal(null)}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-bold text-white transition-colors hover:bg-[#0097a7]"
+            >
+              <Plus size={18} />
+              Создать категорию
+            </button>
+          </>
         }
       />
 
@@ -865,7 +925,7 @@ export default function AdminCategories() {
                       Миниатюры для карточки категории
                     </div>
                     <div className="text-sm leading-6 text-gray-500">
-                      До 5 изображений. Именно они будут анимированно переключаться на карточках категории в каталоге.
+                      До 8 изображений. Именно они будут анимированно переключаться на карточках категории в каталоге.
                     </div>
                   </div>
                   <button
@@ -919,6 +979,13 @@ export default function AdminCategories() {
                       />
                       <button
                         type="button"
+                        onClick={() => handleExcludePreviewImage(imageUrl)}
+                        className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-amber-600 transition-colors hover:bg-amber-50 hover:text-amber-700"
+                      >
+                        Не использовать в подборе
+                      </button>
+                      <button
+                        type="button"
                         onClick={() =>
                           setEditingCategory(prev =>
                             prev
@@ -936,7 +1003,7 @@ export default function AdminCategories() {
                     </div>
                   ))}
 
-                  {editingCategory.previewImages.length < 5 ? (
+                  {editingCategory.previewImages.length < 8 ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -956,6 +1023,48 @@ export default function AdminCategories() {
                     </button>
                   ) : null}
                 </div>
+
+                {editingCategory.previewImageExclusions.length > 0 ? (
+                  <div className="space-y-3 border-t border-gray-200 pt-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-[#15171A]">
+                        Исключённые из автоподбора
+                      </div>
+                      <div className="text-sm leading-6 text-gray-500">
+                        Эти изображения не будут использоваться кнопками автоподбора и массового обновления миниатюр.
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {editingCategory.previewImageExclusions.map((imageUrl, index) => (
+                        <div
+                          key={`excluded-${imageUrl}-${index}`}
+                          className="space-y-3 rounded-2xl border border-amber-100 bg-white p-3"
+                        >
+                          <div className="flex h-28 items-center justify-center overflow-hidden rounded-xl bg-white">
+                            <img
+                              src={imageUrl}
+                              alt={`Исключённая миниатюра ${index + 1}`}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-contain"
+                            />
+                          </div>
+                          <div className="rounded-xl border border-gray-100 px-3 py-2 text-xs text-gray-500">
+                            {imageUrl}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreExcludedPreviewImage(imageUrl)}
+                            className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-[#047C89] transition-colors hover:bg-[#F2FBFD]"
+                          >
+                            Снова разрешить
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
