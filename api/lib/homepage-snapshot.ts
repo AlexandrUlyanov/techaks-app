@@ -128,6 +128,7 @@ async function writeSnapshotError(message: string) {
     hero: {
       variant: "classic" as const,
       slides: [],
+      showcase: null,
       diagnostics: {
         activeSlides: 0,
         totalSlides: 0,

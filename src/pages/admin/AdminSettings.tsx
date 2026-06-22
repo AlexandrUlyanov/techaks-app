@@ -15,8 +15,10 @@ import {
   Sparkles,
   Store,
   FolderKanban,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
@@ -27,6 +29,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import HeroPromoDynamic, { type HeroData, type HeroSlide } from "@/components/HeroPromoDynamic";
+import HeroPromoShowcase from "@/components/HeroPromoShowcase";
 
 type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
 
@@ -56,6 +59,39 @@ type HomepageHeroSlideForm = {
   activeFrom: string | null;
   activeTo: string | null;
 };
+
+type HomepagePromoShowcaseForm = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  accent: string;
+  primaryCtaLabel: string;
+  primaryCtaHref: string;
+  secondaryCtaLabel: string;
+  secondaryCtaHref: string;
+  cardsPerTab: number;
+  categoryLimit: number;
+  pinnedProductIds: number[];
+  excludedProductIds: number[];
+};
+
+const defaultHomepagePromoShowcaseForm = (): HomepagePromoShowcaseForm => ({
+  eyebrow: "Лимитированные предложения",
+  title: "Скидки, которые хочется открыть прямо сейчас",
+  subtitle: "Чемпионы по выгоде, выбор ТЕХАКС и свежие скидки в одной витрине.",
+  description:
+    "Показываем только реальные товары с ценой, старой ценой и наличием. Можно быстро переключаться между сценариями покупки без лишней навигации.",
+  accent: "успей купить",
+  primaryCtaLabel: "Смотреть все скидки",
+  primaryCtaHref: "/promotions",
+  secondaryCtaLabel: "Перейти в каталог",
+  secondaryCtaHref: "/catalog",
+  cardsPerTab: 8,
+  categoryLimit: 7,
+  pinnedProductIds: [],
+  excludedProductIds: [],
+});
 
 function createHeroSlideDraft(type: HomepageHeroSlideType): HomepageHeroSlideForm {
   const baseId = `hero-slide-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -379,11 +415,13 @@ export default function AdminSettings() {
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
   const [homepageHeroVariant, setHomepageHeroVariant] = useState<
-    "classic" | "interactive"
+    "classic" | "interactive" | "promo_showcase"
   >("classic");
   const [homepageHeroSlides, setHomepageHeroSlides] = useState<HomepageHeroSlideForm[]>(
     []
   );
+  const [homepagePromoShowcase, setHomepagePromoShowcase] =
+    useState<HomepagePromoShowcaseForm>(defaultHomepagePromoShowcaseForm);
   const [activeHeroSlideId, setActiveHeroSlideId] = useState<string | null>(null);
 
   const activeHeroSlide = useMemo(
@@ -405,6 +443,17 @@ export default function AdminSettings() {
       ),
     [homepageHeroSlides]
   );
+  const promoShowcaseManagedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...homepagePromoShowcase.pinnedProductIds,
+          ...homepagePromoShowcase.excludedProductIds,
+        ])
+      ),
+    [homepagePromoShowcase.excludedProductIds, homepagePromoShowcase.pinnedProductIds]
+  );
+  const deferredHomepagePromoShowcase = useDeferredValue(homepagePromoShowcase);
   const { data: homepageHeroSelectedProducts } = trpc.product.getByIds.useQuery(
     { ids: homepageHeroAllManualProductIds },
     {
@@ -412,6 +461,19 @@ export default function AdminSettings() {
       staleTime: 30_000,
     }
   );
+  const { data: promoShowcaseManagedProducts } = trpc.product.getByIds.useQuery(
+    { ids: promoShowcaseManagedProductIds },
+    {
+      enabled: activeTab === "site" && promoShowcaseManagedProductIds.length > 0,
+      staleTime: 30_000,
+    }
+  );
+  const { data: homepagePromoShowcasePreview, isFetching: isPromoShowcasePreviewFetching } =
+    trpc.settings.getHomepagePromoShowcasePreview.useQuery(deferredHomepagePromoShowcase, {
+      enabled: activeTab === "site" && homepageHeroVariant === "promo_showcase",
+      staleTime: 0,
+      gcTime: 0,
+    });
   const activeHeroSlidePreview = useMemo<HeroData | null>(() => {
     if (!activeHeroSlide) return null;
     return {
@@ -518,6 +580,12 @@ export default function AdminSettings() {
     if (!homepageHeroAdminSettings) return;
     setHomepageHeroVariant(homepageHeroAdminSettings.variant);
     setHomepageHeroSlides(homepageHeroAdminSettings.slides);
+    setHomepagePromoShowcase({
+      ...defaultHomepagePromoShowcaseForm(),
+      ...homepageHeroAdminSettings.promoShowcase,
+      pinnedProductIds: homepageHeroAdminSettings.promoShowcase?.pinnedProductIds ?? [],
+      excludedProductIds: homepageHeroAdminSettings.promoShowcase?.excludedProductIds ?? [],
+    });
     setActiveHeroSlideId(homepageHeroAdminSettings.slides[0]?.id ?? null);
   }, [homepageHeroAdminSettings]);
 
@@ -798,6 +866,61 @@ export default function AdminSettings() {
       return {
         ...slide,
         manualProductIds: next,
+      };
+    });
+  };
+
+  const promoManagedProductsById = useMemo(
+    () => new Map((promoShowcaseManagedProducts ?? []).map(product => [product.id, product])),
+    [promoShowcaseManagedProducts]
+  );
+
+  const updateHomepagePromoShowcase = (
+    updater: (current: HomepagePromoShowcaseForm) => HomepagePromoShowcaseForm
+  ) => {
+    setHomepagePromoShowcase(current => updater(current));
+  };
+
+  const addPromoManagedProduct = (
+    target: "pinnedProductIds" | "excludedProductIds",
+    productId: number
+  ) => {
+    updateHomepagePromoShowcase(current => ({
+      ...current,
+      [target]: current[target].includes(productId)
+        ? current[target]
+        : [...current[target], productId].slice(
+            0,
+            target === "pinnedProductIds" ? 24 : 120
+          ),
+    }));
+  };
+
+  const removePromoManagedProduct = (
+    target: "pinnedProductIds" | "excludedProductIds",
+    productId: number
+  ) => {
+    updateHomepagePromoShowcase(current => ({
+      ...current,
+      [target]: current[target].filter(id => id !== productId),
+    }));
+  };
+
+  const movePromoManagedProduct = (
+    target: "pinnedProductIds",
+    productId: number,
+    direction: -1 | 1
+  ) => {
+    updateHomepagePromoShowcase(current => {
+      const index = current[target].indexOf(productId);
+      if (index < 0) return current;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current[target].length) return current;
+      const next = [...current[target]];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return {
+        ...current,
+        [target]: next,
       };
     });
   };
@@ -1473,6 +1596,7 @@ export default function AdminSettings() {
                   saveHomepageHeroMutation.mutate({
                     variant: homepageHeroVariant,
                     slides: homepageHeroSlides,
+                    promoShowcase: homepagePromoShowcase,
                   })
                 }
                 disabled={
@@ -2106,13 +2230,476 @@ export default function AdminSettings() {
                     </div>
                   ) : null}
                 </div>
+              ) : homepageHeroVariant === "promo_showcase" ? (
+                <div className="space-y-5">
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
+                    <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
+                      <div>
+                        <div className="text-sm font-black text-[#15171A]">
+                          Умная промо-витрина
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-gray-500">
+                          Этот режим автоматически собирает hero из скидочных товаров. Здесь
+                          можно управлять текстом, размерами витрины, закреплёнными товарами
+                          и исключениями без ручной сборки слайдов.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">Eyebrow</span>
+                          <input
+                            value={homepagePromoShowcase.eyebrow}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                eyebrow: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">Акцент</span>
+                          <input
+                            value={homepagePromoShowcase.accent}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                accent: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2 md:col-span-2">
+                          <span className="text-sm font-bold text-[#15171A]">Заголовок</span>
+                          <textarea
+                            rows={2}
+                            value={homepagePromoShowcase.title}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                title: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2 md:col-span-2">
+                          <span className="text-sm font-bold text-[#15171A]">Подзаголовок</span>
+                          <textarea
+                            rows={2}
+                            value={homepagePromoShowcase.subtitle}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                subtitle: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2 md:col-span-2">
+                          <span className="text-sm font-bold text-[#15171A]">Описание</span>
+                          <textarea
+                            rows={3}
+                            value={homepagePromoShowcase.description}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                description: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Карточек в табе
+                          </span>
+                          <input
+                            type="number"
+                            min={4}
+                            max={12}
+                            value={homepagePromoShowcase.cardsPerTab}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                cardsPerTab: Math.min(
+                                  12,
+                                  Math.max(4, Number(e.target.value) || 8)
+                                ),
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Категорий в rail
+                          </span>
+                          <input
+                            type="number"
+                            min={4}
+                            max={10}
+                            value={homepagePromoShowcase.categoryLimit}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                categoryLimit: Math.min(
+                                  10,
+                                  Math.max(4, Number(e.target.value) || 7)
+                                ),
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Основная CTA
+                          </span>
+                          <input
+                            value={homepagePromoShowcase.primaryCtaLabel}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                primaryCtaLabel: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Ссылка основной CTA
+                          </span>
+                          <input
+                            value={homepagePromoShowcase.primaryCtaHref}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                primaryCtaHref: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Вторичная CTA
+                          </span>
+                          <input
+                            value={homepagePromoShowcase.secondaryCtaLabel}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                secondaryCtaLabel: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                        <label className="space-y-2 md:col-span-2 xl:col-span-3">
+                          <span className="text-sm font-bold text-[#15171A]">
+                            Ссылка вторичной CTA
+                          </span>
+                          <input
+                            value={homepagePromoShowcase.secondaryCtaHref}
+                            onChange={e =>
+                              updateHomepagePromoShowcase(current => ({
+                                ...current,
+                                secondaryCtaHref: e.target.value,
+                              }))
+                            }
+                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="rounded-2xl border border-[#05C3D4]/16 bg-[#EAFBFD] px-4 py-4 text-sm leading-6 text-slate-700">
+                        Spotlight берётся из закреплённого товара, если он есть. Исключённые
+                        позиции не попадут ни в один таб и не будут выбраны автоматически.
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-black text-[#15171A]">
+                            Preview promo-showcase
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-gray-500">
+                            Живой storefront-preview на текущих настройках.
+                          </div>
+                        </div>
+                        <span className="inline-flex rounded-full bg-[#EAFBFD] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                          {isPromoShowcasePreviewFetching ? "Обновляем" : "Актуально"}
+                        </span>
+                      </div>
+
+                      {homepagePromoShowcasePreview ? (
+                        <div className="overflow-hidden rounded-[28px] border border-gray-100">
+                          <HeroPromoShowcase showcase={homepagePromoShowcasePreview} />
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+                          Пока нечего показать: promo-витрина не собрала достаточное количество
+                          скидочных карточек для preview.
+                        </div>
+                      )}
+
+                      {homepagePromoShowcasePreview ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+                              Кандидатов
+                            </div>
+                            <div className="mt-2 text-lg font-black text-[#15171A]">
+                              {homepagePromoShowcasePreview.diagnostics.candidateCount}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+                              Табов
+                            </div>
+                            <div className="mt-2 text-lg font-black text-[#15171A]">
+                              {homepagePromoShowcasePreview.diagnostics.activeTabs}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
+                              Категорий
+                            </div>
+                            <div className="mt-2 text-lg font-black text-[#15171A]">
+                              {homepagePromoShowcasePreview.diagnostics.categoryRailCount}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="flex items-center gap-2 text-sm font-black text-[#15171A]">
+                      <Package2 size={16} className="text-[#05C3D4]" />
+                      Закрепления и исключения
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-gray-500">
+                      Закрепляйте товары, которые должны попадать в hero первыми, и скрывайте
+                      позиции, которые нельзя использовать в promo-витрине.
+                    </p>
+
+                    <input
+                      value={heroProductSearch}
+                      onChange={e => setHeroProductSearch(e.target.value)}
+                      placeholder="Например: скидка, HOCO, смартфон, кабель"
+                      className="mt-4 h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+                    />
+
+                    <div className="mt-4 grid gap-5 xl:grid-cols-[minmax(0,0.56fr)_minmax(0,0.44fr)]">
+                      <div className="space-y-2">
+                        {(heroProductSearchResults?.items ?? []).map(product => {
+                          const isPinned = homepagePromoShowcase.pinnedProductIds.includes(product.id);
+                          const isExcluded = homepagePromoShowcase.excludedProductIds.includes(
+                            product.id
+                          );
+
+                          return (
+                            <div
+                              key={product.id}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-bold text-[#15171A]">
+                                  {product.name}
+                                </div>
+                                <div className="mt-1 text-xs text-gray-500">
+                                  {product.slug} · {product.categoryName || "Без категории"}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    isPinned
+                                      ? removePromoManagedProduct("pinnedProductIds", product.id)
+                                      : addPromoManagedProduct("pinnedProductIds", product.id)
+                                  }
+                                  className={`rounded-xl px-3 py-2 text-xs font-black ${
+                                    isPinned
+                                      ? "bg-[#05C3D4] text-black"
+                                      : "border border-gray-200 text-gray-700"
+                                  }`}
+                                >
+                                  {isPinned ? "Закреплён" : "Закрепить"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    isExcluded
+                                      ? removePromoManagedProduct(
+                                          "excludedProductIds",
+                                          product.id
+                                        )
+                                      : addPromoManagedProduct("excludedProductIds", product.id)
+                                  }
+                                  className={`rounded-xl px-3 py-2 text-xs font-black ${
+                                    isExcluded
+                                      ? "bg-[#15171A] text-white"
+                                      : "border border-gray-200 text-gray-700"
+                                  }`}
+                                >
+                                  {isExcluded ? "Скрыт" : "Исключить"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="grid gap-4">
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-black text-[#15171A]">
+                              Закреплённые товары
+                            </div>
+                            <span className="rounded-full bg-[#EAFBFD] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                              {homepagePromoShowcase.pinnedProductIds.length}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {homepagePromoShowcase.pinnedProductIds.length === 0 ? (
+                              <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
+                                Нет закреплений. Витрина будет полностью собираться автоматически.
+                              </div>
+                            ) : (
+                              homepagePromoShowcase.pinnedProductIds.map((productId, index) => {
+                                const product = promoManagedProductsById.get(productId);
+                                return (
+                                  <div
+                                    key={productId}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                                        Позиция {index + 1}
+                                      </div>
+                                      <div className="mt-1 truncate text-sm font-bold text-[#15171A]">
+                                        {product?.name || `Товар #${productId}`}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          movePromoManagedProduct(
+                                            "pinnedProductIds",
+                                            productId,
+                                            -1
+                                          )
+                                        }
+                                        disabled={index === 0}
+                                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                      >
+                                        ↑
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          movePromoManagedProduct(
+                                            "pinnedProductIds",
+                                            productId,
+                                            1
+                                          )
+                                        }
+                                        disabled={
+                                          index ===
+                                          homepagePromoShowcase.pinnedProductIds.length - 1
+                                        }
+                                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 disabled:opacity-40"
+                                      >
+                                        ↓
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removePromoManagedProduct("pinnedProductIds", productId)
+                                        }
+                                        className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600"
+                                      >
+                                        Убрать
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-black text-[#15171A]">
+                              Исключённые товары
+                            </div>
+                            <span className="rounded-full bg-gray-200 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-gray-700">
+                              {homepagePromoShowcase.excludedProductIds.length}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {homepagePromoShowcase.excludedProductIds.length === 0 ? (
+                              <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
+                                Исключений пока нет.
+                              </div>
+                            ) : (
+                              homepagePromoShowcase.excludedProductIds.map(productId => {
+                                const product = promoManagedProductsById.get(productId);
+                                return (
+                                  <div
+                                    key={productId}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm font-bold text-[#15171A]">
+                                        {product?.name || `Товар #${productId}`}
+                                      </div>
+                                      <div className="mt-1 text-xs text-gray-500">
+                                        Не попадёт в spotlight и ни в один таб.
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removePromoManagedProduct("excludedProductIds", productId)
+                                      }
+                                      className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600"
+                                    >
+                                      Вернуть
+                                    </button>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : null}
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 <span className="font-black text-[#15171A]">Сейчас на сайте:</span>{" "}
                 {homepageHeroVariant === "interactive"
                   ? "визуальный promo-hero со слайдами"
-                  : "классический hero (текущая версия)"}.
+                  : homepageHeroVariant === "promo_showcase"
+                    ? "умная promo-витрина скидочных товаров"
+                    : "классический hero (текущая версия)"}.
                 {homepageHeroSettings?.isDefault ? (
                   <span>
                     {" "}

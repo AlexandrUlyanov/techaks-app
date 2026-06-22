@@ -41,6 +41,10 @@ import {
   homepageHeroAdminSettingsSchema,
   saveHomepageHeroAdminSettings,
 } from "../lib/homepage-hero";
+import {
+  buildHomepagePromoShowcaseData,
+  homepagePromoShowcaseSettingsSchema,
+} from "../lib/homepage-promo-showcase";
 import { refreshHomepageSnapshot } from "../lib/homepage-snapshot";
 import { getDb } from "../queries/connection";
 import * as schema from "@db/schema";
@@ -98,7 +102,7 @@ const siteProfileSettingsSchema = z.object({
   }),
 });
 
-const homepageHeroVariantSchema = z.enum(["classic", "interactive"]);
+const homepageHeroVariantSchema = z.enum(["classic", "interactive", "promo_showcase"]);
 const loyaltySettingsInputSchema = z.object({
   enabled: z.boolean(),
   groupName: z.string().trim().min(2).max(120).default("техакс"),
@@ -360,6 +364,12 @@ export const settingsRouter = createRouter({
           description:
             "Слайдовая hero-витрина: товары, категории, бренды и промо-сюжеты в одном управляемом сценарии. Классический hero при этом остаётся безопасным запасным вариантом.",
         },
+        {
+          value: "promo_showcase" as const,
+          label: "Умная промо-витрина",
+          description:
+            "Автоматическая premium-витрина скидочных товаров: вкладки сценариев, чемпионы скидок, выбор ТЕХАКС и быстрый переход в промо-каталог.",
+        },
       ],
     };
   }),
@@ -368,6 +378,13 @@ export const settingsRouter = createRouter({
     requireAbility(ctx, "configure", "Settings");
     return getHomepageHeroAdminSettings();
   }),
+
+  getHomepagePromoShowcasePreview: protectedProcedure
+    .input(homepagePromoShowcaseSettingsSchema)
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      return buildHomepagePromoShowcaseData(input);
+    }),
 
   saveHomepageHeroSettings: protectedProcedure
     .input(
