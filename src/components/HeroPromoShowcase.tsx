@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { ArrowRight, Percent, Sparkles } from "lucide-react";
+import { ArrowRight, Percent } from "lucide-react";
 import { Link } from "react-router";
 import { trackHomepagePromoShowcase } from "@/lib/yandex-metrika";
 
@@ -176,140 +176,36 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
         <div className="absolute bottom-[4%] left-[24%] h-40 w-40 rounded-full bg-[#05C3D4]/10 blur-[120px]" />
       </div>
 
-      <div className="container-main relative z-10 py-10 md:py-16 lg:py-20">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)] lg:items-start lg:gap-8">
-          <div className="max-w-[640px]">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/72 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4] ring-1 ring-[#05C3D4]/14 backdrop-blur-sm dark:bg-white/6 dark:ring-white/10">
-              <Sparkles size={14} />
-              {showcase.eyebrow}
+      <div className="container-main relative z-10 py-8 md:py-10 lg:py-12">
+        <div className="space-y-4">
+          {showcase.categoryRail.length > 0 ? (
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              {showcase.categoryRail.map(item => (
+                <Link
+                  key={item.slug}
+                  to={item.href}
+                  onClick={() =>
+                    trackHomepagePromoShowcase({
+                      action: "category_click",
+                      tabId: activeTab.id,
+                      tabLabel: activeTab.label,
+                      categorySlug: item.slug,
+                      categoryName: item.name,
+                      href: item.href,
+                    })
+                  }
+                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white/82 dark:ring-white/10 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
+                >
+                  <span>{item.name}</span>
+                  <span className="rounded-full bg-[#05C3D4]/10 px-2 py-0.5 text-[11px] font-black text-[#05C3D4]">
+                    {formatProductCount(item.productCount)}
+                  </span>
+                </Link>
+              ))}
             </div>
+          ) : null}
 
-            <h1 className="mt-5 max-w-[12ch] text-[clamp(2.5rem,9vw,6.25rem)] font-black leading-[0.9] tracking-[-0.06em] text-[#141b24] dark:text-white">
-              {showcase.title}
-            </h1>
-
-            <p className="mt-4 max-w-[34rem] text-base font-semibold leading-7 text-slate-600 dark:text-white/82 md:text-lg md:leading-8">
-              {showcase.subtitle}
-            </p>
-            <p className="mt-4 hidden max-w-[38rem] text-base leading-8 text-slate-500 dark:text-white/62 sm:block">
-              {showcase.description}
-            </p>
-
-            {spotlight ? (
-              <Link
-                to={`/product/${spotlight.slug}`}
-                onClick={() =>
-                  trackHomepagePromoShowcase({
-                    action: "spotlight_click",
-                    tabId: activeTab.id,
-                    tabLabel: activeTab.label,
-                    productId: String(spotlight.id),
-                    productName: spotlight.name,
-                    href: `/product/${spotlight.slug}`,
-                  })
-                }
-                className="mt-5 block overflow-hidden rounded-[28px] bg-white/72 p-4 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:ring-white/10 dark:focus-visible:ring-offset-[#11161c] md:hidden"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-[22px] bg-white p-3">
-                    <img
-                      src={spotlight.image}
-                      alt={spotlight.name}
-                      className="max-h-full max-w-full object-contain"
-                      loading="eager"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
-                      {activeTab.eyebrow}
-                    </div>
-                    <div className="mt-2 line-clamp-2 text-base font-black leading-6 text-[#141b24] dark:text-white">
-                      {spotlight.name}
-                    </div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <span className="text-2xl font-black tracking-[-0.04em] text-[#141b24] dark:text-white">
-                        {formatPrice(spotlight.price)}
-                      </span>
-                      {spotlight.oldPrice ? (
-                        <span className="pb-0.5 text-sm font-semibold text-slate-400 line-through dark:text-white/35">
-                          {formatPrice(spotlight.oldPrice)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ) : null}
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to={showcase.primaryCtaHref}
-                onClick={() =>
-                  trackHomepagePromoShowcase({
-                    action: "primary_cta_click",
-                    tabId: activeTab.id,
-                    tabLabel: activeTab.label,
-                    href: showcase.primaryCtaHref,
-                  })
-                }
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#05C3D4] px-6 text-sm font-black text-black transition-opacity motion-reduce:transition-none hover:opacity-92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
-              >
-                {showcase.primaryCtaLabel}
-                <ArrowRight size={16} />
-              </Link>
-              <Link
-                to={showcase.secondaryCtaHref}
-                onClick={() =>
-                  trackHomepagePromoShowcase({
-                    action: "secondary_cta_click",
-                    tabId: activeTab.id,
-                    tabLabel: activeTab.label,
-                    href: showcase.secondaryCtaHref,
-                  })
-                }
-                className="inline-flex h-12 items-center rounded-full bg-white/72 px-6 text-sm font-black text-[#15171A] ring-1 ring-[#05C3D4]/16 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white dark:ring-white/10 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
-              >
-                {showcase.secondaryCtaLabel}
-              </Link>
-            </div>
-
-            {showcase.categoryRail.length > 0 ? (
-              <div className="-mx-1 mt-7 flex gap-2.5 overflow-x-auto px-1 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
-                {showcase.categoryRail.map(item => (
-                  <Link
-                    key={item.slug}
-                    to={item.href}
-                    onClick={() =>
-                      trackHomepagePromoShowcase({
-                        action: "category_click",
-                        tabId: activeTab.id,
-                        tabLabel: activeTab.label,
-                        categorySlug: item.slug,
-                        categoryName: item.name,
-                        href: item.href,
-                      })
-                    }
-                    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-white/72 px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white hover:text-[#15171A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white/82 dark:ring-white/10 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
-                  >
-                    <span>{item.name}</span>
-                    <span className="rounded-full bg-[#05C3D4]/12 px-2 py-0.5 text-[11px] font-black text-[#05C3D4]">
-                      {formatProductCount(item.productCount)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="mt-10 flex items-center gap-4 text-sm text-slate-500 dark:text-white/45">
-              <div className="h-px flex-1 bg-[#05C3D4]/20 dark:bg-white/10" />
-              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4]">
-                {showcase.accent}
-              </span>
-              <div className="h-px flex-1 bg-[#05C3D4]/20 dark:bg-white/10" />
-            </div>
-          </div>
-
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div
               className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2"
               role="tablist"
@@ -349,7 +245,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
               id={panelId}
               role="tabpanel"
               aria-labelledby={`promo-showcase-tab-${activeTab.id}`}
-              className="rounded-[34px] bg-white/66 p-4 ring-1 ring-[#05C3D4]/12 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10 md:p-5"
+              className="rounded-[34px] bg-white/58 p-4 ring-1 ring-[#05C3D4]/10 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10 md:p-5"
             >
               <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
                 <Link
@@ -373,33 +269,20 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   }
                   className="group relative hidden overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(247,250,252,0.92))] p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.14),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] dark:focus-visible:ring-offset-[#11161c] md:block"
                 >
-                  <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
-                    {activeTab.eyebrow}
-                  </div>
-                  <div className="mt-3 text-2xl font-black leading-tight text-[#141b24] dark:text-white">
-                    {activeTab.label}
-                  </div>
-                  <p className="mt-3 max-w-[28rem] text-sm leading-6 text-slate-500 dark:text-white/58">
-                    {activeTab.description}
-                  </p>
-
                   {spotlight ? (
                     <>
-                      <div className="relative mt-5 flex min-h-[240px] items-center justify-center rounded-[28px] bg-white p-6 dark:bg-white/95">
+                      <div className="relative flex min-h-[300px] items-center justify-center rounded-[28px] bg-white p-6 dark:bg-white/95">
                         <img
                           src={spotlight.image}
                           alt={spotlight.name}
-                          className="max-h-[220px] max-w-full object-contain"
+                          className="max-h-[280px] max-w-full object-contain"
                           loading="eager"
                         />
                       </div>
 
                       <div className="mt-4 flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="truncate text-xs font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
-                            {spotlight.categoryName || "Промо-витрина"}
-                          </div>
-                          <div className="mt-2 line-clamp-2 text-lg font-black leading-7 text-[#141b24] dark:text-white">
+                          <div className="line-clamp-2 text-xl font-black leading-7 text-[#141b24] dark:text-white">
                             {spotlight.name}
                           </div>
                         </div>
@@ -428,6 +311,50 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                     </>
                   ) : null}
                 </Link>
+
+                {spotlight ? (
+                  <Link
+                    to={`/product/${spotlight.slug}`}
+                    onClick={() =>
+                      trackHomepagePromoShowcase({
+                        action: "spotlight_click",
+                        tabId: activeTab.id,
+                        tabLabel: activeTab.label,
+                        productId: String(spotlight.id),
+                        productName: spotlight.name,
+                        href: `/product/${spotlight.slug}`,
+                      })
+                    }
+                    className="group overflow-hidden rounded-[28px] bg-white/88 p-4 ring-1 ring-transparent transition-[ring-color,background-color] duration-200 motion-reduce:transition-none hover:ring-[#05C3D4]/26 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:hover:bg-white/8 dark:focus-visible:ring-offset-[#11161c] md:hidden"
+                  >
+                    <div className="relative flex min-h-[220px] items-center justify-center rounded-[24px] bg-white p-4 dark:bg-white/96">
+                      <img
+                        src={spotlight.image}
+                        alt={spotlight.name}
+                        className="max-h-[200px] max-w-full object-contain"
+                        loading="eager"
+                      />
+                      {getDiscountPercent(spotlight) ? (
+                        <span className="absolute left-3 top-3 rounded-full bg-[#05C3D4] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-black">
+                          -{getDiscountPercent(spotlight)}%
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 line-clamp-2 text-lg font-black leading-7 text-[#141b24] dark:text-white">
+                      {spotlight.name}
+                    </div>
+                    <div className="mt-3 flex items-end gap-2">
+                      <span className="text-2xl font-black tracking-[-0.04em] text-[#141b24] dark:text-white">
+                        {formatPrice(spotlight.price)}
+                      </span>
+                      {spotlight.oldPrice ? (
+                        <span className="pb-0.5 text-sm font-semibold text-slate-400 line-through dark:text-white/35">
+                          {formatPrice(spotlight.oldPrice)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </Link>
+                ) : null}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   {activeTab.products.slice(0, 4).map(card => {
@@ -461,10 +388,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
-                          {card.badge || "Акция"}
-                        </div>
-                        <div className="mt-2 line-clamp-2 min-h-[3.5rem] text-base font-black leading-6 text-[#141b24] dark:text-white">
+                        <div className="mt-4 line-clamp-2 min-h-[3.5rem] text-base font-black leading-6 text-[#141b24] dark:text-white">
                           {card.name}
                         </div>
                         <div className="mt-3 flex items-end gap-2">
@@ -507,24 +431,6 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <Link
-            to={activeTab.href}
-            onClick={() =>
-              trackHomepagePromoShowcase({
-                action: "primary_cta_click",
-                tabId: activeTab.id,
-                tabLabel: activeTab.label,
-                href: activeTab.href,
-              })
-            }
-            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4] transition-opacity motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
-          >
-            Смотреть подборку
-            <ArrowRight size={14} />
-          </Link>
         </div>
       </div>
     </section>
