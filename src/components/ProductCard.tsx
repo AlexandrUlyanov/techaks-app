@@ -55,6 +55,15 @@ export default function ProductCard({
   );
   const isInStock = Boolean(product.inStock);
   const favoriteActive = isFavorite(product.id);
+  const displayOldPrice =
+    typeof product.oldPrice === "number" && product.oldPrice > product.price
+      ? product.oldPrice
+      : null;
+  const displayBadge = product.badge?.trim()
+    ? product.badge.trim()
+    : displayOldPrice
+      ? "Акция"
+      : null;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -81,20 +90,20 @@ export default function ProductCard({
     product.merchandisingBadges ?? product.badges
   ).slice(0, 3);
   const topBadges = [
+    ...(displayBadge
+      ? [
+          {
+            key: `manual:${displayBadge}`,
+            label: displayBadge,
+            className: badgeColors[displayBadge] || "bg-gray-500 text-white",
+          },
+        ]
+      : []),
     ...merchandisingBadges.map(itemBadge => ({
       key: itemBadge,
       label: getMerchandisingBadgeLabel(itemBadge),
       className: getMerchandisingBadgeStyle(itemBadge),
     })),
-    ...(product.badge
-      ? [
-          {
-            key: `manual:${product.badge}`,
-            label: product.badge,
-            className: badgeColors[product.badge] || "bg-gray-500 text-white",
-          },
-        ]
-      : []),
   ].slice(0, 2);
   const productImage = getProductCardImageProps({
     image: productImages[activeImageIndex]?.original ?? product.image,
@@ -320,9 +329,9 @@ export default function ProductCard({
             )}
             <div className="mt-auto flex items-end justify-between gap-3">
               <div>
-                {product.oldPrice && (
+                {displayOldPrice && (
                   <div className="mb-1 text-xs text-muted-foreground/60 line-through">
-                    {formatPrice(product.oldPrice)}
+                    {formatPrice(displayOldPrice)}
                   </div>
                 )}
                 <div className="text-lg sm:text-xl font-black text-[var(--tech-color-primary)]">
@@ -439,9 +448,9 @@ export default function ProductCard({
 
       <div className="mt-auto grid grid-cols-[1fr_auto] items-end gap-2 px-3 pb-4 pt-2 sm:px-4">
         <div className="min-w-0">
-          {product.oldPrice && (
+          {displayOldPrice && (
             <div className="mb-1 text-xs text-muted-foreground/60 line-through">
-              {formatPrice(product.oldPrice)}
+              {formatPrice(displayOldPrice)}
             </div>
           )}
           <div className="text-[19px] font-black leading-none text-[#20262E] sm:text-[20px]">

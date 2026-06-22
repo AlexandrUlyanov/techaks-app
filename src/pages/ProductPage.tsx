@@ -559,6 +559,11 @@ export default function ProductPage() {
     : null;
   const oldPriceValue = selectedVariantOldPrice ?? productOldPrice;
   const oldPriceLabel = oldPriceValue ? formatPrice(oldPriceValue) : null;
+  const displayProductBadge = product.badge?.trim()
+    ? product.badge.trim()
+    : oldPriceValue
+      ? "Акция"
+      : null;
   const displayedPriceLabel =
     hasVariants && hasVariantPriceRange && !variantChosenManually
       ? `от ${formatPrice(displayedPrice)}`
@@ -582,8 +587,8 @@ export default function ProductPage() {
   );
   const aboutBenefits = [
     ...merchandisingBadges.map(getMerchandisingBadgeLabel),
-    ...(product.badge ? [product.badge] : []),
-  ];
+    ...(displayProductBadge ? [displayProductBadge] : []),
+  ].filter((value, index, array) => array.indexOf(value) === index);
 
   const handleAddToCart = ({
     redirectToCheckout = true,
@@ -742,7 +747,7 @@ export default function ProductPage() {
                 images={displayedImages}
                 productName={product.name}
                 badges={
-                  merchandisingBadges.length > 0 || product.badge ? (
+                  merchandisingBadges.length > 0 || displayProductBadge ? (
                     <div className="absolute left-5 top-5 z-20 flex max-w-[220px] flex-wrap gap-2">
                       {merchandisingBadges.map(itemBadge => (
                         <span
@@ -752,9 +757,9 @@ export default function ProductPage() {
                           {getMerchandisingBadgeLabel(itemBadge)}
                         </span>
                       ))}
-                      {product.badge ? (
+                      {displayProductBadge ? (
                         <span className="rounded-xl bg-[var(--tech-color-surface-muted)] px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[var(--tech-color-text-main)] opacity-75">
-                          {product.badge}
+                          {displayProductBadge}
                         </span>
                       ) : null}
                     </div>

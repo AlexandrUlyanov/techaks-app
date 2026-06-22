@@ -566,6 +566,13 @@ function isInternalProductSpecKey(key: string) {
   return /^kpi(?:\s|$|\d|_)/i.test(normalizedToken);
 }
 
+function buildPromotionalProductCondition() {
+  return sql`(
+    (${products.oldPrice} IS NOT NULL AND ${products.oldPrice} > ${products.price})
+    OR lower(coalesce(${products.badge}, '')) = 'акция'
+  )`;
+}
+
 function buildAdminProductWhere(input?: {
   search?: string;
   visibility?: z.infer<typeof adminVisibilityFilterSchema>;
@@ -1089,6 +1096,107 @@ export const productRouter = createRouter({
             : sql`${categoryCondition} AND ${publicProductVisibilityCondition}`
         );
       return attachVisibleMerchandisingBadges(rows);
+    }),
+
+  getPromotionalProducts: publicQuery
+    .input(
+      z
+        .object({
+          categorySlug: z.string().optional().default("all"),
+        })
+        .optional()
+        .default({
+          categorySlug: "all",
+        })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      const allVisibleCategories = filterPublicVisibleCategories(
+        await db.select().from(categories)
+      );
+      const visibleRootCategories = allVisibleCategories.filter(
+        category => category.parentId == null
+      );
+      const promotionalCondition = buildPromotionalProductCondition();
+
+      const directCountRows = await db
+        .select({
+          categoryId: products.categoryId,
+          productCount: sql<number>`count(*)`,
+        })
+        .from(products)
+        .where(sql`${publicProductVisibilityCondition} AND ${promotionalCondition}`)
+        .groupBy(products.categoryId);
+
+      const directCountByCategoryId = new Map(
+        directCountRows.map(row => [row.categoryId, Number(row.productCount || 0)] as const)
+      );
+
+      const categoryCounts = visibleRootCategories
+        .map(category => {
+          const descendantIds = collectDescendantCategoryIds(
+            allVisibleCategories,
+            category.id
+          );
+          const productCount = descendantIds.reduce(
+            (sum, categoryId) => sum + (directCountByCategoryId.get(categoryId) ?? 0),
+            0
+          );
+
+          return {
+            id: category.id,
+            slug: category.slug,
+            name: category.name,
+            productCount,
+          };
+        })
+        .filter(category => category.productCount > 0)
+        .sort(
+          (left, right) =>
+            right.productCount - left.productCount ||
+            left.name.localeCompare(right.name, "ru")
+        );
+
+      let scopedCategoryIds: number[] | null = null;
+      if (input?.categorySlug && input.categorySlug !== "all") {
+        const selectedCategory = allVisibleCategories.find(
+          category => category.slug === input.categorySlug
+        );
+        if (!selectedCategory) {
+          return {
+            products: [],
+            categories: categoryCounts,
+          };
+        }
+        scopedCategoryIds = collectDescendantCategoryIds(
+          allVisibleCategories,
+          selectedCategory.id
+        );
+      }
+
+      const rows = await db
+        .select(publicProductSelectFields)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(
+          schema.productMerchandising,
+          eq(schema.productMerchandising.productId, products.id)
+        )
+        .where(
+          scopedCategoryIds && scopedCategoryIds.length > 0
+            ? sql`${publicProductVisibilityCondition} AND ${promotionalCondition} AND ${inArray(products.categoryId, scopedCategoryIds)}`
+            : sql`${publicProductVisibilityCondition} AND ${promotionalCondition}`
+        )
+        .orderBy(
+          desc(sql<number>`coalesce(${products.oldPrice} - ${products.price}, 0)`),
+          asc(products.name),
+          desc(products.id)
+        );
+
+      return {
+        products: await attachVisibleMerchandisingBadges(rows),
+        categories: categoryCounts,
+      };
     }),
 
   getTopByCategoryStock: publicQuery

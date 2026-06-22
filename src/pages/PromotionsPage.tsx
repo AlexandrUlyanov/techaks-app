@@ -1,7 +1,9 @@
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import ProductCard from "@/components/ProductCard";
 import { trpc } from "@/providers/trpc";
-import { ArrowRight, Gift, Loader2, Star } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { useSeo } from "@/lib/seo";
+import { formatRussianCount } from "@/lib/russian-plurals";
 import {
   buildBreadcrumbStructuredData,
   getPublicSchemaAddress,
@@ -9,8 +11,22 @@ import {
 } from "@/lib/seo-structured";
 
 export default function PromotionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeCategory = searchParams.get("category") || "all";
   const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: banners = [], isLoading } = trpc.banner.getActive.useQuery();
+  const { data: promotionalData, isLoading: isPromotionalLoading } =
+    trpc.product.getPromotionalProducts.useQuery({
+      categorySlug: activeCategory,
+    });
+
+  const promotionalProducts = promotionalData?.products ?? [];
+  const promotionalCategories = promotionalData?.categories ?? [];
+  const promotionalProductsLabel = formatRussianCount(promotionalProducts.length, [
+    "товар",
+    "товара",
+    "товаров",
+  ]);
 
   useSeo({
     title: "Акции и спецпредложения ТЕХАКС",
@@ -65,30 +81,17 @@ export default function PromotionsPage() {
         </div>
       </section>
 
-      {/* Grid */}
-      <section className="py-24">
-        <div className="container-main">
-          {isLoading ? (
+      {isLoading ? (
+        <section className="py-24">
+          <div className="container-main">
             <div className="flex justify-center py-20">
               <Loader2 className="animate-spin text-[#05C3D4]" size={48} />
             </div>
-          ) : banners.length === 0 ? (
-            <div className="text-center py-24 bg-card rounded-[2rem] border border-border">
-              <Gift
-                size={64}
-                className="mx-auto text-muted-foreground/20 mb-6"
-              />
-              <p className="text-xl font-black uppercase font-heading text-muted-foreground/40 tracking-widest">
-                Активных акций сейчас нет
-              </p>
-              <Link
-                to="/catalog"
-                className="mt-8 inline-flex items-center gap-3 px-8 py-4 bg-[#05C3D4] text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#27E6F2] transition-all glow-cyan"
-              >
-                В каталог
-              </Link>
-            </div>
-          ) : (
+          </div>
+        </section>
+      ) : banners.length > 0 ? (
+        <section className="py-24">
+          <div className="container-main">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {banners.map(promo => (
                 <Link
@@ -122,41 +125,106 @@ export default function PromotionsPage() {
                 </Link>
               ))}
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* Bonus Section */}
-      <section className="container-main mb-24">
-        <div className="bg-[#05C3D4] rounded-[2.5rem] p-12 md:p-20 text-black overflow-hidden relative group">
-          <div className="relative z-10 max-w-2xl">
-            <h2 className="text-4xl md:text-6xl font-black uppercase font-heading leading-[0.9] tracking-tighter mb-8 text-black">
-              ДАРИМ СКИДКУ 5% <br />{" "}
-              <span className="text-black/40">ЗА ВАШ ОТЗЫВ</span>
-            </h2>
-            <p className="text-lg md:text-xl text-black/70 mb-10 leading-relaxed font-bold">
-              Оставьте отзыв на Яндекс Картах или 2ГИС, покажите его продавцу и
-              получите скидку на любую покупку аксессуаров.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <a
-                href="https://yandex.ru/maps/org/techaks/"
-                target="_blank"
-                className="px-10 py-5 bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black/90 transition-all active:scale-95"
-              >
-                Яндекс Карты
-              </a>
-              <a
-                href="https://2gis.ru/penza/search/techaks"
-                target="_blank"
-                className="px-10 py-5 border border-black/10 bg-black/5 text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black/10 transition-all active:scale-95"
-              >
-                2ГИС
-              </a>
-            </div>
           </div>
-          <div className="absolute right-0 bottom-0 w-1/2 h-full hidden lg:flex items-end justify-end p-12 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-            <Star size={400} className="fill-black" />
+        </section>
+      ) : null}
+
+      <section className="pb-24">
+        <div className="container-main">
+          <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <aside className="lg:sticky lg:top-24 lg:self-start">
+              <div className="space-y-2 rounded-[32px] bg-card/70 p-4 md:p-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    nextParams.delete("category");
+                    setSearchParams(nextParams, { replace: true });
+                  }}
+                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+                    activeCategory === "all"
+                      ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-text-main)]"
+                      : "text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
+                  }`}
+                >
+                  <span>Все акционные товары</span>
+                  <span className="text-xs font-bold text-[var(--tech-color-primary)]">
+                    {formatRussianCount(
+                      promotionalCategories.reduce(
+                        (sum, category) => sum + category.productCount,
+                        0
+                      ),
+                      ["товар", "товара", "товаров"]
+                    )}
+                  </span>
+                </button>
+
+                {promotionalCategories.map(category => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      const nextParams = new URLSearchParams(searchParams);
+                      nextParams.set("category", category.slug);
+                      setSearchParams(nextParams, { replace: true });
+                    }}
+                    className={`flex w-full items-center justify-between gap-4 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+                      activeCategory === category.slug
+                        ? "bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-text-main)]"
+                        : "text-[var(--tech-color-text-muted)] hover:bg-[var(--tech-color-surface-muted)] hover:text-[var(--tech-color-text-main)]"
+                    }`}
+                  >
+                    <span className="min-w-0 truncate">{category.name}</span>
+                    <span className="shrink-0 text-xs font-bold text-[var(--tech-color-primary)]">
+                      {category.productCount}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+
+            <div className="min-w-0">
+              <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                <div className="space-y-2">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-[#05C3D4]">
+                    Товары со скидкой
+                  </span>
+                  <h2 className="text-3xl font-black uppercase tracking-tight text-foreground md:text-4xl">
+                    Акционные товары
+                  </h2>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {promotionalProductsLabel}
+                  </p>
+                </div>
+              </div>
+
+              {isPromotionalLoading ? (
+                <div className="flex justify-center py-20">
+                  <Loader2 className="animate-spin text-[#05C3D4]" size={42} />
+                </div>
+              ) : promotionalProducts.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                  {promotionalProducts.map(product => (
+                    <ProductCard key={product.id} product={product as any} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[32px] bg-card/60 p-10 text-center">
+                  <h3 className="text-xl font-black text-foreground">
+                    Сейчас нет товаров со скидкой
+                  </h3>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Попробуйте открыть другую категорию или вернуться в каталог.
+                  </p>
+                  <Link
+                    to="/catalog"
+                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--tech-color-primary)] px-6 py-3 text-sm font-bold text-[var(--tech-color-primary-foreground)] transition-opacity hover:opacity-90"
+                  >
+                    Перейти в каталог
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
