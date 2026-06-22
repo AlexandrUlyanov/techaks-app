@@ -41,6 +41,10 @@ import {
   homepageHeroAdminSettingsSchema,
   saveHomepageHeroAdminSettings,
 } from "../lib/homepage-hero";
+import {
+  buildHomepagePromoShowcaseData,
+  homepagePromoShowcaseSettingsSchema,
+} from "../lib/homepage-promo-showcase";
 import { refreshHomepageSnapshot } from "../lib/homepage-snapshot";
 import { getDb } from "../queries/connection";
 import * as schema from "@db/schema";
@@ -374,6 +378,13 @@ export const settingsRouter = createRouter({
     requireAbility(ctx, "configure", "Settings");
     return getHomepageHeroAdminSettings();
   }),
+
+  getHomepagePromoShowcasePreview: protectedProcedure
+    .input(homepagePromoShowcaseSettingsSchema)
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      return buildHomepagePromoShowcaseData(input);
+    }),
 
   saveHomepageHeroSettings: protectedProcedure
     .input(

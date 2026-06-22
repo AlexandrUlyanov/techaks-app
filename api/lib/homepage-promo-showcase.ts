@@ -39,6 +39,8 @@ export const homepagePromoShowcaseSettingsSchema = z.object({
   secondaryCtaHref: z.string().trim().max(255).default("/catalog"),
   cardsPerTab: z.number().int().min(4).max(12).default(8),
   categoryLimit: z.number().int().min(4).max(10).default(7),
+  pinnedProductIds: z.array(z.number().int().positive()).max(24).default([]),
+  excludedProductIds: z.array(z.number().int().positive()).max(120).default([]),
 });
 
 export type HomepagePromoShowcaseSettings = z.infer<
@@ -101,6 +103,22 @@ type DiscountCandidate = PromoShowcaseHeroCard & {
   availableQty: number;
   discountValue: number;
   discountPercent: number;
+};
+
+type CandidateSourceRow = {
+  id: number;
+  slug: string;
+  name: string;
+  price: number;
+  oldPrice: number | null;
+  image: string;
+  badge: string | null;
+  inStock: boolean;
+  categoryName?: string | null;
+  categoryId: number;
+  categorySlug: string | null;
+  createdAt: Date | null;
+  availableQty: number | null;
 };
 
 function sanitizeHref(value: string, fallback: string) {
@@ -172,8 +190,11 @@ async function listDiscountCandidates(limit = 160): Promise<DiscountCandidate[]>
     .limit(limit);
 
   const withBadges = await attachVisibleMerchandisingBadges(rows);
+  return mapRowsToCandidates(withBadges);
+}
 
-  return withBadges
+function mapRowsToCandidates(rows: CandidateSourceRow[]): DiscountCandidate[] {
+  return rows
     .map(row => {
       const oldPrice =
         typeof row.oldPrice === "number" && row.oldPrice > row.price ? row.oldPrice : null;
@@ -200,6 +221,31 @@ async function listDiscountCandidates(limit = 160): Promise<DiscountCandidate[]>
       candidate =>
         Boolean(candidate.categorySlug) && (candidate.discountValue > 0 || candidate.badge === "Акция")
     );
+}
+
+async function listPinnedCandidates(ids: number[]): Promise<DiscountCandidate[]> {
+  if (ids.length === 0) return [];
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      ...publicProductSelectFields,
+      categorySlug: categories.slug,
+      availableQty: publicAvailableStockQtySql,
+      createdAt: products.createdAt,
+    })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(
+      schema.productMerchandising,
+      eq(schema.productMerchandising.productId, products.id)
+    )
+    .where(and(inArray(products.id, ids), publicProductVisibilityCondition));
+
+  const withBadges = await attachVisibleMerchandisingBadges(rows);
+  const candidates = mapRowsToCandidates(withBadges);
+  const byId = new Map(candidates.map(item => [item.id, item]));
+  return ids.map(id => byId.get(id)).filter((item): item is DiscountCandidate => Boolean(item));
 }
 
 function pickBalancedProducts(
@@ -301,9 +347,19 @@ export async function buildHomepagePromoShowcaseData(
 ): Promise<HomepagePromoShowcaseStorefrontData | null> {
   const normalizedSettings = homepagePromoShowcaseSettingsSchema.parse(settings);
   const cardsPerTab = normalizedSettings.cardsPerTab;
-  const candidates = await listDiscountCandidates();
+  const pinnedIds = Array.from(new Set(normalizedSettings.pinnedProductIds));
+  const excludedIds = new Set(normalizedSettings.excludedProductIds);
+  const [allCandidates, pinnedCandidates] = await Promise.all([
+    listDiscountCandidates(),
+    listPinnedCandidates(pinnedIds),
+  ]);
+  const pinnedCandidateIds = new Set(pinnedCandidates.map(item => item.id));
+  const candidates = allCandidates.filter(
+    candidate => !excludedIds.has(candidate.id) && !pinnedCandidateIds.has(candidate.id)
+  );
+  const filteredPinnedCandidates = pinnedCandidates.filter(candidate => !excludedIds.has(candidate.id));
 
-  if (candidates.length === 0) {
+  if (candidates.length === 0 && filteredPinnedCandidates.length === 0) {
     const fallbackRows = await listHomepageFallbackProducts(6);
     const fallbackCards = normalizeHeroCardRows(fallbackRows);
     if (fallbackCards.length === 0) return null;
@@ -344,12 +400,29 @@ export async function buildHomepagePromoShowcaseData(
   const discountedRecommended = candidates.filter(candidate => recommendedIds.has(candidate.id));
   const usedIds = new Set<number>();
 
-  const bestOffers = pickBalancedProducts(
+  const mergePinnedProducts = (
+    base: DiscountCandidate[],
+    limit: number,
+    pinnedLimit = 2
+  ) => {
+    const preferredPinned = filteredPinnedCandidates.slice(0, Math.min(pinnedLimit, limit));
+    const pinnedIdSet = new Set(preferredPinned.map(item => item.id));
+    const merged = [...preferredPinned];
+    for (const candidate of base) {
+      if (merged.length >= limit) break;
+      if (pinnedIdSet.has(candidate.id)) continue;
+      merged.push(candidate);
+    }
+    return merged;
+  };
+
+  const bestOffersBase = pickBalancedProducts(
     candidates,
     cardsPerTab,
     candidate => candidate.discountPercent * 100 + candidate.discountValue + (candidate.inStock ? 120 : 0),
     usedIds
   );
+  const bestOffers = mergePinnedProducts(bestOffersBase, cardsPerTab, 3);
   const champions = pickBalancedProducts(
     candidates,
     cardsPerTab,
@@ -362,12 +435,13 @@ export async function buildHomepagePromoShowcaseData(
     candidate => (4 - Math.min(candidate.availableQty, 4)) * 1000 + candidate.discountPercent * 20 + candidate.discountValue,
     usedIds
   );
-  const techaksChoice = pickBalancedProducts(
+  const techaksChoiceBase = pickBalancedProducts(
     discountedRecommended.length > 0 ? discountedRecommended : candidates,
     cardsPerTab,
     candidate => candidate.discountPercent * 50 + candidate.discountValue + (recommendedIds.has(candidate.id) ? 200 : 0),
     usedIds
   );
+  const techaksChoice = mergePinnedProducts(techaksChoiceBase, cardsPerTab, 2);
   const newSales = pickBalancedProducts(
     candidates,
     cardsPerTab,
@@ -428,6 +502,7 @@ export async function buildHomepagePromoShowcaseData(
   }
 
   const spotlight =
+    filteredPinnedCandidates[0] ??
     bestOffers[0] ??
     champions[0] ??
     techaksChoice[0] ??

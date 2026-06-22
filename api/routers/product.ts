@@ -760,7 +760,7 @@ export const productRouter = createRouter({
     }),
 
   getByIds: protectedProcedure
-    .input(z.object({ ids: z.array(z.number().int().positive()).max(20) }))
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(200) }))
     .query(async ({ ctx, input }) => {
       requireAbility(ctx, "read", "Product");
       if (input.ids.length === 0) return [];
