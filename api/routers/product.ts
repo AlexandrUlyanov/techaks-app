@@ -215,18 +215,98 @@ async function collectCategoryPreviewImageSuggestions(
 
   const rows = await db
     .select({
+      categoryId: products.categoryId,
       image: products.image,
     })
     .from(products)
     .where(inArray(products.categoryId, categoryIds))
     .orderBy(asc(products.id));
 
+  const categoryById = new Map(allCategories.map(category => [category.id, category]));
+  const directChildren = allCategories
+    .filter(category => category.parentId === categoryId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id);
+
+  const rootBucketOrder = directChildren.map(category => category.id);
+  const rootBucketByCategoryId = new Map<number, number | "self">();
+
+  for (const descendantCategoryId of categoryIds) {
+    if (descendantCategoryId === categoryId) {
+      rootBucketByCategoryId.set(descendantCategoryId, "self");
+      continue;
+    }
+
+    let currentId: number | null = descendantCategoryId;
+    let resolvedRootId: number | null = null;
+
+    while (currentId) {
+      const currentCategory = categoryById.get(currentId);
+      if (!currentCategory) break;
+      if (currentCategory.parentId === categoryId) {
+        resolvedRootId = currentCategory.id;
+        break;
+      }
+      currentId = currentCategory.parentId ?? null;
+    }
+
+    rootBucketByCategoryId.set(descendantCategoryId, resolvedRootId ?? "self");
+  }
+
+  const bucketedImages = new Map<number | "self", string[]>();
   const suggestions: string[] = [];
+
   for (const row of rows) {
     const image = typeof row.image === "string" ? row.image.trim() : "";
-    if (!image || suggestions.includes(image)) continue;
-    suggestions.push(image);
-    if (suggestions.length >= 5) break;
+    if (!image) continue;
+
+    const bucketKey = rootBucketByCategoryId.get(row.categoryId) ?? "self";
+    const bucket = bucketedImages.get(bucketKey) ?? [];
+    if (bucket.includes(image)) continue;
+    bucket.push(image);
+    bucketedImages.set(bucketKey, bucket);
+  }
+
+  const pickNextFromBuckets = (bucketKeys: Array<number | "self">) => {
+    let added = false;
+
+    for (const bucketKey of bucketKeys) {
+      const bucket = bucketedImages.get(bucketKey);
+      if (!bucket || bucket.length === 0) continue;
+
+      const nextImage = bucket.shift();
+      if (!nextImage || suggestions.includes(nextImage)) continue;
+
+      suggestions.push(nextImage);
+      added = true;
+
+      if (suggestions.length >= 5) {
+        return true;
+      }
+    }
+
+    return added;
+  };
+
+  if (rootBucketOrder.length > 0) {
+    while (suggestions.length < 5) {
+      const added = pickNextFromBuckets(rootBucketOrder);
+      if (!added) break;
+    }
+  }
+
+  if (suggestions.length < 5) {
+    const remainingBucketOrder = [
+      ...rootBucketOrder,
+      "self" as const,
+      ...Array.from(bucketedImages.keys()).filter(
+        bucketKey => bucketKey !== "self" && !rootBucketOrder.includes(bucketKey as number)
+      ),
+    ];
+
+    while (suggestions.length < 5) {
+      const added = pickNextFromBuckets(remainingBucketOrder);
+      if (!added) break;
+    }
   }
 
   return suggestions;

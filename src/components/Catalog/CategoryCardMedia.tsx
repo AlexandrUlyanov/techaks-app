@@ -84,18 +84,13 @@ export default function CategoryCardMedia({
       {images.length > 0 ? (
         <>
           {hasImagePreview ? (
-            <>
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
+                isImagePreviewActive ? "opacity-100" : "opacity-0"
+              }`}
+            >
               <div
-                className={`pointer-events-none absolute right-3 top-3 z-10 inline-flex items-center rounded-full bg-[rgba(255,255,255,0.94)] px-2.5 py-1 text-[10px] font-bold text-[#20262E] transition-opacity duration-200 ${
-                  isImagePreviewActive ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                {activeImageIndex + 1} / {images.length}
-              </div>
-              <div
-                className={`pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5 transition-opacity duration-200 ${
-                  isImagePreviewActive ? "opacity-100" : "opacity-0"
-                }`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgba(255,255,255,0.92)] px-2.5 py-1"
               >
                 {images.map((_, index) => (
                   <span
@@ -105,10 +100,10 @@ export default function CategoryCardMedia({
                         ? "w-4 bg-[var(--tech-color-primary)]"
                         : "w-2 bg-[rgba(148,163,184,0.55)]"
                     }`}
-                  />
+                      />
                 ))}
               </div>
-            </>
+            </div>
           ) : null}
           <img
             src={imageProps.src}
