@@ -215,3 +215,42 @@ export function trackOrderMessage(input: {
     order_id: input.orderId,
   });
 }
+
+export function trackHomepagePromoShowcase(input: {
+  action:
+    | "tab_click"
+    | "category_click"
+    | "spotlight_click"
+    | "product_click"
+    | "tail_click"
+    | "primary_cta_click"
+    | "secondary_cta_click"
+    | "view_collection";
+  tabId?: string | null;
+  tabLabel?: string | null;
+  productId?: string | null;
+  productName?: string | null;
+  categorySlug?: string | null;
+  categoryName?: string | null;
+  href?: string | null;
+}) {
+  pushEvent("homepage_promo_showcase", {
+    promo_showcase: {
+      action: input.action,
+      tab_id: input.tabId || undefined,
+      tab_label: input.tabLabel || undefined,
+      product_id: input.productId || undefined,
+      product_name: input.productName || undefined,
+      category_slug: input.categorySlug || undefined,
+      category_name: input.categoryName || undefined,
+      href: input.href || undefined,
+    },
+  });
+
+  reachYandexGoal("homepage_promo_showcase", {
+    action: input.action,
+    tab_id: input.tabId || undefined,
+    product_id: input.productId || undefined,
+    category_slug: input.categorySlug || undefined,
+  });
+}

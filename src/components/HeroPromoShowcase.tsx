@@ -1,6 +1,7 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Percent, Sparkles } from "lucide-react";
 import { Link } from "react-router";
+import { trackHomepagePromoShowcase } from "@/lib/yandex-metrika";
 
 type PromoShowcaseCard = {
   id: number;
@@ -69,6 +70,10 @@ function getDiscountPercent(card: PromoShowcaseCard) {
 export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) {
   const tabs = showcase.tabs;
   const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "");
+  const activeTab = useMemo(
+    () => tabs.find(tab => tab.id === activeTabId) ?? tabs[0],
+    [activeTabId, tabs]
+  );
 
   useEffect(() => {
     if (!tabs.some(tab => tab.id === activeTabId)) {
@@ -92,8 +97,17 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
     return () => window.clearInterval(timer);
   }, [tabs]);
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId) ?? tabs[0];
   const spotlight = activeTab?.products[0] ?? showcase.spotlight;
+
+  useEffect(() => {
+    if (!activeTab) return;
+    trackHomepagePromoShowcase({
+      action: "view_collection",
+      tabId: activeTab.id,
+      tabLabel: activeTab.label,
+      href: activeTab.href,
+    });
+  }, [activeTab]);
 
   if (!activeTab) return null;
 
@@ -127,14 +141,30 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to={showcase.primaryCtaHref}
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#05C3D4] px-6 text-sm font-black text-black transition-opacity hover:opacity-92"
+                onClick={() =>
+                  trackHomepagePromoShowcase({
+                    action: "primary_cta_click",
+                    tabId: activeTab.id,
+                    tabLabel: activeTab.label,
+                    href: showcase.primaryCtaHref,
+                  })
+                }
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-[#05C3D4] px-6 text-sm font-black text-black transition-opacity motion-reduce:transition-none hover:opacity-92"
               >
                 {showcase.primaryCtaLabel}
                 <ArrowRight size={16} />
               </Link>
               <Link
                 to={showcase.secondaryCtaHref}
-                className="inline-flex h-12 items-center rounded-full bg-white/72 px-6 text-sm font-black text-[#15171A] ring-1 ring-[#05C3D4]/16 backdrop-blur-sm transition-colors hover:bg-white dark:bg-white/6 dark:text-white dark:ring-white/10 dark:hover:bg-white/10"
+                onClick={() =>
+                  trackHomepagePromoShowcase({
+                    action: "secondary_cta_click",
+                    tabId: activeTab.id,
+                    tabLabel: activeTab.label,
+                    href: showcase.secondaryCtaHref,
+                  })
+                }
+                className="inline-flex h-12 items-center rounded-full bg-white/72 px-6 text-sm font-black text-[#15171A] ring-1 ring-[#05C3D4]/16 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white dark:bg-white/6 dark:text-white dark:ring-white/10 dark:hover:bg-white/10"
               >
                 {showcase.secondaryCtaLabel}
               </Link>
@@ -146,7 +176,17 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   <Link
                     key={item.slug}
                     to={item.href}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/72 px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm transition-colors hover:bg-white hover:text-[#15171A] dark:bg-white/6 dark:text-white/82 dark:ring-white/10 dark:hover:bg-white/10"
+                    onClick={() =>
+                      trackHomepagePromoShowcase({
+                        action: "category_click",
+                        tabId: activeTab.id,
+                        tabLabel: activeTab.label,
+                        categorySlug: item.slug,
+                        categoryName: item.name,
+                        href: item.href,
+                      })
+                    }
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/72 px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white hover:text-[#15171A] dark:bg-white/6 dark:text-white/82 dark:ring-white/10 dark:hover:bg-white/10"
                   >
                     <span>{item.name}</span>
                     <span className="rounded-full bg-[#05C3D4]/12 px-2 py-0.5 text-[11px] font-black text-[#05C3D4]">
@@ -167,14 +207,29 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
           </div>
 
           <div className="space-y-5">
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div
+              className="flex gap-2 overflow-x-auto pb-2"
+              role="tablist"
+              aria-label="Подборки промо-витрины"
+            >
               {tabs.map(tab => {
                 const isActive = tab.id === activeTab.id;
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTabId(tab.id)}
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      setActiveTabId(tab.id);
+                      trackHomepagePromoShowcase({
+                        action: "tab_click",
+                        tabId: tab.id,
+                        tabLabel: tab.label,
+                        href: tab.href,
+                      });
+                    }}
                     className={`inline-flex shrink-0 items-center rounded-full px-4 py-2.5 text-sm font-black transition-colors ${
                       isActive
                         ? "bg-[#05C3D4] text-black"
@@ -191,6 +246,23 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
               <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
                 <Link
                   to={spotlight ? `/product/${spotlight.slug}` : activeTab.href}
+                  onClick={() =>
+                    spotlight
+                      ? trackHomepagePromoShowcase({
+                          action: "spotlight_click",
+                          tabId: activeTab.id,
+                          tabLabel: activeTab.label,
+                          productId: String(spotlight.id),
+                          productName: spotlight.name,
+                          href: `/product/${spotlight.slug}`,
+                        })
+                      : trackHomepagePromoShowcase({
+                          action: "primary_cta_click",
+                          tabId: activeTab.id,
+                          tabLabel: activeTab.label,
+                          href: activeTab.href,
+                        })
+                  }
                   className="group relative overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(247,250,252,0.92))] p-5 dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.14),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]"
                 >
                   <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#05C3D4]">
@@ -256,7 +328,17 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                       <Link
                         key={card.id}
                         to={`/product/${card.slug}`}
-                        className="group rounded-[28px] bg-white/88 p-4 ring-1 ring-transparent transition-[ring-color,background-color] duration-200 hover:ring-[#05C3D4]/26 dark:bg-white/6 dark:hover:bg-white/8"
+                        onClick={() =>
+                          trackHomepagePromoShowcase({
+                            action: "product_click",
+                            tabId: activeTab.id,
+                            tabLabel: activeTab.label,
+                            productId: String(card.id),
+                            productName: card.name,
+                            href: `/product/${card.slug}`,
+                          })
+                        }
+                        className="group rounded-[28px] bg-white/88 p-4 ring-1 ring-transparent transition-[ring-color,background-color] duration-200 motion-reduce:transition-none hover:ring-[#05C3D4]/26 dark:bg-white/6 dark:hover:bg-white/8"
                       >
                         <div className="relative flex min-h-[176px] items-center justify-center rounded-[24px] bg-white p-4 dark:bg-white/96">
                           <img
@@ -298,7 +380,17 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   <Link
                     key={card.id}
                     to={`/product/${card.slug}`}
-                    className="min-w-[220px] rounded-[24px] bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-[#05C3D4]/10 transition-colors hover:bg-white dark:bg-white/6 dark:text-white/78 dark:ring-white/10 dark:hover:bg-white/10"
+                    onClick={() =>
+                      trackHomepagePromoShowcase({
+                        action: "tail_click",
+                        tabId: activeTab.id,
+                        tabLabel: activeTab.label,
+                        productId: String(card.id),
+                        productName: card.name,
+                        href: `/product/${card.slug}`,
+                      })
+                    }
+                    className="min-w-[220px] rounded-[24px] bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-[#05C3D4]/10 transition-colors motion-reduce:transition-none hover:bg-white dark:bg-white/6 dark:text-white/78 dark:ring-white/10 dark:hover:bg-white/10"
                   >
                     <div className="truncate">{card.name}</div>
                     <div className="mt-2 text-[#05C3D4]">{formatPrice(card.price)}</div>
@@ -312,7 +404,15 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
         <div className="mt-8 flex justify-center">
           <Link
             to={activeTab.href}
-            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4] transition-opacity hover:opacity-75"
+            onClick={() =>
+              trackHomepagePromoShowcase({
+                action: "primary_cta_click",
+                tabId: activeTab.id,
+                tabLabel: activeTab.label,
+                href: activeTab.href,
+              })
+            }
+            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#05C3D4] transition-opacity motion-reduce:transition-none hover:opacity-75"
           >
             Смотреть подборку
             <ArrowRight size={14} />
