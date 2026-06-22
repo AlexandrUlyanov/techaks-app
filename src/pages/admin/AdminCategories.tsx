@@ -23,6 +23,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import { CategoryIcon } from "@/lib/category-icons";
+import { getProductCardImageProps } from "@/lib/product-images";
 import { slugify } from "@/lib/utils";
 import { trpc } from "@/providers/trpc";
 import { normalizeCategoryPreviewImages } from "@/contracts/category-preview-images";
@@ -125,6 +126,15 @@ function buildPathLabel(
   }
 
   return trail.join(" / ");
+}
+
+function getAdminPreviewImageSrc(imageUrl?: string | null) {
+  return getProductCardImageProps({
+    image: imageUrl,
+    imageVariants: null,
+    maxVariant: "thumb",
+    sizes: "112px",
+  }).src;
 }
 
 export default function AdminCategories() {
@@ -555,7 +565,7 @@ export default function AdminCategories() {
                   <div className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-[#05C3D4]">
                     {previewImages[0] ? (
                       <img
-                        src={previewImages[0]}
+                        src={getAdminPreviewImageSrc(previewImages[0])}
                         alt={category.name}
                         loading="lazy"
                         decoding="async"
@@ -563,7 +573,7 @@ export default function AdminCategories() {
                       />
                     ) : category.imageUrl ? (
                       <img
-                        src={category.imageUrl}
+                        src={getAdminPreviewImageSrc(category.imageUrl)}
                         alt={category.name}
                         loading="lazy"
                         decoding="async"
@@ -622,7 +632,7 @@ export default function AdminCategories() {
                               title="Не использовать это изображение"
                             >
                               <img
-                                src={imageUrl}
+                                src={getAdminPreviewImageSrc(imageUrl)}
                                 alt={category.name}
                                 loading="lazy"
                                 decoding="async"
@@ -663,7 +673,7 @@ export default function AdminCategories() {
                                 title="Снова разрешить это изображение"
                               >
                                 <img
-                                  src={imageUrl}
+                                  src={getAdminPreviewImageSrc(imageUrl)}
                                   alt={category.name}
                                   loading="lazy"
                                   decoding="async"
@@ -1123,7 +1133,7 @@ export default function AdminCategories() {
                     >
                       <div className="flex h-28 items-center justify-center overflow-hidden rounded-xl bg-white">
                         <img
-                          src={imageUrl}
+                          src={getAdminPreviewImageSrc(imageUrl)}
                           alt={`Миниатюра ${index + 1}`}
                           loading="lazy"
                           decoding="async"
@@ -1213,7 +1223,7 @@ export default function AdminCategories() {
                         >
                           <div className="flex h-28 items-center justify-center overflow-hidden rounded-xl bg-white">
                             <img
-                              src={imageUrl}
+                              src={getAdminPreviewImageSrc(imageUrl)}
                               alt={`Исключённая миниатюра ${index + 1}`}
                               loading="lazy"
                               decoding="async"
