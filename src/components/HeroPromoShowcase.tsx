@@ -215,7 +215,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                       href: item.href,
                     })
                   }
-                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-bold text-slate-700 ring-1 ring-[#05C3D4]/12 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white/82 dark:ring-white/10 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
+                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-white/82 px-4 py-2 text-sm font-bold text-slate-700 backdrop-blur-sm transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/8 dark:text-white/82 dark:hover:bg-white/12 dark:focus-visible:ring-offset-[#11161c]"
                 >
                   <span>{item.name}</span>
                 </Link>
@@ -263,7 +263,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
               id={panelId}
               role="tabpanel"
               aria-labelledby={`promo-showcase-tab-${activeTab.id}`}
-              className="rounded-[34px] bg-white/58 p-4 ring-1 ring-[#05C3D4]/10 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10 md:p-5"
+              className="rounded-[34px] bg-white/58 p-4 backdrop-blur-xl dark:bg-white/5 md:p-5"
             >
               <div className="grid gap-4 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
                 {spotlight ? (
@@ -365,7 +365,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                     return (
                       <div
                         key={card.id}
-                        className="group flex h-full flex-col rounded-[28px] bg-white/88 p-5 ring-1 ring-transparent transition-[ring-color,background-color] duration-200 motion-reduce:transition-none hover:ring-[#05C3D4]/26 dark:bg-white/6 dark:hover:bg-white/8"
+                        className="group flex h-full flex-col rounded-[28px] bg-white/88 p-5 transition-colors duration-200 motion-reduce:transition-none hover:bg-white dark:bg-white/6 dark:hover:bg-white/8"
                       >
                         <Link
                           to={`/product/${card.slug}`}
@@ -379,7 +379,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                               href: `/product/${card.slug}`,
                             })
                           }
-                          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
+                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
                         >
                           <div className="relative flex h-[190px] items-center justify-center rounded-[24px] bg-white p-4 dark:bg-white/96">
                             <img
@@ -479,7 +479,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                             href: `/product/${card.slug}`,
                           })
                         }
-                        className="grid min-w-[248px] grid-cols-[72px_minmax(0,1fr)] gap-3 rounded-[22px] bg-white/82 p-3 text-slate-700 ring-1 ring-[#05C3D4]/10 transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white/78 dark:ring-white/10 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
+                        className="grid min-w-[248px] grid-cols-[72px_minmax(0,1fr)] gap-3 rounded-[22px] bg-white/82 p-3 text-slate-700 transition-colors motion-reduce:transition-none hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:bg-white/6 dark:text-white/78 dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c]"
                       >
                         <div className="flex h-[72px] w-[72px] items-center justify-center rounded-[18px] bg-white p-2 dark:bg-white/96">
                           <img
