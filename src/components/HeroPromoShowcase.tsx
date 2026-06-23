@@ -129,10 +129,48 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
 
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(5,195,212,0.16),transparent_20%),radial-gradient(circle_at_8%_88%,rgba(5,195,212,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,251,253,0.98))] transition-colors duration-500 dark:bg-[radial-gradient(circle_at_top_right,rgba(5,195,212,0.18),transparent_18%),radial-gradient(circle_at_8%_88%,rgba(5,195,212,0.12),transparent_24%),linear-gradient(180deg,#0f1318,#12181f)]">
+      <style>{`
+        @keyframes heroPromoDrift {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(18px, -14px, 0) scale(1.04); }
+          100% { transform: translate3d(-12px, 10px, 0) scale(0.98); }
+        }
+
+        @keyframes heroPromoGlow {
+          0% { opacity: 0.42; transform: scale(0.96); }
+          50% { opacity: 0.68; transform: scale(1.04); }
+          100% { opacity: 0.48; transform: scale(0.99); }
+        }
+
+        @keyframes heroPromoSheen {
+          0% { transform: translate3d(-3%, 0, 0) rotate(0deg); opacity: 0.18; }
+          50% { transform: translate3d(2%, -1%, 0) rotate(2deg); opacity: 0.28; }
+          100% { transform: translate3d(-1%, 1%, 0) rotate(-1deg); opacity: 0.2; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hero-promo-motion {
+            animation: none !important;
+          }
+        }
+      `}</style>
       <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute left-[6%] top-[16%] h-44 w-44 rounded-full bg-[#05C3D4]/12 blur-[120px]" />
-        <div className="absolute right-[10%] top-[8%] h-52 w-52 rounded-full bg-sky-200/35 blur-[140px] dark:bg-cyan-500/10" />
-        <div className="absolute bottom-[4%] left-[24%] h-40 w-40 rounded-full bg-[#05C3D4]/10 blur-[120px]" />
+        <div
+          className="hero-promo-motion absolute inset-y-[14%] right-[8%] w-[42%] rounded-full bg-[radial-gradient(circle,rgba(5,195,212,0.14),transparent_68%)] blur-[90px]"
+          style={{ animation: "heroPromoSheen 18s ease-in-out infinite alternate" }}
+        />
+        <div
+          className="hero-promo-motion absolute left-[6%] top-[16%] h-44 w-44 rounded-full bg-[#05C3D4]/12 blur-[120px]"
+          style={{ animation: "heroPromoDrift 16s ease-in-out infinite alternate" }}
+        />
+        <div
+          className="hero-promo-motion absolute right-[10%] top-[8%] h-52 w-52 rounded-full bg-sky-200/35 blur-[140px] dark:bg-cyan-500/10"
+          style={{ animation: "heroPromoGlow 14s ease-in-out infinite alternate" }}
+        />
+        <div
+          className="hero-promo-motion absolute bottom-[4%] left-[24%] h-40 w-40 rounded-full bg-[#05C3D4]/10 blur-[120px]"
+          style={{ animation: "heroPromoDrift 20s ease-in-out -4s infinite alternate" }}
+        />
       </div>
 
       <div className="container-main relative z-10 py-8 md:py-10 lg:py-12">
