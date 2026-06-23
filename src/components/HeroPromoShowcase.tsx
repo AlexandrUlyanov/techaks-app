@@ -156,10 +156,10 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   aria-controls={`promo-showcase-panel-${activeTab.id}`}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => handleTabSelect(tab)}
-                  className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-4 py-2.5 text-sm font-black transition-colors ${
+                  className={`inline-flex min-h-12 shrink-0 items-center justify-center rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest transition-colors ${
                     isActive
-                      ? "bg-[#05C3D4] text-black"
-                      : "bg-slate-100/92 text-slate-600 hover:bg-[#dff9fc] dark:bg-white/8 dark:text-white/78 dark:hover:bg-white/14"
+                      ? "bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2]"
+                      : "border border-black/10 bg-white/70 text-slate-900 hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
                   }`}
                 >
                   {tab.label}
