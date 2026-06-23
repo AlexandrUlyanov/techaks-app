@@ -12,6 +12,11 @@ import HomePage from "@/pages/HomePage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import MaintenancePage from "@/components/MaintenancePage";
+import {
+  AdminRouteFallback,
+  PublicRouteFallback,
+  RouteProgressBar,
+} from "@/components/RouteLoading";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 
@@ -92,18 +97,11 @@ const AdminSyncMoySkladOrders = lazy(
   () => import("@/pages/admin/sync/AdminSyncMoySkladOrders")
 );
 
-function RouteFallback() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center py-20">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,white)] border-t-[var(--tech-color-primary)]" />
-    </div>
-  );
-}
-
 export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
+  const routeAnimationKey = `${location.pathname}${location.search}`;
   const shouldNoindex =
     isAdmin ||
     ["/checkout", "/payment/result", "/account", "/search", "/login"].includes(
@@ -122,105 +120,114 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <RouteProgressBar />
       <ScrollToTop />
       <DesignThemeBridge />
       <FavoritesBootstrap />
       <CatalogMenu />
       {!isAdmin && !isCheckout && <Header />}
       <main className="flex-1">
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/catalog" element={<CatalogPage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route path="/stores" element={<StoresPage />} />
-            <Route path="/contacts" element={<ContactsPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/penza/:slug" element={<LocalLandingPage />} />
-            <Route path="/promotions" element={<PromotionsPage />} />
-            <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
-            <Route path="/blog" element={<BlogPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/payment/result" element={<PaymentResultPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/offer" element={<LegalDocumentPage />} />
-            <Route path="/privacy-policy" element={<LegalDocumentPage />} />
-            <Route path="/payment-delivery" element={<LegalDocumentPage />} />
-            <Route path="/returns" element={<LegalDocumentPage />} />
+        <div key={routeAnimationKey} className="route-page-enter min-h-full">
+          <Suspense fallback={isAdmin ? <AdminRouteFallback /> : <PublicRouteFallback />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/catalog" element={<CatalogPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route path="/stores" element={<StoresPage />} />
+              <Route path="/contacts" element={<ContactsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/penza/:slug" element={<LocalLandingPage />} />
+              <Route path="/promotions" element={<PromotionsPage />} />
+              <Route path="/promotions/:slug" element={<PromotionDetailPage />} />
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/payment/result" element={<PaymentResultPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/offer" element={<LegalDocumentPage />} />
+              <Route path="/privacy-policy" element={<LegalDocumentPage />} />
+              <Route path="/payment-delivery" element={<LegalDocumentPage />} />
+              <Route path="/returns" element={<LegalDocumentPage />} />
 
-            {/* Admin Routes */}
-            <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="leads" element={<AdminLeads />} />
-                <Route path="leads/:id" element={<AdminOrderDetails />} />
-                <Route path="reservations" element={<AdminReservations />} />
-                <Route path="categories" element={<AdminCategories />} />
-                <Route path="listings" element={<AdminListings />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="products/settings" element={<AdminProductSettings />} />
-                <Route path="products/specs" element={<AdminProductSpecs />} />
-                <Route
-                  path="products/manufacturers"
-                  element={<AdminProductManufacturers />}
-                />
-                <Route path="stores" element={<AdminStores />} />
-                <Route path="banners" element={<AdminBanners />} />
-                <Route path="merchandising" element={<AdminMerchandising />} />
-                <Route path="merchandising/badges" element={<AdminMerchandisingBadges />} />
-                <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
-                <Route
-                  path="merchandising/assignments"
-                  element={<AdminMerchandisingAssignments />}
-                />
-                <Route
-                  path="merchandising/quality"
-                  element={<AdminMerchandisingQuality />}
-                />
-                <Route path="reviews" element={<AdminReviews />} />
-                <Route path="loyalty" element={<AdminLoyalty />} />
-                <Route path="blog" element={<AdminBlog />} />
-                <Route path="search" element={<AdminSearchPage />}>
-                  <Route index element={<AdminSearchSettingsPage />} />
-                  <Route path="settings" element={<AdminSearchSettingsPage />} />
-                  <Route path="synonyms" element={<AdminSearchSynonymsPage />} />
-                  <Route path="analytics" element={<AdminSearchAnalyticsPage />} />
-                </Route>
-                <Route path="design-system" element={<AdminDesignSystem />} />
-                <Route path="audit" element={<AdminAuditLog />} />
-                <Route path="feeds" element={<AdminFeeds />} />
-                <Route path="seo" element={<AdminSeoDashboard />} />
-                <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
-
-                <Route path="sync" element={<SyncLayout />}>
-                  <Route index element={<AdminSyncMenu />} />
-                  <Route path="moysklad" element={<AdminSyncMoySklad />} />
+              {/* Admin Routes */}
+              <Route element={<ProtectedRoute action="read" subject="AdminPanel" />}>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="leads" element={<AdminLeads />} />
+                  <Route path="leads/:id" element={<AdminOrderDetails />} />
+                  <Route path="reservations" element={<AdminReservations />} />
+                  <Route path="categories" element={<AdminCategories />} />
+                  <Route path="listings" element={<AdminListings />} />
+                  <Route path="products" element={<AdminProducts />} />
+                  <Route path="products/settings" element={<AdminProductSettings />} />
+                  <Route path="products/specs" element={<AdminProductSpecs />} />
                   <Route
-                    path="moysklad/orders"
-                    element={<AdminSyncMoySkladOrders />}
+                    path="products/manufacturers"
+                    element={<AdminProductManufacturers />}
+                  />
+                  <Route path="stores" element={<AdminStores />} />
+                  <Route path="banners" element={<AdminBanners />} />
+                  <Route path="merchandising" element={<AdminMerchandising />} />
+                  <Route
+                    path="merchandising/badges"
+                    element={<AdminMerchandisingBadges />}
+                  />
+                  <Route path="merchandising/ai" element={<AdminMerchandisingAi />} />
+                  <Route
+                    path="merchandising/assignments"
+                    element={<AdminMerchandisingAssignments />}
+                  />
+                  <Route
+                    path="merchandising/quality"
+                    element={<AdminMerchandisingQuality />}
+                  />
+                  <Route path="reviews" element={<AdminReviews />} />
+                  <Route path="loyalty" element={<AdminLoyalty />} />
+                  <Route path="blog" element={<AdminBlog />} />
+                  <Route path="search" element={<AdminSearchPage />}>
+                    <Route index element={<AdminSearchSettingsPage />} />
+                    <Route path="settings" element={<AdminSearchSettingsPage />} />
+                    <Route path="synonyms" element={<AdminSearchSynonymsPage />} />
+                    <Route path="analytics" element={<AdminSearchAnalyticsPage />} />
+                  </Route>
+                  <Route path="design-system" element={<AdminDesignSystem />} />
+                  <Route path="audit" element={<AdminAuditLog />} />
+                  <Route path="feeds" element={<AdminFeeds />} />
+                  <Route path="seo" element={<AdminSeoDashboard />} />
+                  <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
+
+                  <Route path="sync" element={<SyncLayout />}>
+                    <Route index element={<AdminSyncMenu />} />
+                    <Route path="moysklad" element={<AdminSyncMoySklad />} />
+                    <Route
+                      path="moysklad/orders"
+                      element={<AdminSyncMoySkladOrders />}
+                    />
+                  </Route>
+
+                  <Route
+                    path="settings"
+                    element={<Navigate to="/admin/settings/profile" replace />}
+                  />
+                  <Route path="settings/profile" element={<AdminSettings />} />
+                  <Route path="settings/access" element={<AdminSettings />} />
+                  <Route path="settings/ai" element={<AdminSettings />} />
+                  <Route path="settings/integrations" element={<AdminSettings />} />
+                  <Route path="settings/payment" element={<AdminSettings />} />
+                  <Route path="settings/site" element={<AdminSettings />} />
+                  <Route
+                    path="settings/payment/yookassa"
+                    element={<AdminYooKassaSettings />}
                   />
                 </Route>
-
-                <Route path="settings" element={<Navigate to="/admin/settings/profile" replace />} />
-                <Route path="settings/profile" element={<AdminSettings />} />
-                <Route path="settings/access" element={<AdminSettings />} />
-                <Route path="settings/ai" element={<AdminSettings />} />
-                <Route path="settings/integrations" element={<AdminSettings />} />
-                <Route path="settings/payment" element={<AdminSettings />} />
-                <Route path="settings/site" element={<AdminSettings />} />
-                <Route
-                  path="settings/payment/yookassa"
-                  element={<AdminYooKassaSettings />}
-                />
               </Route>
-            </Route>
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </div>
       </main>
       {!isAdmin && !isCheckout && <Footer />}
       {!isAdmin && !isCheckout && <StickyBottomBar />}
