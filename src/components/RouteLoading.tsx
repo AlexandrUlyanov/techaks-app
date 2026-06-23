@@ -25,7 +25,7 @@ export function RouteProgressBar() {
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(0);
   const progressTimersRef = useRef<number[]>([]);
-  const locationSignatureRef = useRef(`${location.pathname}${location.search}${location.hash}`);
+  const locationSignatureRef = useRef(location.pathname);
   const navigationStartedRef = useRef(false);
 
   const clearProgressTimers = useCallback(() => {
@@ -83,8 +83,8 @@ export function RouteProgressBar() {
       const destination = new URL(anchor.href, window.location.href);
       if (destination.origin !== window.location.origin) return;
 
-      const currentPath = `${window.location.pathname}${window.location.search}`;
-      const nextPath = `${destination.pathname}${destination.search}`;
+      const currentPath = window.location.pathname;
+      const nextPath = destination.pathname;
       if (currentPath === nextPath) return;
 
       startProgress();
@@ -102,7 +102,7 @@ export function RouteProgressBar() {
   }, [prefersReducedMotion, startProgress]);
 
   useEffect(() => {
-    const nextSignature = `${location.pathname}${location.search}${location.hash}`;
+    const nextSignature = location.pathname;
     if (locationSignatureRef.current === nextSignature) return;
 
     locationSignatureRef.current = nextSignature;
@@ -110,7 +110,7 @@ export function RouteProgressBar() {
       startProgress();
     }
     finishProgress();
-  }, [finishProgress, location.hash, location.pathname, location.search, startProgress]);
+  }, [finishProgress, location.pathname, startProgress]);
 
   if (prefersReducedMotion || !visible) return null;
 

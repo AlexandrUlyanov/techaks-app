@@ -101,7 +101,7 @@ export default function App() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
-  const routeAnimationKey = `${location.pathname}${location.search}`;
+  const routeAnimationKey = location.pathname;
   const shouldNoindex =
     isAdmin ||
     ["/checkout", "/payment/result", "/account", "/search", "/login"].includes(
