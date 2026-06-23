@@ -4,6 +4,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductFilters, { type SelectedSpecFilter } from "@/components/ProductFilters";
 import RootCatalogNavigator from "@/components/Catalog/RootCatalogNavigator";
 import CategoryLandingPage from "@/components/Catalog/CategoryLandingPage";
+import CatalogListingSkeleton from "@/components/loading/CatalogListingSkeleton";
 import ProductBreadcrumbsCompact, {
   type CompactBreadcrumbItem,
 } from "@/components/product/ProductBreadcrumbsCompact";
@@ -975,14 +976,7 @@ export default function CatalogPage() {
           {showProductSection && (
           <div className={displayCategories.length > 0 || displayManufacturers.length > 0 ? "pt-6" : ""}>
             {isLoading ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-[380px] rounded-[28px] bg-[var(--tech-color-surface)] animate-pulse"
-                  />
-                ))}
-              </div>
+              <CatalogListingSkeleton />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
                 <div className="hidden lg:block">

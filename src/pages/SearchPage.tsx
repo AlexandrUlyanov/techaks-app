@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { useSeo } from "@/lib/seo";
 import SearchInput from "@/components/search/SearchInput";
@@ -12,6 +12,7 @@ import SearchSortSelect, {
 import SearchEmptyState from "@/components/search/SearchEmptyState";
 import SearchResultsGrid from "@/components/search/SearchResultsGrid";
 import SearchHighlight from "@/components/search/SearchHighlight";
+import SearchResultsSkeleton from "@/components/loading/SearchResultsSkeleton";
 import {
   Sheet,
   SheetContent,
@@ -220,12 +221,7 @@ export default function SearchPage() {
       <section className="py-10 md:py-14">
         <div className="container-main">
           {searchQuery.isLoading ? (
-            <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
-              <Loader2 className="animate-spin text-[var(--tech-color-primary)]" size={42} />
-              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                Строим результаты поиска
-              </div>
-            </div>
+            <SearchResultsSkeleton />
           ) : searchQuery.isError ? (
             <div className="mx-auto max-w-2xl rounded-[var(--tech-radius-card)] border border-red-200 bg-red-50 px-6 py-8 text-center text-red-700 shadow-[var(--tech-shadow-card)]">
               <div className="text-sm font-black uppercase tracking-[0.2em]">

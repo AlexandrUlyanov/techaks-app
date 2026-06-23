@@ -30,6 +30,7 @@ import ProductStockTab from "@/components/product/ProductStockTab";
 import ProductDeliveryTab from "@/components/product/ProductDeliveryTab";
 import ProductReviewsTab from "@/components/product/ProductReviewsTab";
 import ProductWarrantyTab from "@/components/product/ProductWarrantyTab";
+import ProductPageSkeleton from "@/components/loading/ProductPageSkeleton";
 import ProductBreadcrumbsCompact, {
   shortenProductName,
   type CompactBreadcrumbItem,
@@ -498,13 +499,7 @@ export default function ProductPage() {
   }, [product?.id]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
-          Загрузка товара...
-        </div>
-      </div>
-    );
+    return <ProductPageSkeleton />;
   }
 
   if (!product) {
