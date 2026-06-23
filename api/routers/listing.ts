@@ -27,6 +27,7 @@ import {
   buildFilterListingTitle,
   countVisibleProductsForCategory,
   deriveListingSeoStatus,
+  getListingAuditTrail,
   listingDuplicateRisks,
   listingIndexationModes,
   listingSeoStatuses,
@@ -35,6 +36,7 @@ import {
   resolveFilterListing,
   scoreListingContent,
   trimOrNull,
+  writeListingAuditEvent,
 } from "../lib/listing-pages";
 
 const listingIndexationModeSchema = z.enum(listingIndexationModes);
@@ -80,6 +82,17 @@ export const listingRouter = createRouter({
     requireAbility(ctx, "read", "Listing");
     return buildListingQualityDashboard();
   }),
+
+  getListingAuditTrail: protectedProcedure
+    .input(
+      z.object({
+        listingPageId: z.number().int().positive(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      requireAbility(ctx, "read", "Listing");
+      return getListingAuditTrail(input.listingPageId);
+    }),
 
   listCategoryListings: protectedProcedure
     .input(
@@ -506,10 +519,81 @@ export const listingRouter = createRouter({
         },
       });
 
+      await writeListingAuditEvent({
+        listingPageId: existing?.id ?? listingId,
+        actorUserId: ctx.user.id,
+        action: existing ? "listing.category.update" : "listing.category.create",
+        before: existing ?? null,
+        after: payload,
+        meta: {
+          listingType: "category",
+          categoryId: category.id,
+          categorySlug: category.slug,
+        },
+      });
+
       return {
         success: true,
         id: existing?.id ?? listingId,
       };
+    }),
+
+  setCategoryListingPublication: protectedProcedure
+    .input(
+      z.object({
+        categoryId: z.number().int().positive(),
+        action: z.enum(["publish", "archive"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Listing");
+      const target = await resolveListingDemandTarget({ categoryId: input.categoryId });
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Категория не найдена." });
+      }
+
+      const listing = await ensureCategoryListingPage(target.category, target.listing, ctx.user.id);
+      const next = await setListingPublicationState({
+        listing,
+        userId: ctx.user.id,
+        action: input.action,
+      });
+
+      await writeAdminAuditLog({
+        ctx,
+        action:
+          input.action === "publish"
+            ? "listing.category.publish"
+            : "listing.category.archive",
+        entityType: "listing",
+        entityId: next.id,
+        entityLabel: target.category.name,
+        before: listing,
+        after: next,
+        meta: {
+          listingType: "category",
+          categoryId: target.category.id,
+          categorySlug: target.category.slug,
+        },
+      });
+
+      await writeListingAuditEvent({
+        listingPageId: next.id,
+        actorUserId: ctx.user.id,
+        action:
+          input.action === "publish"
+            ? "listing.category.publish"
+            : "listing.category.archive",
+        before: listing,
+        after: next,
+        meta: {
+          listingType: "category",
+          categoryId: target.category.id,
+          categorySlug: target.category.slug,
+        },
+      });
+
+      return { success: true, id: next.id };
     }),
 
   upsertFilterListing: protectedProcedure
@@ -643,10 +727,105 @@ export const listingRouter = createRouter({
         },
       });
 
+      await writeListingAuditEvent({
+        listingPageId: existing?.id ?? listingId,
+        actorUserId: ctx.user.id,
+        action: existing ? "listing.filter.update" : "listing.filter.create",
+        before: existing ?? null,
+        after: payload,
+        meta: {
+          categoryId: category.id,
+          categorySlug: category.slug,
+          listingType: "filter",
+          filterKey: input.filterKey,
+          filterValue: input.filterValue,
+        },
+      });
+
       return {
         success: true,
         id: existing?.id ?? listingId,
       };
+    }),
+
+  setFilterListingPublication: protectedProcedure
+    .input(
+      z.object({
+        categoryId: z.number().int().positive(),
+        filterKey: z.string().trim().min(1),
+        filterValue: z.string().trim().min(1),
+        action: z.enum(["publish", "archive"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Listing");
+      const target = await resolveListingDemandTarget(input);
+      if (!target || !target.filterKey || !target.filterValue) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Листинг не найден." });
+      }
+
+      const filterKey = target.filterKey;
+      const filterValue = target.filterValue;
+      const filterLabel = target.filterLabel || filterKey;
+      const filterValueLabel = target.filterValueLabel || filterValue;
+
+      const listing = await ensureFilterListingPage(
+        target.category,
+        target.listing,
+        {
+          filterKey,
+          filterValue,
+          filterLabel,
+          filterValueLabel,
+        },
+        ctx.user.id
+      );
+
+      const next = await setListingPublicationState({
+        listing,
+        userId: ctx.user.id,
+        action: input.action,
+      });
+
+      await writeAdminAuditLog({
+        ctx,
+        action:
+          input.action === "publish"
+            ? "listing.filter.publish"
+            : "listing.filter.archive",
+        entityType: "listing",
+        entityId: next.id,
+        entityLabel: `${target.category.name}: ${filterLabel}=${filterValueLabel}`,
+        before: listing,
+        after: next,
+        meta: {
+          listingType: "filter",
+          categoryId: target.category.id,
+          categorySlug: target.category.slug,
+          filterKey,
+          filterValue,
+        },
+      });
+
+      await writeListingAuditEvent({
+        listingPageId: next.id,
+        actorUserId: ctx.user.id,
+        action:
+          input.action === "publish"
+            ? "listing.filter.publish"
+            : "listing.filter.archive",
+        before: listing,
+        after: next,
+        meta: {
+          listingType: "filter",
+          categoryId: target.category.id,
+          categorySlug: target.category.slug,
+          filterKey,
+          filterValue,
+        },
+      });
+
+      return { success: true, id: next.id };
     }),
 });
 
@@ -845,4 +1024,35 @@ async function ensureFilterListingPage(
     .where(eq(listingPages.id, result[0].insertId))
     .limit(1);
   return created;
+}
+
+async function setListingPublicationState(args: {
+  listing: typeof listingPages.$inferSelect;
+  userId: number;
+  action: "publish" | "archive";
+}) {
+  const db = getDb();
+  const payload = {
+    isPublished: args.action === "publish",
+    indexationMode:
+      args.action === "archive" ? ("noindex" as const) : args.listing.indexationMode,
+    updatedBy: args.userId,
+    updatedAt: new Date(),
+  };
+
+  await db.update(listingPages).set(payload).where(eq(listingPages.id, args.listing.id));
+  const [updated] = await db
+    .select()
+    .from(listingPages)
+    .where(eq(listingPages.id, args.listing.id))
+    .limit(1);
+
+  if (!updated) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Не удалось обновить состояние листинга.",
+    });
+  }
+
+  return updated;
 }

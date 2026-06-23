@@ -82,6 +82,25 @@ const EMPTY_DEMAND_FORM: DemandClusterFormState = {
   notes: "",
 };
 
+function formatDateTime(value?: string | Date | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("ru-RU");
+}
+
+function formatListingAuditAction(action: string) {
+  const labels: Record<string, string> = {
+    "listing.category.create": "Создан category page",
+    "listing.category.update": "Обновлён category page",
+    "listing.category.publish": "Опубликован category page",
+    "listing.category.archive": "Category page снят с публикации",
+    "listing.filter.create": "Создан filter page",
+    "listing.filter.update": "Обновлён filter page",
+    "listing.filter.publish": "Опубликован filter page",
+    "listing.filter.archive": "Filter page снят с публикации",
+  };
+  return labels[action] ?? action;
+}
+
 function buildFormState(data?: unknown): ListingFormState {
   if (!data || typeof data !== "object") return EMPTY_FORM;
   const source = data as Record<string, unknown>;
@@ -270,6 +289,16 @@ export default function AdminListings() {
     }
   );
 
+  const selectedListingId =
+    editorMode === "category"
+      ? categoryListingDetailsQuery.data?.id ?? null
+      : filterListingDetailsQuery.data?.id ?? null;
+
+  const listingAuditTrailQuery = trpc.listing.getListingAuditTrail.useQuery(
+    { listingPageId: selectedListingId ?? 0 },
+    { enabled: Boolean(selectedListingId), staleTime: 30_000 }
+  );
+
   useEffect(() => {
     if (editorMode === "category" && categoryListingDetailsQuery.data) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -317,11 +346,15 @@ export default function AdminListings() {
       toast.success("Листинг сохранён");
       await Promise.all([
         utils.listing.listCategoryListings.invalidate(),
+        utils.listing.getQualityDashboard.invalidate(),
         selectedCategoryId
           ? utils.listing.listFilterListingCandidates.invalidate({ categoryId: selectedCategoryId })
           : Promise.resolve(),
         selectedCategoryId
           ? utils.listing.getCategoryListing.invalidate({ categoryId: selectedCategoryId })
+          : Promise.resolve(),
+        selectedListingId
+          ? utils.listing.getListingAuditTrail.invalidate({ listingPageId: selectedListingId })
           : Promise.resolve(),
         selectedCategoryId && selectedFilterCandidate
           ? utils.listing.getFilterListing.invalidate({
@@ -341,6 +374,7 @@ export default function AdminListings() {
     onSuccess: async () => {
       toast.success("Фильтр-листинг сохранён");
       await Promise.all([
+        utils.listing.getQualityDashboard.invalidate(),
         utils.listing.listFilterListingCandidates.invalidate({ categoryId: selectedCategoryId ?? 0 }),
         selectedCategoryId && selectedFilterCandidate
           ? utils.listing.getFilterListing.invalidate({
@@ -348,6 +382,9 @@ export default function AdminListings() {
               filterKey: selectedFilterCandidate.normalizedKey,
               filterValue: selectedFilterCandidate.normalizedValue,
             })
+          : Promise.resolve(),
+        selectedListingId
+          ? utils.listing.getListingAuditTrail.invalidate({ listingPageId: selectedListingId })
           : Promise.resolve(),
       ]);
     },
@@ -390,6 +427,48 @@ export default function AdminListings() {
     },
     onError: error => {
       toast.error(error.message || "Не удалось сохранить кластер спроса");
+    },
+  });
+
+  const setCategoryListingPublication = trpc.listing.setCategoryListingPublication.useMutation({
+    onSuccess: async () => {
+      toast.success("Состояние category page обновлено");
+      await Promise.all([
+        utils.listing.listCategoryListings.invalidate(),
+        utils.listing.getQualityDashboard.invalidate(),
+        selectedCategoryId
+          ? utils.listing.getCategoryListing.invalidate({ categoryId: selectedCategoryId })
+          : Promise.resolve(),
+        selectedListingId
+          ? utils.listing.getListingAuditTrail.invalidate({ listingPageId: selectedListingId })
+          : Promise.resolve(),
+      ]);
+    },
+    onError: error => {
+      toast.error(error.message || "Не удалось обновить состояние листинга");
+    },
+  });
+
+  const setFilterListingPublication = trpc.listing.setFilterListingPublication.useMutation({
+    onSuccess: async () => {
+      toast.success("Состояние filter page обновлено");
+      await Promise.all([
+        utils.listing.listFilterListingCandidates.invalidate({ categoryId: selectedCategoryId ?? 0 }),
+        utils.listing.getQualityDashboard.invalidate(),
+        selectedCategoryId && selectedFilterCandidate
+          ? utils.listing.getFilterListing.invalidate({
+              categoryId: selectedCategoryId,
+              filterKey: selectedFilterCandidate.normalizedKey,
+              filterValue: selectedFilterCandidate.normalizedValue,
+            })
+          : Promise.resolve(),
+        selectedListingId
+          ? utils.listing.getListingAuditTrail.invalidate({ listingPageId: selectedListingId })
+          : Promise.resolve(),
+      ]);
+    },
+    onError: error => {
+      toast.error(error.message || "Не удалось обновить состояние листинга");
     },
   });
 
@@ -487,6 +566,36 @@ export default function AdminListings() {
       data: payload,
     });
   };
+
+  const handlePublicationAction = (action: "publish" | "archive") => {
+    if (!selectedCategoryId) return;
+    if (editorMode === "category") {
+      setCategoryListingPublication.mutate({
+        categoryId: selectedCategoryId,
+        action,
+      });
+      return;
+    }
+
+    if (!selectedFilterCandidate) return;
+    setFilterListingPublication.mutate({
+      categoryId: selectedCategoryId,
+      filterKey: selectedFilterCandidate.normalizedKey,
+      filterValue: selectedFilterCandidate.normalizedValue,
+      action,
+    });
+  };
+
+  const effectiveCanonicalUrl =
+    form.indexationMode === "canonical_to_parent"
+      ? form.canonicalUrl ||
+        (selectedItem?.url ?? "")
+      : form.canonicalUrl;
+
+  const previewRobots =
+    form.indexationMode === "noindex" || !form.isPublished ? "noindex,follow" : "index,follow";
+  const previewSitemap =
+    form.isPublished && form.indexationMode === "index" ? "Да" : "Нет";
 
   return (
     <div className="space-y-6">
@@ -979,6 +1088,73 @@ export default function AdminListings() {
                 </div>
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Публикация
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-foreground">
+                    {form.isPublished ? "Опубликован" : "Черновик / архив"}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {selectedListingId ? `ID ${selectedListingId}` : "Запись ещё не создана"}
+                  </div>
+                </div>
+                <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Robots preview
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-foreground">
+                    {previewRobots}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Режим: {form.indexationMode}
+                  </div>
+                </div>
+                <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Canonical
+                  </div>
+                  <div className="mt-2 break-all text-sm font-semibold text-foreground">
+                    {effectiveCanonicalUrl || "Не задан"}
+                  </div>
+                </div>
+                <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    Sitemap
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-foreground">
+                    {previewSitemap}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Только для опубликованных indexable pages
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => handlePublicationAction("publish")}
+                  disabled={
+                    setCategoryListingPublication.isPending || setFilterListingPublication.isPending
+                  }
+                  className="rounded-full bg-[var(--tech-color-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Опубликовать
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePublicationAction("archive")}
+                  disabled={
+                    setCategoryListingPublication.isPending || setFilterListingPublication.isPending
+                  }
+                  className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Снять с публикации
+                </button>
+              </div>
+
               <div className="grid gap-4">
                 <Field label="Title">
                   <input
@@ -1380,6 +1556,54 @@ export default function AdminListings() {
                       className="w-full rounded-3xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-[var(--tech-color-primary)]"
                     />
                   </Field>
+                </div>
+              </div>
+
+              <div className="rounded-[32px] border border-border/70 bg-[var(--tech-color-surface-muted)]/60 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-black text-foreground">
+                      Журнал изменений листинга
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      Отдельная история публикации и редакторских изменений по этой посадочной странице.
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {!selectedListingId ? (
+                    <div className="rounded-3xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                      История появится после первого сохранения листинга.
+                    </div>
+                  ) : listingAuditTrailQuery.isLoading ? (
+                    <div className="flex items-center gap-2 rounded-3xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Загружаем историю
+                    </div>
+                  ) : listingAuditTrailQuery.data?.length ? (
+                    listingAuditTrailQuery.data.map(item => (
+                      <div
+                        key={item.id}
+                        className="rounded-3xl bg-background px-4 py-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm font-semibold text-foreground">
+                            {formatListingAuditAction(item.action)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDateTime(item.createdAt)}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {item.actorName || item.actorEmail || "Системное действие"}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-3xl bg-background px-4 py-4 text-sm text-muted-foreground">
+                      Пока нет записей в истории.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

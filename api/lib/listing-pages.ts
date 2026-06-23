@@ -1,10 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   categories,
+  listingAuditLogs,
   listingPages,
   products,
   productSpecRules,
   productSpecValues,
+  users,
 } from "@db/schema";
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
@@ -125,6 +127,19 @@ export type ListingQualityDashboard = {
   }>;
 };
 
+export type ListingAuditEvent = {
+  id: number;
+  listingPageId: number | null;
+  actorUserId: number | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  action: string;
+  beforeJson: unknown;
+  afterJson: unknown;
+  metaJson: unknown;
+  createdAt: Date;
+};
+
 export function trimOrNull(value?: string | null) {
   const next = value?.trim();
   return next ? next : null;
@@ -213,6 +228,58 @@ export function shouldIncludeCategoryListingInSitemap(
 ) {
   if (!listing || !listing.isPublished) return true;
   return listing.indexationMode === "index";
+}
+
+export async function writeListingAuditEvent(args: {
+  listingPageId: number;
+  actorUserId?: number | null;
+  action: string;
+  before?: unknown;
+  after?: unknown;
+  meta?: unknown;
+}) {
+  const db = getDb();
+  await db.insert(listingAuditLogs).values({
+    listingPageId: args.listingPageId,
+    actorUserId: args.actorUserId ?? null,
+    action: args.action,
+    beforeJson: args.before ?? null,
+    afterJson: args.after ?? null,
+    metaJson: args.meta ?? null,
+    createdAt: new Date(),
+  });
+}
+
+export async function getListingAuditTrail(
+  listingPageId: number,
+  limit = 20
+): Promise<ListingAuditEvent[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: listingAuditLogs.id,
+      listingPageId: listingAuditLogs.listingPageId,
+      actorUserId: listingAuditLogs.actorUserId,
+      actorName: users.fullName,
+      actorEmail: users.email,
+      action: listingAuditLogs.action,
+      beforeJson: listingAuditLogs.beforeJson,
+      afterJson: listingAuditLogs.afterJson,
+      metaJson: listingAuditLogs.metaJson,
+      createdAt: listingAuditLogs.createdAt,
+    })
+    .from(listingAuditLogs)
+    .leftJoin(users, eq(users.id, listingAuditLogs.actorUserId))
+    .where(eq(listingAuditLogs.listingPageId, listingPageId))
+    .orderBy(desc(listingAuditLogs.createdAt))
+    .limit(limit);
+
+  return rows.map(row => ({
+    ...row,
+    actorName: row.actorName ?? null,
+    actorEmail: row.actorEmail ?? null,
+    createdAt: row.createdAt ?? new Date(),
+  }));
 }
 
 function collectDescendantCategoryIds(
