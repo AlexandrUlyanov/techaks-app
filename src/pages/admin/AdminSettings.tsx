@@ -2239,84 +2239,14 @@ export default function AdminSettings() {
                           Умная промо-витрина
                         </div>
                         <p className="mt-2 text-sm leading-6 text-gray-500">
-                          Этот режим автоматически собирает hero из скидочных товаров. Здесь
-                          можно управлять текстом, размерами витрины, закреплёнными товарами
-                          и исключениями без ручной сборки слайдов.
+                          Этот режим автоматически собирает hero из скидочных товаров. Сейчас
+                          витрина на главной показывает только табы сценариев и товарный
+                          слайдер в стиле блока «Товары недели» без category-rail, spotlight
+                          и лишнего текста.
                         </p>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                          <span className="text-sm font-bold text-[#15171A]">Eyebrow</span>
-                          <input
-                            value={homepagePromoShowcase.eyebrow}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                eyebrow: e.target.value,
-                              }))
-                            }
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-sm font-bold text-[#15171A]">Акцент</span>
-                          <input
-                            value={homepagePromoShowcase.accent}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                accent: e.target.value,
-                              }))
-                            }
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-bold text-[#15171A]">Заголовок</span>
-                          <textarea
-                            rows={2}
-                            value={homepagePromoShowcase.title}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                title: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-bold text-[#15171A]">Подзаголовок</span>
-                          <textarea
-                            rows={2}
-                            value={homepagePromoShowcase.subtitle}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                subtitle: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-bold text-[#15171A]">Описание</span>
-                          <textarea
-                            rows={3}
-                            value={homepagePromoShowcase.description}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                description: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <label className="space-y-2">
                           <span className="text-sm font-bold text-[#15171A]">
                             Карточек в табе
@@ -2340,20 +2270,14 @@ export default function AdminSettings() {
                         </label>
                         <label className="space-y-2">
                           <span className="text-sm font-bold text-[#15171A]">
-                            Категорий в rail
+                            Eyebrow
                           </span>
                           <input
-                            type="number"
-                            min={4}
-                            max={10}
-                            value={homepagePromoShowcase.categoryLimit}
+                            value={homepagePromoShowcase.eyebrow}
                             onChange={e =>
                               updateHomepagePromoShowcase(current => ({
                                 ...current,
-                                categoryLimit: Math.min(
-                                  10,
-                                  Math.max(4, Number(e.target.value) || 7)
-                                ),
+                                eyebrow: e.target.value,
                               }))
                             }
                             className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
@@ -2361,59 +2285,14 @@ export default function AdminSettings() {
                         </label>
                         <label className="space-y-2">
                           <span className="text-sm font-bold text-[#15171A]">
-                            Основная CTA
+                            Акцент
                           </span>
                           <input
-                            value={homepagePromoShowcase.primaryCtaLabel}
+                            value={homepagePromoShowcase.accent}
                             onChange={e =>
                               updateHomepagePromoShowcase(current => ({
                                 ...current,
-                                primaryCtaLabel: e.target.value,
-                              }))
-                            }
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-sm font-bold text-[#15171A]">
-                            Ссылка основной CTA
-                          </span>
-                          <input
-                            value={homepagePromoShowcase.primaryCtaHref}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                primaryCtaHref: e.target.value,
-                              }))
-                            }
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-sm font-bold text-[#15171A]">
-                            Вторичная CTA
-                          </span>
-                          <input
-                            value={homepagePromoShowcase.secondaryCtaLabel}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                secondaryCtaLabel: e.target.value,
-                              }))
-                            }
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
-                          />
-                        </label>
-                        <label className="space-y-2 md:col-span-2 xl:col-span-3">
-                          <span className="text-sm font-bold text-[#15171A]">
-                            Ссылка вторичной CTA
-                          </span>
-                          <input
-                            value={homepagePromoShowcase.secondaryCtaHref}
-                            onChange={e =>
-                              updateHomepagePromoShowcase(current => ({
-                                ...current,
-                                secondaryCtaHref: e.target.value,
+                                accent: e.target.value,
                               }))
                             }
                             className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
@@ -2422,8 +2301,9 @@ export default function AdminSettings() {
                       </div>
 
                       <div className="rounded-2xl border border-[#05C3D4]/16 bg-[#EAFBFD] px-4 py-4 text-sm leading-6 text-slate-700">
-                        Spotlight берётся из закреплённого товара, если он есть. Исключённые
-                        позиции не попадут ни в один таб и не будут выбраны автоматически.
+                        Закреплённые товары теперь не рендерятся отдельным главным блоком.
+                        Они просто получают приоритет при сборке карточек внутри табов.
+                        Исключённые позиции не попадут ни в один сценарий.
                       </div>
                     </div>
 
@@ -2431,7 +2311,7 @@ export default function AdminSettings() {
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                           <div className="text-sm font-black text-[#15171A]">
-                            Preview promo-showcase
+                            Preview промо-витрины
                           </div>
                           <div className="mt-1 text-xs leading-5 text-gray-500">
                             Живой storefront-preview на текущих настройках.
@@ -2473,10 +2353,10 @@ export default function AdminSettings() {
                           </div>
                           <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
                             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">
-                              Категорий
+                              Карточек в первом табе
                             </div>
                             <div className="mt-2 text-lg font-black text-[#15171A]">
-                              {homepagePromoShowcasePreview.diagnostics.categoryRailCount}
+                              {homepagePromoShowcasePreview.tabs[0]?.products.length ?? 0}
                             </div>
                           </div>
                         </div>
