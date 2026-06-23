@@ -61,11 +61,16 @@ export default function ProductCard({
     typeof product.oldPrice === "number" && product.oldPrice > product.price
       ? product.oldPrice
       : null;
-  const displayBadge = product.badge?.trim()
-    ? product.badge.trim()
-    : displayOldPrice
-      ? "Акция"
-      : null;
+  const rawBadge = product.badge?.trim() ? product.badge.trim() : null;
+  const discountPercent = displayOldPrice
+    ? Math.max(
+        1,
+        Math.round(((displayOldPrice - product.price) / displayOldPrice) * 100)
+      )
+    : null;
+  const displayBadge = discountPercent
+    ? `-${discountPercent}%`
+    : rawBadge;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
@@ -97,7 +102,11 @@ export default function ProductCard({
           {
             key: `manual:${displayBadge}`,
             label: displayBadge,
-            className: badgeColors[displayBadge] || "bg-gray-500 text-white",
+            className:
+              badgeColors[displayBadge] ||
+              (discountPercent
+                ? "bg-[var(--tech-color-primary)] text-[var(--tech-color-primary-foreground)]"
+                : "bg-gray-500 text-white"),
           },
         ]
       : []),
