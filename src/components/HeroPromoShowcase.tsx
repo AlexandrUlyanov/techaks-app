@@ -138,7 +138,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
   const featuredProducts = spotlight
     ? [spotlight, ...activeTab.products.filter(card => card.id !== spotlight.id)]
     : activeTab.products;
-  const gridProducts = featuredProducts.slice(1, 5);
+  const showcaseProducts = featuredProducts.slice(0, 5);
   const tailProducts = featuredProducts.slice(5, 10);
 
   const handleTabSelect = (tab: PromoShowcaseTab) => {
@@ -265,107 +265,13 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
               aria-labelledby={`promo-showcase-tab-${activeTab.id}`}
               className="rounded-[34px] bg-white/58 p-4 backdrop-blur-xl dark:bg-white/5 md:p-5"
             >
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
-                {spotlight ? (
-                  <div className="group overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.10),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(247,250,252,0.92))] p-5 dark:bg-[radial-gradient(circle_at_top,rgba(5,195,212,0.14),transparent_52%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]">
-                    <Link
-                      to={`/product/${spotlight.slug}`}
-                      onClick={() =>
-                        trackHomepagePromoShowcase({
-                          action: "spotlight_click",
-                          tabId: activeTab.id,
-                          tabLabel: activeTab.label,
-                          productId: String(spotlight.id),
-                          productName: spotlight.name,
-                          href: `/product/${spotlight.slug}`,
-                        })
-                      }
-                      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
-                    >
-                      <div className="relative flex h-[330px] items-center justify-center rounded-[28px] bg-white p-6 dark:bg-white/95 lg:h-[360px]">
-                        <img
-                          src={spotlight.image}
-                          alt={spotlight.name}
-                          className="max-h-[280px] max-w-full object-contain lg:max-h-[310px]"
-                          loading="eager"
-                        />
-                        {getDiscountPercent(spotlight) ? (
-                          <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[#05C3D4] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-black">
-                            <Percent size={12} />
-                            -{getDiscountPercent(spotlight)}%
-                          </span>
-                        ) : null}
-                      </div>
-                    </Link>
-
-                    <div className="mt-5 flex min-h-[4rem] items-start justify-between gap-4">
-                      <Link
-                        to={`/product/${spotlight.slug}`}
-                        onClick={() =>
-                          trackHomepagePromoShowcase({
-                            action: "spotlight_click",
-                            tabId: activeTab.id,
-                            tabLabel: activeTab.label,
-                            productId: String(spotlight.id),
-                            productName: spotlight.name,
-                            href: `/product/${spotlight.slug}`,
-                          })
-                        }
-                        className="line-clamp-2 text-xl font-black leading-8 text-[#141b24] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:focus-visible:ring-offset-[#11161c]"
-                      >
-                        {spotlight.name}
-                      </Link>
-                      <Link
-                        to={`/product/${spotlight.slug}`}
-                        onClick={() =>
-                          trackHomepagePromoShowcase({
-                            action: "spotlight_click",
-                            tabId: activeTab.id,
-                            tabLabel: activeTab.label,
-                            productId: String(spotlight.id),
-                            productName: spotlight.name,
-                            href: `/product/${spotlight.slug}`,
-                          })
-                        }
-                        className="inline-flex shrink-0 items-center gap-1 pt-1 text-sm font-bold text-[#05C3D4] transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
-                      >
-                        Подробнее
-                        <ArrowRight size={16} />
-                      </Link>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                      <span className="text-3xl font-black tracking-[-0.04em] text-[#141b24] dark:text-white">
-                        {formatPrice(spotlight.price)}
-                      </span>
-                      {spotlight.oldPrice ? (
-                        <span className="pt-1 text-sm font-semibold text-slate-400 line-through dark:text-white/35">
-                          {formatPrice(spotlight.oldPrice)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={event => handleAddToCart(event, spotlight)}
-                        disabled={!spotlight.inStock}
-                        className="inline-flex h-11 items-center gap-2 rounded-full bg-[#05C3D4] px-5 text-sm font-black text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                      >
-                        <CartIcon size={16} />
-                        В корзину
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {gridProducts.map(card => {
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+                {showcaseProducts.map(card => {
                     const discountPercent = getDiscountPercent(card);
                     return (
                       <div
                         key={card.id}
-                        className="group flex h-full flex-col rounded-[28px] bg-white/88 p-5 transition-colors duration-200 motion-reduce:transition-none hover:bg-white dark:bg-white/6 dark:hover:bg-white/8"
+                        className="group flex h-full min-h-[420px] flex-col rounded-[28px] bg-white/88 p-5 transition-colors duration-200 motion-reduce:transition-none hover:bg-white dark:bg-white/6 dark:hover:bg-white/8"
                       >
                         <Link
                           to={`/product/${card.slug}`}
@@ -379,13 +285,13 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                               href: `/product/${card.slug}`,
                             })
                           }
-                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
+                          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
                         >
-                          <div className="relative flex h-[190px] items-center justify-center rounded-[24px] bg-white p-4 dark:bg-white/96">
+                          <div className="relative flex h-[220px] items-center justify-center rounded-[24px] bg-white p-4 dark:bg-white/96">
                             <img
                               src={card.image}
                               alt={card.name}
-                              className="max-h-[160px] max-w-full object-contain"
+                              className="max-h-[188px] max-w-full object-contain"
                               loading="lazy"
                             />
                             {discountPercent ? (
@@ -425,20 +331,38 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                         </div>
 
                         <div className="mt-auto pt-4">
-                          <button
-                            type="button"
-                            onClick={event => handleAddToCart(event, card)}
-                            disabled={!card.inStock}
-                            className="inline-flex h-10 items-center gap-2 rounded-full bg-[#05C3D4] px-4 text-sm font-black text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            <CartIcon size={15} />
-                            В корзину
-                          </button>
+                          <div className="flex items-center justify-between gap-3">
+                            <button
+                              type="button"
+                              onClick={event => handleAddToCart(event, card)}
+                              disabled={!card.inStock}
+                              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#05C3D4] px-4 text-sm font-black text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              <CartIcon size={15} />
+                              В корзину
+                            </button>
+                            <Link
+                              to={`/product/${card.slug}`}
+                              onClick={() =>
+                                trackHomepagePromoShowcase({
+                                  action: "product_click",
+                                  tabId: activeTab.id,
+                                  tabLabel: activeTab.label,
+                                  productId: String(card.id),
+                                  productName: card.name,
+                                  href: `/product/${card.slug}`,
+                                })
+                              }
+                              className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-[#05C3D4] transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#11161c]"
+                            >
+                              <span className="hidden sm:inline">Подробнее</span>
+                              <ArrowRight size={16} />
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
-                </div>
               </div>
 
               {tailProducts.length > 0 ? (
