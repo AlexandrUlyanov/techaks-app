@@ -40,6 +40,7 @@ interface ProductCardProps {
   variant?: "grid" | "list";
   imagePriority?: boolean;
   onNavigate?: (url: string) => void | Promise<void>;
+  blockLinkNavigation?: boolean;
 }
 
 export default function ProductCard({
@@ -47,6 +48,7 @@ export default function ProductCard({
   variant = "grid",
   imagePriority = false,
   onNavigate,
+  blockLinkNavigation = true,
 }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -187,7 +189,9 @@ export default function ProductCard({
 
   const handleNavigate = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (!onNavigate) return;
-    event.preventDefault();
+    if (blockLinkNavigation) {
+      event.preventDefault();
+    }
     await onNavigate(`/product/${product.slug}`);
   };
 

@@ -202,6 +202,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                           inStock: product.inStock,
                         }}
                         imagePriority={index < 4}
+                        blockLinkNavigation={false}
                         onNavigate={url => {
                           trackHomepagePromoShowcase({
                             action: "product_click",
