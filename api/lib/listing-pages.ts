@@ -55,6 +55,76 @@ export type ListingFilterCandidate = {
   existingIsPublished: boolean | null;
 };
 
+export type ListingQualityCategoryIssue = {
+  type:
+    | "empty_category"
+    | "missing_meta"
+    | "thin_content"
+    | "manual_duplicate_review"
+    | "published_noindex";
+  label: string;
+};
+
+export type ListingQualityFilterIssue = {
+  type:
+    | "high_demand_unpublished"
+    | "high_demand_noindex"
+    | "high_duplicate_risk";
+  label: string;
+};
+
+export type ListingQualityDashboard = {
+  summary: {
+    totalCategories: number;
+    indexableCategories: number;
+    emptyCategories: number;
+    categoriesMissingMeta: number;
+    categoriesThinContent: number;
+    categoriesNeedDuplicateReview: number;
+    categoriesPublishedNoindex: number;
+    highDemandFilterCandidates: number;
+    highDemandFilterUnpublished: number;
+    highDemandFilterNoindex: number;
+    highRiskFilterCandidates: number;
+    canonicalConflicts: number;
+  };
+  categoryIssues: Array<{
+    categoryId: number;
+    categoryName: string;
+    categorySlug: string;
+    productCount: number;
+    indexationMode: ListingIndexationMode;
+    contentScore: number;
+    duplicateRisk: ListingDuplicateRisk;
+    issues: ListingQualityCategoryIssue[];
+    url: string;
+  }>;
+  filterIssues: Array<{
+    categoryId: number;
+    categoryName: string;
+    categorySlug: string;
+    filterKey: string;
+    filterLabel: string;
+    filterValue: string;
+    productCount: number;
+    duplicateRisk: ListingDuplicateRisk;
+    existingListingId: number | null;
+    existingIndexationMode: ListingIndexationMode | null;
+    existingIsPublished: boolean | null;
+    issues: ListingQualityFilterIssue[];
+    url: string;
+  }>;
+  canonicalConflicts: Array<{
+    canonicalUrl: string;
+    listings: Array<{
+      id: number;
+      type: string;
+      categoryId: number;
+      url: string;
+    }>;
+  }>;
+};
+
 export function trimOrNull(value?: string | null) {
   const next = value?.trim();
   return next ? next : null;
@@ -578,4 +648,225 @@ export async function resolveFilterListing(input: {
     productCount,
     parentProductCount,
   });
+}
+
+const HIGH_DEMAND_FILTER_THRESHOLD = 6;
+
+function buildCategoryQualityIssues(item: ReturnType<typeof buildCategoryListingViewModel>) {
+  const issues: ListingQualityCategoryIssue[] = [];
+
+  if (item.productCount <= 0) {
+    issues.push({
+      type: "empty_category",
+      label: "Пустая категория",
+    });
+  }
+
+  if (!trimOrNull(item.title) || !trimOrNull(item.metaDescription) || !trimOrNull(item.h1)) {
+    issues.push({
+      type: "missing_meta",
+      label: "Не хватает meta/H1",
+    });
+  }
+
+  if (item.productCount > 0 && item.contentScore < 55) {
+    issues.push({
+      type: "thin_content",
+      label: "Слабый контент",
+    });
+  }
+
+  if (item.duplicateRisk === "high") {
+    issues.push({
+      type: "manual_duplicate_review",
+      label: "Проверить на дубль",
+    });
+  }
+
+  if (item.isPublished && item.indexationMode !== "index") {
+    issues.push({
+      type: "published_noindex",
+      label: "Опубликовано, но не индексируется",
+    });
+  }
+
+  return issues;
+}
+
+function buildFilterQualityIssues(
+  item: Awaited<ReturnType<typeof listFilterListingCandidates>>[number]
+) {
+  const issues: ListingQualityFilterIssue[] = [];
+  const isHighDemand = item.productCount >= HIGH_DEMAND_FILTER_THRESHOLD;
+
+  if (item.duplicateRisk === "high") {
+    issues.push({
+      type: "high_duplicate_risk",
+      label: "Высокий риск дубля",
+    });
+  }
+
+  if (isHighDemand && !item.existingIsPublished) {
+    issues.push({
+      type: "high_demand_unpublished",
+      label: "Спрос есть, страница не опубликована",
+    });
+  }
+
+  if (
+    isHighDemand &&
+    item.existingIsPublished &&
+    item.existingIndexationMode &&
+    item.existingIndexationMode !== "index"
+  ) {
+    issues.push({
+      type: "high_demand_noindex",
+      label: "Спрос есть, но страница закрыта",
+    });
+  }
+
+  return issues;
+}
+
+export async function buildListingQualityDashboard(): Promise<ListingQualityDashboard> {
+  const db = getDb();
+  const publicCategories = filterPublicVisibleCategories(await db.select().from(categories));
+  const [categoryListingRows, filterListingRows] = await Promise.all([
+    db.select().from(listingPages).where(eq(listingPages.type, "category")),
+    db.select().from(listingPages).where(eq(listingPages.type, "filter")),
+  ]);
+
+  const categoryListingByCategoryId = new Map(
+    categoryListingRows.map(item => [item.categoryId, item] as const)
+  );
+
+  const categoryIssues = (
+    await Promise.all(
+      publicCategories.map(async category => {
+        const productCount = await countVisibleProductsForCategory(category.id);
+        const item = buildCategoryListingViewModel(
+          category,
+          categoryListingByCategoryId.get(category.id) ?? null,
+          productCount
+        );
+
+        return {
+          categoryId: category.id,
+          categoryName: category.name,
+          categorySlug: category.slug,
+          productCount: item.productCount,
+          indexationMode: item.indexationMode,
+          contentScore: item.contentScore,
+          duplicateRisk: item.duplicateRisk,
+          issues: buildCategoryQualityIssues(item),
+          url: item.url,
+        };
+      })
+    )
+  )
+    .filter(item => item.issues.length > 0)
+    .sort(
+      (a, b) =>
+        b.issues.length - a.issues.length ||
+        a.categoryName.localeCompare(b.categoryName, "ru")
+    );
+
+  const filterIssues = (
+    await Promise.all(
+      publicCategories.map(async category => {
+        const candidates = await listFilterListingCandidates(category.id);
+        return candidates
+          .map(candidate => ({
+            categoryId: category.id,
+            categoryName: category.name,
+            categorySlug: category.slug,
+            filterKey: candidate.normalizedKey,
+            filterLabel: candidate.key,
+            filterValue: candidate.value,
+            productCount: candidate.productCount,
+            duplicateRisk: candidate.duplicateRisk,
+            existingListingId: candidate.existingListingId,
+            existingIndexationMode: candidate.existingIndexationMode,
+            existingIsPublished: candidate.existingIsPublished,
+            issues: buildFilterQualityIssues(candidate),
+            url: buildFilterListingUrl(
+              category.slug,
+              candidate.normalizedKey,
+              candidate.normalizedValue
+            ),
+          }))
+          .filter(item => item.issues.length > 0);
+      })
+    )
+  )
+    .flat()
+    .sort(
+      (a, b) =>
+        b.productCount - a.productCount ||
+        a.categoryName.localeCompare(b.categoryName, "ru") ||
+        a.filterLabel.localeCompare(b.filterLabel, "ru")
+    );
+
+  const canonicalBuckets = new Map<string, ListingRow[]>();
+  for (const row of [...categoryListingRows, ...filterListingRows]) {
+    if (!row.isPublished) continue;
+    const canonical = normalizeCanonicalUrl(row.canonicalUrl ?? row.url);
+    if (!canonical) continue;
+    const bucket = canonicalBuckets.get(canonical) ?? [];
+    bucket.push(row);
+    canonicalBuckets.set(canonical, bucket);
+  }
+
+  const canonicalConflicts = Array.from(canonicalBuckets.entries())
+    .filter(([, rows]) => rows.length > 1)
+    .map(([canonicalUrl, rows]) => ({
+      canonicalUrl,
+      listings: rows.map(row => ({
+        id: row.id,
+        type: row.type,
+        categoryId: row.categoryId,
+        url: row.url,
+      })),
+    }))
+    .sort((a, b) => b.listings.length - a.listings.length || a.canonicalUrl.localeCompare(b.canonicalUrl));
+
+  const summary = {
+    totalCategories: publicCategories.length,
+    indexableCategories:
+      publicCategories.length -
+      categoryIssues.filter(item => item.issues.some(issue => issue.type === "published_noindex")).length,
+    emptyCategories: categoryIssues.filter(item =>
+      item.issues.some(issue => issue.type === "empty_category")
+    ).length,
+    categoriesMissingMeta: categoryIssues.filter(item =>
+      item.issues.some(issue => issue.type === "missing_meta")
+    ).length,
+    categoriesThinContent: categoryIssues.filter(item =>
+      item.issues.some(issue => issue.type === "thin_content")
+    ).length,
+    categoriesNeedDuplicateReview: categoryIssues.filter(item =>
+      item.issues.some(issue => issue.type === "manual_duplicate_review")
+    ).length,
+    categoriesPublishedNoindex: categoryIssues.filter(item =>
+      item.issues.some(issue => issue.type === "published_noindex")
+    ).length,
+    highDemandFilterCandidates: filterIssues.filter(item => item.productCount >= HIGH_DEMAND_FILTER_THRESHOLD).length,
+    highDemandFilterUnpublished: filterIssues.filter(item =>
+      item.issues.some(issue => issue.type === "high_demand_unpublished")
+    ).length,
+    highDemandFilterNoindex: filterIssues.filter(item =>
+      item.issues.some(issue => issue.type === "high_demand_noindex")
+    ).length,
+    highRiskFilterCandidates: filterIssues.filter(item =>
+      item.issues.some(issue => issue.type === "high_duplicate_risk")
+    ).length,
+    canonicalConflicts: canonicalConflicts.length,
+  };
+
+  return {
+    summary,
+    categoryIssues: categoryIssues.slice(0, 24),
+    filterIssues: filterIssues.slice(0, 24),
+    canonicalConflicts: canonicalConflicts.slice(0, 12),
+  };
 }

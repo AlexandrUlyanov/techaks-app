@@ -18,6 +18,7 @@ import {
   upsertDemandClusterForListingPage,
 } from "../lib/listing-demand";
 import {
+  buildListingQualityDashboard,
   buildCategoryListingUrl,
   buildCategoryListingTitle,
   buildCategoryListingViewModel,
@@ -74,6 +75,11 @@ export const listingRouter = createRouter({
     .query(async ({ input }) => {
       return resolveFilterListing(input);
     }),
+
+  getQualityDashboard: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Listing");
+    return buildListingQualityDashboard();
+  }),
 
   listCategoryListings: protectedProcedure
     .input(
@@ -342,15 +348,19 @@ export const listingRouter = createRouter({
       if (!target || !target.filterKey || !target.filterValue) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Листинг не найден." });
       }
+      const filterKey = target.filterKey;
+      const filterValue = target.filterValue;
+      const filterLabel = target.filterLabel || filterKey;
+      const filterValueLabel = target.filterValueLabel || filterValue;
 
       const listing = await ensureFilterListingPage(
         target.category,
         target.listing,
         {
-          filterKey: target.filterKey,
-          filterValue: target.filterValue,
-          filterLabel: target.filterLabel ?? target.filterKey,
-          filterValueLabel: target.filterValueLabel ?? target.filterValue,
+          filterKey,
+          filterValue,
+          filterLabel,
+          filterValueLabel,
         },
         ctx.user.id
       );
@@ -644,7 +654,25 @@ async function resolveListingDemandTarget(input: {
   categoryId: number;
   filterKey?: string;
   filterValue?: string;
-}) {
+}): Promise<
+  | {
+      category: typeof categories.$inferSelect;
+      listing: typeof listingPages.$inferSelect | null;
+      filterKey: string;
+      filterValue: string;
+      filterLabel: string;
+      filterValueLabel: string;
+    }
+  | {
+      category: typeof categories.$inferSelect;
+      listing: typeof listingPages.$inferSelect | null;
+      filterKey: null;
+      filterValue: null;
+      filterLabel: null;
+      filterValueLabel: null;
+    }
+  | null
+> {
   const db = getDb();
   const [category] = await db
     .select()

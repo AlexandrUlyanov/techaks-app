@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   FileSearch,
   Loader2,
   Search,
@@ -182,9 +183,14 @@ export default function AdminListings() {
   const listingsQuery = trpc.listing.listCategoryListings.useQuery({
     search: search.trim() || undefined,
   });
+  const qualityDashboardQuery = trpc.listing.getQualityDashboard.useQuery(undefined, {
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   const items = useMemo(() => listingsQuery.data?.items ?? [], [listingsQuery.data?.items]);
   const summary = listingsQuery.data?.summary;
+  const qualityDashboard = qualityDashboardQuery.data;
 
   useEffect(() => {
     if (!items.length) {
@@ -519,6 +525,7 @@ export default function AdminListings() {
               onClick={() => {
                 listingsQuery.refetch();
                 filterCandidatesQuery.refetch();
+                qualityDashboardQuery.refetch();
               }}
               className="inline-flex items-center justify-center rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:border-[var(--tech-color-primary)] hover:text-[var(--tech-color-primary)]"
             >
@@ -558,6 +565,187 @@ export default function AdminListings() {
           tone="warning"
         />
       </div>
+
+      <AdminSection
+        title="Качество листингов"
+        description="Быстрый operational-срез по category pages, single-filter pages и canonical-конфликтам. Здесь видно, что реально мешает росту спросовых листингов."
+      >
+        {qualityDashboardQuery.isLoading ? (
+          <div className="flex items-center gap-3 rounded-3xl bg-[var(--tech-color-surface-muted)] px-4 py-5 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Собираем quality dashboard по листингам...
+          </div>
+        ) : qualityDashboardQuery.error ? (
+          <div className="rounded-3xl bg-rose-50 px-4 py-5 text-sm text-rose-700">
+            {qualityDashboardQuery.error.message}
+          </div>
+        ) : qualityDashboard ? (
+          <div className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <AdminStatCard
+                label="Пустые категории"
+                value={qualityDashboard.summary.emptyCategories}
+                hint="Нужна чистка или скрытие"
+                icon={DatabaseZap}
+                tone={qualityDashboard.summary.emptyCategories > 0 ? "warning" : "default"}
+              />
+              <AdminStatCard
+                label="Не хватает meta"
+                value={qualityDashboard.summary.categoriesMissingMeta}
+                hint="Title / Description / H1"
+                icon={Type}
+                tone={qualityDashboard.summary.categoriesMissingMeta > 0 ? "warning" : "default"}
+              />
+              <AdminStatCard
+                label="Сильные фильтры без публикации"
+                value={qualityDashboard.summary.highDemandFilterUnpublished}
+                hint="Есть спрос, но нет indexable page"
+                icon={TrendingUp}
+                tone={
+                  qualityDashboard.summary.highDemandFilterUnpublished > 0
+                    ? "warning"
+                    : "success"
+                }
+              />
+              <AdminStatCard
+                label="Canonical-конфликты"
+                value={qualityDashboard.summary.canonicalConflicts}
+                hint="Несколько страниц делят один canonical"
+                icon={AlertTriangle}
+                tone={
+                  qualityDashboard.summary.canonicalConflicts > 0 ? "warning" : "success"
+                }
+              />
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-3">
+              <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                <div className="text-sm font-black text-foreground">Категории в работе</div>
+                <div className="mt-3 space-y-3">
+                  {qualityDashboard.categoryIssues.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      Сейчас проблемных category pages не найдено.
+                    </div>
+                  ) : (
+                    qualityDashboard.categoryIssues.slice(0, 6).map(item => (
+                      <button
+                        key={`category-quality-${item.categoryId}`}
+                        type="button"
+                        onClick={() => {
+                          setEditorMode("category");
+                          setSelectedCategoryId(item.categoryId);
+                        }}
+                        className="w-full rounded-2xl bg-background px-4 py-3 text-left transition hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_35%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,white)]"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-foreground">
+                              {item.categoryName}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {item.productCount} товаров
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                            {item.indexationMode}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {item.issues.map(issue => (
+                            <span
+                              key={`${item.categoryId}-${issue.type}`}
+                              className="rounded-full bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground border border-border"
+                            >
+                              {issue.label}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                <div className="text-sm font-black text-foreground">Перспективные filter pages</div>
+                <div className="mt-3 space-y-3">
+                  {qualityDashboard.filterIssues.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      Сейчас сильных проблем по single-filter страницам не видно.
+                    </div>
+                  ) : (
+                    qualityDashboard.filterIssues.slice(0, 6).map(item => (
+                      <button
+                        key={`filter-quality-${item.categoryId}-${item.filterKey}-${item.filterValue}`}
+                        type="button"
+                        onClick={() => {
+                          setEditorMode("filter");
+                          setSelectedCategoryId(item.categoryId);
+                          setSelectedFilterComposite(`${item.filterKey}:${item.filterValue}`);
+                        }}
+                        className="w-full rounded-2xl bg-background px-4 py-3 text-left transition hover:border-[color:color-mix(in_srgb,var(--tech-color-primary)_35%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_4%,white)]"
+                      >
+                        <div className="font-semibold text-foreground">{item.categoryName}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {item.filterLabel}: {item.filterValue}
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {item.productCount} товаров
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {item.issues.map(issue => (
+                            <span
+                              key={`${item.categoryId}-${item.filterKey}-${item.filterValue}-${issue.type}`}
+                              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+                            >
+                              {issue.label}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-[var(--tech-color-surface-muted)] p-4">
+                <div className="text-sm font-black text-foreground">Canonical-конфликты</div>
+                <div className="mt-3 space-y-3">
+                  {qualityDashboard.canonicalConflicts.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      Конфликтов canonical сейчас не найдено.
+                    </div>
+                  ) : (
+                    qualityDashboard.canonicalConflicts.slice(0, 5).map(conflict => (
+                      <div
+                        key={conflict.canonicalUrl}
+                        className="rounded-2xl bg-background px-4 py-3"
+                      >
+                        <div className="break-all text-xs font-semibold text-foreground">
+                          {conflict.canonicalUrl}
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {conflict.listings.length} страниц делят этот canonical
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {conflict.listings.slice(0, 3).map(item => (
+                            <span
+                              key={`${conflict.canonicalUrl}-${item.id}`}
+                              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+                            >
+                              {item.type} #{item.id}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </AdminSection>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
         <AdminSection
