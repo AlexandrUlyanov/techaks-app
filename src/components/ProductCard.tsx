@@ -35,7 +35,7 @@ interface ProductCardProps {
     rating?: string | number | null;
     reviewCount?: number | null;
     inStock?: boolean | null;
-    specs?: Record<string, unknown> | null;
+    specs?: Record<string, unknown> | unknown | null;
   };
   variant?: "grid" | "list";
   imagePriority?: boolean;

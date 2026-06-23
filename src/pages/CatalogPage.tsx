@@ -51,16 +51,10 @@ import {
   buildCategorySeoCopy,
   buildRootCatalogSeoCopy,
 } from "@contracts/seo-copy";
+import { resolveCatalogIndexationPolicy } from "@contracts/listing-indexation";
 
 const PRODUCT_PAGE_SIZE = 28;
 const INITIAL_CATEGORY_SHELF_COUNT = 8;
-
-function normalizeCanonical(input?: string | null) {
-  const value = input?.trim();
-  if (!value) return null;
-  if (value.startsWith("http://") || value.startsWith("https://")) return value;
-  return value.startsWith("/") ? value : `/${value}`;
-}
 
 function formatProductCount(count: number) {
   const mod10 = count % 10;
@@ -580,10 +574,10 @@ export default function CatalogPage() {
     }
     if (activeCategory === "all" || !currentCategory) return [];
     const trail = [];
-    let curr: typeof currentCategory = currentCategory;
+    let curr: typeof currentCategory | undefined = currentCategory;
     while (curr) {
       trail.unshift(curr);
-      const pid = curr.parentId;
+      const pid: number | null = curr.parentId;
       curr = categories.find(c => c.id === pid);
     }
     return trail;
@@ -651,44 +645,28 @@ export default function CatalogPage() {
         rootCatalogSeo.description
       : rootCatalogSeo.description;
 
-  const listingCanonical = normalizeCanonical(activeListing?.canonicalUrl);
-
-  const seoCanonicalPath = (() => {
-    if (
-      catalogView === "categories" &&
-      activeCategory !== "all" &&
-      selectedFilters.length === 1 &&
-      !publicFilterListing
-    ) {
-      return `/catalog?cat=${encodeURIComponent(activeCategory)}`;
-    }
-
-    if (listingCanonical && !listingCanonical.startsWith("http")) {
-      return listingCanonical;
-    }
-
-    if (catalogView === "brands" && activeBrand) {
-      return `/catalog?view=brands&brand=${encodeURIComponent(activeBrand)}`;
-    }
-
-    if (activeCategory !== "all") {
-      return `/catalog?cat=${encodeURIComponent(activeCategory)}`;
-    }
-
-    if (catalogView === "brands") {
-      return "/catalog?view=brands";
-    }
-
-    return "/catalog";
-  })();
-
-  const shouldNoindexCatalog =
-    selectedFilters.length > 1 ||
-    sortBy !== "default" ||
-    viewMode !== "grid" ||
-    forceProductsView ||
-    activeListing?.indexationMode === "noindex" ||
-    (selectedFilters.length === 1 && !publicFilterListing);
+  const listingIndexationPolicy = resolveCatalogIndexationPolicy({
+    catalogView,
+    activeCategory,
+    activeBrand,
+    selectedFiltersCount: selectedFilters.length,
+    singleFilter: primarySelectedFilter
+      ? {
+          filterKey: primarySelectedFilter.normalizedKey,
+          filterValue: primarySelectedFilter.normalizedValue,
+        }
+      : null,
+    approvedSingleFilter: Boolean(publicFilterListing),
+    sortBy,
+    viewMode,
+    forceProductsView,
+    listingIndexationMode: activeListing?.indexationMode ?? null,
+    listingCanonicalUrl: activeListing?.canonicalUrl ?? null,
+    hasProducts:
+      isProductListingPage || catalogView === "brands"
+        ? currentResultCount > 0
+        : true,
+  });
 
   const seoStructuredData = useMemo(() => {
     const breadcrumbItems =
@@ -698,7 +676,10 @@ export default function CatalogPage() {
             ...(activeBrand
               ? [
                   { name: "Производители", path: "/catalog?view=brands" },
-                  { name: currentManufacturer?.name || "Производитель", path: seoCanonicalPath },
+                  {
+                    name: currentManufacturer?.name || "Производитель",
+                    path: listingIndexationPolicy.canonicalPath,
+                  },
                 ]
               : [{ name: "Производители", path: "/catalog?view=brands" }]),
           ]
@@ -716,9 +697,8 @@ export default function CatalogPage() {
       name: headerTitle,
       description: seoDescription,
       url:
-        listingCanonical && listingCanonical.startsWith("http")
-          ? listingCanonical
-          : `https://techaks.ru${seoCanonicalPath}`,
+        listingIndexationPolicy.canonicalUrl ??
+          `https://techaks.ru${listingIndexationPolicy.canonicalPath}`,
     };
 
     if (visibleProducts.length > 0) {
@@ -743,8 +723,8 @@ export default function CatalogPage() {
     catalogView,
     currentManufacturer?.name,
     headerTitle,
-    listingCanonical,
-    seoCanonicalPath,
+    listingIndexationPolicy.canonicalPath,
+    listingIndexationPolicy.canonicalUrl,
     seoDescription,
     visibleProducts,
   ]);
@@ -752,9 +732,9 @@ export default function CatalogPage() {
   useSeo({
     title: seoTitle,
     description: seoDescription,
-    canonicalPath: seoCanonicalPath,
-    canonicalUrl: listingCanonical && listingCanonical.startsWith("http") ? listingCanonical : undefined,
-    noindex: shouldNoindexCatalog,
+    canonicalPath: listingIndexationPolicy.canonicalPath,
+    canonicalUrl: listingIndexationPolicy.canonicalUrl,
+    noindex: listingIndexationPolicy.shouldNoindex,
     structuredData: seoStructuredData,
   });
 

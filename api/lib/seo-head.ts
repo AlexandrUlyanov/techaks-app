@@ -9,6 +9,7 @@ import {
   buildRootCatalogSeoCopy,
   toSeoReadableName,
 } from "@contracts/seo-copy";
+import { resolveCatalogIndexationPolicy } from "@contracts/listing-indexation";
 import {
   buildBrandCatalogUrl,
   buildCatalogCategoryUrl,
@@ -24,9 +25,7 @@ import {
 
 import { getDb } from "../queries/connection";
 import {
-  normalizeCanonicalUrl,
   resolveFilterListing,
-  shouldNoindexCategoryListing,
 } from "./listing-pages";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
 import { getPublicSiteProfile } from "./site-profile-settings";
@@ -1423,32 +1422,29 @@ async function buildCatalogSeoData(url: URL) {
       : "",
   ].join("");
 
-  const listingCanonical = normalizeCanonicalUrl(activeListing?.canonicalUrl);
-  const canonicalUrl =
-    listingCanonical && listingCanonical.startsWith("http")
-      ? listingCanonical
-      : `${SEO_HOST}${
-          listingCanonical ||
-          (singleFilter && !filterListing
-            ? `/catalog?cat=${encodeURIComponent(activeCategory)}`
-            : singleFilter
-              ? `/catalog?cat=${encodeURIComponent(activeCategory)}&filter=${encodeURIComponent(
-                  `${singleFilter.filterKey}:${singleFilter.filterValue}`
-                )}`
-              : `/catalog?cat=${encodeURIComponent(activeCategory)}`)
-        }`;
+  const listingIndexationPolicy = resolveCatalogIndexationPolicy({
+    catalogView,
+    activeCategory,
+    activeBrand,
+    selectedFiltersCount: activeFilters.length,
+    singleFilter,
+    approvedSingleFilter: Boolean(filterListing),
+    sortBy: searchParams.get("sort") || "default",
+    viewMode: searchParams.get("layout") || "grid",
+    forceProductsView,
+    listingIndexationMode: activeListing?.indexationMode ?? null,
+    listingCanonicalUrl: activeListing?.canonicalUrl ?? null,
+    hasProducts: true,
+  });
+  const canonicalUrl = listingIndexationPolicy.canonicalUrl
+    ? listingIndexationPolicy.canonicalUrl
+    : `${SEO_HOST}${listingIndexationPolicy.canonicalPath}`;
 
   return buildBasePageData(`/catalog?cat=${encodeURIComponent(activeCategory)}`, {
     title,
     description,
     canonicalUrl,
-    noindex:
-      activeFilters.length > 1 ||
-      hasLayout ||
-      hasSort ||
-      forceProductsView ||
-      shouldNoindexCategoryListing(activeListing?.indexationMode) ||
-      (Boolean(singleFilter) && !filterListing),
+    noindex: listingIndexationPolicy.shouldNoindex,
     structuredData: [
       buildBreadcrumbStructuredData(breadcrumbItems),
       {
@@ -2050,7 +2046,7 @@ async function buildLocalLandingSeoData(url: URL) {
   }));
   const relatedItems = landing.relatedSlugs
     .map(itemSlug => getLocalSeoLandingBySlug(itemSlug))
-    .filter(Boolean)
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .map(item => ({
       name: item.h1,
       url: `${SEO_HOST}${buildLocalLandingUrl(item.slug)}`,
