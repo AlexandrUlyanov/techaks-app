@@ -177,7 +177,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
         <div className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div
-              className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+              className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3"
               role="tablist"
               aria-label="Подборки промо-витрины"
               onKeyDown={handleTabsKeyDown}
@@ -195,7 +195,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                     aria-controls={`promo-showcase-panel-${activeTab.id}`}
                     tabIndex={isActive ? 0 : -1}
                     onClick={() => handleTabSelect(tab)}
-                    className={`inline-flex min-h-12 shrink-0 items-center justify-center rounded-2xl px-6 py-4 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                    className={`inline-flex min-h-11 w-full items-center justify-center rounded-2xl px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.22em] transition-colors sm:min-h-12 sm:w-auto sm:px-6 sm:py-4 sm:text-[11px] sm:tracking-widest ${
                       isActive
                         ? "bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2]"
                         : "border border-black/10 bg-white/70 text-slate-900 hover:bg-black/5 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
@@ -217,7 +217,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   href: activeTab.href,
                 })
               }
-              className="inline-flex min-h-12 shrink-0 items-center justify-center self-start rounded-2xl border border-black/10 bg-white/70 px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-900 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus-visible:ring-offset-[#11161c] lg:self-auto"
+              className="order-first inline-flex min-h-10 items-center justify-center self-end rounded-full px-1 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-900 transition-colors hover:text-[#05C3D4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:hover:text-[#4EE7F1] dark:focus-visible:ring-offset-[#11161c] lg:order-none lg:self-auto"
             >
               Смотреть все акции
             </Link>
