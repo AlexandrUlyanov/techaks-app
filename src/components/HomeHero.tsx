@@ -1,11 +1,14 @@
+import { lazy, Suspense } from "react";
 import Hero from "@/components/Hero";
 import HeroPromoDynamic from "@/components/HeroPromoDynamic";
 import HeroPromoShowcase from "@/components/HeroPromoShowcase";
 
+const HeroPromoShowcase3D = lazy(() => import("@/components/HeroPromoShowcase3D"));
+
 type HomeHeroProps = {
   loading?: boolean;
   hero?: {
-    variant: "classic" | "interactive" | "promo_showcase";
+    variant: "classic" | "interactive" | "promo_showcase" | "promo_showcase_3d";
     slides: Array<
       | {
           id: string;
@@ -195,6 +198,14 @@ export default function HomeHero({ hero, loading = false }: HomeHeroProps) {
 
   if (hero?.variant === "promo_showcase" && hero.showcase) {
     return <HeroPromoShowcase showcase={hero.showcase} />;
+  }
+
+  if (hero?.variant === "promo_showcase_3d" && hero.showcase) {
+    return (
+      <Suspense fallback={<HeroPromoShowcase showcase={hero.showcase} />}>
+        <HeroPromoShowcase3D showcase={hero.showcase} />
+      </Suspense>
+    );
   }
 
   return <Hero />;

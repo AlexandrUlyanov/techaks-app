@@ -30,6 +30,7 @@ import AdminSection from "@/components/admin/AdminSection";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import HeroPromoDynamic, { type HeroData, type HeroSlide } from "@/components/HeroPromoDynamic";
 import HeroPromoShowcase from "@/components/HeroPromoShowcase";
+import HeroPromoShowcase3D from "@/components/HeroPromoShowcase3D";
 
 type SettingsTab = "profile" | "access" | "ai" | "integrations" | "payment" | "site";
 
@@ -415,7 +416,7 @@ export default function AdminSettings() {
   const [maintenanceReopenDate, setMaintenanceReopenDate] = useState("");
   const [reservationDurationMinutes, setReservationDurationMinutes] = useState(180);
   const [homepageHeroVariant, setHomepageHeroVariant] = useState<
-    "classic" | "interactive" | "promo_showcase"
+    "classic" | "interactive" | "promo_showcase" | "promo_showcase_3d"
   >("classic");
   const [homepageHeroSlides, setHomepageHeroSlides] = useState<HomepageHeroSlideForm[]>(
     []
@@ -470,7 +471,10 @@ export default function AdminSettings() {
   );
   const { data: homepagePromoShowcasePreview, isFetching: isPromoShowcasePreviewFetching } =
     trpc.settings.getHomepagePromoShowcasePreview.useQuery(deferredHomepagePromoShowcase, {
-      enabled: activeTab === "site" && homepageHeroVariant === "promo_showcase",
+      enabled:
+        activeTab === "site" &&
+        (homepageHeroVariant === "promo_showcase" ||
+          homepageHeroVariant === "promo_showcase_3d"),
       staleTime: 0,
       gcTime: 0,
     });
@@ -2230,19 +2234,21 @@ export default function AdminSettings() {
                     </div>
                   ) : null}
                 </div>
-              ) : homepageHeroVariant === "promo_showcase" ? (
+              ) : homepageHeroVariant === "promo_showcase" ||
+                homepageHeroVariant === "promo_showcase_3d" ? (
                 <div className="space-y-5">
                   <div className="grid gap-5 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
                     <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5">
                       <div>
                         <div className="text-sm font-black text-[#15171A]">
-                          Умная промо-витрина
+                          {homepageHeroVariant === "promo_showcase_3d"
+                            ? "3D промо-витрина"
+                            : "Умная промо-витрина"}
                         </div>
                         <p className="mt-2 text-sm leading-6 text-gray-500">
-                          Этот режим автоматически собирает hero из скидочных товаров. Сейчас
-                          витрина на главной показывает только табы сценариев и товарный
-                          слайдер в стиле блока «Товары недели» без category-rail, spotlight
-                          и лишнего текста.
+                          {homepageHeroVariant === "promo_showcase_3d"
+                            ? "Этот режим использует ту же подборку скидочных товаров, но выводит её в объёмной hero-сцене с плавающими карточками, ручным переключением табов и акцентом на вау-эффект."
+                            : "Этот режим автоматически собирает hero из скидочных товаров. Сейчас витрина на главной показывает только табы сценариев и товарный слайдер в стиле блока «Товары недели» без category-rail, spotlight и лишнего текста."}
                         </p>
                       </div>
 
@@ -2301,9 +2307,9 @@ export default function AdminSettings() {
                       </div>
 
                       <div className="rounded-2xl border border-[#05C3D4]/16 bg-[#EAFBFD] px-4 py-4 text-sm leading-6 text-slate-700">
-                        Закреплённые товары теперь не рендерятся отдельным главным блоком.
-                        Они просто получают приоритет при сборке карточек внутри табов.
-                        Исключённые позиции не попадут ни в один сценарий.
+                        Закреплённые товары не выводятся отдельным главным блоком. Они
+                        получают приоритет внутри витрины, а исключённые позиции не попадут
+                        ни в один сценарий.
                       </div>
                     </div>
 
@@ -2324,7 +2330,11 @@ export default function AdminSettings() {
 
                       {homepagePromoShowcasePreview ? (
                         <div className="overflow-hidden rounded-[28px] border border-gray-100">
-                          <HeroPromoShowcase showcase={homepagePromoShowcasePreview} />
+                          {homepageHeroVariant === "promo_showcase_3d" ? (
+                            <HeroPromoShowcase3D showcase={homepagePromoShowcasePreview} />
+                          ) : (
+                            <HeroPromoShowcase showcase={homepagePromoShowcasePreview} />
+                          )}
                         </div>
                       ) : (
                         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
@@ -2579,6 +2589,8 @@ export default function AdminSettings() {
                   ? "визуальный promo-hero со слайдами"
                   : homepageHeroVariant === "promo_showcase"
                     ? "умная promo-витрина скидочных товаров"
+                    : homepageHeroVariant === "promo_showcase_3d"
+                      ? "3D promo-витрина скидочных товаров"
                     : "классический hero (текущая версия)"}.
                 {homepageHeroSettings?.isDefault ? (
                   <span>

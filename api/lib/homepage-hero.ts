@@ -20,7 +20,12 @@ import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 
 const HERO_CONTENT_KEY = "homepage_hero_content";
 
-const heroVariantSchema = z.enum(["classic", "interactive", "promo_showcase"]);
+const heroVariantSchema = z.enum([
+  "classic",
+  "interactive",
+  "promo_showcase",
+  "promo_showcase_3d",
+]);
 const heroSlideTypeSchema = z.enum(["products", "promo", "categories", "brands"]);
 const heroSlideThemeSchema = z.enum(["light", "soft-cyan", "mesh", "dark"]);
 
@@ -165,7 +170,7 @@ export type HomepageHeroStorefrontSlide =
     });
 
 export type HomepageHeroStorefrontData = {
-  variant: "classic" | "interactive" | "promo_showcase";
+  variant: "classic" | "interactive" | "promo_showcase" | "promo_showcase_3d";
   slides: HomepageHeroStorefrontSlide[];
   showcase?: HomepagePromoShowcaseStorefrontData | null;
   diagnostics: {
@@ -321,7 +326,8 @@ export async function getHomepageHeroAdminSettings(): Promise<HomepageHeroAdminS
     variant:
       storedVariant === "interactive" ||
       storedVariant === "classic" ||
-      storedVariant === "promo_showcase"
+      storedVariant === "promo_showcase" ||
+      storedVariant === "promo_showcase_3d"
         ? storedVariant
         : parsed.variant,
   };
@@ -564,7 +570,7 @@ async function resolveSlide(
 export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroStorefrontData> {
   const settings = await getHomepageHeroAdminSettings();
 
-  if (settings.variant === "promo_showcase") {
+  if (settings.variant === "promo_showcase" || settings.variant === "promo_showcase_3d") {
     let showcase = null;
     try {
       showcase = await buildHomepagePromoShowcaseData(settings.promoShowcase);
@@ -575,7 +581,7 @@ export async function buildHomepageHeroStorefrontData(): Promise<HomepageHeroSto
 
     if (showcase) {
       return {
-        variant: "promo_showcase",
+        variant: settings.variant,
         slides: [],
         showcase,
         diagnostics: {

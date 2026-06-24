@@ -102,7 +102,12 @@ const siteProfileSettingsSchema = z.object({
   }),
 });
 
-const homepageHeroVariantSchema = z.enum(["classic", "interactive", "promo_showcase"]);
+const homepageHeroVariantSchema = z.enum([
+  "classic",
+  "interactive",
+  "promo_showcase",
+  "promo_showcase_3d",
+]);
 const loyaltySettingsInputSchema = z.object({
   enabled: z.boolean(),
   groupName: z.string().trim().min(2).max(120).default("техакс"),
@@ -369,6 +374,12 @@ export const settingsRouter = createRouter({
           label: "Умная промо-витрина",
           description:
             "Автоматическая premium-витрина скидочных товаров: вкладки сценариев, чемпионы скидок, выбор ТЕХАКС и быстрый переход в промо-каталог.",
+        },
+        {
+          value: "promo_showcase_3d" as const,
+          label: "3D промо-витрина",
+          description:
+            "Объёмная hero-сцена с плавающими карточками скидочных товаров, ручным переключением табов и акцентом на вау-эффект без тяжёлого текстового блока.",
         },
       ],
     };
