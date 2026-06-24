@@ -89,16 +89,10 @@ export default function HomeSecondarySections({
               accent="в наличии"
               description="Выбирайте технику и аксессуары от проверенных производителей"
               action={
-                <Link
+                <HomeSectionActionLink
                   to="/catalog?view=brands"
-                  className="group inline-flex w-fit items-center gap-3 self-start rounded-full border border-[rgba(5,195,212,0.22)] bg-white/65 px-6 py-4 text-sm font-bold text-[#111827] transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:border-[rgba(5,195,212,0.35)] hover:bg-[rgba(5,195,212,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[#F8FAFC] motion-reduce:transform-none motion-reduce:transition-none dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06] dark:hover:border-[#05C3D4]/35 dark:focus-visible:ring-offset-[#171A1E]"
-                >
-                  <span>Все производители</span>
-                  <ArrowRight
-                    size={18}
-                    className="text-[#05C3D4] transition-transform duration-200 group-hover:translate-x-0.5 dark:text-[#27E6F2] motion-reduce:transform-none motion-reduce:transition-none"
-                  />
-                </Link>
+                  label="Все производители"
+                />
               }
             />
 
