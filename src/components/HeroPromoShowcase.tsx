@@ -228,7 +228,7 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
             id={`promo-showcase-panel-${activeTab.id}`}
             role="tabpanel"
             aria-labelledby={`promo-showcase-tab-${activeTab.id}`}
-            className="min-h-[31rem] rounded-[34px] bg-white/40 p-0 backdrop-blur-xl transition-[min-height] duration-200 dark:bg-white/5 sm:min-h-[33rem] lg:min-h-[35rem]"
+            className="min-h-[31rem] p-0 transition-[min-height] duration-200 sm:min-h-[33rem] lg:min-h-[35rem]"
           >
             <div className="px-1 pb-2 pt-1 sm:px-0 sm:pb-0 sm:pt-0">
               <Carousel
