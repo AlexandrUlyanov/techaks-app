@@ -6,6 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
 import HomeSectionHeading from "./HomeSectionHeading";
+import HomeSectionActionLink from "./HomeSectionActionLink";
 
 const defaultReviews = [
   {
@@ -285,12 +286,7 @@ export default function HomeSecondarySections({
               accent="обзоры"
               className="mb-16"
               action={
-                <Link
-                  to="/blog"
-                  className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
-                >
-                  Читать все статьи
-                </Link>
+                <HomeSectionActionLink to="/blog" label="Читать все статьи" />
               }
             />
 
@@ -341,12 +337,7 @@ export default function HomeSecondarySections({
             accent="товары"
             className="mb-16"
             action={
-              <Link
-                to="/catalog"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
-              >
-                Смотреть весь каталог
-              </Link>
+              <HomeSectionActionLink to="/catalog" label="Смотреть весь каталог" />
             }
           />
 

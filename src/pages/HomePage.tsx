@@ -15,6 +15,7 @@ import {
   buildWebsiteStructuredData,
 } from "@/lib/seo-structured";
 import HomeSectionHeading from "@/components/home/HomeSectionHeading";
+import HomeSectionActionLink from "@/components/home/HomeSectionActionLink";
 import {
   Carousel,
   CarouselContent,
@@ -145,12 +146,7 @@ export default function HomePage() {
             accent="товаров"
             className="mb-16"
             action={
-              <Link
-                to="/catalog"
-                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
-              >
-                Смотреть все разделы
-              </Link>
+              <HomeSectionActionLink to="/catalog" label="Смотреть все разделы" />
             }
           />
 
@@ -194,12 +190,7 @@ export default function HomePage() {
               accent="недели"
               className="mb-10"
               action={
-                <Link
-                  to="/catalog"
-                  className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-[#05C3D4] transition-colors"
-                >
-                  Смотреть весь каталог
-                </Link>
+                <HomeSectionActionLink to="/catalog" label="Смотреть весь каталог" />
               }
             />
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router";
 import { trackHomepagePromoShowcase } from "@/lib/yandex-metrika";
 import ProductCard from "@/components/ProductCard";
+import HomeSectionActionLink from "@/components/home/HomeSectionActionLink";
 import {
   Carousel,
   CarouselContent,
@@ -176,8 +176,9 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
       <div className="container-main relative z-10 py-8 md:py-10 lg:py-12">
         <div className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <Link
+            <HomeSectionActionLink
               to={activeTab.href}
+              label="Смотреть все акции"
               onClick={() =>
                 trackHomepagePromoShowcase({
                   action: "primary_cta_click",
@@ -186,11 +187,8 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                   href: activeTab.href,
                 })
               }
-              className="order-first inline-flex min-h-8 items-center justify-end self-end text-[11px] font-black uppercase tracking-[0.22em] text-slate-900 transition-colors hover:text-[#05C3D4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:hover:text-[#4EE7F1] dark:focus-visible:ring-offset-[#11161c] lg:order-none lg:min-h-10 lg:self-auto"
-            >
-              Смотреть все акции
-              <span className="ml-2 text-[#05C3D4]">→</span>
-            </Link>
+              className="order-first min-h-8 self-end lg:order-none lg:min-h-10 lg:self-auto"
+            />
 
             <div
               className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3"
