@@ -176,6 +176,22 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
       <div className="container-main relative z-10 py-8 md:py-10 lg:py-12">
         <div className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <Link
+              to={activeTab.href}
+              onClick={() =>
+                trackHomepagePromoShowcase({
+                  action: "primary_cta_click",
+                  tabId: activeTab.id,
+                  tabLabel: activeTab.label,
+                  href: activeTab.href,
+                })
+              }
+              className="order-first inline-flex min-h-8 items-center justify-end self-end text-[11px] font-black uppercase tracking-[0.22em] text-slate-900 transition-colors hover:text-[#05C3D4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:hover:text-[#4EE7F1] dark:focus-visible:ring-offset-[#11161c] lg:order-none lg:min-h-10 lg:self-auto"
+            >
+              Смотреть все акции
+              <span className="ml-2 text-[#05C3D4]">→</span>
+            </Link>
+
             <div
               className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3"
               role="tablist"
@@ -206,31 +222,17 @@ export default function HeroPromoShowcase({ showcase }: HeroPromoShowcaseProps) 
                 );
               })}
             </div>
-
-            <Link
-              to={activeTab.href}
-              onClick={() =>
-                trackHomepagePromoShowcase({
-                  action: "primary_cta_click",
-                  tabId: activeTab.id,
-                  tabLabel: activeTab.label,
-                  href: activeTab.href,
-                })
-              }
-              className="order-first inline-flex min-h-10 items-center justify-center self-end rounded-full px-1 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-900 transition-colors hover:text-[#05C3D4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-white dark:hover:text-[#4EE7F1] dark:focus-visible:ring-offset-[#11161c] lg:order-none lg:self-auto"
-            >
-              Смотреть все акции
-            </Link>
           </div>
 
           <div
             id={`promo-showcase-panel-${activeTab.id}`}
             role="tabpanel"
             aria-labelledby={`promo-showcase-tab-${activeTab.id}`}
-            className="rounded-[34px] bg-white/40 p-0 backdrop-blur-xl dark:bg-white/5"
+            className="min-h-[31rem] rounded-[34px] bg-white/40 p-0 backdrop-blur-xl transition-[min-height] duration-200 dark:bg-white/5 sm:min-h-[33rem] lg:min-h-[35rem]"
           >
             <div className="px-1 pb-2 pt-1 sm:px-0 sm:pb-0 sm:pt-0">
               <Carousel
+                key={activeTab.id}
                 opts={{
                   align: "start",
                   loop: featuredProducts.length > 4,
