@@ -54,6 +54,7 @@ export type PromoShowcaseHeroCard = {
   price: number;
   oldPrice: number | null;
   image: string;
+  variantPreviewImages?: unknown;
   badge: string | null;
   inStock: boolean;
   categoryName?: string | null;
@@ -112,6 +113,7 @@ type CandidateSourceRow = {
   price: number;
   oldPrice: number | null;
   image: string;
+  variantPreviewImages?: unknown;
   badge: string | null;
   inStock: boolean;
   categoryName?: string | null;
@@ -152,6 +154,7 @@ function normalizeHeroCardRows(rows: any[]): PromoShowcaseHeroCard[] {
       price: row.price,
       oldPrice: row.oldPrice ?? null,
       image: row.image,
+      variantPreviewImages: row.variantPreviewImages ?? [],
       badge: row.badge ?? null,
       inStock: Boolean(row.inStock),
       categoryName: row.categoryName ?? null,
@@ -207,6 +210,7 @@ function mapRowsToCandidates(rows: CandidateSourceRow[]): DiscountCandidate[] {
         price: row.price,
         oldPrice,
         image: row.image,
+        variantPreviewImages: row.variantPreviewImages ?? [],
         badge: row.badge ?? null,
         inStock: Boolean(row.inStock),
         categoryName: row.categoryName ?? null,
@@ -306,6 +310,7 @@ function buildTab(
       price: product.price,
       oldPrice: product.oldPrice,
       image: product.image,
+      variantPreviewImages: product.variantPreviewImages ?? [],
       badge: product.badge ?? "Акция",
       inStock: product.inStock,
       categoryName: product.categoryName,
