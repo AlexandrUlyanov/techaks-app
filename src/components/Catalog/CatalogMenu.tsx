@@ -1,5 +1,5 @@
 import { useRef, useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { trpc } from "@/providers/trpc";
 import {
   X,
@@ -8,11 +8,6 @@ import {
   ChevronLeft,
   ArrowRight,
   LayoutGrid,
-  Sparkles,
-  Tag,
-  Star,
-  PackageCheck,
-  Store,
 } from "lucide-react";
 import type {
   CategoryGroup,
@@ -24,7 +19,6 @@ import { useCatalog } from "@/providers/CatalogProvider";
 import { useMediaQuery, useBodyScrollLock } from "@/hooks/use-catalog-menu";
 import { CategoryIcon } from "@/lib/category-icons";
 import { formatCategoryLabel } from "@/lib/category-labels";
-import { applyProductImageFallback, getProductCardImageProps } from "@/lib/product-images";
 
 const IconWrapper = ({
   title,
@@ -56,33 +50,6 @@ const Badge = ({ type }: { type?: string }) => {
   );
 };
 
-const desktopScenarioLinks = [
-  {
-    id: "sale",
-    label: "Скидки",
-    href: "/promotions",
-    icon: Tag,
-  },
-  {
-    id: "picks",
-    label: "Выбор ТЕХАКС",
-    href: "/promotions",
-    icon: Star,
-  },
-  {
-    id: "instock",
-    label: "В наличии",
-    href: "/catalog",
-    icon: PackageCheck,
-  },
-  {
-    id: "stores",
-    label: "Магазины",
-    href: "/stores",
-    icon: Store,
-  },
-] as const;
-
 // --- Trigger Component ---
 
 export function CatalogTrigger({ className = "" }: { className?: string }) {
@@ -113,30 +80,12 @@ export function CatalogTrigger({ className = "" }: { className?: string }) {
 const DesktopCatalog = () => {
   const menu = useCatalog();
   const hoverTimeout = useRef<any>(null);
+  const navigate = useNavigate();
   const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
   const hasAnyCategoryGroups = categoryGroups.length > 0;
   const showLeafCategoryFilters = !hasAnyCategoryGroups;
-  const highlightedGroups = useMemo(
-    () => categoryGroups.slice(0, 6),
-    [categoryGroups]
-  );
-  const highlightedGroupIds = useMemo(
-    () => new Set(highlightedGroups.map(group => group.id)),
-    [highlightedGroups]
-  );
-  const secondaryGroups = useMemo(
-    () => groupsWithChildren.filter(group => !highlightedGroupIds.has(group.id)),
-    [groupsWithChildren, highlightedGroupIds]
-  );
-  const quickLinks = useMemo(
-    () =>
-      groupsWithChildren
-        .flatMap(group => group.items.slice(0, 2).map(item => ({ ...item, groupTitle: group.title })))
-        .slice(0, 10),
-    [groupsWithChildren]
-  );
   const { data: leafCategoryFilters = [] } = trpc.product.getSpecFilters.useQuery(
     {
       categorySlug: menu.activeCategory?.slug ?? "",
@@ -152,16 +101,6 @@ const DesktopCatalog = () => {
         filter => String(filter.normalizedKey).toLowerCase() === "тип"
       ),
     [leafCategoryFilters]
-  );
-  const { data: featuredProducts = [] } = trpc.product.getTopByCategoryStock.useQuery(
-    {
-      categorySlug: menu.activeCategory?.slug ?? "",
-      limit: 2,
-    },
-    {
-      enabled: Boolean(menu.activeCategory?.slug),
-      placeholderData: prev => prev,
-    }
   );
 
   const handleCategoryHover = (id: string) => {
@@ -200,239 +139,92 @@ const DesktopCatalog = () => {
         onClick={menu.close}
       />
       <div
-        className="fixed top-[80px] left-0 right-0 border-b border-border bg-background/98 backdrop-blur-xl z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
+        className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
         style={{ height: "min(calc(100vh - 80px), 860px)" }}
       >
         <div className="container-main flex h-full p-0">
-          <div className="w-[320px] border-r border-border bg-muted/[0.18] overflow-hidden">
-            <div className="border-b border-border px-8 py-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                Каталог
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Выберите раздел, а справа сразу покажем понятные входы и популярные направления.
-              </p>
-            </div>
-            <div className="py-3">
+          <div className="w-[300px] border-r border-border bg-muted/20 overflow-hidden">
+            <div className="py-4">
               {menu.catalogCategories.map(cat => (
-                <button
+                <div
                   key={cat.id}
                   onMouseEnter={() => handleCategoryHover(cat.id)}
                   onClick={() => {
-                    menu.setActiveCategoryId(cat.id);
-                    menu.track("catalog_category_click", { category_id: cat.id });
+                    navigate(cat.href);
+                    menu.close();
                   }}
-                  className={`flex w-full items-center justify-between gap-4 px-8 py-4 text-left transition-all relative group ${
+                  className={`flex items-center justify-between px-8 py-4 cursor-pointer transition-all relative group ${
                     menu.activeCategoryId === cat.id
-                      ? "bg-background text-foreground"
-                      : "text-foreground/70 hover:text-foreground hover:bg-[var(--tech-color-primary)]/5"
+                      ? "bg-white dark:bg-background text-[#05C3D4]"
+                      : "text-foreground/60 hover:text-[#05C3D4] hover:bg-[#05C3D4]/5"
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <span
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-colors ${
+                    <IconWrapper
+                      title={cat.title}
+                      slug={cat.slug}
+                      size={20}
+                      className={
                         menu.activeCategoryId === cat.id
-                          ? "bg-[var(--tech-color-primary)]/10 text-[var(--tech-color-primary)]"
-                          : "bg-background text-foreground/40 group-hover:bg-[var(--tech-color-primary)]/10 group-hover:text-[var(--tech-color-primary)]"
-                      }`}
-                    >
-                      <IconWrapper
-                        title={cat.title}
-                        slug={cat.slug}
-                        size={18}
-                      />
-                    </span>
-                    <span className="text-[15px] font-semibold leading-[1.25]">
+                          ? "text-[#05C3D4]"
+                          : "text-foreground/30 group-hover:text-[#05C3D4]"
+                      }
+                    />
+                    <span className="text-[12px] font-black tracking-[0.08em] leading-none">
                       {formatCategoryLabel(cat.title)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={cat.href}
-                      onClick={event => {
-                        event.stopPropagation();
-                        menu.close();
-                      }}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                        menu.activeCategoryId === cat.id
-                          ? "text-[var(--tech-color-primary)] hover:bg-[var(--tech-color-primary)]/8"
-                          : "text-muted-foreground hover:bg-background hover:text-foreground"
-                      }`}
-                    >
-                      Открыть
-                      <ArrowRight size={14} />
-                    </Link>
-                    <ChevronRight
-                      size={14}
-                      className={`transition-all ${
-                        menu.activeCategoryId === cat.id
-                          ? "text-[var(--tech-color-primary)] opacity-100"
-                          : "opacity-30 group-hover:opacity-60"
-                      }`}
-                    />
-                  </div>
+                  <ChevronRight
+                    size={14}
+                    className={`opacity-0 group-hover:opacity-40 transition-all ${menu.activeCategoryId === cat.id ? "opacity-100 text-[#05C3D4]" : ""}`}
+                  />
                   {menu.activeCategoryId === cat.id && (
-                    <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-[var(--tech-color-primary)]" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#05C3D4]" />
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar bg-background">
-            <div className="flex items-start justify-between gap-8 border-b border-border pb-6">
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  {desktopScenarioLinks.map(item => {
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.id}
-                        to={item.href}
-                        onClick={menu.close}
-                        className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-[13px] font-semibold text-foreground/80 transition-colors hover:border-[var(--tech-color-primary)]/30 hover:bg-[var(--tech-color-primary)]/6 hover:text-foreground"
-                      >
-                        <Icon size={14} className="text-[var(--tech-color-primary)]" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                    Активный раздел
-                  </p>
-                  <h2 className="mt-3 text-[34px] font-black leading-none tracking-[-0.03em] text-foreground">
-                    {formatCategoryLabel(menu.activeCategory.title)}
-                  </h2>
-                </div>
-              </div>
-              <Link
-                to={menu.activeCategory.href}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-background px-5 py-3 text-[13px] font-semibold text-foreground transition-colors hover:border-[var(--tech-color-primary)]/30 hover:bg-[var(--tech-color-primary)]/6"
-                onClick={menu.close}
-              >
-                Смотреть весь раздел
-                <ArrowRight size={15} className="text-[var(--tech-color-primary)]" />
-              </Link>
+          <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-white dark:bg-background">
+            <div className="flex items-center justify-between mb-10 pb-6 border-b border-border">
+              <h2 className="text-3xl font-black tracking-tight text-foreground">
+                {formatCategoryLabel(menu.activeCategory.title)}
+              </h2>
+              {groupsWithChildren.length > 0 && (
+                <Link
+                  to={menu.activeCategory.href}
+                  className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                  onClick={menu.close}
+                >
+                  Все товары в категории <ArrowRight size={14} />
+                </Link>
+              )}
             </div>
-
-            {highlightedGroups.length > 0 || featuredProducts.length > 0 ? (
-              <div className="mt-7 grid grid-cols-[minmax(0,1fr)_320px] gap-6">
-                {highlightedGroups.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-                    {highlightedGroups.map(group => (
-                      <Link
-                        key={group.id}
-                        to={group.href || "#"}
-                        onClick={menu.close}
-                        className="group rounded-[28px] border border-border bg-background px-5 py-5 transition-colors hover:border-[var(--tech-color-primary)]/35"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-[16px] font-semibold leading-[1.25] text-foreground">
-                              {formatCategoryLabel(group.title)}
-                            </h3>
-                            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">
-                              {group.items
-                                ?.slice(0, 3)
-                                .map(item => formatCategoryLabel(item.title))
-                                .join(" · ") || "Открыть раздел"}
-                            </p>
-                          </div>
-                          <ArrowRight
-                            size={16}
-                            className="mt-0.5 shrink-0 text-[var(--tech-color-primary)]/70 transition-transform group-hover:translate-x-0.5"
-                          />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div />
-                )}
-                {featuredProducts.length > 0 ? (
-                  <div className="rounded-[30px] border border-border bg-muted/[0.16] px-5 py-5">
-                    <div className="mb-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                        Популярно сейчас
-                      </div>
-                      <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
-                        Быстрый вход в товары, которые чаще всего смотрят в этом разделе.
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      {featuredProducts.map(product => {
-                        const imageProps = getProductCardImageProps({
-                          image: product.image ?? null,
-                          imageVariants: null,
-                          maxVariant: "thumb",
-                          sizes: "84px",
-                        });
-
-                        return (
-                          <Link
-                            key={product.id}
-                            to={`/product/${product.slug}`}
-                            onClick={menu.close}
-                            className="group flex items-center gap-4 rounded-[24px] bg-background px-3 py-3 transition-colors hover:border-[var(--tech-color-primary)]/20 hover:bg-background"
-                          >
-                            <div className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-[22px] bg-white p-2">
-                              <img
-                                src={imageProps.src}
-                                srcSet={imageProps.srcSet}
-                                sizes={imageProps.sizes}
-                                alt={product.name}
-                                loading="lazy"
-                                decoding="async"
-                                className="h-full w-full object-contain"
-                                onError={applyProductImageFallback}
-                              />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="line-clamp-2 text-[15px] font-semibold leading-[1.3] text-foreground">
-                                {product.name}
-                              </div>
-                              <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-500">
-                                В наличии
-                              </div>
-                              <div className="mt-2 flex items-center gap-3">
-                                <span className="text-[22px] font-black leading-none text-foreground">
-                                  {new Intl.NumberFormat("ru-RU").format(Number(product.price || 0))} ₽
-                                </span>
-                                <ArrowRight
-                                  size={16}
-                                  className="text-[var(--tech-color-primary)]/70 transition-transform group-hover:translate-x-0.5"
-                                />
-                              </div>
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {secondaryGroups.length > 0 ? (
-              <div className="mt-8 grid grid-cols-3 gap-x-8 gap-y-7">
-                {secondaryGroups.map((group: CategoryGroup) => (
-                  <div key={group.id} className="space-y-3">
-                    <h3 className="text-[15px] font-semibold leading-tight text-foreground">
-                      <Link to={group.href || "#"} onClick={menu.close} className="transition-colors hover:text-[var(--tech-color-primary)]">
+            {groupsWithChildren.length > 0 ? (
+              <div className="columns-2 xl:columns-3 [column-gap:2.5rem]">
+                {groupsWithChildren.map((group: CategoryGroup) => (
+                  <div
+                    key={group.id}
+                    className="mb-6 break-inside-avoid space-y-2.5"
+                  >
+                    <h3 className="text-[11px] font-black tracking-[0.08em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
+                      <Link to={group.href || "#"} onClick={menu.close}>
                         {formatCategoryLabel(group.title)}
                       </Link>
                     </h3>
-                    <div className="flex flex-col gap-2">
-                      {group.items?.slice(0, 6).map((item: CategoryItem) => (
+                    <div className="flex flex-col gap-1.5">
+                      {group.items?.map((item: CategoryItem) => (
                         <Link
                           key={item.id}
                           to={item.href}
-                          className="text-[14px] leading-5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          className="text-[13px] leading-snug font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
                           onClick={menu.close}
                         >
-                          {formatCategoryLabel(item.title)}
+                          <span className="group-hover/item:translate-x-1 transition-transform">
+                            {formatCategoryLabel(item.title)}
+                          </span>
+                          <Badge type={item.badge} />
                         </Link>
                       ))}
                     </div>
@@ -440,21 +232,21 @@ const DesktopCatalog = () => {
                 ))}
               </div>
             ) : showLeafCategoryFilters ? (
-              <div className="mt-8 pt-1">
+              <div className="pt-1">
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h3 className="text-[15px] font-semibold text-foreground">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground">
                     Типы товаров
                   </h3>
                   <Link
                     to={menu.activeCategory.href}
-                    className="text-[13px] font-semibold text-[var(--tech-color-primary)] hover:underline"
+                    className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
                     onClick={menu.close}
                   >
                     Смотреть все товары
                   </Link>
                 </div>
                 {typeFilter && typeFilter.values.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-4">
                     {typeFilter.values.slice(0, 12).map(value => (
                       <Link
                         key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
@@ -462,7 +254,7 @@ const DesktopCatalog = () => {
                           `${typeFilter.normalizedKey}:${value.normalizedValue}`
                         )}`}
                         onClick={menu.close}
-                        className="rounded-full border border-border px-4 py-3 text-[14px] font-medium text-foreground/75 transition-colors hover:border-[var(--tech-color-primary)]/30 hover:text-foreground"
+                        className="text-[13px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
                       >
                         {value.value}
                       </Link>
@@ -476,56 +268,25 @@ const DesktopCatalog = () => {
               </div>
             ) : null}
             {singleCategories.length > 0 && (
-              <div className={`${groupsWithChildren.length > 0 || showLeafCategoryFilters ? "mt-8 border-t border-border pt-6" : "mt-8"}`}>
-                <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                  <Sparkles size={14} />
-                  Быстрые входы
-                </div>
-                <div className="flex flex-wrap gap-3">
+              <div className={`${groupsWithChildren.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : ""}`}>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
                   {singleCategories.map((group: CategoryGroup) => (
                     <Link
                       key={group.id}
                       to={group.href || "#"}
                       onClick={menu.close}
-                      className="rounded-full border border-border px-4 py-2.5 text-[14px] font-medium text-foreground/75 transition-colors hover:border-[var(--tech-color-primary)]/30 hover:text-foreground"
-                    >
+                    className="text-[12px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                  >
                       {formatCategoryLabel(group.title)}
                     </Link>
                   ))}
                 </div>
               </div>
             )}
-            {quickLinks.length > 0 && (
-              <div className="mt-8 border-t border-border pt-6">
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                    Быстрые переходы
-                  </div>
-                  <span className="text-[13px] text-muted-foreground">
-                    Самые очевидные входы в раздел
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {quickLinks.map(item => (
-                    <Link
-                      key={`${item.id}-${item.href}`}
-                      to={item.href}
-                      onClick={menu.close}
-                      className="rounded-full bg-muted/35 px-4 py-2.5 text-[14px] font-medium text-foreground/80 transition-colors hover:bg-[var(--tech-color-primary)]/8 hover:text-foreground"
-                    >
-                      {formatCategoryLabel(item.title)}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
             {hasBottomSection && (
-            <div className={`${groupsWithChildren.length > 0 || singleCategories.length > 0 || showLeafCategoryFilters ? "mt-8 pt-6 border-t border-border" : ""} flex gap-10`}>
+            <div className={`${groupsWithChildren.length > 0 || singleCategories.length > 0 || showLeafCategoryFilters ? "mt-8 pt-6 border-t border-border" : ""} flex gap-12`}>
               {hasBrands && (
                 <div className="flex-1">
-                  <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)]">
-                    Производители
-                  </div>
                   <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
                     {menu.activeCategory?.brands?.map((brand: Brand) => (
                       <Link
@@ -549,22 +310,22 @@ const DesktopCatalog = () => {
                 </div>
               )}
               {hasPromo && (
-                <div className="w-[360px]">
+                <div className="w-[400px]">
                   {menu.activeCategory?.promo?.map((promo: PromoBlock) => (
                     <Link
                       key={promo.id}
                       to={promo.href}
-                      className={`block rounded-[28px] border border-border p-7 relative overflow-hidden group h-full ${promo.theme === "accent" ? "bg-[var(--tech-color-primary)]/10 text-foreground" : "bg-muted/35"}`}
+                      className={`block p-8 rounded-3xl relative overflow-hidden group h-full shadow-lg ${promo.theme === "accent" ? "bg-[#05C3D4] text-black" : "bg-muted"}`}
                       onClick={menu.close}
                     >
                       <div className="relative z-10">
-                        <h4 className="text-[22px] font-black leading-tight mb-2">
+                        <h4 className="text-xl font-black uppercase leading-tight mb-2">
                           {promo.title}
                         </h4>
-                        <p className="text-sm leading-6 text-muted-foreground mb-6">
+                        <p className="text-sm font-bold opacity-70 mb-6">
                           {promo.subtitle}
                         </p>
-                        <span className="inline-flex items-center gap-2 rounded-full bg-background/80 px-4 py-2 text-[12px] font-semibold">
+                        <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-black/10 px-4 py-2 rounded-xl">
                           {promo.cta || "Смотреть"} <ArrowRight size={14} />
                         </span>
                       </div>
@@ -656,24 +417,6 @@ const MobileCatalog = () => {
             className="w-full h-12 bg-card border border-border rounded-xl pl-12 pr-4 text-sm font-bold placeholder:font-medium outline-none focus:border-[#05C3D4] transition-all"
           />
         </div>
-        {!menu.searchTerm && menu.mobilePath.length === 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {desktopScenarioLinks.map(item => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.id}
-                  to={item.href}
-                  onClick={menu.close}
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-[12px] font-medium text-foreground/80"
-                >
-                  <Icon size={13} className="text-[var(--tech-color-primary)]" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-24">
@@ -730,15 +473,15 @@ const MobileCatalog = () => {
         ) : !currentGroup ? (
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
-              <h3 className="text-[28px] font-black leading-none tracking-[-0.03em] mb-4">
+              <h3 className="text-2xl font-black tracking-tight mb-4">
                 {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </h3>
               <Link
                 to={currentCategory?.href || "#"}
-                className="inline-flex items-center gap-2 text-[13px] font-semibold text-[var(--tech-color-primary)]"
+                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]"
                 onClick={menu.close}
               >
-                Смотреть весь раздел <ArrowRight size={12} />
+                Смотреть всё <ArrowRight size={12} />
               </Link>
             </div>
             <div className="p-4 space-y-2">
@@ -752,7 +495,7 @@ const MobileCatalog = () => {
                       : (window.location.href = group.href || "#")
                   }
                 >
-                  <span className="text-[15px] font-semibold leading-[1.3]">
+                  <span className="text-[13px] font-black tracking-[0.08em]">
                     {formatCategoryLabel(group.title)}
                   </span>
                   <ChevronRight size={18} className="opacity-20" />
@@ -763,10 +506,10 @@ const MobileCatalog = () => {
         ) : (
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--tech-color-primary)] block mb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] block mb-2">
                 {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </span>
-              <h3 className="text-[28px] font-black leading-none tracking-[-0.03em]">
+              <h3 className="text-2xl font-black tracking-tight">
                 {formatCategoryLabel(currentGroup.title)}
               </h3>
             </div>
@@ -778,7 +521,7 @@ const MobileCatalog = () => {
                   className="flex items-center justify-between p-5 bg-card border border-transparent border-b-border active:bg-[#05C3D4]/5"
                   onClick={menu.close}
                 >
-                  <span className="text-[15px] font-medium leading-6 text-foreground/85">
+                  <span className="text-[13px] font-bold tracking-tight text-foreground/80">
                     {formatCategoryLabel(item.title)}
                   </span>
                   <Badge type={item.badge} />
