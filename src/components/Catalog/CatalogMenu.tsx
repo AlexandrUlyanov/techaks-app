@@ -317,7 +317,7 @@ const DesktopCatalog = () => {
             </div>
 
             <div className="rounded-[30px] bg-white p-6 dark:bg-background">
-              <div className="flex h-full flex-col">
+              <div className="flex h-full flex-col justify-start">
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-[30px] font-black tracking-tight text-foreground xl:text-[34px]">
@@ -350,7 +350,7 @@ const DesktopCatalog = () => {
                 )}
 
                 {visibleGroups.length > 0 ? (
-                  <div className="grid flex-1 grid-cols-2 gap-x-10 gap-y-6 xl:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-6 xl:grid-cols-3">
                     {visibleGroups.map((group: CategoryGroup) => (
                       <div key={group.id} className="min-w-0">
                         <h3 className="mb-2.5 text-[14px] font-bold leading-tight text-foreground">
@@ -378,7 +378,7 @@ const DesktopCatalog = () => {
                     ))}
                   </div>
                 ) : showLeafCategoryFilters ? (
-                  <div className="flex flex-1 flex-col">
+                  <div className="flex flex-col">
                     <div className="mb-3 text-[14px] font-bold text-foreground">Типы товаров</div>
                     {typeFilter && typeFilter.values.length > 0 ? (
                       <div className="grid grid-cols-3 gap-2 xl:grid-cols-4">
@@ -404,7 +404,7 @@ const DesktopCatalog = () => {
                 ) : null}
 
                 {visibleSingleCategories.length > 0 && (
-                  <div className={`${visibleGroups.length > 0 || showLeafCategoryFilters ? "mt-4 pt-3" : "mt-auto pt-3"}`}>
+                  <div className="mt-4 pt-3">
                     <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                       {visibleSingleCategories.map((group: CategoryGroup) => (
                         <Link
