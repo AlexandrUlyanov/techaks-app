@@ -180,18 +180,6 @@ const DesktopCatalog = () => {
     [leafCategoryFilters]
   );
 
-  const quickPreviewItems = useMemo(
-    () =>
-      visibleGroups
-        .flatMap(group =>
-          (group.items ?? []).slice(0, 2).map(item => ({
-            ...item,
-            groupTitle: group.title,
-          }))
-        )
-        .slice(0, 8),
-    [visibleGroups]
-  );
   const promoProducts = useMemo<PromoMenuProduct[]>(
     () => (promotionalData?.products ?? []).slice(0, 9) as PromoMenuProduct[],
     [promotionalData?.products]
@@ -332,22 +320,6 @@ const DesktopCatalog = () => {
                     Смотреть раздел <ArrowRight size={14} />
                   </Link>
                 </div>
-
-                {quickPreviewItems.length > 0 && (
-                  <div className="mb-5 flex flex-wrap gap-2">
-                    {quickPreviewItems.map((item: CategoryItem & { groupTitle?: string }) => (
-                      <Link
-                        key={`quick-${item.id}`}
-                        to={item.href}
-                        onClick={menu.close}
-                        className="inline-flex items-center rounded-full bg-muted/35 px-3.5 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-[#05C3D4]/10 hover:text-[#05C3D4]"
-                        title={formatCategoryLabel(item.groupTitle || "")}
-                      >
-                        {formatCategoryLabel(item.title)}
-                      </Link>
-                    ))}
-                  </div>
-                )}
 
                 {visibleGroups.length > 0 ? (
                   <div className="grid grid-cols-2 gap-x-10 gap-y-6 xl:grid-cols-3">
