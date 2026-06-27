@@ -12,7 +12,6 @@ import {
 import type {
   CategoryGroup,
   CategoryItem,
-  PromoBlock,
   Brand,
 } from "@/contracts/catalog.types";
 import { useCatalog } from "@/providers/CatalogProvider";
@@ -84,6 +83,8 @@ const DesktopCatalog = () => {
   const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
+  const visibleGroups = groupsWithChildren.slice(0, 8);
+  const visibleSingleCategories = singleCategories.slice(0, 8);
   const hasAnyCategoryGroups = categoryGroups.length > 0;
   const showLeafCategoryFilters = !hasAnyCategoryGroups;
   const { data: leafCategoryFilters = [] } = trpc.product.getSpecFilters.useQuery(
@@ -131,6 +132,7 @@ const DesktopCatalog = () => {
   const hasBrands = Boolean(menu.activeCategory.brands?.length);
   const hasPromo = Boolean(menu.activeCategory.promo?.length);
   const hasBottomSection = hasBrands || hasPromo;
+  const desktopSearchResults = menu.searchTerm ? menu.filteredCategories.slice(0, 12) : [];
 
   return (
     <>
@@ -139,12 +141,44 @@ const DesktopCatalog = () => {
         onClick={menu.close}
       />
       <div
-        className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
-        style={{ height: "min(calc(100vh - 80px), 860px)" }}
+        className="fixed top-[80px] left-0 right-0 bottom-0 bg-white dark:bg-[#15171A] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
       >
-        <div className="container-main flex h-full p-0">
-          <div className="w-[290px] border-r border-border bg-muted/10 overflow-hidden">
-            <div className="py-4">
+        <div className="container-main flex h-full flex-col py-5">
+          <div className="mb-5 flex items-center gap-5">
+            <div className="min-w-0 flex-1">
+              <div className="relative group">
+                <Search
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-[#05C3D4] transition-colors"
+                />
+                <input
+                  type="text"
+                  placeholder="Найти категорию или раздел..."
+                  value={menu.searchTerm}
+                  onChange={e => menu.setSearchTerm(e.target.value)}
+                  className="h-13 w-full rounded-2xl border border-border bg-card pl-12 pr-5 text-[15px] font-medium outline-none transition-colors focus:border-[#05C3D4]"
+                />
+              </div>
+            </div>
+            <button
+              onClick={menu.close}
+              className="inline-flex h-13 shrink-0 items-center rounded-2xl border border-border px-5 text-[12px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-[#05C3D4]"
+            >
+              Закрыть
+            </button>
+          </div>
+
+          <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)] gap-6">
+            <div className="rounded-[28px] border border-border bg-muted/10 p-4">
+              <div className="mb-4 px-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
+                  Каталог
+                </div>
+                <div className="mt-2 text-[14px] font-medium leading-6 text-muted-foreground">
+                  Быстрый вход в основные разделы без прокрутки и лишних переходов.
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
               {menu.catalogCategories.map(cat => (
                 <div
                   key={cat.id}
@@ -153,191 +187,202 @@ const DesktopCatalog = () => {
                     navigate(cat.href);
                     menu.close();
                   }}
-                  className={`flex items-center justify-between px-7 py-3.5 cursor-pointer transition-all relative group ${
+                  className={`flex items-center justify-between rounded-2xl px-4 py-3 cursor-pointer transition-all relative group ${
                     menu.activeCategoryId === cat.id
-                      ? "bg-white dark:bg-background text-[#05C3D4]"
+                      ? "bg-white dark:bg-background text-[#05C3D4] border border-[#05C3D4]/20"
                       : "text-foreground/60 hover:text-[#05C3D4] hover:bg-[#05C3D4]/5"
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
                     <IconWrapper
                       title={cat.title}
                       slug={cat.slug}
-                      size={20}
+                      size={18}
                       className={
                         menu.activeCategoryId === cat.id
                           ? "text-[#05C3D4]"
                           : "text-foreground/30 group-hover:text-[#05C3D4]"
                       }
                     />
-                    <span className="text-[14px] font-semibold leading-tight">
+                    <span className="line-clamp-2 text-[13px] font-semibold leading-4">
                       {formatCategoryLabel(cat.title)}
                     </span>
                   </div>
                   <ChevronRight
-                    size={14}
+                    size={12}
                     className={`opacity-0 group-hover:opacity-40 transition-all ${menu.activeCategoryId === cat.id ? "opacity-100 text-[#05C3D4]" : ""}`}
                   />
-                  {menu.activeCategoryId === cat.id && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#05C3D4]" />
-                  )}
                 </div>
               ))}
+              </div>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-white dark:bg-background">
-            <div className="flex items-center justify-between mb-8 pb-5 border-b border-border">
-              <h2 className="text-[30px] font-black tracking-tight text-foreground">
-                {formatCategoryLabel(menu.activeCategory.title)}
-              </h2>
-              {groupsWithChildren.length > 0 && (
-                <Link
-                  to={menu.activeCategory.href}
-                  className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] hover:underline"
-                  onClick={menu.close}
-                >
-                  Все товары в категории <ArrowRight size={14} />
-                </Link>
-              )}
-            </div>
-            {groupsWithChildren.length > 0 ? (
-              <div className="columns-2 xl:columns-3 [column-gap:2.5rem]">
-                {groupsWithChildren.map((group: CategoryGroup) => (
-                  <div
-                    key={group.id}
-                    className="mb-7 break-inside-avoid space-y-2"
-                  >
-                    <h3 className="text-[14px] font-bold text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
-                      <Link to={group.href || "#"} onClick={menu.close}>
-                        {formatCategoryLabel(group.title)}
+            <div className="rounded-[32px] border border-border bg-white p-7 dark:bg-background">
+              {menu.searchTerm ? (
+                <div className="flex h-full flex-col">
+                  <div className="mb-5 flex items-center justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
+                        Результаты поиска
+                      </div>
+                      <h2 className="mt-2 text-[30px] font-black tracking-tight text-foreground">
+                        {menu.searchTerm}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => menu.setSearchTerm("")}
+                      className="rounded-full border border-border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-[#05C3D4]"
+                    >
+                      Очистить
+                    </button>
+                  </div>
+                  <div className="grid flex-1 grid-cols-3 gap-3">
+                    {desktopSearchResults.map((item: any, i: number) => (
+                      <Link
+                        key={`${item.id}-${i}`}
+                        to={item.href || item.parentHref || "#"}
+                        onClick={menu.close}
+                        className="rounded-[22px] border border-border bg-card/60 p-5 transition-colors hover:border-[#05C3D4]/35 hover:bg-[#05C3D4]/[0.03]"
+                      >
+                        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
+                          {item.type}
+                        </div>
+                        <div className="text-[16px] font-bold leading-snug text-foreground">
+                          {formatCategoryLabel(item.title)}
+                        </div>
                       </Link>
-                    </h3>
-                    <div className="flex flex-col gap-1">
-                      {group.items?.map((item: CategoryItem) => (
-                        <Link
-                          key={item.id}
-                          to={item.href}
-                          className="text-[13px] leading-snug font-medium text-muted-foreground hover:text-[#05C3D4] transition-colors flex items-center group/item"
-                          onClick={menu.close}
-                        >
-                          <span className="group-hover/item:translate-x-1 transition-transform">
-                            {formatCategoryLabel(item.title)}
-                          </span>
-                          <Badge type={item.badge} />
-                        </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full flex-col">
+                  <div className="mb-6 flex items-start justify-between gap-5 border-b border-border pb-5">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
+                        Активный раздел
+                      </div>
+                      <h2 className="mt-2 text-[30px] font-black tracking-tight text-foreground">
+                        {formatCategoryLabel(menu.activeCategory.title)}
+                      </h2>
+                    </div>
+                    <Link
+                      to={menu.activeCategory.href}
+                      className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-border px-5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] transition-colors hover:border-[#05C3D4]/35"
+                      onClick={menu.close}
+                    >
+                      Смотреть раздел <ArrowRight size={14} />
+                    </Link>
+                  </div>
+
+                  {visibleGroups.length > 0 ? (
+                    <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-6 xl:grid-cols-3">
+                      {visibleGroups.map((group: CategoryGroup) => (
+                        <div key={group.id} className="min-w-0">
+                          <h3 className="mb-2 text-[15px] font-bold text-foreground leading-tight">
+                            <Link to={group.href || "#"} onClick={menu.close} className="hover:text-[#05C3D4] transition-colors">
+                              {formatCategoryLabel(group.title)}
+                            </Link>
+                          </h3>
+                          <div className="flex flex-col gap-1.5">
+                            {group.items?.slice(0, 4).map((item: CategoryItem) => (
+                              <Link
+                                key={item.id}
+                                to={item.href}
+                                className="truncate text-[13px] font-medium text-muted-foreground transition-colors hover:text-[#05C3D4]"
+                                onClick={menu.close}
+                              >
+                                {formatCategoryLabel(item.title)}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : showLeafCategoryFilters ? (
-              <div className="pt-1">
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <h3 className="text-[14px] font-bold text-foreground">
-                    Типы товаров
-                  </h3>
-                  <Link
-                    to={menu.activeCategory.href}
-                    className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] hover:underline"
-                    onClick={menu.close}
-                  >
-                    Смотреть все товары
-                  </Link>
-                </div>
-                {typeFilter && typeFilter.values.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 xl:grid-cols-4">
-                    {typeFilter.values.slice(0, 12).map(value => (
-                      <Link
-                        key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
-                        to={`/catalog?cat=${menu.activeCategory?.slug ?? "all"}&filter=${encodeURIComponent(
-                          `${typeFilter.normalizedKey}:${value.normalizedValue}`
-                        )}`}
-                        onClick={menu.close}
-                        className="inline-flex rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
-                      >
-                        {value.value}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm font-semibold text-muted-foreground">
-                    Для этой категории пока нет значений свойства "Тип".
-                  </div>
-                )}
-              </div>
-            ) : null}
-            {singleCategories.length > 0 && (
-              <div className={`${groupsWithChildren.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : ""}`}>
-                <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
-                  {singleCategories.map((group: CategoryGroup) => (
-                    <Link
-                      key={group.id}
-                      to={group.href || "#"}
-                      onClick={menu.close}
-                      className="rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
-                    >
-                      {formatCategoryLabel(group.title)}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            {hasBottomSection && (
-            <div className={`${groupsWithChildren.length > 0 || singleCategories.length > 0 || showLeafCategoryFilters ? "mt-8 pt-6 border-t border-border" : ""} flex gap-12`}>
-              {hasBrands && (
-                <div className="flex-1">
-                  <div className="grid max-h-[150px] grid-cols-6 gap-x-5 gap-y-3 overflow-y-auto pr-2 xl:grid-cols-8">
-                    {menu.activeCategory?.brands?.map((brand: Brand) => (
-                      <Link
-                        key={brand.id}
-                        to={brand.href}
-                        className="flex h-10 items-center justify-center opacity-80 hover:opacity-100 transition-opacity"
-                        title={brand.title}
-                        onClick={menu.close}
-                      >
-                        {brand.logo ? (
-                          <img
-                            src={brand.logo}
-                            alt={brand.title}
-                            className="h-8 max-w-[86px] object-contain"
-                            loading="lazy"
-                          />
-                        ) : null}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {hasPromo && (
-                <div className="w-[400px]">
-                  {menu.activeCategory?.promo?.map((promo: PromoBlock) => (
-                    <Link
-                      key={promo.id}
-                      to={promo.href}
-                      className={`block p-8 rounded-3xl relative overflow-hidden group h-full border border-border ${promo.theme === "accent" ? "bg-[#05C3D4] text-black border-transparent" : "bg-muted/40"}`}
-                      onClick={menu.close}
-                    >
-                      <div className="relative z-10">
-                        <h4 className="text-xl font-black uppercase leading-tight mb-2">
-                          {promo.title}
-                        </h4>
-                        <p className="text-sm font-bold opacity-70 mb-6">
-                          {promo.subtitle}
-                        </p>
-                        <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-black/10 px-4 py-2 rounded-xl">
-                          {promo.cta || "Смотреть"} <ArrowRight size={14} />
-                        </span>
+                  ) : showLeafCategoryFilters ? (
+                    <div className="flex flex-1 flex-col">
+                      <div className="mb-4 text-[15px] font-bold text-foreground">
+                        Типы товаров
                       </div>
-                      <div className="absolute right-0 bottom-0 opacity-10 group-hover:scale-110 transition-transform duration-700 translate-x-6 translate-y-6">
-                        <LayoutGrid size={150} />
+                      {typeFilter && typeFilter.values.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2 xl:grid-cols-4">
+                          {typeFilter.values.slice(0, 12).map(value => (
+                            <Link
+                              key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
+                              to={`/catalog?cat=${menu.activeCategory?.slug ?? "all"}&filter=${encodeURIComponent(
+                                `${typeFilter.normalizedKey}:${value.normalizedValue}`
+                              )}`}
+                              onClick={menu.close}
+                              className="inline-flex rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
+                            >
+                              {value.value}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm font-medium text-muted-foreground">
+                          Для этой категории пока нет значений свойства "Тип".
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {visibleSingleCategories.length > 0 && (
+                    <div className={`${visibleGroups.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : "mt-auto pt-5"}`}>
+                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                        {visibleSingleCategories.map((group: CategoryGroup) => (
+                          <Link
+                            key={group.id}
+                            to={group.href || "#"}
+                            onClick={menu.close}
+                            className="rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
+                          >
+                            {formatCategoryLabel(group.title)}
+                          </Link>
+                        ))}
                       </div>
-                    </Link>
-                  ))}
+                    </div>
+                  )}
+
+                  {hasBottomSection && (
+                    <div className="mt-6 flex items-end justify-between gap-6 border-t border-border pt-5">
+                      {hasBrands ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-4">
+                          {menu.activeCategory?.brands?.slice(0, 8).map((brand: Brand) => (
+                            <Link
+                              key={brand.id}
+                              to={brand.href}
+                              className="flex h-9 items-center justify-center opacity-80 transition-opacity hover:opacity-100"
+                              title={brand.title}
+                              onClick={menu.close}
+                            >
+                              {brand.logo ? (
+                                <img
+                                  src={brand.logo}
+                                  alt={brand.title}
+                                  className="h-7 max-w-[82px] object-contain"
+                                  loading="lazy"
+                                />
+                              ) : null}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+                      {hasPromo && menu.activeCategory?.promo?.[0] ? (
+                        <Link
+                          to={menu.activeCategory.promo[0].href}
+                          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border px-5 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-foreground transition-colors hover:border-[#05C3D4]/35 hover:text-[#05C3D4]"
+                          onClick={menu.close}
+                        >
+                          {menu.activeCategory.promo[0].cta || "Смотреть"} <ArrowRight size={14} />
+                        </Link>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            )}
           </div>
         </div>
       </div>
