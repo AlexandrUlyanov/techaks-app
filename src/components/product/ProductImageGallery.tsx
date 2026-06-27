@@ -181,7 +181,7 @@ export default function ProductImageGallery({
                     onClick={() => selectImage(index)}
                     aria-label={`Показать изображение ${index + 1} товара ${productName}`}
                     title={`${productName} — изображение ${index + 1}`}
-                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[1rem] border bg-white p-1.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
+                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[1rem] border bg-transparent p-0 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
                       index === activeIndex
                         ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
                         : "border-[#E1E7EF] hover:border-[#05C3D4]"
@@ -193,7 +193,7 @@ export default function ProductImageGallery({
                       sizes="80px"
                       alt={`${productName} — миниатюра ${index + 1}`}
                       title={`${productName} — миниатюра ${index + 1}`}
-                      className="max-h-full max-w-full object-contain"
+                      className="h-full w-full rounded-[0.92rem] object-cover"
                       loading="lazy"
                       decoding="async"
                       width={thumbnailProps.width}
@@ -252,7 +252,7 @@ export default function ProductImageGallery({
             onClick={() => openLightbox(activeIndex)}
             aria-label={`Увеличить изображение товара ${productName}`}
             title={`${productName} — открыть изображение`}
-            className="relative z-10 flex h-full w-full items-center justify-center px-3 py-3 md:px-4 md:py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
+            className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden rounded-[1.9rem] px-0 py-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
           >
             <img
               src={activeImageProps.src}
@@ -260,7 +260,7 @@ export default function ProductImageGallery({
               sizes={activeImageProps.sizes}
               alt={productName}
               title={productName}
-              className="h-full max-h-[340px] w-full cursor-zoom-in rounded-[1.75rem] object-contain transition-transform duration-500 hover:scale-[1.02] md:max-h-[620px] xl:max-h-[720px]"
+              className="h-full max-h-[360px] w-full cursor-zoom-in rounded-[1.9rem] object-cover transition-transform duration-500 hover:scale-[1.02] md:max-h-[620px] xl:max-h-[720px]"
               loading="eager"
               fetchPriority="high"
               decoding="async"
