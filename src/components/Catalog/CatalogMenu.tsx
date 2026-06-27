@@ -143,14 +143,14 @@ const DesktopCatalog = () => {
             </button>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-[360px_minmax(0,1fr)] gap-6">
+          <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-8">
             <div className="rounded-[28px] bg-muted/10 p-4">
-              <div className="mb-4 px-3">
+              <div className="mb-3 px-2">
                 <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
-                  Каталог
+                  Разделы
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
                 {menu.catalogCategories.map(cat => (
                   <div
                     key={cat.id}
@@ -159,7 +159,7 @@ const DesktopCatalog = () => {
                       navigate(cat.href);
                       menu.close();
                     }}
-                    className={`group relative flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 transition-all ${
+                    className={`group relative flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3.5 transition-all ${
                       menu.activeCategoryId === cat.id
                         ? "bg-white text-[#05C3D4] dark:bg-background"
                         : "text-foreground/60 hover:bg-[#05C3D4]/5 hover:text-[#05C3D4]"
@@ -195,12 +195,9 @@ const DesktopCatalog = () => {
 
             <div className="rounded-[32px] bg-white p-7 dark:bg-background">
               <div className="flex h-full flex-col">
-                <div className="mb-6 flex items-start justify-between gap-5 pb-5">
+                <div className="mb-6 flex items-start justify-between gap-5">
                   <div>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
-                      Активный раздел
-                    </div>
-                    <h2 className="mt-2 text-[30px] font-black tracking-tight text-foreground">
+                    <h2 className="text-[34px] font-black tracking-tight text-foreground">
                       {formatCategoryLabel(menu.activeCategory.title)}
                     </h2>
                   </div>
@@ -214,7 +211,7 @@ const DesktopCatalog = () => {
                 </div>
 
                 {quickPreviewItems.length > 0 && (
-                  <div className="mb-5 flex flex-wrap gap-2">
+                  <div className="mb-6 flex flex-wrap gap-2">
                     {quickPreviewItems.map((item: CategoryItem & { groupTitle?: string }) => (
                       <Link
                         key={`quick-${item.id}`}
@@ -230,10 +227,10 @@ const DesktopCatalog = () => {
                 )}
 
                 {visibleGroups.length > 0 ? (
-                  <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-6 xl:grid-cols-3">
+                  <div className="grid flex-1 grid-cols-2 gap-x-10 gap-y-7 xl:grid-cols-3">
                     {visibleGroups.map((group: CategoryGroup) => (
                       <div key={group.id} className="min-w-0">
-                        <h3 className="mb-2 text-[15px] font-bold leading-tight text-foreground">
+                        <h3 className="mb-2.5 text-[15px] font-bold leading-tight text-foreground">
                           <Link
                             to={group.href || "#"}
                             onClick={menu.close}
@@ -242,12 +239,12 @@ const DesktopCatalog = () => {
                             {formatCategoryLabel(group.title)}
                           </Link>
                         </h3>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-2">
                           {group.items?.slice(0, 5).map((item: CategoryItem) => (
                             <Link
                               key={item.id}
                               to={item.href}
-                              className="truncate text-[13px] font-medium text-muted-foreground transition-colors hover:text-[#05C3D4]"
+                              className="truncate text-[13px] leading-5 font-medium text-muted-foreground transition-colors hover:text-[#05C3D4]"
                               onClick={menu.close}
                             >
                               {formatCategoryLabel(item.title)}
@@ -284,7 +281,7 @@ const DesktopCatalog = () => {
                 ) : null}
 
                 {visibleSingleCategories.length > 0 && (
-                  <div className={`${visibleGroups.length > 0 || showLeafCategoryFilters ? "mt-6 pt-5" : "mt-auto pt-5"}`}>
+                  <div className={`${visibleGroups.length > 0 || showLeafCategoryFilters ? "mt-6 pt-4" : "mt-auto pt-4"}`}>
                     <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
                       {visibleSingleCategories.map((group: CategoryGroup) => (
                         <Link
@@ -301,7 +298,7 @@ const DesktopCatalog = () => {
                 )}
 
                 {hasBottomSection && (
-                  <div className="mt-6 flex items-end justify-between gap-6 pt-5">
+                  <div className="mt-6 flex items-end justify-between gap-6 pt-4">
                     {hasBrands ? (
                       <div className="flex min-w-0 flex-wrap items-center gap-4">
                         {menu.activeCategory?.brands?.slice(0, 8).map((brand: Brand) => (
