@@ -162,7 +162,7 @@ export default function ProductImageGallery({
 
             <div
               ref={thumbsRef}
-              className="flex max-h-none flex-row gap-3 overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:max-h-[436px] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-1"
+              className="flex max-h-none flex-row gap-3 overflow-x-auto overflow-y-hidden scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:max-h-[700px] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-1"
             >
               {normalizedImages.map((image, index) => {
                 const thumbnailProps = getProductGalleryImageProps({
