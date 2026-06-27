@@ -9,6 +9,7 @@ type ProductVariant = {
   article?: string | null;
   image?: string | null;
   imageVariants?: unknown;
+  images?: unknown;
   price: number;
   stock: number;
   isActive: boolean;

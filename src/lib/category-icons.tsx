@@ -74,6 +74,11 @@ export function getCategoryIcon(name: string, slug: string) {
   const text = `${n} ${s}`;
   const has = (...parts: string[]) => parts.some(part => text.includes(part));
 
+  // Explicit top-level category mappings
+  if (has("для дома", "dlya-doma")) return Home;
+  if (has("отдых и развлеч", "otdyh-i-razvlechen")) return Tent;
+  if (has("фирменная продукция", "firmennaya-produkciya", "firmenn")) return ShoppingBag;
+
   // Transport and car accessories
   if (has("вело", "мото")) return Bike;
   if (has("автокосмет", "уход-за-авто", "uhod-za-avto")) return SprayCan;

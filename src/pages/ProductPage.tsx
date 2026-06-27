@@ -87,7 +87,9 @@ export default function ProductPage() {
         article?: string | null;
         image?: string | null;
         imageVariants?: unknown;
+        images?: unknown;
         price: number;
+        oldPrice?: number | null;
         stock: number;
         isActive: boolean;
         attributes?: Record<string, string>;
@@ -294,23 +296,35 @@ export default function ProductPage() {
       (product as { images?: unknown }).images
     );
   }, [product]);
-  const selectedVariantImage = useMemo(() => {
-    if (!selectedVariant?.image && !selectedVariant?.imageVariants) return null;
+  const selectedVariantImages = useMemo(() => {
+    if (!selectedVariant?.image && !selectedVariant?.imageVariants && !selectedVariant?.images) {
+      return [];
+    }
 
     return resolveProductImageCollection(
       selectedVariant?.image || product?.image,
       selectedVariant?.imageVariants,
-      []
-    )[0] ?? null;
-  }, [product?.image, selectedVariant?.image, selectedVariant?.imageVariants]);
+      selectedVariant?.images ?? []
+    );
+  }, [
+    product?.image,
+    selectedVariant?.image,
+    selectedVariant?.imageVariants,
+    selectedVariant?.images,
+  ]);
   const displayedImages = useMemo(() => {
-    if (!selectedVariantImage) return productImages;
+    if (selectedVariantImages.length === 0) return productImages;
 
     return [
-      selectedVariantImage,
-      ...productImages.filter(image => image.original !== selectedVariantImage.original),
+      ...selectedVariantImages,
+      ...productImages.filter(
+        image =>
+          !selectedVariantImages.some(
+            variantImage => variantImage.original === image.original
+          )
+      ),
     ];
-  }, [productImages, selectedVariantImage]);
+  }, [productImages, selectedVariantImages]);
   const productJsonLd = useMemo(() => {
     if (!product) return null;
 

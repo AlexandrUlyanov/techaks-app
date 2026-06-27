@@ -1876,6 +1876,7 @@ export const syncRouter = createRouter({
                 String(item.article || item.code || item.externalCode || "").trim() || null;
               let variantImagePath: string | null = null;
               let variantImageVariants: ProductImageVariantSet | null = null;
+              let variantImagePaths: ProductImageVariantSet[] = [];
               if (item.images?.meta?.href) {
                 try {
                   await delay(FULL_SYNC_IMAGE_REQUEST_DELAY_MS);
@@ -1883,14 +1884,14 @@ export const syncRouter = createRouter({
                     headers: { Authorization: authHeader },
                   });
                   if (variantImagesRes.data.rows?.length > 0) {
-                    const variantImageRows = await downloadProductImages(
+                    variantImagePaths = await downloadProductImages(
                       variantImagesRes.data.rows as MsImageRow[],
                       authHeader,
                       msVariantId,
                       `${localProductFolderById.get(localProductId) || "general"}/variants`
                     );
-                    if (variantImageRows.length > 0) {
-                      variantImageVariants = variantImageRows[0];
+                    if (variantImagePaths.length > 0) {
+                      variantImageVariants = variantImagePaths[0];
                       variantImagePath =
                         variantImageVariants.original ||
                         variantImageVariants.medium ||
@@ -1921,6 +1922,7 @@ export const syncRouter = createRouter({
                 article,
                 image: variantImagePath,
                 imageVariants: variantImageVariants,
+                images: variantImagePaths.length > 0 ? variantImagePaths : null,
                 price: variantPrice,
                 stock: variantStock,
                 attributesJson: variantAttributes,
