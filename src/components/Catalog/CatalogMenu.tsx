@@ -83,8 +83,8 @@ const DesktopCatalog = () => {
   const categoryGroups = menu.activeCategory?.children ?? [];
   const groupsWithChildren = categoryGroups.filter(group => (group.items?.length ?? 0) > 0);
   const singleCategories = categoryGroups.filter(group => (group.items?.length ?? 0) === 0);
-  const visibleGroups = groupsWithChildren.slice(0, 8);
-  const visibleSingleCategories = singleCategories.slice(0, 8);
+  const visibleGroups = groupsWithChildren.slice(0, 6);
+  const visibleSingleCategories = singleCategories.slice(0, 10);
   const hasAnyCategoryGroups = categoryGroups.length > 0;
   const showLeafCategoryFilters = !hasAnyCategoryGroups;
   const { data: leafCategoryFilters = [] } = trpc.product.getSpecFilters.useQuery(
@@ -102,6 +102,18 @@ const DesktopCatalog = () => {
         filter => String(filter.normalizedKey).toLowerCase() === "тип"
       ),
     [leafCategoryFilters]
+  );
+  const quickPreviewItems = useMemo(
+    () =>
+      visibleGroups
+        .flatMap(group =>
+          (group.items ?? []).slice(0, 2).map(item => ({
+            ...item,
+            groupTitle: group.title,
+          }))
+        )
+        .slice(0, 8),
+    [visibleGroups]
   );
 
   const handleCategoryHover = (id: string) => {
@@ -236,23 +248,36 @@ const DesktopCatalog = () => {
                       Очистить
                     </button>
                   </div>
-                  <div className="grid flex-1 grid-cols-3 gap-3">
-                    {desktopSearchResults.map((item: any, i: number) => (
-                      <Link
-                        key={`${item.id}-${i}`}
-                        to={item.href || item.parentHref || "#"}
-                        onClick={menu.close}
-                        className="rounded-[22px] border border-border bg-card/60 p-5 transition-colors hover:border-[#05C3D4]/35 hover:bg-[#05C3D4]/[0.03]"
-                      >
-                        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
-                          {item.type}
+                  {desktopSearchResults.length > 0 ? (
+                    <div className="grid flex-1 grid-cols-3 gap-3">
+                      {desktopSearchResults.map((item: any, i: number) => (
+                        <Link
+                          key={`${item.id}-${i}`}
+                          to={item.href || item.parentHref || "#"}
+                          onClick={menu.close}
+                          className="rounded-[22px] border border-border bg-card/60 p-5 transition-colors hover:border-[#05C3D4]/35 hover:bg-[#05C3D4]/[0.03]"
+                        >
+                          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
+                            {item.type}
+                          </div>
+                          <div className="text-[16px] font-bold leading-snug text-foreground">
+                            {formatCategoryLabel(item.title)}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 items-center justify-center rounded-[28px] border border-dashed border-border bg-card/40 px-8 text-center">
+                      <div>
+                        <div className="text-[22px] font-black tracking-tight text-foreground">
+                          Ничего не нашли
                         </div>
-                        <div className="text-[16px] font-bold leading-snug text-foreground">
-                          {formatCategoryLabel(item.title)}
+                        <div className="mt-2 text-[14px] font-medium leading-6 text-muted-foreground">
+                          Попробуйте сократить запрос или откройте нужный раздел слева.
                         </div>
-                      </Link>
-                    ))}
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex h-full flex-col">
@@ -274,6 +299,22 @@ const DesktopCatalog = () => {
                     </Link>
                   </div>
 
+                  {quickPreviewItems.length > 0 && (
+                    <div className="mb-5 flex flex-wrap gap-2">
+                      {quickPreviewItems.map((item: CategoryItem & { groupTitle?: string }) => (
+                        <Link
+                          key={`quick-${item.id}`}
+                          to={item.href}
+                          onClick={menu.close}
+                          className="inline-flex items-center rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground transition-colors hover:border-[#05C3D4]/35 hover:text-[#05C3D4]"
+                          title={formatCategoryLabel(item.groupTitle || "")}
+                        >
+                          {formatCategoryLabel(item.title)}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
                   {visibleGroups.length > 0 ? (
                     <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-6 xl:grid-cols-3">
                       {visibleGroups.map((group: CategoryGroup) => (
@@ -284,7 +325,7 @@ const DesktopCatalog = () => {
                             </Link>
                           </h3>
                           <div className="flex flex-col gap-1.5">
-                            {group.items?.slice(0, 4).map((item: CategoryItem) => (
+                            {group.items?.slice(0, 5).map((item: CategoryItem) => (
                               <Link
                                 key={item.id}
                                 to={item.href}
@@ -328,7 +369,7 @@ const DesktopCatalog = () => {
 
                   {visibleSingleCategories.length > 0 && (
                     <div className={`${visibleGroups.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : "mt-auto pt-5"}`}>
-                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
                         {visibleSingleCategories.map((group: CategoryGroup) => (
                           <Link
                             key={group.id}
@@ -487,31 +528,28 @@ const MobileCatalog = () => {
             ))}
           </div>
         ) : menu.mobilePath.length === 0 ? (
-          <div className="divide-y divide-border">
+          <div className="grid grid-cols-2 gap-3 p-4">
             {menu.catalogCategories.map(cat => (
               <div
                 key={cat.id}
-                className="flex items-center justify-between py-5 px-6 active:bg-muted/50 transition-colors"
+                className="rounded-[22px] border border-border bg-card px-4 py-4 active:bg-muted/50 transition-colors"
                 onClick={() =>
                   cat.children
                     ? navigateIn(cat.id)
                     : (window.location.href = cat.href)
                 }
               >
-                <div className="flex items-center gap-5">
-                  <IconWrapper
-                    title={cat.title}
-                    slug={cat.slug}
-                    size={22}
-                    className="text-[#05C3D4]"
-                  />
-                  <span className="text-[15px] font-semibold">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#05C3D4]/10 text-[#05C3D4]">
+                  <IconWrapper title={cat.title} slug={cat.slug} size={20} className="text-[#05C3D4]" />
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[14px] font-semibold leading-5">
                     {formatCategoryLabel(cat.title)}
                   </span>
+                  {cat.children ? (
+                    <ChevronRight size={16} className="mt-0.5 shrink-0 opacity-25" />
+                  ) : null}
                 </div>
-                {cat.children && (
-                  <ChevronRight size={18} className="opacity-20" />
-                )}
               </div>
             ))}
           </div>
@@ -529,21 +567,23 @@ const MobileCatalog = () => {
                 Смотреть всё <ArrowRight size={12} />
               </Link>
             </div>
-            <div className="p-4 space-y-2">
+            <div className="grid grid-cols-2 gap-3 p-4">
               {currentCategory?.children?.map(group => (
                 <div
                   key={group.id}
-                  className="flex items-center justify-between p-5 bg-card border border-border rounded-2xl active:bg-muted/50"
+                  className="rounded-[22px] border border-border bg-card p-4 active:bg-muted/50"
                   onClick={() =>
                     group.items?.length
                       ? navigateIn(group.id)
                       : (window.location.href = group.href || "#")
                   }
                 >
-                  <span className="text-[14px] font-semibold">
-                    {formatCategoryLabel(group.title)}
-                  </span>
-                  <ChevronRight size={18} className="opacity-20" />
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[14px] font-semibold leading-5">
+                      {formatCategoryLabel(group.title)}
+                    </span>
+                    <ChevronRight size={16} className="mt-0.5 shrink-0 opacity-20" />
+                  </div>
                 </div>
               ))}
             </div>
