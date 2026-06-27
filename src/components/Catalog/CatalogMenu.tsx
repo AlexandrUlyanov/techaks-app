@@ -57,7 +57,7 @@ export function CatalogTrigger({ className = "" }: { className?: string }) {
   return (
     <button
       onClick={toggle}
-      className={`flex items-center gap-3 h-11 px-5 sm:px-6 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-[#05C3D4]/10 ${
+      className={`flex items-center gap-3 h-11 px-5 sm:px-6 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${
         isOpen
           ? "bg-white text-[#05C3D4] dark:bg-background border-border"
           : "bg-[#05C3D4] text-white dark:text-black hover:bg-[#27E6F2] border-transparent"
@@ -139,11 +139,11 @@ const DesktopCatalog = () => {
         onClick={menu.close}
       />
       <div
-        className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
+        className="fixed top-[80px] left-0 right-0 bg-white dark:bg-[#15171A] border-b border-border z-[100] animate-in fade-in slide-in-from-top-4 duration-300 overflow-hidden"
         style={{ height: "min(calc(100vh - 80px), 860px)" }}
       >
         <div className="container-main flex h-full p-0">
-          <div className="w-[300px] border-r border-border bg-muted/20 overflow-hidden">
+          <div className="w-[290px] border-r border-border bg-muted/10 overflow-hidden">
             <div className="py-4">
               {menu.catalogCategories.map(cat => (
                 <div
@@ -153,7 +153,7 @@ const DesktopCatalog = () => {
                     navigate(cat.href);
                     menu.close();
                   }}
-                  className={`flex items-center justify-between px-8 py-4 cursor-pointer transition-all relative group ${
+                  className={`flex items-center justify-between px-7 py-3.5 cursor-pointer transition-all relative group ${
                     menu.activeCategoryId === cat.id
                       ? "bg-white dark:bg-background text-[#05C3D4]"
                       : "text-foreground/60 hover:text-[#05C3D4] hover:bg-[#05C3D4]/5"
@@ -170,7 +170,7 @@ const DesktopCatalog = () => {
                           : "text-foreground/30 group-hover:text-[#05C3D4]"
                       }
                     />
-                    <span className="text-[12px] font-black tracking-[0.08em] leading-none">
+                    <span className="text-[14px] font-semibold leading-tight">
                       {formatCategoryLabel(cat.title)}
                     </span>
                   </div>
@@ -179,22 +179,22 @@ const DesktopCatalog = () => {
                     className={`opacity-0 group-hover:opacity-40 transition-all ${menu.activeCategoryId === cat.id ? "opacity-100 text-[#05C3D4]" : ""}`}
                   />
                   {menu.activeCategoryId === cat.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#05C3D4]" />
+                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-[#05C3D4]" />
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-white dark:bg-background">
-            <div className="flex items-center justify-between mb-10 pb-6 border-b border-border">
-              <h2 className="text-3xl font-black tracking-tight text-foreground">
+          <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-white dark:bg-background">
+            <div className="flex items-center justify-between mb-8 pb-5 border-b border-border">
+              <h2 className="text-[30px] font-black tracking-tight text-foreground">
                 {formatCategoryLabel(menu.activeCategory.title)}
               </h2>
               {groupsWithChildren.length > 0 && (
                 <Link
                   to={menu.activeCategory.href}
-                  className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                  className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] hover:underline"
                   onClick={menu.close}
                 >
                   Все товары в категории <ArrowRight size={14} />
@@ -206,14 +206,14 @@ const DesktopCatalog = () => {
                 {groupsWithChildren.map((group: CategoryGroup) => (
                   <div
                     key={group.id}
-                    className="mb-6 break-inside-avoid space-y-2.5"
+                    className="mb-7 break-inside-avoid space-y-2"
                   >
-                    <h3 className="text-[11px] font-black tracking-[0.08em] text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
+                    <h3 className="text-[14px] font-bold text-foreground hover:text-[#05C3D4] transition-colors leading-tight">
                       <Link to={group.href || "#"} onClick={menu.close}>
                         {formatCategoryLabel(group.title)}
                       </Link>
                     </h3>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1">
                       {group.items?.map((item: CategoryItem) => (
                         <Link
                           key={item.id}
@@ -234,19 +234,19 @@ const DesktopCatalog = () => {
             ) : showLeafCategoryFilters ? (
               <div className="pt-1">
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.12em] text-foreground">
+                  <h3 className="text-[14px] font-bold text-foreground">
                     Типы товаров
                   </h3>
                   <Link
                     to={menu.activeCategory.href}
-                    className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] hover:underline"
+                    className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] hover:underline"
                     onClick={menu.close}
                   >
                     Смотреть все товары
                   </Link>
                 </div>
                 {typeFilter && typeFilter.values.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 xl:grid-cols-4">
                     {typeFilter.values.slice(0, 12).map(value => (
                       <Link
                         key={`${typeFilter.normalizedKey}:${value.normalizedValue}`}
@@ -254,7 +254,7 @@ const DesktopCatalog = () => {
                           `${typeFilter.normalizedKey}:${value.normalizedValue}`
                         )}`}
                         onClick={menu.close}
-                        className="text-[13px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
+                        className="inline-flex rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
                       >
                         {value.value}
                       </Link>
@@ -269,14 +269,14 @@ const DesktopCatalog = () => {
             ) : null}
             {singleCategories.length > 0 && (
               <div className={`${groupsWithChildren.length > 0 || showLeafCategoryFilters ? "mt-6 border-t border-border pt-5" : ""}`}>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
                   {singleCategories.map((group: CategoryGroup) => (
                     <Link
                       key={group.id}
                       to={group.href || "#"}
                       onClick={menu.close}
-                    className="text-[12px] font-bold text-muted-foreground hover:text-[#05C3D4] transition-colors"
-                  >
+                      className="rounded-full border border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground hover:border-[#05C3D4]/35 hover:text-[#05C3D4] transition-colors"
+                    >
                       {formatCategoryLabel(group.title)}
                     </Link>
                   ))}
@@ -315,7 +315,7 @@ const DesktopCatalog = () => {
                     <Link
                       key={promo.id}
                       to={promo.href}
-                      className={`block p-8 rounded-3xl relative overflow-hidden group h-full shadow-lg ${promo.theme === "accent" ? "bg-[#05C3D4] text-black" : "bg-muted"}`}
+                      className={`block p-8 rounded-3xl relative overflow-hidden group h-full border border-border ${promo.theme === "accent" ? "bg-[#05C3D4] text-black border-transparent" : "bg-muted/40"}`}
                       onClick={menu.close}
                     >
                       <div className="relative z-10">
@@ -414,7 +414,7 @@ const MobileCatalog = () => {
             placeholder="Поиск по категориям..."
             value={menu.searchTerm}
             onChange={e => menu.setSearchTerm(e.target.value)}
-            className="w-full h-12 bg-card border border-border rounded-xl pl-12 pr-4 text-sm font-bold placeholder:font-medium outline-none focus:border-[#05C3D4] transition-all"
+            className="w-full h-12 bg-card border border-border rounded-xl pl-12 pr-4 text-sm font-medium placeholder:font-medium outline-none focus:border-[#05C3D4] transition-all"
           />
         </div>
       </div>
@@ -460,7 +460,7 @@ const MobileCatalog = () => {
                     size={22}
                     className="text-[#05C3D4]"
                   />
-                  <span className="text-[14px] font-black tracking-[0.08em]">
+                  <span className="text-[15px] font-semibold">
                     {formatCategoryLabel(cat.title)}
                   </span>
                 </div>
@@ -473,12 +473,12 @@ const MobileCatalog = () => {
         ) : !currentGroup ? (
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
-              <h3 className="text-2xl font-black tracking-tight mb-4">
+              <h3 className="text-[28px] font-black tracking-tight mb-4">
                 {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </h3>
               <Link
                 to={currentCategory?.href || "#"}
-                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]"
+                className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]"
                 onClick={menu.close}
               >
                 Смотреть всё <ArrowRight size={12} />
@@ -495,7 +495,7 @@ const MobileCatalog = () => {
                       : (window.location.href = group.href || "#")
                   }
                 >
-                  <span className="text-[13px] font-black tracking-[0.08em]">
+                  <span className="text-[14px] font-semibold">
                     {formatCategoryLabel(group.title)}
                   </span>
                   <ChevronRight size={18} className="opacity-20" />
@@ -506,10 +506,10 @@ const MobileCatalog = () => {
         ) : (
           <div className="animate-in slide-in-from-right duration-300">
             <div className="p-8 bg-card border-b border-border">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#05C3D4] block mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#05C3D4] block mb-2">
                 {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
               </span>
-              <h3 className="text-2xl font-black tracking-tight">
+              <h3 className="text-[28px] font-black tracking-tight">
                 {formatCategoryLabel(currentGroup.title)}
               </h3>
             </div>
@@ -521,7 +521,7 @@ const MobileCatalog = () => {
                   className="flex items-center justify-between p-5 bg-card border border-transparent border-b-border active:bg-[#05C3D4]/5"
                   onClick={menu.close}
                 >
-                  <span className="text-[13px] font-bold tracking-tight text-foreground/80">
+                  <span className="text-[14px] font-medium tracking-tight text-foreground/80">
                     {formatCategoryLabel(item.title)}
                   </span>
                   <Badge type={item.badge} />
