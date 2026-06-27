@@ -123,12 +123,16 @@ export default function ProductPage() {
   );
   const hasVariants = variants.length > 0;
   const selectedVariant =
-    variants.find(variant => variant.id === selectedVariantId) ?? defaultVariant ?? null;
+    variants.find(variant => variant.id === selectedVariantId) ?? null;
 
   useEffect(() => {
-    setSelectedVariantId(requestedVariant?.id ?? defaultVariant?.id ?? null);
+    const nextVariantId = requestedVariant?.id ?? defaultVariant?.id ?? null;
+
+    setSelectedVariantId(currentVariantId =>
+      currentVariantId === nextVariantId ? currentVariantId : nextVariantId
+    );
     setVariantChosenManually(Boolean(requestedVariant));
-  }, [defaultVariant?.id, product?.id, requestedVariant]);
+  }, [defaultVariant?.id, requestedVariant]);
 
   useEffect(() => {
     if (!product) return;
