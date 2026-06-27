@@ -222,7 +222,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 min-w-0 overflow-hidden rounded-[2rem] bg-white p-4 min-h-[360px] md:order-2 md:min-h-[620px] md:p-8 xl:min-h-[720px] xl:p-10 ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 min-w-0 overflow-hidden rounded-[2rem] bg-transparent min-h-[360px] md:order-2 md:min-h-[620px] xl:min-h-[720px] ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
@@ -252,7 +252,7 @@ export default function ProductImageGallery({
             onClick={() => openLightbox(activeIndex)}
             aria-label={`Увеличить изображение товара ${productName}`}
             title={`${productName} — открыть изображение`}
-            className="relative z-10 flex h-full w-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
+            className="relative z-10 flex h-full w-full items-center justify-center px-3 py-3 md:px-4 md:py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
           >
             <img
               src={activeImageProps.src}
@@ -260,7 +260,7 @@ export default function ProductImageGallery({
               sizes={activeImageProps.sizes}
               alt={productName}
               title={productName}
-              className="max-h-[340px] w-full cursor-zoom-in object-contain transition-transform duration-500 hover:scale-[1.03] md:max-h-[620px] xl:max-h-[720px]"
+              className="h-full max-h-[340px] w-full cursor-zoom-in rounded-[1.75rem] object-contain transition-transform duration-500 hover:scale-[1.02] md:max-h-[620px] xl:max-h-[720px]"
               loading="eager"
               fetchPriority="high"
               decoding="async"
