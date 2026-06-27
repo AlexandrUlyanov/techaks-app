@@ -1,5 +1,9 @@
 import { Link } from "react-router";
 import { useCallback, useMemo, useState } from "react";
+import {
+  isProductImageVariantSet,
+  type ProductImageVariantSet,
+} from "@contracts/product-images";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Heart, Minus, Plus, Star } from "lucide-react";
@@ -30,6 +34,7 @@ interface ProductCardProps {
     image: string;
     imageVariants?: unknown;
     images?: unknown;
+    variantPreviewImages?: unknown;
     categoryId: number;
     categoryName?: string | null;
     rating?: string | number | null;
@@ -75,14 +80,28 @@ export default function ProductCard({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
   };
+  const variantPreviewImages = useMemo<ProductImageVariantSet[]>(
+    () =>
+      Array.isArray(product.variantPreviewImages)
+        ? product.variantPreviewImages.filter(isProductImageVariantSet)
+        : [],
+    [product.variantPreviewImages]
+  );
   const productImages = useMemo(
     () =>
-      resolveProductImageCollection(
-        product.image,
-        product.imageVariants,
-        product.images
-      ),
-    [product.image, product.imageVariants, product.images]
+      variantPreviewImages.length > 0
+        ? variantPreviewImages
+        : resolveProductImageCollection(
+            product.image,
+            product.imageVariants,
+            product.images
+          ),
+    [
+      variantPreviewImages,
+      product.image,
+      product.imageVariants,
+      product.images,
+    ]
   );
   const hasImagePreview = productImages.length > 1;
   const [activeImageIndex, setActiveImageIndex] = useState(0);

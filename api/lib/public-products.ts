@@ -8,7 +8,17 @@ import {
   stores,
 } from "@db/schema";
 import * as schema from "@db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import {
+  asc,
+  desc,
+  eq,
+  inArray,
+  sql,
+} from "drizzle-orm";
+import {
+  normalizeProductImageVariantSet,
+  type ProductImageVariantSet,
+} from "@contracts/product-images";
 import { getDb } from "../queries/connection";
 import { buildPublicProductVisibilityCondition } from "./product-visibility";
 import { getMerchandisingDisabledBadges } from "./merchandising-score";
@@ -104,6 +114,42 @@ export const publicProductSelectFields = {
   inStock: sql<boolean>`${publicAvailableStockQtySql} > 0`,
 };
 
+const MAX_VARIANT_PREVIEW_IMAGES = 8;
+
+function normalizeVariantPreviewImage(
+  image: unknown,
+  imageVariants: unknown
+): ProductImageVariantSet | null {
+  const direct = normalizeProductImageVariantSet(
+    imageVariants,
+    typeof image === "string" ? image : null
+  );
+  if (direct?.original) return direct;
+
+  if (typeof image === "string" && image.trim()) {
+    return normalizeProductImageVariantSet(null, image);
+  }
+
+  return null;
+}
+
+function getVariantFirstPreviewImage(variant: {
+  image?: unknown;
+  imageVariants?: unknown;
+  images?: unknown;
+}): ProductImageVariantSet | null {
+  if (Array.isArray(variant.images) && variant.images.length > 0) {
+    const firstImage = variant.images[0];
+    const fromGallery =
+      typeof firstImage === "string"
+        ? normalizeProductImageVariantSet(null, firstImage)
+        : normalizeProductImageVariantSet(firstImage, null);
+    if (fromGallery?.original) return fromGallery;
+  }
+
+  return normalizeVariantPreviewImage(variant.image, variant.imageVariants);
+}
+
 export async function attachVisibleMerchandisingBadges<
   T extends { merchandisingBadges?: unknown }
 >(rows: T[]) {
@@ -115,6 +161,48 @@ export async function attachVisibleMerchandisingBadges<
     })
     .filter((id): id is number => typeof id === "number");
   const aiBadgeMap = await getStorefrontBadgeLabels(rowIds);
+  const variantPreviewMap = new Map<number, ProductImageVariantSet[]>();
+
+  if (rowIds.length > 0) {
+    const db = getDb();
+    const variantRows = await db
+      .select({
+        id: productVariants.id,
+        productId: productVariants.productId,
+        image: productVariants.image,
+        imageVariants: productVariants.imageVariants,
+        images: productVariants.images,
+        price: productVariants.price,
+        stock: productVariants.stock,
+        isActive: productVariants.isActive,
+      })
+      .from(productVariants)
+      .where(
+        inArray(productVariants.productId, rowIds)
+      )
+      .orderBy(
+        asc(productVariants.productId),
+        desc(productVariants.isActive),
+        desc(sql<boolean>`${productVariants.stock} > 0`),
+        asc(productVariants.price),
+        asc(productVariants.id)
+      );
+
+    for (const variantRow of variantRows) {
+      const productId = Number(variantRow.productId ?? 0);
+      if (!productId || !variantRow.isActive) continue;
+
+      const image = getVariantFirstPreviewImage(variantRow);
+      if (!image?.original) continue;
+
+      const current = variantPreviewMap.get(productId) ?? [];
+      if (current.some(item => item.original === image.original)) continue;
+      if (current.length >= MAX_VARIANT_PREVIEW_IMAGES) continue;
+      current.push(image);
+      variantPreviewMap.set(productId, current);
+    }
+  }
+
   return rows.map(row => ({
     ...row,
     merchandisingBadges: Array.from(
@@ -131,6 +219,12 @@ export async function attachVisibleMerchandisingBadges<
         })(),
       ])
     ),
+    variantPreviewImages: (() => {
+      const candidate = row as T & { id?: unknown };
+      return typeof candidate.id === "number"
+        ? variantPreviewMap.get(candidate.id) ?? []
+        : [];
+    })(),
   }));
 }
 
