@@ -63,7 +63,7 @@ export default function ProductImageGallery({
     if (!container) return;
 
     container.scrollBy({
-      top: direction === "up" ? -96 : 96,
+      top: direction === "up" ? -80 : 80,
       behavior: "smooth",
     });
   }, []);
@@ -181,7 +181,7 @@ export default function ProductImageGallery({
                     onClick={() => selectImage(index)}
                     aria-label={`Показать изображение ${index + 1} товара ${productName}`}
                     title={`${productName} — изображение ${index + 1}`}
-                    className={`flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[1rem] border bg-transparent p-0 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[76px] sm:w-[76px] md:h-[76px] md:w-[76px] ${
+                    className={`flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-[0.95rem] border bg-transparent p-0 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-[64px] sm:w-[64px] md:h-[64px] md:w-[64px] ${
                       index === activeIndex
                         ? "border-[#05C3D4] shadow-[0_0_0_3px_rgba(5,195,212,0.12)]"
                         : "border-[#E1E7EF] hover:border-[#05C3D4]"
@@ -193,7 +193,7 @@ export default function ProductImageGallery({
                       sizes="80px"
                       alt={`${productName} — миниатюра ${index + 1}`}
                       title={`${productName} — миниатюра ${index + 1}`}
-                      className="h-full w-full rounded-[0.92rem] object-cover"
+                      className="h-full w-full rounded-[0.88rem] object-cover"
                       loading="lazy"
                       decoding="async"
                       width={thumbnailProps.width}
@@ -222,7 +222,7 @@ export default function ProductImageGallery({
         ) : null}
 
         <div
-          className={`relative order-1 min-w-0 overflow-hidden rounded-[2rem] bg-transparent min-h-[360px] md:order-2 md:min-h-[620px] xl:min-h-[720px] ${hasMultipleImages ? "" : "md:col-span-2"}`}
+          className={`relative order-1 min-w-0 overflow-hidden rounded-[2rem] bg-transparent md:order-2 ${hasMultipleImages ? "" : "md:col-span-2"}`}
         >
           {badges}
 
@@ -252,7 +252,7 @@ export default function ProductImageGallery({
             onClick={() => openLightbox(activeIndex)}
             aria-label={`Увеличить изображение товара ${productName}`}
             title={`${productName} — открыть изображение`}
-            className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden rounded-[1.9rem] px-0 py-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
+            className="relative z-10 flex aspect-square w-full items-center justify-center overflow-hidden rounded-[1.9rem] px-0 py-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4]/60 focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--tech-color-surface)]"
           >
             <img
               src={activeImageProps.src}
@@ -260,7 +260,7 @@ export default function ProductImageGallery({
               sizes={activeImageProps.sizes}
               alt={productName}
               title={productName}
-              className="h-full max-h-[360px] w-full cursor-zoom-in rounded-[1.9rem] object-cover transition-transform duration-500 hover:scale-[1.02] md:max-h-[620px] xl:max-h-[720px]"
+              className="h-full w-full cursor-zoom-in rounded-[1.9rem] object-cover transition-transform duration-500 hover:scale-[1.02]"
               loading="eager"
               fetchPriority="high"
               decoding="async"
