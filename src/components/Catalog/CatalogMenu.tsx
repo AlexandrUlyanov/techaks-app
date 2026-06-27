@@ -143,8 +143,8 @@ const DesktopCatalog = () => {
             </button>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-8">
-            <div className="rounded-[28px] bg-muted/10 p-4">
+          <div className="grid min-h-0 flex-1 grid-cols-[304px_minmax(0,1fr)] gap-10">
+            <div className="rounded-[28px] bg-muted/[0.08] p-3">
               <div className="mb-3 px-2">
                 <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#05C3D4]">
                   Разделы
@@ -159,23 +159,30 @@ const DesktopCatalog = () => {
                       navigate(cat.href);
                       menu.close();
                     }}
-                    className={`group relative flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3.5 transition-all ${
+                    className={`group relative flex cursor-pointer items-center justify-between rounded-2xl px-4 py-3 transition-all ${
                       menu.activeCategoryId === cat.id
                         ? "bg-white text-[#05C3D4] dark:bg-background"
-                        : "text-foreground/60 hover:bg-[#05C3D4]/5 hover:text-[#05C3D4]"
+                        : "text-foreground/60 hover:bg-white/80 hover:text-[#05C3D4] dark:hover:bg-white/[0.03]"
                     }`}
                   >
+                    {menu.activeCategoryId === cat.id ? (
+                      <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-[#05C3D4]" />
+                    ) : null}
                     <div className="flex min-w-0 items-center gap-3">
-                      <IconWrapper
-                        title={cat.title}
-                        slug={cat.slug}
-                        size={18}
-                        className={
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition-colors ${
                           menu.activeCategoryId === cat.id
-                            ? "text-[#05C3D4]"
-                            : "text-foreground/30 group-hover:text-[#05C3D4]"
-                        }
-                      />
+                            ? "bg-[#05C3D4]/10 text-[#05C3D4]"
+                            : "bg-white/70 text-foreground/30 group-hover:bg-[#05C3D4]/8 group-hover:text-[#05C3D4] dark:bg-white/[0.03]"
+                        }`}
+                      >
+                        <IconWrapper
+                          title={cat.title}
+                          slug={cat.slug}
+                          size={17}
+                          className="text-current"
+                        />
+                      </span>
                       <span className="line-clamp-2 text-[13px] font-semibold leading-4">
                         {formatCategoryLabel(cat.title)}
                       </span>
@@ -193,11 +200,11 @@ const DesktopCatalog = () => {
               </div>
             </div>
 
-            <div className="rounded-[32px] bg-white p-7 dark:bg-background">
+            <div className="rounded-[32px] bg-white p-8 dark:bg-background">
               <div className="flex h-full flex-col">
-                <div className="mb-6 flex items-start justify-between gap-5">
+                <div className="mb-7 flex items-start justify-between gap-5">
                   <div>
-                    <h2 className="text-[34px] font-black tracking-tight text-foreground">
+                    <h2 className="text-[34px] font-black tracking-tight text-foreground xl:text-[38px]">
                       {formatCategoryLabel(menu.activeCategory.title)}
                     </h2>
                   </div>
@@ -211,7 +218,7 @@ const DesktopCatalog = () => {
                 </div>
 
                 {quickPreviewItems.length > 0 && (
-                  <div className="mb-6 flex flex-wrap gap-2">
+                  <div className="mb-7 flex flex-wrap gap-2.5">
                     {quickPreviewItems.map((item: CategoryItem & { groupTitle?: string }) => (
                       <Link
                         key={`quick-${item.id}`}
@@ -227,10 +234,10 @@ const DesktopCatalog = () => {
                 )}
 
                 {visibleGroups.length > 0 ? (
-                  <div className="grid flex-1 grid-cols-2 gap-x-10 gap-y-7 xl:grid-cols-3">
+                  <div className="grid flex-1 grid-cols-2 gap-x-12 gap-y-8 xl:grid-cols-3">
                     {visibleGroups.map((group: CategoryGroup) => (
                       <div key={group.id} className="min-w-0">
-                        <h3 className="mb-2.5 text-[15px] font-bold leading-tight text-foreground">
+                        <h3 className="mb-3 text-[15px] font-bold leading-tight text-foreground">
                           <Link
                             to={group.href || "#"}
                             onClick={menu.close}
