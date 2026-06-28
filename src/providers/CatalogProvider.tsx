@@ -135,7 +135,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             ...(function () {
               const sourceKey = manufacturer.sourceNormalizedKey ?? "производитель";
               const normalizedName = manufacturer.normalizedName ?? "";
-              const params = new URLSearchParams({ cat: category.slug });
+              const params = new URLSearchParams({ cat: category.slug, show: "products" });
               if (normalizedName) {
                 params.append("filter", `${sourceKey}:${normalizedName}`);
               }
