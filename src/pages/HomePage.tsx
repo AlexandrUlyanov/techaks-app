@@ -228,6 +228,8 @@ export default function HomePage() {
             stores={secondary.stores}
             latestPosts={secondary.latestPosts}
             popularProducts={secondary.popularProducts}
+            reviews={secondary.reviews}
+            reviewsSummary={secondary.reviewsSummary}
             isStoreOpen={isStoreOpen}
           />
         </Suspense>

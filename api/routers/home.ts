@@ -29,6 +29,7 @@ export const homeRouter = createRouter({
         posts: payload.secondary.latestPosts.length,
         popularProducts: payload.secondary.popularProducts.length,
         manufacturers: payload.secondary.featuredManufacturers.length,
+        reviews: payload.secondary.reviews.length,
       },
     };
   }),

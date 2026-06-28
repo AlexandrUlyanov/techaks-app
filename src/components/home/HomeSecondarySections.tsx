@@ -8,26 +8,20 @@ import ReviewCard from "@/components/ReviewCard";
 import HomeSectionHeading from "./HomeSectionHeading";
 import HomeSectionActionLink from "./HomeSectionActionLink";
 
-const defaultReviews = [
-  {
-    author: "Анна К.",
-    rating: 5,
-    text: "Отличный магазин! Помогли подобрать чехол для iPhone, цены приятные, персонал вежливый. Обязательно приду ещё.",
-    createdAt: new Date("2024-04-15").toISOString(),
-  },
-  {
-    author: "Михаил С.",
-    rating: 5,
-    text: "Клеил защитное стекло, сделали быстро и качественно. Широкий выбор аксессуаров, всё в наличии. Рекомендую!",
-    createdAt: new Date("2024-04-10").toISOString(),
-  },
-  {
-    author: "Елена В.",
-    rating: 5,
-    text: "Купила power bank HOCO, работает отлично. Продавец объяснил все характеристики, помог выбрать под мои задачи. Спасибо!",
-    createdAt: new Date("2024-04-05").toISOString(),
-  },
-];
+type HomepageReviewItem = {
+  id: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  authorBadge: string | null;
+  rating: number;
+  text: string;
+  createdAt: string;
+  photoUrl: string | null;
+  source: string;
+  reviewUrl: string;
+  replyText: string | null;
+  replyUpdatedAt: string | null;
+};
 
 function formatProductCount(count: number) {
   const safeCount = Math.max(0, Number(count) || 0);
@@ -42,12 +36,31 @@ function formatProductCount(count: number) {
   return `${safeCount} товаров`;
 }
 
+function formatReviewCount(count: number) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  const mod10 = safeCount % 10;
+  const mod100 = safeCount % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return `${safeCount} отзыв`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${safeCount} отзыва`;
+  }
+
+  return `${safeCount} отзывов`;
+}
+
 export type HomeSecondarySectionsProps = {
   featuredManufacturers: any[];
   banners: any[];
   stores: any[];
   latestPosts: any[];
   popularProducts: any[];
+  reviews: HomepageReviewItem[];
+  reviewsSummary: {
+    totalCount: number;
+    sourceUrl: string | null;
+    fetchedAt: string | null;
+  };
   isStoreOpen: boolean;
 };
 
@@ -57,6 +70,8 @@ export default function HomeSecondarySections({
   stores,
   latestPosts,
   popularProducts,
+  reviews,
+  reviewsSummary,
   isStoreOpen,
 }: HomeSecondarySectionsProps) {
   const { resolvedTheme } = useTheme();
@@ -215,61 +230,70 @@ export default function HomeSecondarySections({
         </div>
       </section>
 
-      <section id="reviews" className="py-24 bg-background">
-        <div className="container-main">
-          <HomeSectionHeading
-            eyebrow="Обратная связь"
-            title="Отзывы покупателей"
-            accent="покупателей"
-            action={
-              <div className="inline-flex items-center gap-4 rounded-full bg-card/70 px-4 py-3 transition-colors dark:bg-white/[0.03]">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Яндекс Карты
+      {reviews.length > 0 ? (
+        <section id="reviews" className="py-24 bg-background">
+          <div className="container-main">
+            <HomeSectionHeading
+              eyebrow="Обратная связь"
+              title="Отзывы покупателей"
+              accent="покупателей"
+              action={
+                <div className="inline-flex items-center gap-4 rounded-full bg-card/70 px-4 py-3 transition-colors dark:bg-white/[0.03]">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      Яндекс Карты
+                    </div>
+                    <div className="mt-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                      {formatReviewCount(reviewsSummary.totalCount)}
+                    </div>
                   </div>
-                  <div className="mt-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                    59 отзывов
-                  </div>
+                  <iframe
+                    src={yandexBadgeSrc}
+                    width="150"
+                    height="50"
+                    frameBorder="0"
+                    loading="lazy"
+                    title="Рейтинг ТЕХАКС в Яндекс Картах"
+                    className="overflow-hidden rounded-xl"
+                  />
                 </div>
-                <iframe
-                  src={yandexBadgeSrc}
-                  width="150"
-                  height="50"
-                  frameBorder="0"
-                  loading="lazy"
-                  title="Рейтинг ТЕХАКС в Яндекс Картах"
-                  className="overflow-hidden rounded-xl"
+              }
+              className="mb-16"
+            />
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {reviews.map(review => (
+                <ReviewCard
+                  key={review.id}
+                  name={review.authorName}
+                  avatarUrl={review.authorAvatarUrl}
+                  authorBadge={review.authorBadge}
+                  rating={review.rating}
+                  text={review.text}
+                  date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
+                  source={review.source}
+                  photoUrl={review.photoUrl}
+                  reviewUrl={review.reviewUrl}
+                  replyText={review.replyText}
                 />
-              </div>
-            }
-            className="mb-16"
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {defaultReviews.map((review, i) => (
-              <ReviewCard
-                key={i}
-                name={review.author}
-                rating={review.rating}
-                text={review.text}
-                date={new Date(review.createdAt).toLocaleDateString("ru-RU")}
-                source="Яндекс Карты"
-              />
-            ))}
+              ))}
+            </div>
+            <div className="mt-16 text-center">
+              <a
+                href={
+                  reviewsSummary.sourceUrl ??
+                  "https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17"
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 rounded-xl border border-border px-8 py-4 text-xs font-black uppercase tracking-widest text-foreground transition-all hover:border-[#05C3D4] hover:bg-card"
+              >
+                Оставить отзыв
+              </a>
+            </div>
           </div>
-
-          <div className="mt-16 text-center">
-            <a
-              href="https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-8 py-4 border border-border text-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-card hover:border-[#05C3D4] transition-all"
-            >
-              Оставить отзыв
-            </a>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {latestPosts.length > 0 && (
         <section id="blog" className="py-24 bg-background">

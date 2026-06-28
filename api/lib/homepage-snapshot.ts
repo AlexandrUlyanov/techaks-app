@@ -149,6 +149,12 @@ async function writeSnapshotError(message: string) {
       stores: [],
       latestPosts: [],
       popularProducts: [],
+      reviews: [],
+      reviewsSummary: {
+        totalCount: 0,
+        sourceUrl: "",
+        fetchedAt: "",
+      },
     },
   } satisfies HomepagePayload;
 

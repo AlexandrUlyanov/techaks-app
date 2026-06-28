@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { ExternalLink, Star } from "lucide-react";
 
 interface ReviewCardProps {
   name: string;
@@ -6,6 +6,11 @@ interface ReviewCardProps {
   rating: number;
   text: string;
   source: string;
+  avatarUrl?: string | null;
+  authorBadge?: string | null;
+  photoUrl?: string | null;
+  reviewUrl?: string | null;
+  replyText?: string | null;
 }
 
 export default function ReviewCard({
@@ -13,6 +18,12 @@ export default function ReviewCard({
   date,
   rating,
   text,
+  source,
+  avatarUrl,
+  authorBadge,
+  photoUrl,
+  reviewUrl,
+  replyText,
 }: ReviewCardProps) {
   const initials = name
     .split(" ")
@@ -21,24 +32,36 @@ export default function ReviewCard({
     .toUpperCase();
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-8 hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-muted border border-border flex items-center justify-center text-sm font-black text-[#05C3D4] uppercase">
-          {initials}
+    <article className="overflow-hidden rounded-[28px] border border-border bg-card p-6 transition-colors duration-300 hover:border-[#05C3D4]/25 sm:p-7">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted text-sm font-black uppercase text-[#05C3D4]">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            initials
+          )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-black text-foreground uppercase tracking-tight truncate">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-base font-black tracking-tight text-foreground">
             {name}
           </div>
-          <div className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest mt-1">
-            {date}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+            <span>{date}</span>
+            {authorBadge ? <span className="normal-case tracking-normal">{authorBadge}</span> : null}
           </div>
+        </div>
+        <div className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-sm font-black text-foreground">
+          <Star size={14} className="fill-[#05C3D4] text-[#05C3D4]" />
+          <span>{rating.toFixed(1)}</span>
         </div>
       </div>
 
-      {/* Rating */}
-      <div className="mt-6 flex items-center gap-1 bg-muted inline-flex px-3 py-1.5 rounded-lg border border-border">
+      <div className="mt-5 inline-flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1.5">
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
@@ -52,18 +75,51 @@ export default function ReviewCard({
         ))}
       </div>
 
-      {/* Text */}
-      <p className="mt-6 text-sm text-foreground/80 font-medium leading-relaxed italic line-clamp-4">
-        "{text}"
+      {photoUrl ? (
+        <div className="mt-5 overflow-hidden rounded-[22px] bg-muted">
+          <img
+            src={photoUrl}
+            alt={`Фото к отзыву ${name}`}
+            className="h-56 w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      ) : null}
+
+      <p className="mt-5 text-sm font-medium leading-relaxed text-foreground/85">
+        {text}
       </p>
 
-      {/* Source */}
-      <div className="mt-8 flex items-center gap-2">
-        <span className="w-4 h-px bg-border" />
-        <span className="text-[9px] font-black text-muted-foreground/60 uppercase tracking-[0.2em]">
-          Яндекс Карты
-        </span>
+      {replyText ? (
+        <div className="mt-5 rounded-[22px] bg-muted/75 px-4 py-3">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+            Ответ ТЕХАКС
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-4">
+            {replyText}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="h-px w-4 bg-border" />
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+            {source}
+          </span>
+        </div>
+        {reviewUrl ? (
+          <a
+            href={reviewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#05C3D4] transition-colors hover:text-[#049eac]"
+          >
+            Читать
+            <ExternalLink size={12} />
+          </a>
+        ) : null}
       </div>
-    </div>
+    </article>
   );
 }

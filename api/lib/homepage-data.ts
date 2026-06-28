@@ -7,6 +7,7 @@ import { buildHomepageHeroStorefrontData } from "./homepage-hero";
 import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 import { getRecommendedProducts } from "./merchandising-score";
 import { listHomepageFallbackProducts } from "./public-products";
+import { getHomepageYandexReviews } from "./yandex-maps-reviews";
 
 function rankBadge(badge?: string | null) {
   if (badge === "Акция") return 0;
@@ -29,6 +30,7 @@ export async function buildHomepageData() {
     popularRecommendations,
     manufacturerRows,
     hero,
+    yandexReviews,
   ] = await Promise.all([
     getPublicSiteProfile(),
     getAppSettings(["maintenance_mode", "maintenance_reopen_date"]),
@@ -55,6 +57,7 @@ export async function buildHomepageData() {
     getRecommendedProducts({ limit: 8 }),
     getVisibleManufacturerCatalogEntries(18),
     buildHomepageHeroStorefrontData(),
+    getHomepageYandexReviews(),
   ]);
 
   const fallbackProducts = await listHomepageFallbackProducts(12);
@@ -86,6 +89,12 @@ export async function buildHomepageData() {
       stores: storesRows,
       latestPosts: postRows,
       popularProducts,
+      reviews: yandexReviews.reviews,
+      reviewsSummary: {
+        totalCount: yandexReviews.totalCount,
+        sourceUrl: yandexReviews.sourceUrl,
+        fetchedAt: yandexReviews.fetchedAt,
+      },
     },
   };
 }
