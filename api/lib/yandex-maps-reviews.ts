@@ -4,6 +4,64 @@ const YANDEX_ORG_URL = "https://yandex.ru/maps/org/tekhaks/81538152780/";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_REVIEWS = 6;
 
+const FALLBACK_REVIEWS: HomepageYandexReview[] = [
+  {
+    id: "fallback-mariya-ivanova-2026-06-23",
+    authorName: "Мария Иванова",
+    authorAvatarUrl: "https://avatars.mds.yandex.net/get-yapic/63032/0k-5/160x160",
+    authorBadge: "Знаток города 3 уровня",
+    rating: 5,
+    text: "Покупала тут фен, понравился и сам товар и магазин, большой выбор самых различных видов техники и аксессуаров, есть что повыбирать, персонал отзывчивый",
+    createdAt: "2026-06-23T14:08:17.926Z",
+    photoUrl: "https://avatars.mds.yandex.net/get-altay/18780150/2a0000019ef4d1b436cb684d35ed9857d00d/900x900",
+    source: "Яндекс Карты",
+    reviewUrl: YANDEX_REVIEWS_URL,
+    replyText:
+      "Благодарим за отзыв и высокую оценку магазина техники и аксессуаров ТЕХАКС. Что касается техники для красоты, у нас большой выбор современных фенов с ионизацией, дорожных фенов, выпрямителей для волос, машинок для стрижки волос и других аксессуаров для ухода. Профессиональные консультанты магазина ТЕХАКС всегда готовы помочь вам выбрать качественную технику по лучшей цене!",
+    replyUpdatedAt: "2026-06-24T08:48:21.053Z",
+  },
+  {
+    id: "fallback-nadia-ara-2026-06-03",
+    authorName: "Nadia.ara",
+    authorAvatarUrl:
+      "https://avatars.mds.yandex.net/get-yapic/29310/enc-ae1200487c248024a060ebca7b9d6f8b86dd926948393ac669478f930d57f44c/160x160",
+    authorBadge: "Знаток города 5 уровня",
+    rating: 5,
+    text: "Открыла для себя новый магазин электроники. Небольшой, но много всего интересного, аксессуаров для телефонов, наушников,колонок, много интересного для детей, от брелков до разнообразных развивающих настолок. Набрала и в подарок и для семьи)))Приятное открытие. Спасибо 😀",
+    createdAt: "2026-06-03T10:26:45.843Z",
+    photoUrl: "https://avatars.mds.yandex.net/get-altay/17750410/2a0000019e8d0597fd4b8e970d9954603b62/900x900",
+    source: "Яндекс Карты",
+    reviewUrl: YANDEX_REVIEWS_URL,
+    replyText:
+      "Благодарим за отзыв! Нам очень приятно, что вы отметили большой выбор и разнообразный ассортимент магазина техники и аксессуаров ТЕХАКС, который постоянно пополняется новинками техники. Помимо телефонов, планшетов, беспроводных наушников и портативных колонок, у нас также большой выбор техники для дома: аэрогрили, чайники, утюги, кофемашины, блендеры, отпариватели, вентиляторы. Купить фен, выпрямитель для волос, машинку для стрижки волос, бритву или умную расческу вы также можете в магазине техники и аксессуаров ТЕХАКС.",
+    replyUpdatedAt: "2026-06-15T07:15:17.625Z",
+  },
+  {
+    id: "fallback-ilya-korobkov-2026-04-06",
+    authorName: "Илья Коробков",
+    authorAvatarUrl: "https://avatars.mds.yandex.net/get-yapic/45566/0j-5/160x160",
+    authorBadge: "Знаток города 3 уровня",
+    rating: 5,
+    text: "Хороший магазин, персонал очень вежливый, единственный магазин в городе, в котором оказалось нужное мне защитное стекло, продавец очень ровно и качественно наклеил стекло без пузырей. Очень доволен, рекомендую!",
+    createdAt: "2026-04-06T13:57:24.680Z",
+    photoUrl: null,
+    source: "Яндекс Карты",
+    reviewUrl: YANDEX_REVIEWS_URL,
+    replyText:
+      "Благодарим за отзыв! В магазине техники и аксессуаров ТЕХАКС в Пензе всегда можно поклеить защитное стекло или пленку на телефон. Цены на поклейку пленки у нас самые низкие по городу — от 150 рублей (поклейка пленки на экран смартфона).",
+    replyUpdatedAt: "2026-06-15T14:36:42.691Z",
+  },
+];
+
+function buildFallbackPayload(): HomepageYandexReviewsPayload {
+  return {
+    totalCount: Math.max(43, FALLBACK_REVIEWS.length),
+    reviews: FALLBACK_REVIEWS.slice(0, MAX_REVIEWS),
+    sourceUrl: YANDEX_REVIEWS_URL,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 export type HomepageYandexReview = {
   id: string;
   authorName: string;
@@ -224,11 +282,11 @@ export async function getHomepageYandexReviews() {
     if (cache?.payload) {
       return cache.payload;
     }
-    return {
-      totalCount: 0,
-      reviews: [],
-      sourceUrl: YANDEX_REVIEWS_URL,
-      fetchedAt: new Date().toISOString(),
+    const payload = buildFallbackPayload();
+    cache = {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      payload,
     };
+    return payload;
   }
 }

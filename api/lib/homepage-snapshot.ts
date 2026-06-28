@@ -48,7 +48,7 @@ function nowIso() {
 }
 
 function getSourceVersion() {
-  return "homepage_snapshot_v1";
+  return "homepage_snapshot_v2";
 }
 
 function ageMs(date: Date | string | null | undefined) {
@@ -219,13 +219,32 @@ export async function getHomepagePageData() {
   const row = await readSnapshotRow();
 
   if (row?.payload) {
+    const payload = row.payload as HomepagePayload;
+    const hasReviews = Array.isArray((payload as any)?.secondary?.reviews);
+    const versionMismatch = row.sourceVersion !== getSourceVersion();
+    const requiresRebuild = versionMismatch || !hasReviews;
+
+    if (requiresRebuild) {
+      const rebuiltPayload = await refreshHomepageSnapshot();
+      return {
+        ...rebuiltPayload,
+        cache: {
+          cacheStatus: "rebuilt" as const,
+          generatedAt: nowIso(),
+          expiresAt: new Date(Date.now() + SNAPSHOT_TTL_MS).toISOString(),
+          sourceVersion: getSourceVersion(),
+          refreshedInBackground: false,
+        },
+      };
+    }
+
     const stale = isSnapshotStale(row.generatedAt);
     if (stale) {
       void scheduleHomepageSnapshotRefresh();
     }
 
     return {
-      ...(row.payload as HomepagePayload),
+      ...payload,
       cache: {
         cacheStatus: stale ? ("stale" as const) : ("snapshot" as const),
         generatedAt: new Date(row.generatedAt).toISOString(),
