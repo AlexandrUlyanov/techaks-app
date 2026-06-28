@@ -56,9 +56,11 @@ const formatPrice = (price: number) =>
 function CatalogPromoCard({
   product,
   onClose,
+  className = "",
 }: {
   product: PromoMenuProduct;
   onClose: () => void;
+  className?: string;
 }) {
   const imageProps = getProductCardImageProps({
     image: product.image,
@@ -79,7 +81,7 @@ function CatalogPromoCard({
     <Link
       to={`/product/${product.slug}`}
       onClick={onClose}
-      className="group flex min-w-0 flex-col rounded-[28px] bg-muted/[0.08] p-4 transition-colors hover:bg-muted/[0.12]"
+      className={`group flex h-full min-w-0 flex-col rounded-[28px] bg-muted/[0.08] p-4 transition-colors hover:bg-muted/[0.12] ${className}`}
     >
       <div className="relative mb-4 overflow-hidden rounded-[22px] bg-white dark:bg-white/[0.03]">
         {discountPercent ? (
@@ -99,7 +101,7 @@ function CatalogPromoCard({
         </div>
       </div>
 
-      <div className="mb-2 min-h-[42px] text-[14px] font-bold leading-5 text-foreground">
+      <div className="mb-2 min-h-[48px] text-[14px] font-bold leading-5 text-foreground">
         {product.name}
       </div>
 
@@ -305,7 +307,10 @@ const DesktopCatalog = () => {
             </div>
 
             <div className="rounded-[30px] bg-white p-6 dark:bg-background">
-              <div className="flex h-full flex-col justify-start">
+              <div
+                key={menu.activeCategory.id}
+                className="flex h-full flex-col justify-start animate-in fade-in slide-in-from-bottom-2 duration-200"
+              >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-[30px] font-black tracking-tight text-foreground xl:text-[34px]">
@@ -490,134 +495,138 @@ const DesktopCatalog = () => {
 const MobileCatalog = () => {
   const menu = useCatalog();
   useBodyScrollLock(menu.isOpen);
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 
-  const currentCategory = useMemo(
-    () =>
-      menu.mobilePath.length > 0
-        ? menu.catalogCategories.find(c => c.id === menu.mobilePath[0])
-        : null,
-    [menu.catalogCategories, menu.mobilePath]
+  const currentCategory = useMemo(() => {
+    const fallbackId = expandedCategoryId ?? menu.activeCategoryId ?? menu.catalogCategories[0]?.id ?? null;
+    return fallbackId ? menu.catalogCategories.find(c => c.id === fallbackId) ?? null : null;
+  }, [expandedCategoryId, menu.activeCategoryId, menu.catalogCategories]);
+
+  const { data: mobilePromotionalData } = trpc.product.getPromotionalProducts.useQuery(
+    {
+      categorySlug: currentCategory?.slug ?? "all",
+    },
+    {
+      enabled: Boolean(currentCategory?.slug),
+      placeholderData: prev => prev,
+    }
   );
 
-  const currentGroup = useMemo(
-    () =>
-      menu.mobilePath.length >= 2 && currentCategory
-        ? currentCategory.children?.find(g => g.id === menu.mobilePath[1])
-        : null,
-    [menu.mobilePath, currentCategory]
+  const mobilePromoProducts = useMemo<PromoMenuProduct[]>(
+    () => (mobilePromotionalData?.products ?? []).slice(0, 3) as PromoMenuProduct[],
+    [mobilePromotionalData?.products]
   );
 
-  const handleBack = () => {
-    menu.setMobilePath(prev => prev.slice(0, -1));
-    menu.track("catalog_mobile_back");
-  };
+  useEffect(() => {
+    if (!menu.catalogCategories.length) return;
+    if (expandedCategoryId) return;
+    setExpandedCategoryId(menu.activeCategoryId ?? menu.catalogCategories[0]?.id ?? null);
+  }, [expandedCategoryId, menu.activeCategoryId, menu.catalogCategories]);
 
-  const navigateIn = (id: string) => {
-    menu.setMobilePath(prev => [...prev, id]);
-    menu.track("catalog_category_click", { category_id: id });
+  const toggleCategory = (id: string) => {
+    setExpandedCategoryId(prev => (prev === id ? null : id));
+    menu.setActiveCategoryId(id);
+    menu.track("catalog_mobile_category_toggle", { category_id: id });
   };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col overflow-hidden bg-background animate-in slide-in-from-right duration-300">
       <div className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card px-6">
-        {menu.mobilePath.length > 0 ? (
-          <button onClick={handleBack} className="flex items-center gap-2 text-[#05C3D4]">
-            <ChevronLeft size={24} />
-            <span className="text-xs font-black uppercase tracking-widest">Назад</span>
-          </button>
-        ) : (
-          <h2 className="text-lg font-black uppercase tracking-tighter">Каталог</h2>
-        )}
+        <h2 className="text-lg font-black uppercase tracking-tighter">Каталог</h2>
         <button onClick={menu.close} className="p-2 -mr-2 text-muted-foreground">
           <X size={24} />
         </button>
       </div>
 
       <div className="custom-scrollbar flex-1 overflow-y-auto pb-24">
-        {menu.mobilePath.length === 0 ? (
-          <div className="grid grid-cols-2 gap-3 p-4">
-            {menu.catalogCategories.map(cat => (
+        <div className="space-y-3 p-4">
+          {menu.catalogCategories.map(cat => {
+            const isExpanded = expandedCategoryId === cat.id;
+            const hasChildren = Boolean(cat.children?.length);
+
+            return (
               <div
                 key={cat.id}
-                className="rounded-[22px] bg-card px-4 py-4 transition-colors active:bg-muted/50"
-                onClick={() => (cat.children ? navigateIn(cat.id) : (window.location.href = cat.href))}
+                className={`rounded-[24px] transition-colors ${
+                  isExpanded ? "bg-card" : "bg-card/72"
+                }`}
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#05C3D4]/10 text-[#05C3D4]">
-                  <IconWrapper title={cat.title} slug={cat.slug} size={20} className="text-[#05C3D4]" />
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-[14px] font-semibold leading-5">
-                    {formatCategoryLabel(cat.title)}
-                  </span>
-                  {cat.children ? (
-                    <ChevronRight size={16} className="mt-0.5 shrink-0 opacity-25" />
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : !currentGroup ? (
-          <div className="animate-in slide-in-from-right duration-300">
-            <div className="bg-card p-8">
-              <h3 className="mb-4 text-[28px] font-black tracking-tight">
-                {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
-              </h3>
-              <Link
-                to={currentCategory?.href || "#"}
-                className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]"
-                onClick={menu.close}
-              >
-                Смотреть всё <ArrowRight size={12} />
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-3 p-4">
-              {currentCategory?.children?.map(group => (
-                <div
-                  key={group.id}
-                  className="rounded-[22px] bg-card p-4 active:bg-muted/50"
-                  onClick={() =>
-                    group.items?.length
-                      ? navigateIn(group.id)
-                      : (window.location.href = group.href || "#")
-                  }
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hasChildren) {
+                      navigate(cat.href);
+                      menu.close();
+                      return;
+                    }
+                    toggleCategory(cat.id);
+                  }}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-[14px] font-semibold leading-5">
-                      {formatCategoryLabel(group.title)}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#05C3D4]/10 text-[#05C3D4]">
+                      <IconWrapper
+                        title={cat.title}
+                        slug={cat.slug}
+                        size={18}
+                        className="text-current"
+                      />
                     </span>
-                    <ChevronRight size={16} className="mt-0.5 shrink-0 opacity-20" />
+                    <span className="text-[15px] font-semibold leading-5 text-foreground">
+                      {formatCategoryLabel(cat.title)}
+                    </span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="animate-in slide-in-from-right duration-300">
-            <div className="bg-card p-8">
-              <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
-                {currentCategory ? formatCategoryLabel(currentCategory.title) : ""}
-              </span>
-              <h3 className="text-[28px] font-black tracking-tight">
-                {formatCategoryLabel(currentGroup.title)}
-              </h3>
-            </div>
-            <div className="space-y-1 p-4">
-              {currentGroup.items?.map(item => (
-                <Link
-                  key={item.id}
-                  to={item.href}
-                  className="flex items-center justify-between rounded-2xl bg-card/80 p-5 active:bg-[#05C3D4]/5"
-                  onClick={menu.close}
-                >
-                  <span className="text-[14px] font-medium tracking-tight text-foreground/80">
-                    {formatCategoryLabel(item.title)}
-                  </span>
-                  <Badge type={item.badge} />
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+                  {hasChildren ? (
+                    <ChevronRight
+                      size={18}
+                      className={`shrink-0 text-muted-foreground transition-transform duration-200 ${
+                        isExpanded ? "rotate-90 text-[#05C3D4]" : ""
+                      }`}
+                    />
+                  ) : null}
+                </button>
+
+                {hasChildren && isExpanded ? (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 px-4 pb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {cat.children?.map(group => (
+                        <Link
+                          key={group.id}
+                          to={group.href || "#"}
+                          onClick={menu.close}
+                          className="rounded-full bg-muted/45 px-3.5 py-2 text-[12px] font-semibold leading-4 text-foreground/78 transition-colors active:bg-[#05C3D4]/10 active:text-[#05C3D4]"
+                        >
+                          {formatCategoryLabel(group.title)}
+                        </Link>
+                      ))}
+                    </div>
+
+                    {mobilePromoProducts.length > 0 ? (
+                      <div
+                        key={`mobile-promo-${cat.id}`}
+                        className="mt-4 animate-in fade-in slide-in-from-top-1 duration-300 border-t border-border/50 pt-4"
+                      >
+                        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#05C3D4]">
+                          Скидки в разделе
+                        </div>
+                        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          {mobilePromoProducts.map(product => (
+                            <CatalogPromoCard
+                              key={`mobile-catalog-promo-${product.id}`}
+                              product={product}
+                              onClose={menu.close}
+                              className="w-[236px] min-w-[236px] snap-start"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
