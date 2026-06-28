@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ExternalLink, Star } from "lucide-react";
 
 interface ReviewCardProps {
@@ -25,6 +26,17 @@ export default function ReviewCard({
   reviewUrl,
   replyText,
 }: ReviewCardProps) {
+  const [avatarVisible, setAvatarVisible] = useState(Boolean(avatarUrl));
+  const [photoVisible, setPhotoVisible] = useState(Boolean(photoUrl));
+
+  useEffect(() => {
+    setAvatarVisible(Boolean(avatarUrl));
+  }, [avatarUrl]);
+
+  useEffect(() => {
+    setPhotoVisible(Boolean(photoUrl));
+  }, [photoUrl]);
+
   const initials = name
     .split(" ")
     .map(w => w[0])
@@ -35,12 +47,13 @@ export default function ReviewCard({
     <article className="overflow-hidden rounded-[28px] border border-border bg-card p-6 transition-colors duration-300 hover:border-[#05C3D4]/25 sm:p-7">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted text-sm font-black uppercase text-[#05C3D4]">
-          {avatarUrl ? (
+          {avatarUrl && avatarVisible ? (
             <img
               src={avatarUrl}
               alt={name}
               className="h-full w-full object-cover"
               loading="lazy"
+              onError={() => setAvatarVisible(false)}
             />
           ) : (
             initials
@@ -75,13 +88,14 @@ export default function ReviewCard({
         ))}
       </div>
 
-      {photoUrl ? (
+      {photoUrl && photoVisible ? (
         <div className="mt-5 overflow-hidden rounded-[22px] bg-muted">
           <img
             src={photoUrl}
             alt={`Фото к отзыву ${name}`}
             className="h-56 w-full object-cover"
             loading="lazy"
+            onError={() => setPhotoVisible(false)}
           />
         </div>
       ) : null}

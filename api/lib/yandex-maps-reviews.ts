@@ -8,12 +8,12 @@ const FALLBACK_REVIEWS: HomepageYandexReview[] = [
   {
     id: "fallback-mariya-ivanova-2026-06-23",
     authorName: "Мария Иванова",
-    authorAvatarUrl: "https://avatars.mds.yandex.net/get-yapic/63032/0k-5/160x160",
+    authorAvatarUrl: null,
     authorBadge: "Знаток города 3 уровня",
     rating: 5,
     text: "Покупала тут фен, понравился и сам товар и магазин, большой выбор самых различных видов техники и аксессуаров, есть что повыбирать, персонал отзывчивый",
     createdAt: "2026-06-23T14:08:17.926Z",
-    photoUrl: "https://avatars.mds.yandex.net/get-altay/18780150/2a0000019ef4d1b436cb684d35ed9857d00d/900x900",
+    photoUrl: null,
     source: "Яндекс Карты",
     reviewUrl: YANDEX_REVIEWS_URL,
     replyText:
@@ -23,13 +23,12 @@ const FALLBACK_REVIEWS: HomepageYandexReview[] = [
   {
     id: "fallback-nadia-ara-2026-06-03",
     authorName: "Nadia.ara",
-    authorAvatarUrl:
-      "https://avatars.mds.yandex.net/get-yapic/29310/enc-ae1200487c248024a060ebca7b9d6f8b86dd926948393ac669478f930d57f44c/160x160",
+    authorAvatarUrl: null,
     authorBadge: "Знаток города 5 уровня",
     rating: 5,
     text: "Открыла для себя новый магазин электроники. Небольшой, но много всего интересного, аксессуаров для телефонов, наушников,колонок, много интересного для детей, от брелков до разнообразных развивающих настолок. Набрала и в подарок и для семьи)))Приятное открытие. Спасибо 😀",
     createdAt: "2026-06-03T10:26:45.843Z",
-    photoUrl: "https://avatars.mds.yandex.net/get-altay/17750410/2a0000019e8d0597fd4b8e970d9954603b62/900x900",
+    photoUrl: null,
     source: "Яндекс Карты",
     reviewUrl: YANDEX_REVIEWS_URL,
     replyText:
@@ -39,7 +38,7 @@ const FALLBACK_REVIEWS: HomepageYandexReview[] = [
   {
     id: "fallback-ilya-korobkov-2026-04-06",
     authorName: "Илья Коробков",
-    authorAvatarUrl: "https://avatars.mds.yandex.net/get-yapic/45566/0j-5/160x160",
+    authorAvatarUrl: null,
     authorBadge: "Знаток города 3 уровня",
     rating: 5,
     text: "Хороший магазин, персонал очень вежливый, единственный магазин в городе, в котором оказалось нужное мне защитное стекло, продавец очень ровно и качественно наклеил стекло без пузырей. Очень доволен, рекомендую!",
