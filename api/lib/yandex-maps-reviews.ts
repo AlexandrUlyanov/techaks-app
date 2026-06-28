@@ -347,11 +347,20 @@ async function fetchHomepageYandexReviews(): Promise<HomepageYandexReviewsPayloa
     }
 
     const reviewsWithLocalMedia = await Promise.all(
-      reviews.map(async (review) => ({
-        ...review,
-        authorAvatarUrl: await mirrorReviewMedia(review.id, "avatar", review.authorAvatarUrl),
-        photoUrl: await mirrorReviewMedia(review.id, "photo", review.photoUrl),
-      }))
+      reviews.map(async (review) => {
+        const mirroredAvatarUrl = await mirrorReviewMedia(
+          review.id,
+          "avatar",
+          review.authorAvatarUrl
+        );
+        const mirroredPhotoUrl = await mirrorReviewMedia(review.id, "photo", review.photoUrl);
+
+        return {
+          ...review,
+          authorAvatarUrl: mirroredAvatarUrl ?? review.authorAvatarUrl,
+          photoUrl: mirroredPhotoUrl ?? review.photoUrl,
+        };
+      })
     );
 
     return {
