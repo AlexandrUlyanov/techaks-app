@@ -2,7 +2,6 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { createHash } from "node:crypto";
 import { extname, join } from "node:path";
-import { JSDOM } from "jsdom";
 
 const YANDEX_REVIEWS_URL =
   "https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17";
@@ -124,67 +123,6 @@ function normalizeWhitespace(value: string | null | undefined) {
 function resolveTemplateImage(urlTemplate: string | null | undefined, size: string) {
   if (!urlTemplate) return null;
   return urlTemplate.replace("{size}", size);
-}
-
-function extractBackgroundImageUrl(styleValue: string | null | undefined) {
-  if (!styleValue) return null;
-  const match = styleValue.match(/background-image\s*:\s*url\((["']?)(.*?)\1\)/i);
-  return normalizeWhitespace(match?.[2]) || null;
-}
-
-function normalizeYandexMediaUrl(url: string | null | undefined, size: string) {
-  const normalized = normalizeWhitespace(url);
-  if (!normalized) return null;
-  if (normalized.includes("{size}")) {
-    return normalized.replace("{size}", size);
-  }
-  return normalized;
-}
-
-function parseRussianReviewDate(value: string | null | undefined) {
-  const normalized = normalizeWhitespace(value).toLowerCase();
-  if (!normalized) {
-    return new Date().toISOString();
-  }
-
-  const months: Record<string, number> = {
-    января: 0,
-    февраля: 1,
-    марта: 2,
-    апреля: 3,
-    мая: 4,
-    июня: 5,
-    июля: 6,
-    августа: 7,
-    сентября: 8,
-    октября: 9,
-    ноября: 10,
-    декабря: 11,
-  };
-
-  const match = normalized.match(/^(\d{1,2})\s+([а-яё]+)(?:\s+(\d{4}))?$/i);
-  if (!match) {
-    return new Date().toISOString();
-  }
-
-  const day = Number(match[1]);
-  const month = months[match[2]];
-  if (Number.isNaN(day) || month == null) {
-    return new Date().toISOString();
-  }
-
-  const now = new Date();
-  let year = match[3] ? Number(match[3]) : now.getFullYear();
-  let date = new Date(Date.UTC(year, month, day, 12, 0, 0));
-
-  // Если год на странице не указан, а дата "уходит" в будущее, считаем,
-  // что отзыв оставили в прошлом календарном году.
-  if (!match[3] && date.getTime() - now.getTime() > 24 * 60 * 60 * 1000) {
-    year -= 1;
-    date = new Date(Date.UTC(year, month, day, 12, 0, 0));
-  }
-
-  return date.toISOString();
 }
 
 function sanitizeMediaKey(value: string) {
@@ -343,114 +281,6 @@ function parseEmbeddedReviewResults(html: string) {
   return { reviews, totalCount };
 }
 
-function parseHtmlReviewResults(html: string): HomepageYandexReviewsPayload {
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
-
-  const totalCountText =
-    normalizeWhitespace(
-      document.querySelector(".business-reviews-card-view__heading")?.textContent
-    ) ||
-    normalizeWhitespace(
-      document
-        .querySelector('[role="tab"][aria-selected="true"]')
-        ?.textContent?.replace("Отзывы", "")
-    );
-  const totalCount = Number(totalCountText.match(/\d+/)?.[0] ?? MAX_REVIEWS);
-
-  const reviews = Array.from(document.querySelectorAll(".business-review-view"))
-    .map((card, index): HomepageYandexReview | null => {
-      const authorName = normalizeWhitespace(
-        card.querySelector(".business-review-view__author-name [itemprop='name']")?.textContent ??
-          card.querySelector(".business-review-view__author-name")?.textContent
-      );
-      const authorBadge = normalizeWhitespace(
-        card.querySelector(".business-review-view__author-caption")?.textContent
-      );
-      const createdAt =
-        normalizeWhitespace(
-          card.querySelector(".business-review-view__date [itemprop='datePublished']")?.getAttribute(
-            "content"
-          )
-        ) ||
-        parseRussianReviewDate(
-          card.querySelector(".business-review-view__date")?.textContent ?? null
-        );
-      const reviewText = normalizeWhitespace(
-        card.querySelector(".business-review-view__body [data-nosnippet='true']")?.textContent ??
-          card.querySelector(".business-review-view__body")?.textContent
-      );
-      const rating =
-        Number(
-          card
-            .querySelector("[itemprop='ratingValue']")
-            ?.getAttribute("content")
-            ?.replace(",", ".")
-        ) ||
-        Number(
-          card
-            .querySelector("[aria-label*='Оценка']")
-            ?.getAttribute("aria-label")
-            ?.match(/(\d+(?:[.,]\d+)?)/)?.[1]
-            ?.replace(",", ".")
-        ) ||
-        5;
-      const authorAvatarUrl =
-        normalizeYandexMediaUrl(
-          card.querySelector(".business-review-view__author-name meta[itemprop='image']")?.getAttribute(
-            "content"
-          ),
-          "islands-200"
-        ) ??
-        normalizeYandexMediaUrl(
-          extractBackgroundImageUrl(
-            card
-              .querySelector(".business-review-view__user-icon .user-icon-view__icon")
-              ?.getAttribute("style")
-          ),
-          "islands-200"
-        );
-      const photoUrl = normalizeYandexMediaUrl(
-        card
-          .querySelector(".business-review-media__item-img")
-          ?.getAttribute("src"),
-        "XXL"
-      );
-
-      if (!authorName || !reviewText) {
-        return null;
-      }
-
-      return {
-        id: `html-review-${sanitizeMediaKey(authorName)}-${index + 1}`,
-        authorName,
-        authorAvatarUrl,
-        authorBadge: authorBadge || null,
-        rating,
-        text: reviewText,
-        createdAt,
-        photoUrl,
-        source: "Яндекс Карты",
-        reviewUrl: YANDEX_REVIEWS_URL,
-        replyText: null,
-        replyUpdatedAt: null,
-      };
-    })
-    .filter((review): review is HomepageYandexReview => Boolean(review))
-    .slice(0, MAX_REVIEWS);
-
-  if (reviews.length === 0) {
-    throw new Error("HTML-разметка отзывов Яндекс Карт не содержит карточек с данными.");
-  }
-
-  return {
-    totalCount: Math.max(totalCount, reviews.length),
-    reviews,
-    sourceUrl: YANDEX_REVIEWS_URL,
-    fetchedAt: new Date().toISOString(),
-  };
-}
-
 function mapReview(rawReview: RawReview): HomepageYandexReview | null {
   const id = normalizeWhitespace(rawReview.reviewId);
   const authorName = normalizeWhitespace(rawReview.author?.name);
@@ -498,29 +328,20 @@ async function fetchHomepageYandexReviews(): Promise<HomepageYandexReviewsPayloa
     }
 
     const html = await response.text();
-    let reviews: HomepageYandexReview[] = [];
-    let totalCount = 0;
-
-    try {
-      const parsed = parseEmbeddedReviewResults(html);
-      totalCount = parsed.totalCount;
-      reviews = parsed.reviews
-        .map(mapReview)
-        .filter((review): review is HomepageYandexReview => Boolean(review))
-        .sort((left, right) => {
-          const leftHasPhoto = left.photoUrl ? 1 : 0;
-          const rightHasPhoto = right.photoUrl ? 1 : 0;
-          if (leftHasPhoto !== rightHasPhoto) {
-            return rightHasPhoto - leftHasPhoto;
-          }
-          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
-        })
-        .slice(0, MAX_REVIEWS);
-    } catch {
-      const parsed = parseHtmlReviewResults(html);
-      totalCount = parsed.totalCount;
-      reviews = parsed.reviews;
-    }
+    const parsed = parseEmbeddedReviewResults(html);
+    const totalCount = parsed.totalCount;
+    const reviews = parsed.reviews
+      .map(mapReview)
+      .filter((review): review is HomepageYandexReview => Boolean(review))
+      .sort((left, right) => {
+        const leftHasPhoto = left.photoUrl ? 1 : 0;
+        const rightHasPhoto = right.photoUrl ? 1 : 0;
+        if (leftHasPhoto !== rightHasPhoto) {
+          return rightHasPhoto - leftHasPhoto;
+        }
+        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      })
+      .slice(0, MAX_REVIEWS);
 
     if (reviews.length === 0) {
       throw new Error("На странице Яндекс Карт не удалось собрать ни одного отзыва.");
