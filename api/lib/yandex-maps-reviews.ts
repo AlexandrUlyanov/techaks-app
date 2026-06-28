@@ -2,6 +2,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { createHash } from "node:crypto";
 import { extname, join } from "node:path";
+import seedReviewsPayload from "../data/yandex-homepage-reviews-seed.json";
 
 const YANDEX_REVIEWS_URL =
   "https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17";
@@ -59,12 +60,31 @@ const FALLBACK_REVIEWS: HomepageYandexReview[] = [
   },
 ];
 
+const SEEDED_REVIEWS_PAYLOAD = seedReviewsPayload as HomepageYandexReviewsPayload;
+
 function buildFallbackPayload(): HomepageYandexReviewsPayload {
   return {
     totalCount: Math.max(43, FALLBACK_REVIEWS.length),
     reviews: FALLBACK_REVIEWS.slice(0, MAX_REVIEWS),
     sourceUrl: YANDEX_REVIEWS_URL,
     fetchedAt: new Date().toISOString(),
+  };
+}
+
+function buildSeedPayload(): HomepageYandexReviewsPayload {
+  const reviews = Array.isArray(SEEDED_REVIEWS_PAYLOAD.reviews)
+    ? SEEDED_REVIEWS_PAYLOAD.reviews.slice(0, MAX_REVIEWS)
+    : [];
+
+  if (reviews.length === 0) {
+    return buildFallbackPayload();
+  }
+
+  return {
+    totalCount: Math.max(SEEDED_REVIEWS_PAYLOAD.totalCount || 0, reviews.length),
+    reviews,
+    sourceUrl: SEEDED_REVIEWS_PAYLOAD.sourceUrl || YANDEX_REVIEWS_URL,
+    fetchedAt: SEEDED_REVIEWS_PAYLOAD.fetchedAt || new Date().toISOString(),
   };
 }
 
@@ -391,7 +411,7 @@ export async function getHomepageYandexReviews() {
     if (cache?.payload) {
       return cache.payload;
     }
-    const payload = buildFallbackPayload();
+    const payload = buildSeedPayload();
     cache = {
       expiresAt: Date.now() + CACHE_TTL_MS,
       payload,

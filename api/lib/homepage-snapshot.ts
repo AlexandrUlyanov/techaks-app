@@ -51,7 +51,7 @@ function nowIso() {
 }
 
 function getSourceVersion() {
-  return "homepage_snapshot_v5";
+  return "homepage_snapshot_v6";
 }
 
 async function fileExists(path: string) {

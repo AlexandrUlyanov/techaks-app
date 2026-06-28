@@ -57,3 +57,6 @@ tmp_*.html
 tmp_*.patch
 admin-home-check.png
 public/images/reviews/yandex/
+!public/images/reviews/
+!public/images/reviews/yandex/
+!public/images/reviews/yandex/**
