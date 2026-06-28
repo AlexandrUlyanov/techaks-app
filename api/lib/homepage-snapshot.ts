@@ -48,7 +48,7 @@ function nowIso() {
 }
 
 function getSourceVersion() {
-  return "homepage_snapshot_v3";
+  return "homepage_snapshot_v4";
 }
 
 function ageMs(date: Date | string | null | undefined) {

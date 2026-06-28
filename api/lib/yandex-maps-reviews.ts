@@ -1,8 +1,15 @@
+import { access, mkdir, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { createHash } from "node:crypto";
+import { extname, join } from "node:path";
+
 const YANDEX_REVIEWS_URL =
   "https://yandex.ru/maps/org/tekhaks/81538152780/reviews/?indoorLevel=1&ll=44.920956%2C53.222379&z=17";
 const YANDEX_ORG_URL = "https://yandex.ru/maps/org/tekhaks/81538152780/";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_REVIEWS = 6;
+const REVIEW_MEDIA_DIR = join(process.cwd(), "public", "images", "reviews", "yandex");
+const REVIEW_MEDIA_PUBLIC_PATH = "/images/reviews/yandex";
 
 const FALLBACK_REVIEWS: HomepageYandexReview[] = [
   {
@@ -118,6 +125,91 @@ function resolveTemplateImage(urlTemplate: string | null | undefined, size: stri
   return urlTemplate.replace("{size}", size);
 }
 
+function sanitizeMediaKey(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function detectImageExtension(contentType: string | null, sourceUrl: string) {
+  const normalizedType = (contentType ?? "").toLowerCase();
+  if (normalizedType.includes("png")) return ".png";
+  if (normalizedType.includes("webp")) return ".webp";
+  if (normalizedType.includes("gif")) return ".gif";
+  if (normalizedType.includes("avif")) return ".avif";
+  if (normalizedType.includes("jpeg") || normalizedType.includes("jpg")) return ".jpg";
+
+  const pathname = (() => {
+    try {
+      return new URL(sourceUrl).pathname;
+    } catch {
+      return sourceUrl;
+    }
+  })();
+  const extension = extname(pathname).toLowerCase();
+  if (extension && extension.length <= 6) {
+    return extension;
+  }
+  return ".jpg";
+}
+
+async function fileExists(path: string) {
+  try {
+    await access(path, fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function mirrorReviewMedia(
+  reviewId: string,
+  kind: "avatar" | "photo",
+  remoteUrl: string | null
+) {
+  if (!remoteUrl) return null;
+
+  const key = sanitizeMediaKey(reviewId) || createHash("sha1").update(reviewId).digest("hex");
+  const hash = createHash("sha1").update(remoteUrl).digest("hex").slice(0, 10);
+  const baseName = `${key}-${kind}-${hash}`;
+
+  await mkdir(REVIEW_MEDIA_DIR, { recursive: true });
+
+  for (const knownExtension of [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]) {
+    const candidatePath = join(REVIEW_MEDIA_DIR, `${baseName}${knownExtension}`);
+    if (await fileExists(candidatePath)) {
+      return `${REVIEW_MEDIA_PUBLIC_PATH}/${baseName}${knownExtension}`;
+    }
+  }
+
+  try {
+    const response = await fetch(remoteUrl, {
+      method: "GET",
+      headers: {
+        "accept-language": "ru-RU,ru;q=0.9,en;q=0.8",
+        referer: YANDEX_ORG_URL,
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength === 0) {
+      return null;
+    }
+
+    const extension = detectImageExtension(response.headers.get("content-type"), remoteUrl);
+    const fileName = `${baseName}${extension}`;
+    const filePath = join(REVIEW_MEDIA_DIR, fileName);
+    await writeFile(filePath, bytes);
+    return `${REVIEW_MEDIA_PUBLIC_PATH}/${fileName}`;
+  } catch {
+    return null;
+  }
+}
+
 function extractBalancedJsonFragment(
   source: string,
   startIndex: number,
@@ -203,12 +295,12 @@ function mapReview(rawReview: RawReview): HomepageYandexReview | null {
   return {
     id,
     authorName,
-    authorAvatarUrl: resolveTemplateImage(rawReview.author?.avatarUrl ?? null, "160x160"),
+    authorAvatarUrl: resolveTemplateImage(rawReview.author?.avatarUrl ?? null, "islands-200"),
     authorBadge: normalizeWhitespace(rawReview.author?.professionLevel) || null,
     rating,
     text,
     createdAt,
-    photoUrl: resolveTemplateImage(rawReview.photos?.[0]?.urlTemplate ?? null, "900x900"),
+    photoUrl: resolveTemplateImage(rawReview.photos?.[0]?.urlTemplate ?? null, "XXL"),
     source: "Яндекс Карты",
     reviewUrl: YANDEX_REVIEWS_URL,
     replyText: normalizeWhitespace(rawReview.businessComment?.text) || null,
@@ -254,9 +346,17 @@ async function fetchHomepageYandexReviews(): Promise<HomepageYandexReviewsPayloa
       throw new Error("На странице Яндекс Карт не удалось собрать ни одного отзыва.");
     }
 
+    const reviewsWithLocalMedia = await Promise.all(
+      reviews.map(async (review) => ({
+        ...review,
+        authorAvatarUrl: await mirrorReviewMedia(review.id, "avatar", review.authorAvatarUrl),
+        photoUrl: await mirrorReviewMedia(review.id, "photo", review.photoUrl),
+      }))
+    );
+
     return {
       totalCount: Math.max(parsed.totalCount, reviews.length),
-      reviews,
+      reviews: reviewsWithLocalMedia,
       sourceUrl: YANDEX_REVIEWS_URL,
       fetchedAt: new Date().toISOString(),
     };
