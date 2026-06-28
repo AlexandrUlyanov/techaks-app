@@ -1,3 +1,6 @@
+import { access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { join, sep } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { homepageSnapshots } from "@db/schema";
 import { getDb } from "../queries/connection";
@@ -49,6 +52,45 @@ function nowIso() {
 
 function getSourceVersion() {
   return "homepage_snapshot_v5";
+}
+
+async function fileExists(path: string) {
+  try {
+    await access(path, fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function homepageReviewMediaMissing(payload: HomepagePayload) {
+  const reviews = payload.secondary?.reviews;
+  if (!Array.isArray(reviews) || reviews.length === 0) {
+    return false;
+  }
+
+  const mediaUrls = reviews.flatMap(review =>
+    [review.authorAvatarUrl, review.photoUrl].filter(
+      (value): value is string => Boolean(value && value.startsWith("/images/reviews/yandex/"))
+    )
+  );
+
+  if (mediaUrls.length === 0) {
+    return false;
+  }
+
+  for (const mediaUrl of mediaUrls.slice(0, 12)) {
+    const mediaPath = join(
+      process.cwd(),
+      "public",
+      mediaUrl.replace(/^\/+/, "").replace(/\//g, sep)
+    );
+    if (!(await fileExists(mediaPath))) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function ageMs(date: Date | string | null | undefined) {
@@ -222,7 +264,8 @@ export async function getHomepagePageData() {
     const payload = row.payload as HomepagePayload;
     const hasReviews = Array.isArray((payload as any)?.secondary?.reviews);
     const versionMismatch = row.sourceVersion !== getSourceVersion();
-    const requiresRebuild = versionMismatch || !hasReviews;
+    const reviewMediaMissing = hasReviews ? await homepageReviewMediaMissing(payload) : false;
+    const requiresRebuild = versionMismatch || !hasReviews || reviewMediaMissing;
 
     if (requiresRebuild) {
       const rebuiltPayload = await refreshHomepageSnapshot();
