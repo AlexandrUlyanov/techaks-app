@@ -55,8 +55,8 @@ export default function StoresPage() {
             МАГАЗИНЫ <span className="text-muted-foreground/30">ТЕХАКС</span>
           </h1>
           <p className="mt-8 text-lg text-muted-foreground max-w-xl font-medium leading-relaxed">
-            Два современных магазина в Пензе. Аккуратные витрины,
-            профессиональная помощь и поклейка стекол на месте.
+            Три магазина техники и аксессуаров в Пензе. Более 4000 товаров в наличии,
+            профессиональные консультации, поклейка стекол и защитных пленок.
           </p>
         </div>
       </section>
