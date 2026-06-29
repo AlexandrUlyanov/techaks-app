@@ -254,6 +254,32 @@ function buildStateNameReverseMapping() {
   return map;
 }
 
+function resolveLocalStatusFromMoyskladState(input: {
+  settings: OrderSyncSettings;
+  stateHref?: string | null;
+  stateName?: string | null;
+}) {
+  const reverseMappingByHref = new Map<string, string>(
+    Object.entries(input.settings.statusMapping)
+      .filter(([, href]) => href)
+      .map(([localStatus, href]) => [href.trim(), localStatus])
+  );
+  const reverseMappingByName = buildStateNameReverseMapping();
+  const mappedByHref = input.stateHref?.trim()
+    ? reverseMappingByHref.get(input.stateHref.trim()) ?? null
+    : null;
+  const normalizedStateName = normalizeMoyskladStateName(input.stateName);
+  const mappedByName = normalizedStateName
+    ? reverseMappingByName.get(normalizedStateName) ?? null
+    : null;
+
+  if (mappedByName && mappedByHref && mappedByName !== mappedByHref) {
+    return mappedByName;
+  }
+
+  return mappedByHref ?? mappedByName;
+}
+
 function getNormalizedLocalStatusAliases(localStatus: string) {
   const aliases = LOCAL_STATUS_NAME_ALIASES[localStatus] ?? [];
   return aliases
@@ -1431,15 +1457,11 @@ async function processWebhookEvent(eventId: number) {
         stateName = remoteOrder.state?.name?.trim() || stateName;
       }
     }
-    const mappedByHref = stateHref ? reverseMapping.get(stateHref) ?? null : null;
-    const normalizedStateName = normalizeMoyskladStateName(stateName);
-    const mappedByName = normalizedStateName
-      ? reverseMappingByName.get(normalizedStateName) ?? null
-      : null;
-    const nextLocalStatus =
-      mappedByName && mappedByHref && mappedByName !== mappedByHref
-        ? mappedByName
-        : mappedByHref ?? mappedByName;
+    const nextLocalStatus = resolveLocalStatusFromMoyskladState({
+      settings,
+      stateHref,
+      stateName,
+    });
     if (!nextLocalStatus || nextLocalStatus === order.status) continue;
 
     await db
@@ -1468,6 +1490,96 @@ async function processWebhookEvent(eventId: number) {
       lastError: null,
     })
     .where(eq(moyskladWebhookEvents.id, eventId));
+}
+
+export async function resyncOrderStatusesFromMoysklad(limit = 100) {
+  const db = getDb();
+  const settings = await getMoyskladOrderSyncSettings();
+  const client = await getMoyskladClient();
+
+  const linkedOrders = await db
+    .select({
+      id: orders.id,
+      status: orders.status,
+      orderNumber: orders.orderNumber,
+      moyskladOrderId: orders.moyskladOrderId,
+      moyskladOrderHref: orders.moyskladOrderHref,
+    })
+    .from(orders)
+    .where(or(isNotNull(orders.moyskladOrderHref), isNotNull(orders.moyskladOrderId)))
+    .orderBy(desc(orders.updatedAt), desc(orders.createdAt))
+    .limit(Math.max(1, Math.min(limit, 500)));
+
+  let checked = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let failed = 0;
+  const errors: Array<{ orderId: number; orderNumber: string | null; message: string }> = [];
+
+  for (const order of linkedOrders) {
+    checked += 1;
+    try {
+      const directHref = order.moyskladOrderHref?.trim() || null;
+      const fallbackPath = order.moyskladOrderId?.trim()
+        ? `/entity/customerorder/${order.moyskladOrderId.trim()}`
+        : null;
+      const path = directHref ? toMoyskladApiPath(directHref) : fallbackPath;
+
+      if (!path) {
+        unchanged += 1;
+        continue;
+      }
+
+      const remoteOrder = await client.get<{
+        state?: { meta?: { href?: string }; name?: string };
+      }>(path);
+
+      const nextLocalStatus = resolveLocalStatusFromMoyskladState({
+        settings,
+        stateHref: remoteOrder.state?.meta?.href?.trim() || null,
+        stateName: remoteOrder.state?.name?.trim() || null,
+      });
+
+      if (!nextLocalStatus || nextLocalStatus === order.status) {
+        unchanged += 1;
+        continue;
+      }
+
+      await db
+        .update(orders)
+        .set({
+          status: nextLocalStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, order.id));
+
+      await db.insert(orderHistory).values({
+        orderId: order.id,
+        userId: null,
+        actionType: "status_resynced_from_moysklad",
+        oldValue: { status: order.status },
+        newValue: { status: nextLocalStatus, source: "moysklad_resync" },
+        comment: "Статус заказа массово пересинхронизирован из МойСклад.",
+      });
+
+      updated += 1;
+    } catch (error) {
+      failed += 1;
+      errors.push({
+        orderId: order.id,
+        orderNumber: order.orderNumber ?? null,
+        message: error instanceof Error ? error.message : "Неизвестная ошибка",
+      });
+    }
+  }
+
+  return {
+    checked,
+    updated,
+    unchanged,
+    failed,
+    errors: errors.slice(0, 20),
+  };
 }
 
 export async function processMoyskladOrderSyncJobs(limit = 5) {

@@ -26,6 +26,7 @@ import {
   getOrderMoyskladSyncLog,
   loadMoyskladMetadata,
   processMoyskladOrderSyncJobs,
+  resyncOrderStatusesFromMoysklad,
   retryMoyskladSyncJob,
   saveMoyskladOrderSyncSettings,
   syncOrderToMoyskladManually,
@@ -1068,6 +1069,13 @@ export const syncRouter = createRouter({
       requireAbility(ctx, "manage", "Sync");
       const result = await processMoyskladOrderSyncJobs(input?.limit ?? 10);
       return result;
+    }),
+
+  resyncOrderStatusesFromMoysklad: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(500).default(100) }).optional())
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "manage", "Sync");
+      return resyncOrderStatusesFromMoysklad(input?.limit ?? 100);
     }),
 
   retryMoyskladOrderSyncJob: protectedProcedure

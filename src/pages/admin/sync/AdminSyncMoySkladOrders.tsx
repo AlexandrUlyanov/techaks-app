@@ -146,6 +146,16 @@ export default function AdminSyncMoySkladOrders() {
     onError: error => toast.error(error.message),
   });
 
+  const resyncStatusesMutation = trpc.sync.resyncOrderStatusesFromMoysklad.useMutation({
+    onSuccess: async result => {
+      toast.success(
+        `Статусы сверены: обновлено ${result.updated}, без изменений ${result.unchanged}, ошибок ${result.failed}.`
+      );
+      await Promise.all([overviewQuery.refetch(), queueQuery.refetch(), orderLogQuery.refetch()]);
+    },
+    onError: error => toast.error(error.message),
+  });
+
   const settingsForm =
     draftSettings ??
     buildOrderSyncSettingsForm(overviewQuery.data?.settings, metadataQuery.data);
@@ -541,14 +551,29 @@ export default function AdminSyncMoySkladOrders() {
           title="Очередь sync jobs"
           description="Checkout только создаёт локальный заказ и ставит job. Тут видно, что ждёт отправки, что зависло и что стоит отправить заново."
           actions={
-            <button
-              onClick={() => runWorkerMutation.mutate({ limit: 10 })}
-              disabled={runWorkerMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#15171A] px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={runWorkerMutation.isPending ? "animate-spin" : ""} />
-              {runWorkerMutation.isPending ? "Обработка..." : "Прогнать очередь"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => resyncStatusesMutation.mutate({ limit: 200 })}
+                disabled={resyncStatusesMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#15171A] hover:border-gray-300 disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={14}
+                  className={resyncStatusesMutation.isPending ? "animate-spin" : ""}
+                />
+                {resyncStatusesMutation.isPending
+                  ? "Сверяем статусы..."
+                  : "Пересинхронизировать статусы"}
+              </button>
+              <button
+                onClick={() => runWorkerMutation.mutate({ limit: 10 })}
+                disabled={runWorkerMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#15171A] px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={runWorkerMutation.isPending ? "animate-spin" : ""} />
+                {runWorkerMutation.isPending ? "Обработка..." : "Прогнать очередь"}
+              </button>
+            </div>
           }
         >
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
