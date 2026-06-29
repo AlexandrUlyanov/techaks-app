@@ -6,10 +6,11 @@ interface StoreCardProps {
   hours: string;
   phone: string;
   rating: string;
-  reviews: string;
+  reviews?: string;
   image: string;
   isOpen: boolean;
   mapUrl?: string | null;
+  showReviewsCount?: boolean;
 }
 
 export default function StoreCard({
@@ -22,6 +23,7 @@ export default function StoreCard({
   image,
   isOpen,
   mapUrl,
+  showReviewsCount = true,
 }: StoreCardProps) {
   const routeUrl =
     mapUrl?.trim() ||
@@ -88,9 +90,11 @@ export default function StoreCard({
                 {rating}
               </span>
             </div>
-            <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest">
-              {reviews}
-            </span>
+            {showReviewsCount && reviews ? (
+              <span className="text-xs font-bold text-foreground/30 uppercase tracking-widest">
+                {reviews}
+              </span>
+            ) : null}
           </div>
 
           <div className="flex gap-3">

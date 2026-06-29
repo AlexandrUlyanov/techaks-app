@@ -221,9 +221,9 @@ export default function HomeSecondarySections({
                 hours={store.hours}
                 phone={store.phone}
                 rating={store.rating}
-                reviews={`${store.reviewCount} оценок`}
                 image={store.image}
                 isOpen={isStoreOpen}
+                showReviewsCount={false}
               />
             ))}
           </div>
