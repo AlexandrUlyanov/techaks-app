@@ -212,7 +212,7 @@ export default function HomeSecondarySections({
             accent="магазины"
             className="mb-16"
           />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
             {stores.map(store => (
               <StoreCard
                 key={store.id}
