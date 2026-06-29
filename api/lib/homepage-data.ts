@@ -6,7 +6,10 @@ import { getAppSettings } from "./app-settings";
 import { buildHomepageHeroStorefrontData } from "./homepage-hero";
 import { getVisibleManufacturerCatalogEntries } from "./manufacturers";
 import { getRecommendedProducts } from "./merchandising-score";
-import { listHomepageFallbackProducts } from "./public-products";
+import {
+  attachVisibleMerchandisingBadges,
+  listHomepageFallbackProducts,
+} from "./public-products";
 import { getHomepageYandexReviews } from "./yandex-maps-reviews";
 
 function rankBadge(badge?: string | null) {
@@ -61,15 +64,22 @@ export async function buildHomepageData() {
   ]);
 
   const fallbackProducts = await listHomepageFallbackProducts(12);
+  const [weekRecommendationsPrepared, popularRecommendationsPrepared] =
+    await Promise.all([
+      attachVisibleMerchandisingBadges(weekRecommendations),
+      attachVisibleMerchandisingBadges(popularRecommendations),
+    ]);
 
   const weekProductsSource =
-    weekRecommendations.length > 0 ? weekRecommendations : fallbackProducts;
+    weekRecommendationsPrepared.length > 0
+      ? weekRecommendationsPrepared
+      : fallbackProducts;
   const weekProducts = [...weekProductsSource]
     .sort((a, b) => rankBadge(a.badge) - rankBadge(b.badge))
     .slice(0, 10);
   const popularProducts =
-    popularRecommendations.length > 0
-      ? popularRecommendations
+    popularRecommendationsPrepared.length > 0
+      ? popularRecommendationsPrepared
       : fallbackProducts.slice(0, 8);
 
   return {
