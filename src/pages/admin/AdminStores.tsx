@@ -12,6 +12,27 @@ import {
   Clock,
   Star,
 } from "lucide-react";
+import { toast } from "sonner";
+
+function normalizeMapUrl(value: string | null | undefined) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+
+  const iframeSrcMatch = raw.match(/src=["']([^"']+)["']/i);
+  const hrefMatch = raw.match(/href=["']([^"']+)["']/i);
+  const extracted = iframeSrcMatch?.[1] || hrefMatch?.[1] || raw;
+  const decoded = extracted.replace(/&amp;/gi, "&").trim();
+
+  if (/^https?:\/\//i.test(decoded)) {
+    return decoded;
+  }
+
+  if (/^(yandex|2gis|go\.2gis|maps\.yandex)\./i.test(decoded)) {
+    return `https://${decoded}`;
+  }
+
+  return decoded;
+}
 
 export default function AdminStores() {
   const [editingStore, setEditingStore] = useState<any>(null);
@@ -26,6 +47,10 @@ export default function AdminStores() {
     onSuccess: () => {
       utils.store.getAll.invalidate();
       setEditingStore(null);
+      toast.success("Магазин сохранён");
+    },
+    onError: error => {
+      toast.error(error.message || "Не удалось сохранить магазин");
     },
   });
 
@@ -44,6 +69,9 @@ export default function AdminStores() {
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const mapUrlInput = (formData.get("mapUrl") as string) || "";
+    const normalizedMapUrl = normalizeMapUrl(mapUrlInput);
+
     const data = {
       msId: (formData.get("msId") as string) || null,
       name: formData.get("name") as string,
@@ -53,7 +81,7 @@ export default function AdminStores() {
       rating: formData.get("rating") as string,
       reviewCount: parseInt((formData.get("reviewCount") as string) || "0"),
       image: formData.get("image") as string,
-      mapUrl: (formData.get("mapUrl") as string) || null,
+      mapUrl: normalizedMapUrl,
       sortOrder: parseInt((formData.get("sortOrder") as string) || "0"),
     };
 
@@ -188,6 +216,7 @@ export default function AdminStores() {
                     <a
                       href={store.mapUrl}
                       target="_blank"
+                      rel="noopener noreferrer"
                       className="flex items-center gap-1 text-sm text-[#05C3D4] font-medium hover:underline"
                     >
                       На карту <ExternalLink size={14} />
@@ -355,6 +384,7 @@ export default function AdminStores() {
                 <input
                   name="mapUrl"
                   defaultValue={editingStore.mapUrl}
+                  placeholder="https://yandex.ru/maps/... или ссылка/код iframe"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
                 />
               </div>

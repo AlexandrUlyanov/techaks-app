@@ -9,6 +9,7 @@ interface StoreCardProps {
   reviews: string;
   image: string;
   isOpen: boolean;
+  mapUrl?: string | null;
 }
 
 export default function StoreCard({
@@ -20,7 +21,12 @@ export default function StoreCard({
   reviews,
   image,
   isOpen,
+  mapUrl,
 }: StoreCardProps) {
+  const routeUrl =
+    mapUrl?.trim() ||
+    `https://yandex.ru/maps/?text=${encodeURIComponent(address + " Пенза")}`;
+
   return (
     <div className="bg-card border border-border rounded-3xl overflow-hidden group hover:border-[#05C3D4]/20 transition-all duration-300 shadow-sm hover:shadow-xl">
       {/* Image */}
@@ -89,7 +95,7 @@ export default function StoreCard({
 
           <div className="flex gap-3">
             <a
-              href={`https://yandex.ru/maps/?text=${encodeURIComponent(address + " Пенза")}`}
+              href={routeUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="w-12 h-12 flex items-center justify-center border border-border rounded-xl text-foreground hover:bg-foreground/5 hover:border-[#05C3D4] transition-all active:scale-90"

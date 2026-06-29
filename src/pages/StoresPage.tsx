@@ -76,6 +76,7 @@ export default function StoresPage() {
                 reviews={`${store.reviewCount} оценок`}
                 image={store.image}
                 isOpen={isStoreOpen}
+                mapUrl={store.mapUrl}
               />
             ))}
           </div>
