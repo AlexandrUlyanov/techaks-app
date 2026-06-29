@@ -30,6 +30,7 @@ type PromoShowcaseCard = {
   price: number;
   oldPrice: number | null;
   image: string;
+  images?: unknown;
   variantPreviewImages?: unknown;
   badge: string | null;
   inStock: boolean;
@@ -548,6 +549,7 @@ export default function HeroPromoShowcase3D({ showcase }: HeroPromoShowcase3DPro
                           oldPrice: product.oldPrice,
                           badge: product.badge,
                           image: product.image,
+                          images: product.images,
                           variantPreviewImages: product.variantPreviewImages,
                           categoryId: 0,
                           categoryName: product.categoryName ?? null,
