@@ -41,10 +41,10 @@ const LOCAL_STATUSES = [
 ];
 
 const LOCAL_STATUS_LABELS: Record<string, string> = {
-  new: "Новый с сайта",
+  new: "Новый заказ",
   pending: "Новый с сайта",
   waiting_call: "Ожидает звонка",
-  confirmed: "Подтверждён",
+  confirmed: "Подтверждён менеджером",
   awaiting_payment: "Ожидает оплаты",
   paid: "Оплачен",
   processing: "Оплачен / В обработке",
@@ -62,6 +62,30 @@ const LOCAL_STATUS_LABELS: Record<string, string> = {
   returned: "Возврат / обмен",
   return_requested: "Возврат / обмен",
   problem: "Требует проверки",
+};
+
+const LOCAL_STATUS_HINTS: Record<string, string> = {
+  new: "Локально созданный заказ до постановки в основную воронку.",
+  pending: "Новый заказ, который поступил с сайта.",
+  waiting_call: "Нужно связаться с клиентом для подтверждения деталей.",
+  confirmed: "Менеджер подтвердил заказ.",
+  awaiting_payment: "Ждём оплату по заказу.",
+  paid: "Заказ оплачен.",
+  processing: "Оплаченный заказ уже взят в работу.",
+  confirmed_by_customer: "Клиент подтвердил заказ или изменения.",
+  ready_for_pickup: "Можно выдавать клиенту в магазине.",
+  assembling: "Заказ собирается.",
+  assembled: "Заказ собран и готов к следующему этапу.",
+  awaiting_dispatch: "Ждём поступления или передачи дальше по цепочке.",
+  shipped: "Заказ отгружен.",
+  handed_to_delivery: "Заказ передан в доставку.",
+  in_delivery: "Заказ находится в доставке.",
+  delivered: "Заказ доставлен клиенту.",
+  completed: "Заказ успешно завершён.",
+  cancelled: "Заказ отменён.",
+  returned: "Возврат или обмен уже оформлен.",
+  return_requested: "Клиент запросил возврат или обмен.",
+  problem: "Нужна ручная проверка менеджером.",
 };
 
 function buildOrderSyncSettingsForm(
@@ -234,7 +258,7 @@ export default function AdminSyncMoySkladOrders() {
         description="Заказы уходят в МойСклад через очередь: checkout не ждёт API, ретраи не создают дубли, а оператор видит ошибки и может повторить синхронизацию вручную."
         meta={
           <>
-            <span>Очередь: {queueCounts?.pending ?? 0} pending</span>
+            <span>Очередь: {queueCounts?.pending ?? 0} в ожидании</span>
             <span>Ошибки: {queueCounts?.errors ?? 0}</span>
           </>
         }
@@ -260,7 +284,7 @@ export default function AdminSyncMoySkladOrders() {
           tone={connectionTone as "default" | "success" | "warning" | "accent"}
         />
         <AdminStatCard
-          label="Pending jobs"
+          label="Задачи в очереди"
           value={queueCounts?.pending ?? 0}
           hint={`processing: ${queueCounts?.processing ?? 0}`}
           tone={(queueCounts?.pending ?? 0) > 0 ? "accent" : "default"}
@@ -344,7 +368,7 @@ export default function AdminSyncMoySkladOrders() {
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-gray-700">
-                  Organization href
+                  Ссылка на организацию (href)
                 </span>
                 <input
                   value={settingsForm.organizationHref}
@@ -359,12 +383,12 @@ export default function AdminSyncMoySkladOrders() {
                   />
                   {defaults?.organization?.name ? (
                     <div className="text-xs text-gray-500">
-                      Найдено по API: {defaults.organization.name}
+                        Найдено по API: {defaults.organization.name}
                     </div>
                   ) : null}
                 </label>
               <label className="space-y-2">
-                <span className="text-sm font-semibold text-gray-700">Store href</span>
+                <span className="text-sm font-semibold text-gray-700">Ссылка на склад / магазин (href)</span>
                 <input
                   value={settingsForm.storeHref}
                   onChange={e =>
@@ -384,7 +408,7 @@ export default function AdminSyncMoySkladOrders() {
                 </label>
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-gray-700">
-                  Sales channel href
+                  Ссылка на канал продаж (href)
                 </span>
                 <input
                   value={settingsForm.salesChannelHref}
@@ -432,7 +456,7 @@ export default function AdminSyncMoySkladOrders() {
 
             <div className="rounded-2xl border border-gray-100 bg-white">
               <div className="border-b border-gray-100 px-5 py-4 text-sm font-bold text-[#15171A]">
-                Маппинг статусов магазина → customerorder state
+                Сопоставление локальных статусов и статусов МойСклад
               </div>
               <div className="grid gap-4 p-5 md:grid-cols-2">
                 {LOCAL_STATUSES.map(status => (
@@ -441,8 +465,8 @@ export default function AdminSyncMoySkladOrders() {
                       <div className="text-sm font-semibold text-[#15171A]">
                         {LOCAL_STATUS_LABELS[status] ?? status}
                       </div>
-                      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-400">
-                        {status}
+                      <div className="text-xs text-gray-500">
+                        {LOCAL_STATUS_HINTS[status] ?? "Внутренний статус заказа."}
                       </div>
                     </div>
                     <select
@@ -461,10 +485,10 @@ export default function AdminSyncMoySkladOrders() {
                       <option value="">Не маппить</option>
                       {states.map(state => (
                         <option key={state.href} value={state.href}>
-                          {state.name}
-                        </option>
-                      ))}
-                    </select>
+                        {state.name}
+                      </option>
+                    ))}
+                  </select>
                   </label>
                 ))}
               </div>
@@ -495,7 +519,7 @@ export default function AdminSyncMoySkladOrders() {
               },
               {
                 ok: config?.organizationOk,
-                label: "Organization",
+                label: "Организация",
                 value: config?.organizationSelected
                   ? "Сохранена"
                   : config?.organizationDetected
@@ -504,7 +528,7 @@ export default function AdminSyncMoySkladOrders() {
               },
               {
                 ok: config?.storeOk,
-                label: "Store",
+                label: "Склад / магазин",
                 value: config?.storeSelected
                   ? "Сохранён"
                   : config?.storeDetected
@@ -513,7 +537,7 @@ export default function AdminSyncMoySkladOrders() {
               },
               {
                 ok: config?.customerOrderOk,
-                label: "customerorder",
+                label: "Заказ покупателя в МойСклад",
                 value: config?.customerOrderOk ? "Доступен" : "Недоступен",
               },
             ].map(item => (
@@ -690,7 +714,7 @@ export default function AdminSyncMoySkladOrders() {
                       Заказ #{orderLogQuery.data.order.id}
                     </div>
                     <div className="text-sm text-gray-500">
-                      sync status: {orderLogQuery.data.order.moyskladSyncStatus ?? "—"}
+                      статус синхронизации: {orderLogQuery.data.order.moyskladSyncStatus ?? "—"}
                     </div>
                   </div>
                   <button
@@ -710,7 +734,7 @@ export default function AdminSyncMoySkladOrders() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-semibold text-[#15171A]">
-                        Job #{job.id} / {job.action}
+                        Задача #{job.id} / {job.action}
                       </div>
                       <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-[#15171A]">
                         {job.status}
@@ -720,10 +744,10 @@ export default function AdminSyncMoySkladOrders() {
                       {job.lastError || "Ошибок не зафиксировано"}
                     </div>
                     <div className="mt-2 grid gap-2 text-xs text-gray-500 md:grid-cols-2">
-                      <div>attempts: {job.attempts}</div>
-                      <div>next run: {formatDateTime(job.nextRunAt)}</div>
-                      <div>locked: {formatDateTime(job.lockedAt)}</div>
-                      <div>updated: {formatDateTime(job.updatedAt)}</div>
+                      <div>попыток: {job.attempts}</div>
+                      <div>следующий запуск: {formatDateTime(job.nextRunAt)}</div>
+                      <div>заблокирован: {formatDateTime(job.lockedAt)}</div>
+                      <div>обновлён: {formatDateTime(job.updatedAt)}</div>
                     </div>
                   </div>
                 ))}
@@ -753,7 +777,7 @@ export default function AdminSyncMoySkladOrders() {
                     {order.orderNumber || `#${order.id}`}
                   </div>
                   <div className="text-xs text-gray-500">
-                    store sync: {order.moyskladSyncStatus}
+                    синхронизация: {order.moyskladSyncStatus}
                   </div>
                 </div>
                 <button
@@ -842,11 +866,11 @@ export default function AdminSyncMoySkladOrders() {
                   <div>endpoint: {endpoint ?? "—"}</div>
                   <div>request id: {requestId ?? "—"}</div>
                   <div>
-                    retry delay:{" "}
+                    задержка перед retry:{" "}
                     {retryDelayMs !== null ? `${Math.round(retryDelayMs / 1000)}с` : "—"}
                   </div>
                   <div className="md:col-span-2 xl:col-span-4">
-                    next run: {nextRunAt ? formatDateTime(nextRunAt) : "—"}
+                    следующий запуск: {nextRunAt ? formatDateTime(nextRunAt) : "—"}
                   </div>
                 </div>
               </div>
