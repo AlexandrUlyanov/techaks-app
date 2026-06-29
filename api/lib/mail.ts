@@ -225,22 +225,22 @@ function isFilled(value?: string | number | null) {
 
 function mapOrderStatus(status?: string | null) {
   const map: Record<string, string> = {
-    pending: "Заказ создан",
+    pending: "Новый с сайта",
     awaiting_payment: "Ожидает оплаты",
     paid: "Оплачен",
-    processing: "В обработке",
+    processing: "Оплачен / В обработке",
     confirmed: "Подтверждён",
     confirmed_by_customer: "Подтверждён клиентом",
-    assembling: "Собирается",
+    assembling: "Сборка заказа",
     assembled: "Собран",
     ready_for_pickup: "Готов к выдаче",
-    awaiting_dispatch: "Ожидает отправки",
+    awaiting_dispatch: "Ожидает поступления",
     handed_to_delivery: "Передан в доставку",
     in_delivery: "В пути",
     delivered: "Доставлен",
     completed: "Выполнен",
     cancelled: "Отменён",
-    return_requested: "Оформлен возврат",
+    return_requested: "Возврат / обмен",
     refunded: "Возврат выполнен",
     problem: "Требует проверки",
   };

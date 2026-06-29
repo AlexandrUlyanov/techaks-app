@@ -21,12 +21,48 @@ const LOCAL_STATUSES = [
   "pending",
   "waiting_call",
   "confirmed",
+  "awaiting_payment",
+  "paid",
+  "processing",
+  "confirmed_by_customer",
+  "ready_for_pickup",
   "assembling",
+  "assembled",
+  "awaiting_dispatch",
   "shipped",
+  "handed_to_delivery",
+  "in_delivery",
+  "delivered",
   "completed",
   "cancelled",
   "returned",
+  "return_requested",
+  "problem",
 ];
+
+const LOCAL_STATUS_LABELS: Record<string, string> = {
+  new: "Новый с сайта",
+  pending: "Новый с сайта",
+  waiting_call: "Ожидает звонка",
+  confirmed: "Подтверждён",
+  awaiting_payment: "Ожидает оплаты",
+  paid: "Оплачен",
+  processing: "Оплачен / В обработке",
+  confirmed_by_customer: "Подтверждён клиентом",
+  ready_for_pickup: "Готов к выдаче",
+  assembling: "Сборка заказа",
+  assembled: "Собран",
+  awaiting_dispatch: "Ожидает поступления",
+  shipped: "Отгружен",
+  handed_to_delivery: "Передан в доставку",
+  in_delivery: "В доставке",
+  delivered: "Доставлен",
+  completed: "Выполнен",
+  cancelled: "Отменён",
+  returned: "Возврат / обмен",
+  return_requested: "Возврат / обмен",
+  problem: "Требует проверки",
+};
 
 function buildOrderSyncSettingsForm(
   settings:
@@ -391,9 +427,14 @@ export default function AdminSyncMoySkladOrders() {
               <div className="grid gap-4 p-5 md:grid-cols-2">
                 {LOCAL_STATUSES.map(status => (
                   <label key={status} className="space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-gray-500">
-                      {status}
-                    </span>
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-[#15171A]">
+                        {LOCAL_STATUS_LABELS[status] ?? status}
+                      </div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-400">
+                        {status}
+                      </div>
+                    </div>
                     <select
                       value={settingsForm.statusMapping[status] ?? ""}
                       onChange={e =>

@@ -3,19 +3,19 @@ import { Badge } from "./badge";
 
 const STATUS_STYLES = {
   new: {
-    label: "Новый",
+    label: "Новый с сайта",
     className:
       "border-transparent bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,white)] text-[var(--tech-color-primary)]",
     icon: Clock3,
   },
   processing: {
-    label: "В обработке",
+    label: "Оплачен / В обработке",
     className:
       "border-transparent bg-[color:color-mix(in_srgb,var(--tech-color-info)_12%,white)] text-[var(--tech-color-info)]",
     icon: RefreshCw,
   },
   confirmed: {
-    label: "Подтвержден",
+    label: "Подтверждён",
     className:
       "border-transparent bg-[color:color-mix(in_srgb,var(--tech-color-success)_14%,white)] text-[var(--tech-color-success)]",
     icon: CheckCircle2,
@@ -33,7 +33,7 @@ const STATUS_STYLES = {
     icon: PackageCheck,
   },
   cancelled: {
-    label: "Отменен",
+    label: "Отменён",
     className:
       "border-transparent bg-[color:color-mix(in_srgb,var(--tech-color-danger)_14%,white)] text-[var(--tech-color-danger)]",
     icon: XCircle,

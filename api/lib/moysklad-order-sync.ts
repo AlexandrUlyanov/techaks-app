@@ -59,6 +59,30 @@ const LOCAL_ORDER_STATUSES = [
   "problem",
 ] as const;
 
+const LOCAL_STATUS_NAME_ALIASES: Record<string, string[]> = {
+  new: ["новый с сайта", "новый"],
+  pending: ["новый с сайта", "новый"],
+  waiting_call: ["ждет звонка", "ждёт звонка", "ожидает звонка"],
+  confirmed: ["подтвержден", "подтверждён"],
+  awaiting_payment: ["ожидает оплаты"],
+  paid: ["оплачен"],
+  processing: ["оплачен в обработке", "оплачен / в обработке", "в обработке"],
+  confirmed_by_customer: ["подтвержден клиентом", "подтверждён клиентом"],
+  ready_for_pickup: ["готов к выдаче"],
+  assembling: ["сборка заказа", "собирается"],
+  assembled: ["собран"],
+  awaiting_dispatch: ["ожидает поступления", "ожидает отправки"],
+  shipped: ["отгружен"],
+  handed_to_delivery: ["передан в доставку"],
+  in_delivery: ["в доставке", "в пути", "доставляется"],
+  delivered: ["доставлен"],
+  completed: ["выполнен"],
+  cancelled: ["отменен", "отменён"],
+  returned: ["возврат", "обмен", "возврат обмен", "возврат / обмен"],
+  return_requested: ["возврат", "обмен", "возврат обмен", "возврат / обмен"],
+  problem: ["требует проверки", "проблемный"],
+};
+
 const JOB_STATUS_PENDING = "pending";
 const JOB_STATUS_PROCESSING = "processing";
 const JOB_STATUS_SUCCESS = "success";
@@ -207,6 +231,52 @@ function parseJsonRecord(value: string | null | undefined): Record<string, strin
   } catch {
     return {};
   }
+}
+
+function normalizeMoyskladStateName(value?: string | null) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildStateNameReverseMapping() {
+  const map = new Map<string, string>();
+  for (const [localStatus, aliases] of Object.entries(LOCAL_STATUS_NAME_ALIASES)) {
+    for (const alias of aliases) {
+      const normalized = normalizeMoyskladStateName(alias);
+      if (!normalized) continue;
+      map.set(normalized, localStatus);
+    }
+  }
+  return map;
+}
+
+function getNormalizedLocalStatusAliases(localStatus: string) {
+  const aliases = LOCAL_STATUS_NAME_ALIASES[localStatus] ?? [];
+  return aliases
+    .map(alias => normalizeMoyskladStateName(alias))
+    .filter(Boolean);
+}
+
+async function resolveMoyskladStateHrefForLocalStatus(
+  settings: OrderSyncSettings,
+  localStatus: string
+) {
+  const explicitHref = settings.statusMapping[localStatus]?.trim() || null;
+  if (explicitHref) return explicitHref;
+
+  const normalizedAliases = getNormalizedLocalStatusAliases(localStatus);
+  if (normalizedAliases.length === 0) return null;
+
+  const metadata = await loadMoyskladMetadata();
+  const matchedState = metadata.states.find(state =>
+    normalizedAliases.includes(normalizeMoyskladStateName(state.name))
+  );
+
+  return matchedState?.href?.trim() || null;
 }
 
 function getOrderExternalCode(orderId: number) {
@@ -952,7 +1022,10 @@ async function syncOrderToMoysklad(orderId: number, action: JobAction) {
     );
   }
   const externalCode = order.moyskladExternalCode?.trim() || getOrderExternalCode(order.id);
-  const mappedStateHref = settings.statusMapping[order.status] ?? null;
+  const mappedStateHref = await resolveMoyskladStateHrefForLocalStatus(
+    settings,
+    order.status
+  );
 
   const counterpartyHref = await ensureCounterparty(order, settings);
   const client = await getMoyskladClient();
@@ -1316,7 +1389,11 @@ async function processWebhookEvent(eventId: number) {
       .filter(([, href]) => href)
       .map(([localStatus, href]) => [href, localStatus])
   );
-  const client = reverseMapping.size > 0 ? await getMoyskladClient() : null;
+  const reverseMappingByName = buildStateNameReverseMapping();
+  const client =
+    reverseMapping.size > 0 || reverseMappingByName.size > 0
+      ? await getMoyskladClient()
+      : null;
 
   for (const item of events) {
     const eventMetaHref =
@@ -1342,16 +1419,27 @@ async function processWebhookEvent(eventId: number) {
 
     let stateHref =
       (item.state as { meta?: { href?: string } } | undefined)?.meta?.href?.trim() || null;
-    if (!stateHref && client) {
+    let stateName =
+      (item.state as { name?: string } | undefined)?.name?.trim() || null;
+    if ((!stateHref || !stateName) && client) {
       const path = toMoyskladApiPath(eventMetaHref);
       if (path) {
         const remoteOrder = await client.get<{
-          state?: { meta?: { href?: string } };
+          state?: { meta?: { href?: string }; name?: string };
         }>(path);
         stateHref = remoteOrder.state?.meta?.href?.trim() || null;
+        stateName = remoteOrder.state?.name?.trim() || stateName;
       }
     }
-    const nextLocalStatus = stateHref ? reverseMapping.get(stateHref) : null;
+    const mappedByHref = stateHref ? reverseMapping.get(stateHref) ?? null : null;
+    const normalizedStateName = normalizeMoyskladStateName(stateName);
+    const mappedByName = normalizedStateName
+      ? reverseMappingByName.get(normalizedStateName) ?? null
+      : null;
+    const nextLocalStatus =
+      mappedByName && mappedByHref && mappedByName !== mappedByHref
+        ? mappedByName
+        : mappedByHref ?? mappedByName;
     if (!nextLocalStatus || nextLocalStatus === order.status) continue;
 
     await db

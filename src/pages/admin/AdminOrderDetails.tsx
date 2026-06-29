@@ -43,9 +43,9 @@ function getOrderStatusLabel(value: string | null | undefined) {
   switch (value) {
     case "pending":
     case "new":
-      return "Новый";
+      return "Новый с сайта";
     case "waiting_call":
-      return "Ждёт звонка";
+      return "Ожидает звонка";
     case "confirmed":
       return "Подтверждён";
     case "awaiting_payment":
@@ -53,17 +53,17 @@ function getOrderStatusLabel(value: string | null | undefined) {
     case "paid":
       return "Оплачен";
     case "processing":
-      return "В обработке";
+      return "Оплачен / В обработке";
     case "confirmed_by_customer":
       return "Подтверждён клиентом";
     case "ready_for_pickup":
       return "Готов к выдаче";
     case "assembling":
-      return "Собирается";
+      return "Сборка заказа";
     case "assembled":
       return "Собран";
     case "awaiting_dispatch":
-      return "Ожидает отправки";
+      return "Ожидает поступления";
     case "shipped":
       return "Отгружен";
     case "handed_to_delivery":
@@ -75,9 +75,9 @@ function getOrderStatusLabel(value: string | null | undefined) {
     case "completed":
       return "Выполнен";
     case "return_requested":
-      return "Запрошен возврат";
+      return "Возврат / обмен";
     case "problem":
-      return "Проблемный";
+      return "Требует проверки";
     case "cancelled":
       return "Отменён";
     default:

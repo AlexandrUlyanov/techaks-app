@@ -44,24 +44,24 @@ type AccountOrder = {
 };
 
 const orderStatusLabels: Record<string, string> = {
-  pending: "Новый",
-  waiting_call: "Ждёт звонка",
+  pending: "Новый с сайта",
+  waiting_call: "Ожидает звонка",
   confirmed: "Подтверждён",
   awaiting_payment: "Ожидает оплаты",
   paid: "Оплачен",
-  processing: "В обработке",
+  processing: "Оплачен / В обработке",
   confirmed_by_customer: "Подтверждён клиентом",
   ready_for_pickup: "Готов к выдаче",
-  assembling: "Собирается",
+  assembling: "Сборка заказа",
   assembled: "Собран",
-  awaiting_dispatch: "Ожидает отправки",
+  awaiting_dispatch: "Ожидает поступления",
   handed_to_delivery: "Передан в доставку",
   in_delivery: "В пути",
   delivered: "Доставлен",
   completed: "Выполнен",
   cancelled: "Отменён",
-  return_requested: "Возврат",
-  problem: "Проблемный",
+  return_requested: "Возврат / обмен",
+  problem: "Требует проверки",
 };
 
 const paymentStatusLabels: Record<string, string> = {

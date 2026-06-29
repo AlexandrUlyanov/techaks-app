@@ -27,17 +27,20 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 
 const ORDER_STATUS_OPTIONS = [
   { value: "", label: "Все статусы" },
-  { value: "pending", label: "Новый" },
-  { value: "waiting_call", label: "Ждёт звонка" },
+  { value: "pending", label: "Новый с сайта" },
+  { value: "waiting_call", label: "Ожидает звонка" },
   { value: "confirmed", label: "Подтверждён" },
-  { value: "processing", label: "В обработке" },
-  { value: "assembling", label: "Собирается" },
-  { value: "awaiting_dispatch", label: "Ожидает отправки" },
+  { value: "processing", label: "Оплачен / В обработке" },
+  { value: "problem", label: "Требует проверки" },
+  { value: "assembling", label: "Сборка заказа" },
+  { value: "awaiting_dispatch", label: "Ожидает поступления" },
+  { value: "ready_for_pickup", label: "Готов к выдаче" },
+  { value: "handed_to_delivery", label: "Передан в доставку" },
   { value: "in_delivery", label: "Доставляется" },
   { value: "delivered", label: "Доставлен" },
   { value: "completed", label: "Выполнен" },
   { value: "cancelled", label: "Отменён" },
-  { value: "problem", label: "Проблемный" },
+  { value: "return_requested", label: "Возврат / обмен" },
 ];
 
 const PAYMENT_STATUS_OPTIONS = [
@@ -114,10 +117,10 @@ function OrderStatusPill({ status }: { status: string }) {
     switch (value) {
       case "new":
       case "pending":
-        return { label: "Новый", color: "bg-blue-100 text-blue-700", icon: Clock };
+        return { label: "Новый с сайта", color: "bg-blue-100 text-blue-700", icon: Clock };
       case "waiting_call":
         return {
-          label: "Ждёт звонка",
+          label: "Ожидает звонка",
           color: "bg-fuchsia-100 text-fuchsia-700",
           icon: Phone,
         };
@@ -157,13 +160,13 @@ function OrderStatusPill({ status }: { status: string }) {
         return { label: "Отменён", color: "bg-red-100 text-red-700", icon: XCircle };
       case "processing":
         return {
-          label: "В обработке",
+          label: "Оплачен / В обработке",
           color: "bg-indigo-100 text-indigo-700",
           icon: Clock,
         };
       case "assembling":
         return {
-          label: "Собирается",
+          label: "Сборка заказа",
           color: "bg-violet-100 text-violet-700",
           icon: Package,
         };
@@ -187,7 +190,7 @@ function OrderStatusPill({ status }: { status: string }) {
         };
       case "awaiting_dispatch":
         return {
-          label: "Ожидает отправки",
+          label: "Ожидает поступления",
           color: "bg-amber-100 text-amber-700",
           icon: Truck,
         };
@@ -205,12 +208,12 @@ function OrderStatusPill({ status }: { status: string }) {
         };
       case "return_requested":
         return {
-          label: "Запрошен возврат",
+          label: "Возврат / обмен",
           color: "bg-rose-100 text-rose-700",
           icon: RotateCcw,
         };
       case "problem":
-        return { label: "Проблемный", color: "bg-rose-100 text-rose-700", icon: XCircle };
+        return { label: "Требует проверки", color: "bg-rose-100 text-rose-700", icon: XCircle };
       default:
         return { label: value, color: "bg-gray-100 text-gray-700", icon: Clock };
     }
@@ -584,14 +587,14 @@ export default function AdminLeads() {
               onChange={e => setBulkStatus(e.target.value)}
               className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
             >
-              <option value="processing">В обработке</option>
-              <option value="waiting_call">Ждёт звонка</option>
-              <option value="assembling">Собирается</option>
-              <option value="awaiting_dispatch">Ожидает отправки</option>
+              <option value="processing">Оплачен / В обработке</option>
+              <option value="waiting_call">Ожидает звонка</option>
+              <option value="assembling">Сборка заказа</option>
+              <option value="awaiting_dispatch">Ожидает поступления</option>
               <option value="in_delivery">Доставляется</option>
               <option value="completed">Выполнен</option>
               <option value="cancelled">Отменён</option>
-              <option value="problem">Проблемный</option>
+              <option value="problem">Требует проверки</option>
             </select>
             <button
               type="button"
@@ -816,16 +819,16 @@ export default function AdminLeads() {
                       disabled={updateStatusMutation.isPending || isStatusManagedByMoysklad}
                       className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4] disabled:opacity-50"
                     >
-                      <option value="pending">Новый</option>
+                      <option value="pending">Новый с сайта</option>
                       <option value="confirmed">Подтверждён</option>
-                      <option value="processing">В обработке</option>
-                      <option value="assembling">Собирается</option>
-                      <option value="awaiting_dispatch">Ожидает отправки</option>
+                      <option value="processing">Оплачен / В обработке</option>
+                      <option value="assembling">Сборка заказа</option>
+                      <option value="awaiting_dispatch">Ожидает поступления</option>
                       <option value="in_delivery">Доставляется</option>
                       <option value="shipped">Отгружен</option>
                       <option value="delivered">Доставлен</option>
                       <option value="completed">Выполнен</option>
-                      <option value="problem">Проблемный</option>
+                      <option value="problem">Требует проверки</option>
                       <option value="cancelled">Отменён</option>
                     </select>
 
