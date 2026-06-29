@@ -207,7 +207,7 @@ export default function Footer() {
                   </p>
                   <p className="text-sm font-bold text-white/80">
                     {siteProfile?.contacts.fullAddress ||
-                      "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12"}
+                      "440039, Пензенская область, г. Пенза, ул. Ленина, д. 7"}
                   </p>
                 </div>
               </div>

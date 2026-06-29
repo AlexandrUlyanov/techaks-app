@@ -100,7 +100,7 @@ export const defaultSiteProfileSettings: SiteProfileSettings = {
     email: "tech.aks@yandex.ru",
     workingHours: "Ежедневно 9:00–21:00",
     shortAddress: "Пенза",
-    fullAddress: "442963, Пензенская область, г. Заречный, ул. Ленина, д.6, кв.12",
+    fullAddress: "440039, Пензенская область, г. Пенза, ул. Ленина, д. 7",
   },
   seller: {
     legalForm: "ip",
