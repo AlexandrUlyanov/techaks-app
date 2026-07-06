@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Star } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ReviewCardProps {
   name: string;
@@ -12,6 +13,8 @@ interface ReviewCardProps {
   photoUrl?: string | null;
   reviewUrl?: string | null;
   replyText?: string | null;
+  onPhotoClick?: () => void;
+  photoClickable?: boolean;
 }
 
 export default function ReviewCard({
@@ -25,6 +28,8 @@ export default function ReviewCard({
   photoUrl,
   reviewUrl,
   replyText,
+  onPhotoClick,
+  photoClickable = false,
 }: ReviewCardProps) {
   const [avatarVisible, setAvatarVisible] = useState(Boolean(avatarUrl));
   const [photoVisible, setPhotoVisible] = useState(Boolean(photoUrl));
@@ -90,13 +95,24 @@ export default function ReviewCard({
 
       {photoUrl && photoVisible ? (
         <div className="mt-5 overflow-hidden rounded-[22px] bg-muted">
-          <img
-            src={photoUrl}
-            alt={`Фото к отзыву ${name}`}
-            className="h-56 w-full object-cover"
-            loading="lazy"
-            onError={() => setPhotoVisible(false)}
-          />
+          <button
+            type="button"
+            onClick={photoClickable ? onPhotoClick : undefined}
+            className={cn(
+              "block w-full text-left",
+              photoClickable
+                ? "cursor-zoom-in transition-opacity duration-200 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05C3D4] focus-visible:ring-offset-2"
+                : "cursor-default"
+            )}
+          >
+            <img
+              src={photoUrl}
+              alt={`Фото к отзыву ${name}`}
+              className="h-56 w-full object-cover"
+              loading="lazy"
+              onError={() => setPhotoVisible(false)}
+            />
+          </button>
         </div>
       ) : null}
 

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Sparkles, Star, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import ProductCard from "@/components/ProductCard";
 import StoreCard from "@/components/StoreCard";
 import ReviewCard from "@/components/ReviewCard";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import HomeSectionHeading from "./HomeSectionHeading";
 import HomeSectionActionLink from "./HomeSectionActionLink";
 
@@ -76,6 +77,7 @@ export default function HomeSecondarySections({
 }: HomeSecondarySectionsProps) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -85,6 +87,27 @@ export default function HomeSecondarySections({
     mounted && resolvedTheme === "dark"
       ? "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating&theme=dark"
       : "https://yandex.ru/sprav/widget/rating-badge/81538152780?type=rating";
+
+  const reviewsWithPhotos = useMemo(
+    () => reviews.filter(review => Boolean(review.photoUrl)),
+    [reviews]
+  );
+
+  const activeReviewIndex = reviewsWithPhotos.findIndex(review => review.id === activeReviewId);
+  const activeReview =
+    activeReviewIndex >= 0 ? reviewsWithPhotos[activeReviewIndex] : null;
+
+  const handleOpenReviewGallery = (reviewId: string) => {
+    setActiveReviewId(reviewId);
+  };
+
+  const handleShiftReview = (direction: -1 | 1) => {
+    if (activeReviewIndex < 0 || reviewsWithPhotos.length <= 1) return;
+    const nextIndex =
+      (activeReviewIndex + direction + reviewsWithPhotos.length) %
+      reviewsWithPhotos.length;
+    setActiveReviewId(reviewsWithPhotos[nextIndex]?.id ?? null);
+  };
 
   return (
     <>
@@ -275,6 +298,10 @@ export default function HomeSecondarySections({
                   photoUrl={review.photoUrl}
                   reviewUrl={review.reviewUrl}
                   replyText={review.replyText}
+                  photoClickable={Boolean(review.photoUrl)}
+                  onPhotoClick={
+                    review.photoUrl ? () => handleOpenReviewGallery(review.id) : undefined
+                  }
                 />
               ))}
             </div>
@@ -294,6 +321,168 @@ export default function HomeSecondarySections({
           </div>
         </section>
       ) : null}
+
+      <Dialog
+        open={Boolean(activeReview)}
+        onOpenChange={open => {
+          if (!open) setActiveReviewId(null);
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-[min(1180px,calc(100vw-2rem))] overflow-hidden rounded-[32px] border border-border/70 bg-background p-0 shadow-2xl"
+          overlayClassName="bg-black/72 backdrop-blur-md"
+        >
+          {activeReview ? (
+            <div className="grid min-h-[min(720px,82vh)] grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_420px]">
+              <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden bg-[#F4F7FA] p-6 dark:bg-[#14191E] sm:p-10">
+                <img
+                  src={activeReview.photoUrl ?? ""}
+                  alt={`Фото к отзыву ${activeReview.authorName}`}
+                  className="max-h-[68vh] w-full rounded-[28px] object-contain"
+                />
+
+                {reviewsWithPhotos.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Предыдущий отзыв"
+                      onClick={() => handleShiftReview(-1)}
+                      className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/92 text-foreground shadow-sm transition-colors hover:bg-background sm:left-6"
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Следующий отзыв"
+                      onClick={() => handleShiftReview(1)}
+                      className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/92 text-foreground shadow-sm transition-colors hover:bg-background sm:right-6"
+                    >
+                      <ArrowRight size={18} />
+                    </button>
+                  </>
+                ) : null}
+
+                <div className="absolute bottom-4 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-background/92 px-3 py-1.5 text-xs font-bold text-foreground/70">
+                  <span>{activeReviewIndex + 1}</span>
+                  <span className="text-foreground/30">/</span>
+                  <span>{reviewsWithPhotos.length}</span>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-col bg-background p-6 sm:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <DialogTitle className="text-left text-2xl font-black tracking-tight text-foreground sm:text-[2rem]">
+                      Отзыв покупателя
+                    </DialogTitle>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Фото и текст из Яндекс Карт. Можно перелистывать реальные отзывы с фотографиями.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Закрыть просмотр"
+                    onClick={() => setActiveReviewId(null)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-muted/80"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-6 flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted text-base font-black uppercase text-[#05C3D4]">
+                    {activeReview.authorAvatarUrl ? (
+                      <img
+                        src={activeReview.authorAvatarUrl}
+                        alt={activeReview.authorName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      activeReview.authorName
+                        .split(" ")
+                        .map(word => word[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-lg font-black tracking-tight text-foreground">
+                      {activeReview.authorName}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+                      <span>
+                        {new Date(activeReview.createdAt).toLocaleDateString("ru-RU")}
+                      </span>
+                      {activeReview.authorBadge ? (
+                        <span className="normal-case tracking-normal">
+                          {activeReview.authorBadge}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-sm font-black text-foreground">
+                    <Star size={14} className="fill-[#05C3D4] text-[#05C3D4]" />
+                    <span>{activeReview.rating.toFixed(1)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-5 inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      size={14}
+                      className={
+                        i < activeReview.rating
+                          ? "fill-[#05C3D4] text-[#05C3D4]"
+                          : "text-foreground/10 dark:text-white/10"
+                      }
+                    />
+                  ))}
+                </div>
+
+                <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+                  <p className="text-[15px] leading-8 text-foreground/88">
+                    {activeReview.text}
+                  </p>
+
+                  {activeReview.replyText ? (
+                    <div className="mt-6 rounded-[24px] bg-muted/75 px-5 py-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#05C3D4]">
+                        Ответ ТЕХАКС
+                      </div>
+                      <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                        {activeReview.replyText}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <div className="flex items-center gap-2">
+                    <span className="h-px w-6 bg-border" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground/70">
+                      {activeReview.source}
+                    </span>
+                  </div>
+                  {activeReview.reviewUrl ? (
+                    <a
+                      href={activeReview.reviewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#05C3D4]/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-[#05C3D4] transition-colors hover:bg-[#05C3D4]/16"
+                    >
+                      Читать в источнике
+                      <ExternalLink size={14} />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {latestPosts.length > 0 && (
         <section id="blog" className="py-24 bg-background">
