@@ -587,12 +587,12 @@ export default function CheckoutPage() {
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground mt-1">
                           {deliveryType === "delivery" && yandexDeliveryQuote?.available
-                            ? `Яндекс Доставка · ${formatPrice(deliveryPrice)}${
+                            ? `Доставка · ${formatPrice(deliveryPrice)}${
                                 yandexDeliveryQuote.etaLabel
                                   ? ` · ${yandexDeliveryQuote.etaLabel}`
                                   : ""
                               }`
-                            : "Яндекс Доставка по городу"}
+                            : "Доставка по городу"}
                         </p>
                       </div>
                     </button>
@@ -686,7 +686,7 @@ export default function CheckoutPage() {
                       ) : null}
                       {yandexDeliveryQuoteLoading ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                          Рассчитываем Яндекс Доставку...
+                          Рассчитываем доставку...
                         </div>
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
@@ -695,7 +695,7 @@ export default function CheckoutPage() {
                       yandexDeliveryQuote?.available ? (
                         <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#05C3D4]/5 px-4 py-3 text-sm">
                           <div className="font-semibold text-foreground">
-                            Яндекс Доставка: {formatPrice(deliveryPrice)}
+                            Доставка: {formatPrice(deliveryPrice)}
                           </div>
                           <div className="mt-1 text-muted-foreground">
                             {yandexDeliveryQuote.etaLabel

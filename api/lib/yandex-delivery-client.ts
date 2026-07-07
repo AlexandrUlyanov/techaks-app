@@ -77,9 +77,6 @@ export type YandexDeliveryQuote = {
   raw: DeliveryOfferPayload | null;
 };
 
-const DEFAULT_PICKUP_COORDINATES: [number, number] = [45.0183, 53.1959];
-const DEFAULT_DESTINATION_COORDINATES: [number, number] = [44.920956, 53.222379];
-
 function normalizeBaseUrl(value: string) {
   return value.trim().replace(/\/+$/, "");
 }
@@ -221,7 +218,7 @@ function normalizeDeliveryOfferQuote(
     message:
       price !== null
         ? null
-        : "Яндекс Доставка вернула тариф без стоимости. Повторите расчёт позже.",
+        : "Сервис доставки вернул тариф без стоимости. Повторите расчёт позже.",
     raw: payload,
   };
 }
@@ -373,12 +370,16 @@ async function yandexDeliveryRequest<TPayload = Record<string, unknown>>(
 function buildOfferRoutePoint(
   id: number,
   fullname: string,
-  coordinates: [number, number],
+  coordinates?: [number, number],
 ) {
   return {
     id,
     fullname,
-    coordinates,
+    ...(coordinates
+      ? {
+          coordinates,
+        }
+      : {}),
   };
 }
 
@@ -398,7 +399,7 @@ function buildClaimRoutePoint(params: {
   visitOrder: number;
   type: "source" | "destination";
   fullname: string;
-  coordinates: [number, number];
+  coordinates?: [number, number];
   contactName: string;
   contactPhone: string;
   externalOrderId?: string;
@@ -414,7 +415,11 @@ function buildClaimRoutePoint(params: {
     },
     address: {
       fullname: params.fullname,
-      coordinates: params.coordinates,
+      ...(params.coordinates
+        ? {
+            coordinates: params.coordinates,
+          }
+        : {}),
     },
     ...(params.externalOrderId
       ? {
@@ -501,8 +506,8 @@ export async function calculateYandexDeliveryOffers(params: {
       method: "POST",
       body: JSON.stringify({
         route_points: [
-          buildOfferRoutePoint(1, sourceAddress, DEFAULT_PICKUP_COORDINATES),
-          buildOfferRoutePoint(2, destinationAddress, DEFAULT_DESTINATION_COORDINATES),
+          buildOfferRoutePoint(1, sourceAddress),
+          buildOfferRoutePoint(2, destinationAddress),
         ],
         items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
         requirements: {
@@ -554,7 +559,6 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
         visitOrder: 1,
         type: "source",
         fullname: sourceAddress,
-        coordinates: DEFAULT_PICKUP_COORDINATES,
         contactName: "ТЕХАКС",
         contactPhone: customerPhone,
       }),
@@ -563,7 +567,6 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
         visitOrder: 2,
         type: "destination",
         fullname: destinationAddress,
-        coordinates: DEFAULT_DESTINATION_COORDINATES,
         contactName: customerName,
         contactPhone: customerPhone,
         externalOrderId: orderNumber,
