@@ -78,6 +78,7 @@ export default function HomeSecondarySections({
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [activeReviewPhotoVisible, setActiveReviewPhotoVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -96,6 +97,10 @@ export default function HomeSecondarySections({
   const activeReviewIndex = reviewsWithPhotos.findIndex(review => review.id === activeReviewId);
   const activeReview =
     activeReviewIndex >= 0 ? reviewsWithPhotos[activeReviewIndex] : null;
+
+  useEffect(() => {
+    setActiveReviewPhotoVisible(Boolean(activeReview?.photoUrl));
+  }, [activeReview?.id, activeReview?.photoUrl]);
 
   const handleOpenReviewGallery = (reviewId: string) => {
     setActiveReviewId(reviewId);
@@ -330,17 +335,28 @@ export default function HomeSecondarySections({
       >
         <DialogContent
           showCloseButton={false}
-          className="max-w-[min(1180px,calc(100vw-2rem))] overflow-hidden rounded-[32px] border border-border/70 bg-background p-0 shadow-2xl"
+          className="w-[min(1180px,calc(100vw-2rem))] max-w-none overflow-hidden rounded-[32px] border border-border/70 bg-background p-0 shadow-2xl sm:max-w-none"
           overlayClassName="bg-black/72 backdrop-blur-md"
         >
           {activeReview ? (
-            <div className="grid min-h-[min(720px,82vh)] grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_420px]">
-              <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden bg-[#F4F7FA] p-6 dark:bg-[#14191E] sm:p-10">
-                <img
-                  src={activeReview.photoUrl ?? ""}
-                  alt={`Фото к отзыву ${activeReview.authorName}`}
-                  className="max-h-[68vh] w-full rounded-[28px] object-contain"
-                />
+            <div className="grid min-h-[min(720px,82vh)] grid-cols-1 md:grid-cols-[minmax(0,1.15fr)_380px] xl:grid-cols-[minmax(0,1.2fr)_420px]">
+              <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-[#F4F7FA] p-4 dark:bg-[#14191E] sm:min-h-[460px] sm:p-8 lg:p-10">
+                {activeReview.photoUrl && activeReviewPhotoVisible ? (
+                  <img
+                    key={activeReview.id}
+                    src={activeReview.photoUrl}
+                    alt={`Фото к отзыву ${activeReview.authorName}`}
+                    className="max-h-[68vh] w-full rounded-[28px] object-contain"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    onError={() => setActiveReviewPhotoVisible(false)}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-[280px] w-full items-center justify-center rounded-[28px] bg-white/70 px-6 text-center text-sm font-medium leading-6 text-muted-foreground dark:bg-white/[0.04]">
+                    Фото к отзыву сейчас недоступно. Попробуйте открыть оригинал в Яндекс Картах.
+                  </div>
+                )}
 
                 {reviewsWithPhotos.length > 1 ? (
                   <>
