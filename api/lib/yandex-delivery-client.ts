@@ -127,7 +127,12 @@ function readNumericCandidate(value: unknown): number | null {
     return (
       readNumericCandidate(record.amount) ??
       readNumericCandidate(record.value) ??
-      readNumericCandidate(record.price)
+      readNumericCandidate(record.price) ??
+      readNumericCandidate(record.total_price) ??
+      readNumericCandidate(record.total_price_with_vat) ??
+      readNumericCandidate(record.base_price) ??
+      readNumericCandidate(record.final_price) ??
+      readNumericCandidate(record.cost)
     );
   }
   return null;
