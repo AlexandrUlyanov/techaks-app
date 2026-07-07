@@ -242,6 +242,17 @@ function buildOfferRoutePoint(
   };
 }
 
+function buildOfferItems(title: string) {
+  return [
+    {
+      quantity: 1,
+      pickup_point: 1,
+      dropoff_point: 2,
+      title: title.slice(0, 128),
+    },
+  ];
+}
+
 function buildClaimRoutePoint(params: {
   pointId: number;
   visitOrder: number;
@@ -353,6 +364,7 @@ export async function calculateYandexDeliveryOffers(params: {
           buildOfferRoutePoint(1, sourceAddress, DEFAULT_PICKUP_COORDINATES),
           buildOfferRoutePoint(2, destinationAddress, DEFAULT_DESTINATION_COORDINATES),
         ],
+        items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
         requirements: {
           taxi_classes: ["express"],
         },
@@ -389,7 +401,7 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
       {
         extra_id: orderNumber,
         pickup_point: 1,
-        droppof_point: 2,
+        dropoff_point: 2,
         title: itemTitle.slice(0, 128),
         quantity: 1,
         cost_currency: "RUB",

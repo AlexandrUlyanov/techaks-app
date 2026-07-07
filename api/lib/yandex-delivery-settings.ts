@@ -41,6 +41,15 @@ const TEST_ROUTE_POINTS = [
   },
 ] as const;
 
+const TEST_ITEMS = [
+  {
+    quantity: 1,
+    pickup_point: 1,
+    dropoff_point: 2,
+    title: "Тестовый заказ ТЕХАКС",
+  },
+] as const;
+
 function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value === "true") return true;
   if (value === "false") return false;
@@ -258,6 +267,7 @@ export async function testYandexDeliveryConnection(userId: number | null) {
       },
       body: JSON.stringify({
         route_points: TEST_ROUTE_POINTS,
+        items: TEST_ITEMS,
         requirements: {
           taxi_classes: ["express"],
         },
