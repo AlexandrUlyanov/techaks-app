@@ -97,6 +97,44 @@ function ensureNonEmpty(value: string | null | undefined, message: string) {
   return normalized;
 }
 
+function normalizeYandexRouteFullname(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return normalized;
+
+  const hasRussia = /росси/i.test(normalized);
+  const hasPenza = /пенз/i.test(normalized);
+
+  if (hasRussia) {
+    return normalized;
+  }
+
+  if (hasPenza) {
+    return `Россия, ${normalized}`;
+  }
+
+  return `Россия, Пенза, ${normalized}`;
+}
+
+function buildYandexRouteFullnameCandidates(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return [];
+
+  const candidates = [
+    normalizeYandexRouteFullname(normalized),
+    /пенз/i.test(normalized) ? `Россия, ${normalized}` : `Пенза, ${normalized}`,
+    `Россия, Пензенская область, г. Пенза, ${normalized}`,
+    normalized,
+  ];
+
+  return Array.from(
+    new Set(
+      candidates
+        .map(candidate => candidate.trim().replace(/\s+/g, " "))
+        .filter(Boolean),
+    ),
+  );
+}
+
 function toMoneyString(value: number | null | undefined) {
   const normalized = Number.isFinite(value) ? Number(value) : 0;
   return normalized.toFixed(2);
@@ -500,35 +538,75 @@ export async function calculateYandexDeliveryOffers(params: {
     "Не указан адрес назначения для расчёта доставки.",
   );
 
-  const result = await yandexDeliveryRequest<DeliveryOfferPayload>(
-    "/b2b/cargo/integration/v2/offers/calculate",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        route_points: [
-          buildOfferRoutePoint(1, sourceAddress),
-          buildOfferRoutePoint(2, destinationAddress),
-        ],
-        items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
-        requirements: {
-          taxi_classes: ["express"],
-        },
-      }),
-    },
-  );
+  const sourceCandidates = buildYandexRouteFullnameCandidates(sourceAddress);
+  const destinationCandidates = buildYandexRouteFullnameCandidates(destinationAddress);
+  const normalizedSourceAddress =
+    sourceCandidates[0] ?? normalizeYandexRouteFullname(sourceAddress);
 
-  return normalizeDeliveryOfferQuote(result.payload);
+  let bestUnavailableQuote: YandexDeliveryQuote | null = null;
+  let lastError: unknown = null;
+
+  for (const destinationCandidate of destinationCandidates) {
+    try {
+      const result = await yandexDeliveryRequest<DeliveryOfferPayload>(
+        "/b2b/cargo/integration/v2/offers/calculate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            route_points: [
+              buildOfferRoutePoint(1, normalizedSourceAddress),
+              buildOfferRoutePoint(2, destinationCandidate),
+            ],
+            items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
+            requirements: {
+              taxi_classes: ["express"],
+            },
+          }),
+        },
+      );
+
+      const normalizedQuote = normalizeDeliveryOfferQuote(result.payload);
+      if (normalizedQuote.available && normalizedQuote.price !== null) {
+        return normalizedQuote;
+      }
+
+      if (!bestUnavailableQuote) {
+        bestUnavailableQuote = normalizedQuote;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (bestUnavailableQuote) {
+    return bestUnavailableQuote;
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return {
+    available: false,
+    price: null,
+    currency: "RUB",
+    etaMinutes: null,
+    etaLabel: null,
+    offerId: null,
+    message: "Подходящий курьерский тариф сейчас не найден.",
+    raw: null,
+  };
 }
 
 export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInput) {
-  const sourceAddress = ensureNonEmpty(
+  const sourceAddress = normalizeYandexRouteFullname(ensureNonEmpty(
     input.sourceAddress,
     "Для Яндекс Доставки нужен адрес отправления.",
-  );
-  const destinationAddress = ensureNonEmpty(
+  ));
+  const destinationAddress = normalizeYandexRouteFullname(ensureNonEmpty(
     input.destinationAddress,
     "Для Яндекс Доставки нужен адрес назначения.",
-  );
+  ));
   const customerPhone = ensureNonEmpty(
     input.customerPhone,
     "Для Яндекс Доставки нужен телефон клиента.",

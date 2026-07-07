@@ -40,6 +40,25 @@ type CheckoutPickupStore = {
   hasConflict: boolean;
 };
 
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function buildCheckoutDeliveryAddress(params: {
+  street: string;
+  house: string;
+  apartment: string;
+}) {
+  const street = normalizeWhitespace(params.street);
+  const house = normalizeWhitespace(params.house);
+  const apartment = normalizeWhitespace(params.apartment);
+
+  const base = [street, house].filter(Boolean).join(", ");
+  if (!base) return "";
+
+  return apartment ? `${base}, кв./офис ${apartment}` : base;
+}
+
 export default function CheckoutPage() {
   useSeo({
     title: "Оформление заказа — ТЕХАКС",
@@ -89,7 +108,9 @@ export default function CheckoutPage() {
     "pickup"
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
-  const [address, setAddress] = useState("");
+  const [deliveryStreet, setDeliveryStreet] = useState("");
+  const [deliveryHouse, setDeliveryHouse] = useState("");
+  const [deliveryApartment, setDeliveryApartment] = useState("");
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
     "cash"
@@ -144,13 +165,17 @@ export default function CheckoutPage() {
     }
 
     const timer = window.setTimeout(() => {
-      setDebouncedDeliveryAddress(address.trim());
+      setDebouncedDeliveryAddress(normalizedDeliveryAddress);
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [address, deliveryType]);
+  }, [deliveryType, deliveryStreet, deliveryHouse, deliveryApartment]);
 
-  const normalizedDeliveryAddress = address.trim();
+  const normalizedDeliveryAddress = buildCheckoutDeliveryAddress({
+    street: deliveryStreet,
+    house: deliveryHouse,
+    apartment: deliveryApartment,
+  });
   const isDeliveryQuoteCurrent =
     deliveryType !== "delivery" ||
     normalizedDeliveryAddress.length === 0 ||
@@ -159,6 +184,8 @@ export default function CheckoutPage() {
   const shouldFetchYandexQuote =
     deliveryType === "delivery" &&
     items.length > 0 &&
+    normalizeWhitespace(deliveryStreet).length >= 4 &&
+    normalizeWhitespace(deliveryHouse).length >= 1 &&
     debouncedDeliveryAddress.trim().length >= 6;
 
   const { data: yandexDeliveryQuote, isFetching: yandexDeliveryQuoteLoading, error: yandexDeliveryQuoteError } =
@@ -180,17 +207,23 @@ export default function CheckoutPage() {
     );
 
   const deliveryPrice =
-    deliveryType === "delivery" && yandexDeliveryQuote?.available
+    deliveryType === "delivery" &&
+    isDeliveryQuoteCurrent &&
+    yandexDeliveryQuote?.available
       ? Math.max(0, Number(yandexDeliveryQuote.price ?? 0))
       : 0;
+  const hasResolvedDeliveryQuote =
+    deliveryType === "delivery" &&
+    isDeliveryQuoteCurrent &&
+    Boolean(yandexDeliveryQuote?.available) &&
+    typeof yandexDeliveryQuote?.price === "number";
   const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent + deliveryPrice);
   const canSubmitDeliveryOrder =
     deliveryType !== "delivery" ||
     (isDeliveryQuoteCurrent &&
       shouldFetchYandexQuote &&
       !yandexDeliveryQuoteLoading &&
-      Boolean(yandexDeliveryQuote?.available) &&
-      typeof yandexDeliveryQuote?.price === "number");
+      hasResolvedDeliveryQuote);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -273,7 +306,7 @@ export default function CheckoutPage() {
     const fullName = customer.fullName.trim();
     const phone = customer.phone.trim();
     const email = customer.email.trim() || user?.email?.trim() || "";
-    const normalizedAddress = address.trim();
+    const normalizedAddress = normalizedDeliveryAddress;
 
     if (!fullName || !phone) {
       toast.error("Пожалуйста, заполните контактные данные");
@@ -586,7 +619,7 @@ export default function CheckoutPage() {
                           Доставка
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground mt-1">
-                          {deliveryType === "delivery" && yandexDeliveryQuote?.available
+                          {deliveryType === "delivery" && hasResolvedDeliveryQuote
                             ? `Доставка · ${formatPrice(deliveryPrice)}${
                                 yandexDeliveryQuote.etaLabel
                                   ? ` · ${yandexDeliveryQuote.etaLabel}`
@@ -666,15 +699,38 @@ export default function CheckoutPage() {
                       <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
                         Адрес доставки
                       </Label>
+                      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px] gap-4">
+                        <Input
+                          value={deliveryStreet}
+                          onChange={e => setDeliveryStreet(e.target.value)}
+                          placeholder="Улица"
+                          className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
+                        />
+                        <Input
+                          value={deliveryHouse}
+                          onChange={e => setDeliveryHouse(e.target.value)}
+                          placeholder="Дом"
+                          className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
+                        />
+                      </div>
                       <Input
-                        value={address}
-                        onChange={e => setAddress(e.target.value)}
-                        placeholder="Улица, дом, квартира"
+                        value={deliveryApartment}
+                        onChange={e => setDeliveryApartment(e.target.value)}
+                        placeholder="Квартира, офис или подъезд (необязательно)"
                         className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                       />
-                      {address.trim().length > 0 && address.trim().length < 6 ? (
+                      {deliveryType === "delivery" &&
+                      (normalizeWhitespace(deliveryStreet).length > 0 ||
+                        normalizeWhitespace(deliveryHouse).length > 0) &&
+                      (!normalizeWhitespace(deliveryStreet) ||
+                        !normalizeWhitespace(deliveryHouse)) ? (
                         <div className="text-xs text-muted-foreground">
-                          Укажите адрес подробнее, чтобы рассчитать стоимость и время доставки.
+                          Для точного расчёта укажите и улицу, и номер дома.
+                        </div>
+                      ) : null}
+                      {normalizedDeliveryAddress ? (
+                        <div className="text-xs text-muted-foreground">
+                          Рассчитываем доставку по адресу: <span className="font-medium text-foreground">{`Пенза, ${normalizedDeliveryAddress}`}</span>
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&
@@ -691,8 +747,9 @@ export default function CheckoutPage() {
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
                       deliveryType === "delivery" &&
+                      isDeliveryQuoteCurrent &&
                       shouldFetchYandexQuote &&
-                      yandexDeliveryQuote?.available ? (
+                      hasResolvedDeliveryQuote ? (
                         <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#05C3D4]/5 px-4 py-3 text-sm">
                           <div className="font-semibold text-foreground">
                             Доставка: {formatPrice(deliveryPrice)}
@@ -706,8 +763,9 @@ export default function CheckoutPage() {
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
                       deliveryType === "delivery" &&
+                      isDeliveryQuoteCurrent &&
                       shouldFetchYandexQuote &&
-                      !yandexDeliveryQuote?.available ? (
+                      !hasResolvedDeliveryQuote ? (
                         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                           {yandexDeliveryQuote?.message ||
                             "Сейчас не удалось найти подходящий тариф доставки по этому адресу."}
@@ -715,6 +773,7 @@ export default function CheckoutPage() {
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
                       deliveryType === "delivery" &&
+                      isDeliveryQuoteCurrent &&
                       yandexDeliveryQuoteError ? (
                         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                           {yandexDeliveryQuoteError.message}
@@ -911,7 +970,7 @@ export default function CheckoutPage() {
                       ? "Бесплатно"
                       : yandexDeliveryQuoteLoading || !isDeliveryQuoteCurrent
                         ? "Расчёт..."
-                        : yandexDeliveryQuote?.available
+                        : hasResolvedDeliveryQuote
                           ? formatPrice(deliveryPrice)
                           : "Уточняется"}
                   </span>
