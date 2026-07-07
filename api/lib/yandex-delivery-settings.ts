@@ -14,6 +14,7 @@ const SETTING_KEYS = [
   "yandex_delivery_access_token_last4",
   "yandex_delivery_access_token_set_at",
   "yandex_delivery_selected_corp_client_id",
+  "yandex_delivery_use_selected_corp_client_id",
   "yandex_delivery_api_base_url",
   "yandex_delivery_last_check_ok",
   "yandex_delivery_last_check_status",
@@ -25,6 +26,7 @@ export const yandexDeliverySettingsInputSchema = z.object({
   enabled: z.boolean().default(false),
   accessToken: z.string().trim().max(1024).optional().default(""),
   selectedCorpClientId: z.string().trim().max(255).default(""),
+  useSelectedCorpClientId: z.boolean().default(false),
   apiBaseUrl: z.string().trim().url().default(DEFAULT_API_BASE_URL),
 });
 
@@ -90,6 +92,7 @@ async function logYandexDeliverySettingsAudit(
 export async function getYandexDeliveryAdminSettings(): Promise<{
   enabled: boolean;
   selectedCorpClientId: string;
+  useSelectedCorpClientId: boolean;
   apiBaseUrl: string;
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
@@ -108,6 +111,10 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
     settings.yandex_delivery_access_token_encrypted?.trim() || "";
   const dbCorpClientId =
     settings.yandex_delivery_selected_corp_client_id?.trim() || "";
+  const dbUseCorpClientId = parseBoolean(
+    settings.yandex_delivery_use_selected_corp_client_id,
+    false
+  );
   const dbApiBaseUrl = buildBaseUrl(settings.yandex_delivery_api_base_url);
   const hasDatabaseSettings = Boolean(dbEncryptedToken || dbCorpClientId);
   const hasEnvSettings = Boolean(
@@ -121,6 +128,10 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
       : env.yandexDeliveryEnabled,
     selectedCorpClientId:
       dbCorpClientId || env.yandexDeliverySelectedCorpClientId.trim() || "",
+    useSelectedCorpClientId:
+      hasDatabaseSettings || dbUseCorpClientId
+        ? dbUseCorpClientId
+        : Boolean(env.yandexDeliverySelectedCorpClientId.trim()),
     apiBaseUrl: dbApiBaseUrl || buildBaseUrl(env.yandexDeliveryApiBaseUrl),
     accessTokenConfigured: Boolean(
       dbEncryptedToken || env.yandexDeliveryAccessToken.trim()
@@ -158,7 +169,12 @@ export async function saveYandexDeliveryAdminSettings(
 ) {
   const normalized = yandexDeliverySettingsInputSchema.parse(input);
   const accessToken = normalized.accessToken.trim();
-  const changedFields = ["enabled", "selectedCorpClientId", "apiBaseUrl"];
+  const changedFields = [
+    "enabled",
+    "selectedCorpClientId",
+    "useSelectedCorpClientId",
+    "apiBaseUrl",
+  ];
 
   if (accessToken && !env.appEncryptionKey.trim()) {
     throw new TRPCError({
@@ -175,6 +191,10 @@ export async function saveYandexDeliveryAdminSettings(
   await setAppSetting(
     "yandex_delivery_selected_corp_client_id",
     normalized.selectedCorpClientId
+  );
+  await setAppSetting(
+    "yandex_delivery_use_selected_corp_client_id",
+    normalized.useSelectedCorpClientId ? "true" : "false"
   );
   await setAppSetting(
     "yandex_delivery_api_base_url",
@@ -198,6 +218,7 @@ export async function saveYandexDeliveryAdminSettings(
     changedFields,
     enabled: normalized.enabled,
     hasCorpClientId: Boolean(normalized.selectedCorpClientId),
+    useSelectedCorpClientId: normalized.useSelectedCorpClientId,
     apiBaseUrl: buildBaseUrl(normalized.apiBaseUrl),
   });
 
@@ -211,11 +232,19 @@ export async function getYandexDeliveryRuntimeSettings() {
   const dbToken = decryptStoredSecret(dbEncryptedToken);
   const dbCorpClientId =
     settings.yandex_delivery_selected_corp_client_id?.trim() || "";
+  const dbUseCorpClientId = parseBoolean(
+    settings.yandex_delivery_use_selected_corp_client_id,
+    false
+  );
   const dbApiBaseUrl = buildBaseUrl(settings.yandex_delivery_api_base_url);
 
   const token = dbToken || env.yandexDeliveryAccessToken.trim();
   const selectedCorpClientId =
     dbCorpClientId || env.yandexDeliverySelectedCorpClientId.trim() || "";
+  const useSelectedCorpClientId =
+    dbToken || dbCorpClientId || settings.yandex_delivery_use_selected_corp_client_id
+      ? dbUseCorpClientId
+      : Boolean(env.yandexDeliverySelectedCorpClientId.trim());
   const apiBaseUrl = dbApiBaseUrl || buildBaseUrl(env.yandexDeliveryApiBaseUrl);
   const source = dbToken || dbCorpClientId ? "database" : token ? "env" : "none";
   const enabled =
@@ -227,6 +256,7 @@ export async function getYandexDeliveryRuntimeSettings() {
     enabled,
     accessToken: token,
     selectedCorpClientId,
+    useSelectedCorpClientId,
     apiBaseUrl,
     source,
     isConfigured: Boolean(enabled && token),
@@ -258,7 +288,7 @@ export async function testYandexDeliveryConnection(userId: number | null) {
         Accept: "application/json",
         "Accept-Language": "ru",
         "Content-Type": "application/json",
-        ...(settings.selectedCorpClientId
+        ...(settings.useSelectedCorpClientId && settings.selectedCorpClientId
           ? {
               "X-YaTaxi-Selected-Corp-Client-Id":
                 settings.selectedCorpClientId,
@@ -307,6 +337,7 @@ export async function testYandexDeliveryConnection(userId: number | null) {
       message,
       apiBaseUrl: settings.apiBaseUrl,
       hasCorpClientId: Boolean(settings.selectedCorpClientId),
+      useSelectedCorpClientId: settings.useSelectedCorpClientId,
     });
     throw error instanceof TRPCError
       ? error
@@ -328,6 +359,7 @@ export async function testYandexDeliveryConnection(userId: number | null) {
     message,
     apiBaseUrl: settings.apiBaseUrl,
     selectedCorpClientId: settings.selectedCorpClientId || null,
+    useSelectedCorpClientId: settings.useSelectedCorpClientId,
   };
 
   await logYandexDeliverySettingsAudit("test_connection_ok", userId, result);

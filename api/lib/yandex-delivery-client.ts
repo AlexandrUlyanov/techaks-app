@@ -317,11 +317,14 @@ async function yandexDeliveryRequest<TPayload = Record<string, unknown>>(
       message: "Токен Яндекс Доставки не настроен.",
     });
   }
-  if (!settings.selectedCorpClientId.trim()) {
+  if (
+    settings.useSelectedCorpClientId &&
+    !settings.selectedCorpClientId.trim()
+  ) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        "Не указан ID корпоративного клиента Яндекс Доставки. Заполните его в настройках.",
+        "Включена отправка Corp Client ID, но сам ID не заполнен в настройках.",
     });
   }
 
@@ -332,7 +335,12 @@ async function yandexDeliveryRequest<TPayload = Record<string, unknown>>(
       Accept: "application/json",
       "Accept-Language": "ru",
       "Content-Type": "application/json",
-      "X-YaTaxi-Selected-Corp-Client-Id": settings.selectedCorpClientId.trim(),
+      ...(settings.useSelectedCorpClientId && settings.selectedCorpClientId.trim()
+        ? {
+            "X-YaTaxi-Selected-Corp-Client-Id":
+              settings.selectedCorpClientId.trim(),
+          }
+        : {}),
       ...(init.headers || {}),
     },
   });

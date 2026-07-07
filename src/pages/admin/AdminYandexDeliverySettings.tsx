@@ -19,6 +19,7 @@ const DEFAULT_API_BASE_URL = "https://b2b.taxi.yandex.net";
 type SettingsPayload = {
   enabled: boolean;
   selectedCorpClientId: string;
+  useSelectedCorpClientId: boolean;
   apiBaseUrl: string;
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
@@ -111,6 +112,9 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
   const [selectedCorpClientId, setSelectedCorpClientId] = useState(
     data.selectedCorpClientId || ""
   );
+  const [useSelectedCorpClientId, setUseSelectedCorpClientId] = useState(
+    data.useSelectedCorpClientId
+  );
   const [apiBaseUrl, setApiBaseUrl] = useState(
     data.apiBaseUrl || DEFAULT_API_BASE_URL
   );
@@ -139,6 +143,7 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
       enabled,
       accessToken,
       selectedCorpClientId,
+      useSelectedCorpClientId,
       apiBaseUrl,
     });
   };
@@ -169,11 +174,20 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
                 className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
               />
               <p className="text-xs leading-5 text-gray-500">
-                Используется в заголовке{" "}
+                Значение для заголовка{" "}
                 <span className="font-mono">X-YaTaxi-Selected-Corp-Client-Id</span>,
                 если один Яндекс ID привязан к нескольким кабинетам.
               </p>
             </div>
+          </div>
+
+          <div className="mt-5">
+            <ToggleRow
+              title="Отправлять Corp Client ID в заголовке"
+              description="Если выключено, заголовок X-YaTaxi-Selected-Corp-Client-Id не уходит в API Яндекс Доставки, даже если значение сохранено."
+              checked={useSelectedCorpClientId}
+              onCheckedChange={setUseSelectedCorpClientId}
+            />
           </div>
         </AdminSection>
 
@@ -266,6 +280,12 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
                 </span>
               </div>
               <div className="mt-1 text-xs">
+                Отправка заголовка:{" "}
+                <span className="font-black text-[#15171A]">
+                  {data.useSelectedCorpClientId ? "включена" : "выключена"}
+                </span>
+              </div>
+              <div className="mt-1 text-xs">
                 Базовый URL:{" "}
                 <span className="font-black text-[#15171A]">
                   {data.apiBaseUrl || DEFAULT_API_BASE_URL}
@@ -355,8 +375,9 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               </div>
             </div>
             <div className="rounded-2xl bg-gray-50 p-4">
-              Если у одного аккаунта несколько кабинетов, обязательно укажите{" "}
-              <span className="font-mono">Corp Client ID</span>.
+              Если у одного аккаунта несколько кабинетов, сохраните{" "}
+              <span className="font-mono">Corp Client ID</span> и отдельно
+              включите его отправку.
             </div>
             <div className="rounded-2xl bg-gray-50 p-4">
               На следующем этапе интеграции мы используем это подключение для:
