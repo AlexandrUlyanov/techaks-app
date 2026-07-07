@@ -78,6 +78,7 @@ type CreateYooKassaPaymentInput = {
     name: string;
     quantity: number;
     price: number;
+    paymentSubject?: "commodity" | "service";
   }>;
 };
 
@@ -420,7 +421,7 @@ export async function createYooKassaPaymentForOrder(
         },
         vat_code: 1,
         payment_mode: "full_payment",
-        payment_subject: "commodity",
+        payment_subject: item.paymentSubject ?? "commodity",
       })),
     },
   };

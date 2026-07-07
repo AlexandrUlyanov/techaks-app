@@ -34,6 +34,7 @@ import {
   setSyncSchedulerLastFullSyncKey,
 } from "./lib/sync-runtime-settings";
 import { handleYooKassaWebhook } from "./lib/yookassa";
+import { processYandexDeliveryStatusSync } from "./lib/yandex-delivery-orders";
 import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
 import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
 import { shouldIncludeCategoryListingInSitemap } from "./lib/listing-pages";
@@ -1052,6 +1053,12 @@ if (env.isProduction) {
       console.error("[reconcile-worker] stock reconcile failed:", error);
     });
   }, 30 * 60_000);
+
+  setInterval(() => {
+    processYandexDeliveryStatusSync(10).catch(error => {
+      console.error("[yandex-delivery-sync] cycle failed:", error);
+    });
+  }, 60_000);
 
   setInterval(() => {
     runMoyskladFullSyncWatchdog().catch(error => {

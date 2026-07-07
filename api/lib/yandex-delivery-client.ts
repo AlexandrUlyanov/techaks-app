@@ -66,6 +66,17 @@ type DeliveryOfferPayload = {
   [key: string]: unknown;
 };
 
+export type YandexDeliveryQuote = {
+  available: boolean;
+  price: number | null;
+  currency: string;
+  etaMinutes: number | null;
+  etaLabel: string | null;
+  offerId: string | null;
+  message: string | null;
+  raw: DeliveryOfferPayload | null;
+};
+
 const DEFAULT_PICKUP_COORDINATES: [number, number] = [45.0183, 53.1959];
 const DEFAULT_DESTINATION_COORDINATES: [number, number] = [44.920956, 53.222379];
 
@@ -92,6 +103,122 @@ function ensureNonEmpty(value: string | null | undefined, message: string) {
 function toMoneyString(value: number | null | undefined) {
   const normalized = Number.isFinite(value) ? Number(value) : 0;
   return normalized.toFixed(2);
+}
+
+function pickFirstObject(value: unknown[]): Record<string, any> | null {
+  for (const item of value) {
+    if (item && typeof item === "object") {
+      return item as Record<string, any>;
+    }
+  }
+  return null;
+}
+
+function readNumericCandidate(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = Number(value.replace(",", "."));
+    return Number.isFinite(normalized) ? normalized : null;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      readNumericCandidate(record.amount) ??
+      readNumericCandidate(record.value) ??
+      readNumericCandidate(record.price)
+    );
+  }
+  return null;
+}
+
+function readStringCandidate(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return null;
+}
+
+function readEtaMinutes(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.round(value));
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      readEtaMinutes(record.minutes) ??
+      readEtaMinutes(record.value) ??
+      readEtaMinutes(record.amount)
+    );
+  }
+  if (typeof value === "string") {
+    const match = value.match(/(\d+)/);
+    if (match) {
+      return Math.max(0, Number.parseInt(match[1]!, 10));
+    }
+  }
+  return null;
+}
+
+function buildEtaLabel(minutes: number | null) {
+  if (!minutes || minutes <= 0) return null;
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes > 0 ? `${hours} ч ${restMinutes} мин` : `${hours} ч`;
+}
+
+function normalizeDeliveryOfferQuote(
+  payload: DeliveryOfferPayload,
+): YandexDeliveryQuote {
+  const offers = Array.isArray(payload?.offers) ? payload.offers : [];
+  const firstOffer = pickFirstObject(offers);
+
+  if (!firstOffer) {
+    return {
+      available: false,
+      price: null,
+      currency: "RUB",
+      etaMinutes: null,
+      etaLabel: null,
+      offerId: null,
+      message: "Подходящий курьерский тариф сейчас не найден.",
+      raw: payload,
+    };
+  }
+
+  const price =
+    readNumericCandidate(firstOffer.price) ??
+    readNumericCandidate(firstOffer.cost) ??
+    readNumericCandidate(firstOffer.total_price) ??
+    readNumericCandidate(firstOffer.final_price);
+  const currency =
+    readStringCandidate((firstOffer.price as any)?.currency) ??
+    readStringCandidate((firstOffer.cost as any)?.currency) ??
+    "RUB";
+  const etaMinutes =
+    readEtaMinutes(firstOffer.eta) ??
+    readEtaMinutes(firstOffer.duration) ??
+    readEtaMinutes(firstOffer.time);
+  const offerId =
+    readStringCandidate(firstOffer.offer_id) ??
+    readStringCandidate(firstOffer.id) ??
+    null;
+
+  return {
+    available: price !== null,
+    price: price !== null ? Math.max(0, Math.round(price)) : null,
+    currency,
+    etaMinutes,
+    etaLabel: buildEtaLabel(etaMinutes),
+    offerId,
+    message:
+      price !== null
+        ? null
+        : "Яндекс Доставка вернула тариф без стоимости. Повторите расчёт позже.",
+    raw: payload,
+  };
 }
 
 function buildStatusPayload(
@@ -372,7 +499,7 @@ export async function calculateYandexDeliveryOffers(params: {
     },
   );
 
-  return result.payload;
+  return normalizeDeliveryOfferQuote(result.payload);
 }
 
 export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInput) {

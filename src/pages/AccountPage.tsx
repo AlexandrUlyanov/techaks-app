@@ -37,6 +37,10 @@ type AccountOrder = {
   address?: string | null;
   paymentType?: string | null;
   paymentStatus?: string | null;
+  deliveryProvider?: string | null;
+  deliveryProviderStatus?: string | null;
+  deliveryProviderOrderId?: string | null;
+  deliveryProviderLastSyncAt?: string | Date | null;
   createdAt?: string | Date | null;
   latestManagerCommentAt?: string | Date | null;
   latestClientCommentAt?: string | Date | null;
@@ -72,6 +76,23 @@ const paymentStatusLabels: Record<string, string> = {
   payment_error: "Ошибка оплаты",
   refund: "Возврат",
   partial_refund: "Частичный возврат",
+};
+
+const yandexDeliveryStatusLabels: Record<string, string> = {
+  new: "Новая заявка",
+  estimating: "Идёт расчёт",
+  ready_for_approval: "Ожидает подтверждения",
+  accepted: "Принята",
+  performer_lookup: "Ищем курьера",
+  performer_found: "Курьер найден",
+  pickup_arrived: "Курьер прибыл к отправителю",
+  pickuped: "Заказ у курьера",
+  delivery_arrived: "Курьер прибыл к получателю",
+  delivered: "Доставлено",
+  returned: "Возврат у отправителя",
+  cancelled: "Отменено",
+  failed: "Ошибка доставки",
+  unknown: "Статус уточняется",
 };
 
 function formatPrice(price: number) {
@@ -201,6 +222,11 @@ function getDeliveryTypeLabel(type?: string | null) {
   if (type === "pickup") return "Самовывоз";
   if (type === "delivery") return "Доставка";
   return type;
+}
+
+function getYandexDeliveryStatusLabel(status?: string | null) {
+  if (!status) return "Статус уточняется";
+  return yandexDeliveryStatusLabels[status] || status;
 }
 
 function resolveOrderActions(params: {
@@ -685,20 +711,52 @@ function AccountOrderCard({
                       <div className="flex items-start gap-3">
                         <Truck size={16} className="mt-0.5 text-[#05C3D4]" />
                         <div>
-                          <div className="font-semibold">{getDeliveryTypeLabel(details.deliveryType)}</div>
-                          <div className="text-muted-foreground">{details.address || "Адрес не указан"}</div>
-                          {details.deliveryService ? (
-                            <div className="text-muted-foreground">Служба: {details.deliveryService}</div>
+                          <div className="font-semibold">{getDeliveryTypeLabel(detailsAny?.deliveryType)}</div>
+                          <div className="text-muted-foreground">{detailsAny?.address || "Адрес не указан"}</div>
+                          {detailsAny?.deliveryService ? (
+                            <div className="text-muted-foreground">Служба: {detailsAny.deliveryService}</div>
                           ) : null}
-                          {details.deliveryTrackNumber ? (
-                            <div className="text-muted-foreground">Трек-номер: {details.deliveryTrackNumber}</div>
+                          {detailsAny?.deliveryTrackNumber ? (
+                            <div className="text-muted-foreground">Трек-номер: {detailsAny.deliveryTrackNumber}</div>
                           ) : null}
                         </div>
                       </div>
-                      {details.customerComment ? (
+                      {detailsAny?.deliveryProvider === "yandex_delivery" ? (
+                        <div className="rounded-xl bg-background/90 p-3">
+                          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#05C3D4]">
+                            Яндекс Доставка
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <div className="text-muted-foreground">Статус доставки</div>
+                              <div className="font-semibold">
+                                {getYandexDeliveryStatusLabel(detailsAny?.deliveryProviderStatus)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Номер заявки</div>
+                              <div className="break-all font-semibold">
+                                {detailsAny?.deliveryProviderOrderId || "—"}
+                              </div>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <div className="text-muted-foreground">Последнее обновление</div>
+                              <div className="font-semibold">
+                                {formatDateTime(detailsAny?.deliveryProviderLastSyncAt)}
+                              </div>
+                            </div>
+                          </div>
+                          {detailsAny?.deliveryProviderError ? (
+                            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                              {detailsAny.deliveryProviderError}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {detailsAny?.customerComment ? (
                         <div className="rounded-xl bg-background/90 p-3 text-sm text-muted-foreground">
                           <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">Ваш комментарий</div>
-                          {details.customerComment}
+                          {detailsAny.customerComment}
                         </div>
                       ) : null}
                     </div>

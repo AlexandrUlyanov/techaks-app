@@ -52,11 +52,19 @@ import {
 } from "../lib/yookassa";
 import { extractReceiptMeta } from "../lib/order-receipts";
 import {
+  calculateYandexDeliveryOffers,
   cancelYandexDeliveryOrder as cancelYandexDeliveryProviderOrder,
-  createAndProcessYandexDeliveryOrder,
-  getYandexDeliveryOrderInfo,
   mapYandexDeliveryStatusToLocal,
 } from "../lib/yandex-delivery-client";
+import {
+  assertYandexDeliverySchemaReady,
+  buildOrderItemSummary,
+  createYandexDeliveryOrderForOrder,
+  getOrderCoreForYandexDelivery,
+  patchOrderYandexDeliveryState,
+  refreshYandexDeliveryOrderForOrder,
+  resolveDeliveryStore,
+} from "../lib/yandex-delivery-orders";
 import {
   attachLoyaltyToOrder,
   enqueueLoyaltySyncJob,
@@ -554,130 +562,6 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
   }
 }
 
-async function assertYandexDeliverySchemaReady(db: ReturnType<typeof getDb>) {
-  const capabilities = await getOrderDbCapabilities(db, { forceRefresh: true });
-  if (!capabilities.hasOrdersDeliveryProviderMetadata) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message:
-        "Схема заказов ещё не обновлена для Яндекс Доставки. Сначала примените migration 0037.",
-    });
-  }
-  return capabilities;
-}
-
-async function resolveDeliveryStore(
-  db: ReturnType<typeof getDb>,
-  order: { storeId?: number | null }
-) {
-  const byId =
-    typeof order.storeId === "number" && Number.isFinite(order.storeId)
-      ? await db
-          .select({
-            id: stores.id,
-            name: stores.name,
-            address: stores.address,
-          })
-          .from(stores)
-          .where(eq(stores.id, order.storeId))
-          .limit(1)
-      : [];
-
-  const fallback = byId[0]
-    ? byId[0]
-    : (
-        await db
-          .select({
-            id: stores.id,
-            name: stores.name,
-            address: stores.address,
-          })
-          .from(stores)
-          .orderBy(stores.sortOrder, stores.id)
-          .limit(1)
-      )[0];
-
-  if (!fallback?.address?.trim()) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message:
-        "Для Яндекс Доставки не найден магазин-источник с заполненным адресом.",
-    });
-  }
-
-  return fallback;
-}
-
-async function buildOrderItemSummary(db: ReturnType<typeof getDb>, orderId: number) {
-  const itemRows = await db
-    .select({
-      productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
-      quantity: orderItems.quantity,
-    })
-    .from(orderItems)
-    .leftJoin(products, eq(orderItems.productId, products.id))
-    .where(eq(orderItems.orderId, orderId))
-    .orderBy(orderItems.id)
-    .limit(4);
-
-  if (!itemRows.length) return "Заказ без позиций";
-
-  return itemRows
-    .map(item => `${item.productName} x${item.quantity}`)
-    .join("; ")
-    .slice(0, 900);
-}
-
-async function patchOrderYandexDeliveryState(
-  db: ReturnType<typeof getDb>,
-  orderId: number,
-  patch: Partial<{
-    deliveryStatus: string | null;
-    deliveryService: string | null;
-    deliveryProvider: string | null;
-    deliveryProviderOrderId: string | null;
-    deliveryProviderOfferId: string | null;
-    deliveryProviderStatus: string | null;
-    deliveryProviderLastSyncAt: Date | null;
-    deliveryProviderError: string | null;
-    deliveryProviderRawJson: unknown;
-  }>
-) {
-  await db
-    .update(orders)
-    .set({
-      ...(typeof patch.deliveryStatus === "string"
-        ? { deliveryStatus: patch.deliveryStatus }
-        : {}),
-      ...(patch.deliveryService !== undefined
-        ? { deliveryService: patch.deliveryService }
-        : {}),
-      ...(patch.deliveryProvider !== undefined
-        ? { deliveryProvider: patch.deliveryProvider }
-        : {}),
-      ...(patch.deliveryProviderOrderId !== undefined
-        ? { deliveryProviderOrderId: patch.deliveryProviderOrderId }
-        : {}),
-      ...(patch.deliveryProviderOfferId !== undefined
-        ? { deliveryProviderOfferId: patch.deliveryProviderOfferId }
-        : {}),
-      ...(patch.deliveryProviderStatus !== undefined
-        ? { deliveryProviderStatus: patch.deliveryProviderStatus }
-        : {}),
-      ...(patch.deliveryProviderLastSyncAt !== undefined
-        ? { deliveryProviderLastSyncAt: patch.deliveryProviderLastSyncAt }
-        : {}),
-      ...(patch.deliveryProviderError !== undefined
-        ? { deliveryProviderError: patch.deliveryProviderError }
-        : {}),
-      ...(patch.deliveryProviderRawJson !== undefined
-        ? { deliveryProviderRawJson: patch.deliveryProviderRawJson as any }
-        : {}),
-      updatedAt: new Date(),
-    } as any)
-    .where(eq(orders.id, orderId));
-}
-
 function isOrderStatusManagedByMoysklad(order: {
   moyskladOrderId?: string | null;
   moyskladOrderHref?: string | null;
@@ -988,6 +872,15 @@ async function getCheckoutPickupStoresForItems(
     .map(storeId => firstAvailability.find(row => Number(row.storeId) === storeId))
     .filter((row): row is NonNullable<typeof row> => Boolean(row))
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ru"));
+}
+
+function buildCartItemSummary(items: Array<{ name: string; quantity: number }>) {
+  if (items.length === 0) return "Заказ без позиций";
+  return items
+    .slice(0, 4)
+    .map(item => `${item.name} x${item.quantity}`)
+    .join("; ")
+    .slice(0, 900);
 }
 
 async function createSingleItemOrder(
@@ -1991,6 +1884,66 @@ export const ecommerceRouter = createRouter({
       );
     }),
 
+  getYandexDeliveryQuote: publicQuery
+    .input(
+      z.object({
+        items: z.array(
+          z.object({
+            productId: z.number().int().positive(),
+            variantId: z.number().int().positive().optional().nullable(),
+            quantity: z.number().int().min(1),
+          })
+        ),
+        address: z.string().trim().min(5),
+        storeId: z.number().int().positive().optional().nullable(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      await assertYandexDeliverySchemaReady(db);
+
+      const normalizedAddress = input.address.trim();
+      const { purchasableItems } = await resolvePurchasableCartItems(
+        db,
+        input.items.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        }))
+      );
+
+      if (purchasableItems.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "В корзине не осталось доступных товаров для расчёта доставки.",
+        });
+      }
+
+      const sourceStore = await resolveDeliveryStore(db, {
+        storeId: input.storeId ?? null,
+      });
+
+      const quote = await calculateYandexDeliveryOffers({
+        sourceAddress: sourceStore.address,
+        destinationAddress: normalizedAddress,
+      });
+
+      return {
+        ...quote,
+        sourceStore: {
+          id: sourceStore.id,
+          name: sourceStore.name,
+          address: sourceStore.address,
+        },
+        itemSummary: buildCartItemSummary(
+          purchasableItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+          }))
+        ),
+      };
+    }),
+
   getMyLoyaltyState: protectedProcedure
     .input(
       z
@@ -2046,6 +1999,7 @@ export const ecommerceRouter = createRouter({
         address: z.string().optional().nullable(),
         paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
+        deliveryPrice: z.number().min(0).optional().nullable(),
         loyaltyBonusAmount: z.number().min(0).optional().nullable(),
       })
     )
@@ -2205,7 +2159,11 @@ export const ecommerceRouter = createRouter({
         }
       }
 
-      const finalTotal = Math.max(0, trustedTotal - loyaltyBonusSpent);
+      const deliveryPrice =
+        input.deliveryType === "delivery"
+          ? Math.max(0, Math.round(Number(input.deliveryPrice ?? 0)))
+          : 0;
+      const finalTotal = Math.max(0, trustedTotal - loyaltyBonusSpent + deliveryPrice);
 
       const orderAddress =
         input.deliveryType === "pickup"
@@ -2252,6 +2210,7 @@ export const ecommerceRouter = createRouter({
             totalPrice: finalTotal,
             subtotal: trustedTotal,
             discountTotal: loyaltyBonusSpent,
+            deliveryPrice,
             paidAmount: 0,
             deliveryType: input.deliveryType,
             address: orderAddress,
@@ -2382,13 +2341,57 @@ export const ecommerceRouter = createRouter({
               totalPrice: finalTotal,
               customerPhone: normalizedPhone,
               customerEmail: contactEmail,
-              items: purchasableItems.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-              })),
+              items: [
+                ...purchasableItems.map(item => ({
+                  name: item.name,
+                  quantity: item.quantity,
+                  price: item.price,
+                  paymentSubject: "commodity" as const,
+                })),
+                ...(deliveryPrice > 0
+                  ? [
+                      {
+                        name: "Доставка Яндекс",
+                        quantity: 1,
+                        price: deliveryPrice,
+                        paymentSubject: "service" as const,
+                      },
+                    ]
+                  : []),
+              ],
             })
           : null;
+
+      let yandexDelivery: {
+        providerOrderId: string;
+        providerOfferId: string;
+        providerStatus: string;
+        deliveryStatus: string;
+      } | null = null;
+      let yandexDeliveryWarning: string | null = null;
+
+      if (input.deliveryType === "delivery") {
+        try {
+          const providerResult = await createYandexDeliveryOrderForOrder({
+            db,
+            orderId,
+            actorUserId: ctx.user?.id ?? null,
+            historyActionType: "yandex_delivery_auto_created",
+          });
+          yandexDelivery = {
+            providerOrderId: providerResult.providerOrderId,
+            providerOfferId: providerResult.providerOfferId,
+            providerStatus: providerResult.providerStatus,
+            deliveryStatus: providerResult.deliveryStatus,
+          };
+        } catch (error: any) {
+          yandexDeliveryWarning =
+            error instanceof TRPCError
+              ? error.message
+              : error?.message || "Не удалось автоматически создать заявку Яндекс Доставки.";
+          console.error("[yandex-delivery] auto create failed", error);
+        }
+      }
 
       if (contactEmail) {
         const emailItems = purchasableItems.map(item => ({
@@ -2442,7 +2445,7 @@ export const ecommerceRouter = createRouter({
         });
       }
 
-      return { success: true, orderId, payment };
+      return { success: true, orderId, payment, yandexDelivery, yandexDeliveryWarning };
     }),
 
   getPaymentResult: publicQuery
@@ -2676,6 +2679,18 @@ export const ecommerceRouter = createRouter({
         address: orders.address,
         paymentType: orders.paymentType,
         paymentStatus: orders.paymentStatus,
+        deliveryProvider: capabilities.hasOrdersDeliveryProviderMetadata
+          ? orders.deliveryProvider
+          : sql<string | null>`NULL`,
+        deliveryProviderStatus: capabilities.hasOrdersDeliveryProviderMetadata
+          ? orders.deliveryProviderStatus
+          : sql<string | null>`NULL`,
+        deliveryProviderOrderId: capabilities.hasOrdersDeliveryProviderMetadata
+          ? orders.deliveryProviderOrderId
+          : sql<string | null>`NULL`,
+        deliveryProviderLastSyncAt: capabilities.hasOrdersDeliveryProviderMetadata
+          ? orders.deliveryProviderLastSyncAt
+          : sql<Date | null>`NULL`,
         createdAt: orders.createdAt,
         latestManagerCommentAt: capabilities.hasOrderCommentsTable
           ? sql<Date | null>`(
@@ -4322,103 +4337,26 @@ export const ecommerceRouter = createRouter({
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
-      const order = await getOrderCoreForUpdate(db, input.id);
+      const order = await getOrderCoreForYandexDelivery(db, input.id);
       if (!order) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
       }
-      if (order.deliveryType !== "delivery") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Яндекс Доставка создаётся только для заказов с типом получения «Доставка».",
-        });
-      }
-      if (!order.address?.trim()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "У заказа не заполнен адрес доставки.",
-        });
-      }
-      if (!order.customerPhone?.trim()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "У заказа не заполнен телефон клиента.",
-        });
-      }
-
-      const sourceStore = await resolveDeliveryStore(db, order);
-      const itemSummary = await buildOrderItemSummary(db, input.id);
 
       try {
-        const providerResult = await createAndProcessYandexDeliveryOrder({
-          sourceAddress: sourceStore.address,
-          destinationAddress: order.address,
-          customerPhone: order.customerPhone,
-          customerName: order.customerName || null,
-          customerComment: order.customerComment || null,
-          orderNumber: order.orderNumber || `ORDER-${order.id}`,
-          itemSummary,
-          totalPrice: order.totalPrice,
-        });
-
-        const providerStatus =
-          providerResult.status?.full ||
-          providerResult.status?.simple ||
-          "unknown";
-        const localDeliveryStatus = mapYandexDeliveryStatusToLocal(providerStatus);
-        await patchOrderYandexDeliveryState(db, input.id, {
-          deliveryStatus: localDeliveryStatus,
-          deliveryService: "yandex_delivery",
-          deliveryProvider: "yandex_delivery",
-          deliveryProviderOrderId: providerResult.providerOrderId,
-          deliveryProviderOfferId: providerResult.providerOfferId,
-          deliveryProviderStatus: providerStatus,
-          deliveryProviderLastSyncAt: new Date(),
-          deliveryProviderError: null,
-          deliveryProviderRawJson: providerResult.raw,
-        });
-
-        await safeInsertOrderHistory(db, {
+        const providerResult = await createYandexDeliveryOrderForOrder({
+          db,
           orderId: input.id,
-          userId: ctx.user?.id ?? null,
-          actionType: "yandex_delivery_created",
-          newValue: {
-            provider: "yandex_delivery",
-            providerOrderId: providerResult.providerOrderId,
-            providerOfferId: providerResult.providerOfferId,
-            providerStatus,
-            deliveryStatus: localDeliveryStatus,
-            sourceStoreId: sourceStore.id,
-            sourceStoreName: sourceStore.name,
-          } as any,
+          actorUserId: ctx.user?.id ?? null,
         });
 
         return {
           success: true,
           providerOrderId: providerResult.providerOrderId,
           providerOfferId: providerResult.providerOfferId,
-          providerStatus,
-          deliveryStatus: localDeliveryStatus,
+          providerStatus: providerResult.providerStatus,
+          deliveryStatus: providerResult.deliveryStatus,
         };
       } catch (error: any) {
-        const message =
-          error instanceof TRPCError
-            ? error.message
-            : error?.message || "Не удалось создать заявку Яндекс Доставки.";
-        await patchOrderYandexDeliveryState(db, input.id, {
-          deliveryProvider: "yandex_delivery",
-          deliveryProviderError: message,
-          deliveryProviderLastSyncAt: new Date(),
-        });
-        await safeInsertOrderHistory(db, {
-          orderId: input.id,
-          userId: ctx.user?.id ?? null,
-          actionType: "yandex_delivery_error",
-          comment: message,
-          newValue: {
-            provider: "yandex_delivery",
-            action: "create",
-          } as any,
-        });
         throw error;
       }
     }),
@@ -4431,74 +4369,15 @@ export const ecommerceRouter = createRouter({
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
-      const order = await getOrderCoreForUpdate(db, input.id);
-      if (!order) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
-      }
-      if (!order.deliveryProviderOrderId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "У заказа ещё нет созданной заявки Яндекс Доставки.",
-        });
-      }
-
       try {
-        const providerInfo = await getYandexDeliveryOrderInfo(order.deliveryProviderOrderId);
-        const providerStatus =
-          providerInfo?.status?.full ||
-          providerInfo?.status?.simple ||
-          order.deliveryProviderStatus ||
-          "unknown";
-        const localDeliveryStatus = mapYandexDeliveryStatusToLocal(providerStatus);
-
-        await patchOrderYandexDeliveryState(db, input.id, {
-          deliveryStatus: localDeliveryStatus,
-          deliveryService: "yandex_delivery",
-          deliveryProvider: "yandex_delivery",
-          deliveryProviderStatus: providerStatus,
-          deliveryProviderLastSyncAt: new Date(),
-          deliveryProviderError: null,
-          deliveryProviderRawJson: providerInfo,
-        });
-
-        await safeInsertOrderHistory(db, {
+        const result = await refreshYandexDeliveryOrderForOrder({
+          db,
           orderId: input.id,
-          userId: ctx.user?.id ?? null,
-          actionType: "yandex_delivery_refreshed",
-          newValue: {
-            provider: "yandex_delivery",
-            providerOrderId: order.deliveryProviderOrderId,
-            providerStatus,
-            deliveryStatus: localDeliveryStatus,
-          } as any,
+          actorUserId: ctx.user?.id ?? null,
+          writeHistory: true,
         });
-
-        return {
-          success: true,
-          providerOrderId: order.deliveryProviderOrderId,
-          providerStatus,
-          deliveryStatus: localDeliveryStatus,
-        };
+        return result;
       } catch (error: any) {
-        const message =
-          error instanceof TRPCError
-            ? error.message
-            : error?.message || "Не удалось обновить статус Яндекс Доставки.";
-        await patchOrderYandexDeliveryState(db, input.id, {
-          deliveryProviderError: message,
-          deliveryProviderLastSyncAt: new Date(),
-        });
-        await safeInsertOrderHistory(db, {
-          orderId: input.id,
-          userId: ctx.user?.id ?? null,
-          actionType: "yandex_delivery_error",
-          comment: message,
-          newValue: {
-            provider: "yandex_delivery",
-            action: "refresh",
-            providerOrderId: order.deliveryProviderOrderId,
-          } as any,
-        });
         throw error;
       }
     }),

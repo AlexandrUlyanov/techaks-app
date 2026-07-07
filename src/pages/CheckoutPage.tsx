@@ -62,7 +62,6 @@ export default function CheckoutPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated } = useAuth();
-  const { data: siteProfile } = trpc.settings.getPublicSiteProfile.useQuery();
   const { data: yookassaStatus } = trpc.settings.getPublicYooKassaStatus.useQuery();
   const [useBonuses, setUseBonuses] = useState(false);
   const [bonusAmountInput, setBonusAmountInput] = useState("");
@@ -91,6 +90,7 @@ export default function CheckoutPage() {
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
   const [address, setAddress] = useState("");
+  const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
     "cash"
   );
@@ -136,7 +136,61 @@ export default function CheckoutPage() {
   const effectiveBonusSpent = useBonuses
     ? Math.max(0, loyaltyPreview?.appliedAmount ?? 0)
     : 0;
-  const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent);
+
+  useEffect(() => {
+    if (deliveryType !== "delivery") {
+      setDebouncedDeliveryAddress("");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setDebouncedDeliveryAddress(address.trim());
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [address, deliveryType]);
+
+  const normalizedDeliveryAddress = address.trim();
+  const isDeliveryQuoteCurrent =
+    deliveryType !== "delivery" ||
+    normalizedDeliveryAddress.length === 0 ||
+    normalizedDeliveryAddress === debouncedDeliveryAddress.trim();
+
+  const shouldFetchYandexQuote =
+    deliveryType === "delivery" &&
+    items.length > 0 &&
+    debouncedDeliveryAddress.trim().length >= 6;
+
+  const { data: yandexDeliveryQuote, isFetching: yandexDeliveryQuoteLoading, error: yandexDeliveryQuoteError } =
+    trpc.ecommerce.getYandexDeliveryQuote.useQuery(
+      {
+        items: items.map(item => ({
+          productId: item.id,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        })),
+        address: debouncedDeliveryAddress,
+        storeId: pickupStoreId,
+      },
+      {
+        enabled: shouldFetchYandexQuote,
+        refetchOnWindowFocus: false,
+        retry: false,
+      }
+    );
+
+  const deliveryPrice =
+    deliveryType === "delivery" && yandexDeliveryQuote?.available
+      ? Math.max(0, Number(yandexDeliveryQuote.price ?? 0))
+      : 0;
+  const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent + deliveryPrice);
+  const canSubmitDeliveryOrder =
+    deliveryType !== "delivery" ||
+    (isDeliveryQuoteCurrent &&
+      shouldFetchYandexQuote &&
+      !yandexDeliveryQuoteLoading &&
+      Boolean(yandexDeliveryQuote?.available) &&
+      typeof yandexDeliveryQuote?.price === "number");
 
   useEffect(() => {
     if (items.length === 0) {
@@ -262,6 +316,7 @@ export default function CheckoutPage() {
           : "Самовывоз из магазина",
       paymentType,
       totalPrice: totalWithBonuses,
+      deliveryPrice,
       loyaltyBonusAmount: useBonuses ? effectiveBonusSpent : 0,
     });
   };
@@ -531,7 +586,13 @@ export default function CheckoutPage() {
                           Доставка
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground mt-1">
-                          Курьером по городу (от 300 ₽)
+                          {deliveryType === "delivery" && yandexDeliveryQuote?.available
+                            ? `Яндекс Доставка · ${formatPrice(deliveryPrice)}${
+                                yandexDeliveryQuote.etaLabel
+                                  ? ` · ${yandexDeliveryQuote.etaLabel}`
+                                  : ""
+                              }`
+                            : "Яндекс Доставка по городу"}
                         </p>
                       </div>
                     </button>
@@ -611,6 +672,54 @@ export default function CheckoutPage() {
                         placeholder="Улица, дом, квартира"
                         className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                       />
+                      {address.trim().length > 0 && address.trim().length < 6 ? (
+                        <div className="text-xs text-muted-foreground">
+                          Укажите адрес подробнее, чтобы рассчитать стоимость и время доставки.
+                        </div>
+                      ) : null}
+                      {deliveryType === "delivery" &&
+                      normalizedDeliveryAddress.length >= 6 &&
+                      !isDeliveryQuoteCurrent ? (
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                          Обновляем расчёт доставки для нового адреса...
+                        </div>
+                      ) : null}
+                      {yandexDeliveryQuoteLoading ? (
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                          Рассчитываем Яндекс Доставку...
+                        </div>
+                      ) : null}
+                      {!yandexDeliveryQuoteLoading &&
+                      deliveryType === "delivery" &&
+                      shouldFetchYandexQuote &&
+                      yandexDeliveryQuote?.available ? (
+                        <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#05C3D4]/5 px-4 py-3 text-sm">
+                          <div className="font-semibold text-foreground">
+                            Яндекс Доставка: {formatPrice(deliveryPrice)}
+                          </div>
+                          <div className="mt-1 text-muted-foreground">
+                            {yandexDeliveryQuote.etaLabel
+                              ? `Ориентировочно ${yandexDeliveryQuote.etaLabel}.`
+                              : "Тариф найден и готов к оформлению."}
+                          </div>
+                        </div>
+                      ) : null}
+                      {!yandexDeliveryQuoteLoading &&
+                      deliveryType === "delivery" &&
+                      shouldFetchYandexQuote &&
+                      !yandexDeliveryQuote?.available ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          {yandexDeliveryQuote?.message ||
+                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу."}
+                        </div>
+                      ) : null}
+                      {!yandexDeliveryQuoteLoading &&
+                      deliveryType === "delivery" &&
+                      yandexDeliveryQuoteError ? (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {yandexDeliveryQuoteError.message}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -798,7 +907,13 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm font-medium">
                   <span className="text-muted-foreground">Доставка</span>
                   <span className="text-[#22c55e] font-bold">
-                    {deliveryType === "pickup" ? "Бесплатно" : "От 300 ₽"}
+                    {deliveryType === "pickup"
+                      ? "Бесплатно"
+                      : yandexDeliveryQuoteLoading || !isDeliveryQuoteCurrent
+                        ? "Расчёт..."
+                        : yandexDeliveryQuote?.available
+                          ? formatPrice(deliveryPrice)
+                          : "Уточняется"}
                   </span>
                 </div>
                 <Separator className="my-6 bg-border/50" />
@@ -815,7 +930,8 @@ export default function CheckoutPage() {
                   onClick={handlePlaceOrder}
                   disabled={
                     placeOrder.isPending ||
-                    (deliveryType === "pickup" && typedPickupStores.length === 0)
+                    (deliveryType === "pickup" && typedPickupStores.length === 0) ||
+                    !canSubmitDeliveryOrder
                   }
                   className="w-full h-16 text-lg tracking-[0.2em] glow-cyan"
                 >
