@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAbility } from "@/providers/AbilityProvider";
 import { trpc } from "@/providers/trpc";
 
-const DEFAULT_API_BASE_URL = "https://business.taxi.yandex.ru";
+const DEFAULT_API_BASE_URL = "https://b2b.taxi.yandex.net";
 
 type SettingsPayload = {
   enabled: boolean;
@@ -64,7 +64,7 @@ export default function AdminYandexDeliverySettings() {
       <AdminPageHeader
         eyebrow="Настройки / Интеграции"
         title="Яндекс Доставка"
-        description="Храним OAuth-токен в зашифрованном виде, отдельно настраиваем Corp Client ID и проверяем реальное подключение к API Яндекс Go для бизнеса."
+        description="Храним OAuth-токен в зашифрованном виде, отдельно настраиваем Corp Client ID и проверяем реальное подключение к API 2.0 Яндекс Доставки."
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -224,7 +224,7 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
 
         <AdminSection
           title="Базовый URL API"
-          description="По умолчанию используется business.taxi.yandex.ru. Менять нужно только если Яндекс официально переведет интеграцию на другой base URL."
+          description="По умолчанию используется b2b.taxi.yandex.net. Менять нужно только если Яндекс официально переведет интеграцию на другой base URL."
           actions={
             <button
               type="button"

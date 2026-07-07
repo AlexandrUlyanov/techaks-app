@@ -59,5 +59,5 @@ export const env = {
   ),
   yandexDeliveryApiBaseUrl:
     optional("YANDEX_DELIVERY_API_BASE_URL") ||
-    "https://business.taxi.yandex.ru",
+    "https://b2b.taxi.yandex.net",
 };

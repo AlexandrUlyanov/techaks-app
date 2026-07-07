@@ -6,8 +6,7 @@ import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
 import { decryptSecret, encryptSecret } from "./secret-crypto";
 
-const DEFAULT_API_BASE_URL = "https://business.taxi.yandex.ru";
-const TEST_CONNECTION_PATH = "/client-api/3.0/cities";
+const DEFAULT_API_BASE_URL = "https://b2b.taxi.yandex.net";
 
 const SETTING_KEYS = [
   "yandex_delivery_enabled",
@@ -28,6 +27,19 @@ export const yandexDeliverySettingsInputSchema = z.object({
   selectedCorpClientId: z.string().trim().max(255).default(""),
   apiBaseUrl: z.string().trim().url().default(DEFAULT_API_BASE_URL),
 });
+
+const TEST_ROUTE_POINTS = [
+  {
+    id: 1,
+    fullname: "Россия, Пенза, улица Ленина, 7",
+    coordinates: [45.0183, 53.1959],
+  },
+  {
+    id: 2,
+    fullname: "Россия, Пенза, проспект Строителей, 50А",
+    coordinates: [44.920956, 53.222379],
+  },
+] as const;
 
 function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value === "true") return true;
@@ -66,7 +78,22 @@ async function logYandexDeliverySettingsAudit(
   });
 }
 
-export async function getYandexDeliveryAdminSettings() {
+export async function getYandexDeliveryAdminSettings(): Promise<{
+  enabled: boolean;
+  selectedCorpClientId: string;
+  apiBaseUrl: string;
+  accessTokenConfigured: boolean;
+  accessTokenLast4: string;
+  accessTokenSetAt: string | null;
+  source: "database" | "env" | "none";
+  lastCheck: {
+    ok: boolean | null;
+    status: string | null;
+    at: string | null;
+    message: string | null;
+  };
+  encryptionConfigured: boolean;
+}> {
   const settings = await getAppSettings([...SETTING_KEYS]);
   const dbEncryptedToken =
     settings.yandex_delivery_access_token_encrypted?.trim() || "";
@@ -207,7 +234,7 @@ export async function testYandexDeliveryConnection(userId: number | null) {
     });
   }
 
-  const url = `${buildBaseUrl(settings.apiBaseUrl)}${TEST_CONNECTION_PATH}`;
+  const url = `${buildBaseUrl(settings.apiBaseUrl)}/b2b/cargo/integration/v2/offers/calculate`;
   let ok = false;
   let statusCode = 0;
   let message = "Подключение к Яндекс Доставке успешно проверено.";
@@ -216,7 +243,11 @@ export async function testYandexDeliveryConnection(userId: number | null) {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: settings.accessToken,
+        Authorization: /^bearer\s+/i.test(settings.accessToken)
+          ? settings.accessToken
+          : `Bearer ${settings.accessToken}`,
+        Accept: "application/json",
+        "Accept-Language": "ru",
         "Content-Type": "application/json",
         ...(settings.selectedCorpClientId
           ? {
@@ -225,7 +256,12 @@ export async function testYandexDeliveryConnection(userId: number | null) {
             }
           : {}),
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        route_points: TEST_ROUTE_POINTS,
+        requirements: {
+          taxi_classes: ["express"],
+        },
+      }),
     });
 
     statusCode = response.status;

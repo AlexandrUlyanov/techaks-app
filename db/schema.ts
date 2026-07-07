@@ -430,6 +430,13 @@ export const orders = mysqlTable("orders", {
     .notNull()
     .default("pickup"), // pickup, delivery
   deliveryService: varchar("delivery_service", { length: 80 }),
+  deliveryProvider: varchar("delivery_provider", { length: 40 }),
+  deliveryProviderOrderId: varchar("delivery_provider_order_id", { length: 128 }),
+  deliveryProviderOfferId: varchar("delivery_provider_offer_id", { length: 128 }),
+  deliveryProviderStatus: varchar("delivery_provider_status", { length: 80 }),
+  deliveryProviderLastSyncAt: timestamp("delivery_provider_last_sync_at"),
+  deliveryProviderError: text("delivery_provider_error"),
+  deliveryProviderRawJson: json("delivery_provider_raw_json"),
   deliveryCity: varchar("delivery_city", { length: 120 }),
   deliveryRegion: varchar("delivery_region", { length: 120 }),
   deliveryPostalCode: varchar("delivery_postal_code", { length: 20 }),
@@ -474,6 +481,13 @@ export const orders = mysqlTable("orders", {
   statusCreatedIdx: index("orders_status_created_idx").on(table.status, table.createdAt),
   paymentStatusIdx: index("orders_payment_status_idx").on(table.paymentStatus, table.createdAt),
   deliveryStatusIdx: index("orders_delivery_status_idx").on(table.deliveryStatus, table.createdAt),
+  deliveryProviderIdx: index("orders_delivery_provider_idx").on(
+    table.deliveryProvider,
+    table.createdAt
+  ),
+  deliveryProviderOrderIdx: index("orders_delivery_provider_order_idx").on(
+    table.deliveryProviderOrderId
+  ),
   managerIdx: index("orders_manager_idx").on(table.managerId, table.createdAt),
   sourceIdx: index("orders_source_idx").on(table.source, table.createdAt),
   customerPhoneIdx: index("orders_customer_phone_idx").on(table.customerPhone),

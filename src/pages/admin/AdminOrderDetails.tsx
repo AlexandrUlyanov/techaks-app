@@ -143,6 +143,14 @@ function getOrderHistoryActionLabel(actionType?: string | null) {
       return "Доставка не требуется";
     case "delivery_update_skipped_legacy":
       return "Доставка не обновлена";
+    case "yandex_delivery_created":
+      return "Заявка Яндекс Доставки создана";
+    case "yandex_delivery_refreshed":
+      return "Статус Яндекс Доставки обновлён";
+    case "yandex_delivery_cancelled":
+      return "Заявка Яндекс Доставки отменена";
+    case "yandex_delivery_error":
+      return "Ошибка Яндекс Доставки";
     case "order_item_quantity_updated":
       return "Количество товара изменено";
     case "order_item_removed":
@@ -259,6 +267,62 @@ function getDeliveryStatusLabel(value: string | null | undefined) {
       return "Проблема с доставкой";
     default:
       return value || "Не задано";
+  }
+}
+
+function getYandexDeliveryStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "new":
+      return "Новая заявка";
+    case "estimating":
+      return "Расчёт доставки";
+    case "estimating_failed":
+      return "Ошибка расчёта";
+    case "ready_for_approval":
+      return "Ждёт подтверждения";
+    case "accepted":
+      return "Подтверждена";
+    case "performer_lookup":
+      return "Ищем курьера";
+    case "performer_draft":
+      return "Черновик назначения";
+    case "performer_found":
+      return "Курьер найден";
+    case "performer_not_found":
+      return "Курьер не найден";
+    case "pickup_arrived":
+      return "Курьер прибыл на забор";
+    case "ready_for_pickup_confirmation":
+      return "Ждёт подтверждения забора";
+    case "pickuped":
+      return "Заказ забран";
+    case "delivery_arrived":
+      return "Курьер прибыл к получателю";
+    case "ready_for_delivery_confirmation":
+      return "Ждёт подтверждения вручения";
+    case "delivered":
+    case "delivered_finish":
+      return "Доставлен";
+    case "returning":
+      return "Возврат в пути";
+    case "return_arrived":
+      return "Возврат прибыл";
+    case "ready_for_return_confirmation":
+      return "Ждёт подтверждения возврата";
+    case "returned":
+    case "returned_finish":
+      return "Возвращён";
+    case "cancelled":
+    case "cancelled_with_payment":
+    case "cancelled_by_taxi":
+    case "cancelled_with_items_on_hands":
+      return "Отменён";
+    case "failed":
+      return "Ошибка у перевозчика";
+    case "unknown":
+      return "Статус не определён";
+    default:
+      return value || "Не задан";
   }
 }
 
@@ -435,6 +499,45 @@ export default function AdminOrderDetails() {
     },
     onError: err => toast.error(err.message || "Ошибка бонусной синхронизации"),
   });
+  const createYandexDeliveryOrder = trpc.ecommerce.createYandexDeliveryOrder.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success(
+        `Заявка Яндекс Доставки создана: ${getYandexDeliveryStatusLabel(result.providerStatus)}`
+      );
+    },
+    onError: err => toast.error(err.message || "Ошибка создания заявки Яндекс Доставки"),
+  });
+  const refreshYandexDeliveryOrder = trpc.ecommerce.refreshYandexDeliveryOrder.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success(
+        `Статус Яндекс Доставки обновлён: ${getYandexDeliveryStatusLabel(result.providerStatus)}`
+      );
+    },
+    onError: err => toast.error(err.message || "Ошибка обновления Яндекс Доставки"),
+  });
+  const cancelYandexDeliveryOrder = trpc.ecommerce.cancelYandexDeliveryOrder.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success(
+        `Заявка Яндекс Доставки отменена: ${getYandexDeliveryStatusLabel(result.providerStatus)}`
+      );
+    },
+    onError: err => toast.error(err.message || "Ошибка отмены Яндекс Доставки"),
+  });
 
   const formatPrice = (value: number | null | undefined) =>
     new Intl.NumberFormat("ru-RU").format(value || 0) + " ₽";
@@ -593,6 +696,14 @@ export default function AdminOrderDetails() {
     paymentTest?: boolean | null;
     paymentCancellationParty?: string | null;
     paymentCancellationReason?: string | null;
+  };
+  const yandexDeliveryDiagnostics = order as typeof order & {
+    deliveryProvider?: string | null;
+    deliveryProviderOrderId?: string | null;
+    deliveryProviderOfferId?: string | null;
+    deliveryProviderStatus?: string | null;
+    deliveryProviderLastSyncAt?: string | Date | null;
+    deliveryProviderError?: string | null;
   };
 
   const itemTotal = order.items.reduce(
@@ -1114,6 +1225,102 @@ export default function AdminOrderDetails() {
                     yookassaDiagnostics.paymentCancellationReason
                   )}
                 />
+              </div>
+            </AdminSection>
+          ) : null}
+
+          {order.deliveryType === "delivery" ? (
+            <AdminSection
+              title="Яндекс Доставка"
+              description="Создание, обновление и отмена заявки перевозчика прямо из заказа."
+              actions={
+                <div className="flex flex-wrap gap-2">
+                  {yandexDeliveryDiagnostics.deliveryProviderOrderId ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => refreshYandexDeliveryOrder.mutate({ id: orderId })}
+                        disabled={refreshYandexDeliveryOrder.isPending}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
+                      >
+                        {refreshYandexDeliveryOrder.isPending ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Package size={16} />
+                        )}
+                        Обновить статус
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cancelYandexDeliveryOrder.mutate({ id: orderId })}
+                        disabled={cancelYandexDeliveryOrder.isPending}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-50 px-4 text-sm font-black text-rose-700 disabled:opacity-50"
+                      >
+                        {cancelYandexDeliveryOrder.isPending ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                        Отменить заявку
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => createYandexDeliveryOrder.mutate({ id: orderId })}
+                      disabled={createYandexDeliveryOrder.isPending}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
+                    >
+                      {createYandexDeliveryOrder.isPending ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Package size={16} />
+                      )}
+                      Создать заявку
+                    </button>
+                  )}
+                </div>
+              }
+            >
+              <div className="space-y-3 text-sm">
+                <InfoRow
+                  label="Провайдер"
+                  value={
+                    yandexDeliveryDiagnostics.deliveryProvider === "yandex_delivery"
+                      ? "Яндекс Доставка"
+                      : "Не подключён"
+                  }
+                />
+                <InfoRow
+                  label="ID заявки"
+                  value={yandexDeliveryDiagnostics.deliveryProviderOrderId || "Не создана"}
+                  mono
+                />
+                <InfoRow
+                  label="ID оффера"
+                  value={yandexDeliveryDiagnostics.deliveryProviderOfferId || "—"}
+                  mono
+                />
+                <InfoRow
+                  label="Статус Яндекс"
+                  value={getYandexDeliveryStatusLabel(
+                    yandexDeliveryDiagnostics.deliveryProviderStatus
+                  )}
+                />
+                <InfoRow
+                  label="Локальный статус"
+                  value={getDeliveryStatusLabel(order.deliveryStatus)}
+                />
+                <InfoRow
+                  label="Последняя синхронизация"
+                  value={formatDateTime(yandexDeliveryDiagnostics.deliveryProviderLastSyncAt)}
+                />
+                {yandexDeliveryDiagnostics.deliveryProviderError ? (
+                  <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <span className="font-black">Ошибка провайдера:</span>{" "}
+                    {yandexDeliveryDiagnostics.deliveryProviderError}
+                  </div>
+                ) : null}
               </div>
             </AdminSection>
           ) : null}
