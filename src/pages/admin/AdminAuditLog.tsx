@@ -36,6 +36,10 @@ function formatActionLabel(action: string) {
     "settings.moysklad.clear_webhook_secret": "Очистка секрета вебхука МойСклад",
     "settings.yookassa.update": "Изменение настроек YooKassa",
     "settings.yookassa.test_connection": "Проверка подключения YooKassa",
+    "settings.yandex_delivery.update":
+      "Изменение настроек Яндекс Доставки",
+    "settings.yandex_delivery.test_connection":
+      "Проверка подключения Яндекс Доставки",
     "settings.feed.yandex_yml.update": "Изменение настроек Yandex YML",
     "settings.feed.vk.update": "Изменение настроек VK-фида",
     "settings.homepage_hero.update": "Изменение hero главной страницы",

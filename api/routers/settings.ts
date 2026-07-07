@@ -19,6 +19,12 @@ import {
   yookassaSettingsInputSchema,
 } from "../lib/payment-settings";
 import {
+  getYandexDeliveryAdminSettings,
+  saveYandexDeliveryAdminSettings,
+  testYandexDeliveryConnection,
+  yandexDeliverySettingsInputSchema,
+} from "../lib/yandex-delivery-settings";
+import {
   getLoyaltyAdminSettings,
   saveLoyaltyAdminSettings,
 } from "../lib/moysklad-loyalty";
@@ -778,6 +784,11 @@ export const settingsRouter = createRouter({
   getLoyaltySettings: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
     return getLoyaltyAdminSettings();
+  }),
+
+  getYandexDeliverySettings: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    return getYandexDeliveryAdminSettings();
   }),
 
   saveLoyaltySettings: protectedProcedure
@@ -1594,6 +1605,40 @@ export const settingsRouter = createRouter({
       action: "settings.yookassa.test_connection",
       entityType: "settings",
       entityLabel: "YooKassa",
+      meta: result,
+    });
+    return result;
+  }),
+
+  saveYandexDeliverySettings: protectedProcedure
+    .input(yandexDeliverySettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getYandexDeliveryAdminSettings();
+      const result = await saveYandexDeliveryAdminSettings(
+        input,
+        ctx.user?.id ?? null
+      );
+      const after = await getYandexDeliveryAdminSettings();
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.yandex_delivery.update",
+        entityType: "settings",
+        entityLabel: "Яндекс Доставка",
+        before,
+        after,
+      });
+      return result;
+    }),
+
+  testYandexDeliveryConnection: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    const result = await testYandexDeliveryConnection(ctx.user?.id ?? null);
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.yandex_delivery.test_connection",
+      entityType: "settings",
+      entityLabel: "Яндекс Доставка",
       meta: result,
     });
     return result;

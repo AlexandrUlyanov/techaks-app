@@ -51,4 +51,13 @@ export const env = {
     optional("YOOKASSA_RETURN_URL") || "https://techaks.ru/payment/result",
   yookassaWebhookUrl:
     optional("YOOKASSA_WEBHOOK_URL") || "https://techaks.ru/api/yookassa/webhook",
+  yandexDeliveryEnabled:
+    optional("YANDEX_DELIVERY_ENABLED").toLowerCase() === "true",
+  yandexDeliveryAccessToken: optional("YANDEX_DELIVERY_ACCESS_TOKEN"),
+  yandexDeliverySelectedCorpClientId: optional(
+    "YANDEX_DELIVERY_SELECTED_CORP_CLIENT_ID"
+  ),
+  yandexDeliveryApiBaseUrl:
+    optional("YANDEX_DELIVERY_API_BASE_URL") ||
+    "https://business.taxi.yandex.ru",
 };

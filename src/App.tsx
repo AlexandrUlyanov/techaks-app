@@ -77,6 +77,9 @@ const AdminSeoDashboard = lazy(() => import("@/pages/admin/AdminSeoDashboard"));
 const AdminYooKassaSettings = lazy(
   () => import("@/pages/admin/AdminYooKassaSettings")
 );
+const AdminYandexDeliverySettings = lazy(
+  () => import("@/pages/admin/AdminYandexDeliverySettings")
+);
 const AdminDesignSystem = lazy(() => import("@/pages/admin/AdminDesignSystem"));
 const AdminSearchPage = lazy(() => import("@/pages/admin/search/AdminSearchPage"));
 const AdminSearchSettingsPage = lazy(
@@ -222,6 +225,10 @@ export default function App() {
                   <Route
                     path="settings/payment/yookassa"
                     element={<AdminYooKassaSettings />}
+                  />
+                  <Route
+                    path="settings/integrations/yandex-delivery"
+                    element={<AdminYandexDeliverySettings />}
                   />
                 </Route>
               </Route>

@@ -15,6 +15,7 @@ import {
   Sparkles,
   Store,
   FolderKanban,
+  Truck,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -1549,6 +1550,35 @@ export default function AdminSettings() {
                   Сохранить бонусную программу
                 </button>
               </div>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Яндекс Доставка"
+            description="OAuth-токен, Corp Client ID и проверка подключения к API Яндекс Go для бизнеса. Этот контур нужен для расчета доставки, создания заказов и синхронизации статусов курьерской доставки."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Link
+                to="/admin/settings/integrations/yandex-delivery"
+                className="group rounded-2xl bg-[#F6F7F8] p-5 transition-colors hover:bg-[#E8FAFC]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-black text-[#15171A]">
+                      <Truck size={18} className="text-[#05C3D4]" />
+                      Яндекс Доставка
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-gray-500">
+                      Настройка токена, Corp Client ID, базового URL и тестового
+                      подключения к API.
+                    </p>
+                  </div>
+                  <ArrowRight
+                    size={18}
+                    className="text-[#05C3D4] transition-transform group-hover:translate-x-1"
+                  />
+                </div>
+              </Link>
             </div>
           </AdminSection>
         </div>
