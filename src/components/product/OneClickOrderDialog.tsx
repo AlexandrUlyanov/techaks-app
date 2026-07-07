@@ -70,9 +70,10 @@ export default function OneClickOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl rounded-3xl border border-border p-0">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-xl overflow-hidden rounded-3xl border border-border p-0 sm:max-h-[min(92dvh,860px)]">
         {successState ? (
-          <div className="space-y-5 p-6">
+          <div className="max-h-[calc(100dvh-1rem)] overflow-y-auto p-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:max-h-[min(92dvh,860px)]">
+            <div className="space-y-5">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#05C3D4]/10 text-[#05C3D4]">
                 <ConfirmReserveIcon />
@@ -91,10 +92,11 @@ export default function OneClickOrderDialog({
                 Понятно
               </Button>
             </DialogFooter>
+            </div>
           </div>
         ) : (
           <form
-            className="space-y-5 p-6"
+            className="max-h-[calc(100dvh-1rem)] space-y-5 overflow-y-auto p-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:max-h-[min(92dvh,860px)]"
             onSubmit={event => {
               event.preventDefault();
               setFieldError(null);

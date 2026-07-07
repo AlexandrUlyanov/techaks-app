@@ -517,12 +517,6 @@ const MobileCatalog = () => {
     [mobilePromotionalData?.products]
   );
 
-  useEffect(() => {
-    if (!menu.catalogCategories.length) return;
-    if (expandedCategoryId) return;
-    setExpandedCategoryId(menu.activeCategoryId ?? menu.catalogCategories[0]?.id ?? null);
-  }, [expandedCategoryId, menu.activeCategoryId, menu.catalogCategories]);
-
   const toggleCategory = (id: string) => {
     setExpandedCategoryId(prev => (prev === id ? null : id));
     menu.setActiveCategoryId(id);
