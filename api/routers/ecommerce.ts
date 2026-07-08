@@ -64,6 +64,7 @@ import {
   assertYandexDeliverySchemaReady,
   buildOrderItemSummary,
   createYandexDeliveryOrderForOrder,
+  ensureYandexDeliveryOrderForHandedToDelivery,
   getOrderCoreForYandexDelivery,
   patchOrderYandexDeliveryState,
   refreshYandexDeliveryOrderForOrder,
@@ -2498,37 +2499,6 @@ export const ecommerceRouter = createRouter({
             })
           : null;
 
-      let yandexDelivery: {
-        providerOrderId: string;
-        providerOfferId: string;
-        providerStatus: string;
-        deliveryStatus: string;
-      } | null = null;
-      let yandexDeliveryWarning: string | null = null;
-
-      if (input.deliveryType === "delivery") {
-        try {
-          const providerResult = await createYandexDeliveryOrderForOrder({
-            db,
-            orderId,
-            actorUserId: ctx.user?.id ?? null,
-            historyActionType: "yandex_delivery_auto_created",
-          });
-          yandexDelivery = {
-            providerOrderId: providerResult.providerOrderId,
-            providerOfferId: providerResult.providerOfferId,
-            providerStatus: providerResult.providerStatus,
-            deliveryStatus: providerResult.deliveryStatus,
-          };
-        } catch (error: any) {
-          yandexDeliveryWarning =
-            error instanceof TRPCError
-              ? error.message
-              : error?.message || "Не удалось автоматически создать заявку Яндекс Доставки.";
-          console.error("[yandex-delivery] auto create failed", error);
-        }
-      }
-
       if (contactEmail) {
         const emailItems = purchasableItems.map(item => ({
           title: item.name,
@@ -2581,7 +2551,7 @@ export const ecommerceRouter = createRouter({
         });
       }
 
-      return { success: true, orderId, payment, yandexDelivery, yandexDeliveryWarning };
+      return { success: true, orderId, payment, yandexDelivery: null, yandexDeliveryWarning: null };
     }),
 
   getPaymentResult: publicQuery
@@ -3285,6 +3255,28 @@ export const ecommerceRouter = createRouter({
         oldValue: { status: existing[0]?.status ?? null } as any,
         newValue: { status: input.status } as any,
       });
+
+      let deliveryDispatchWarning: string | null = null;
+      if (
+        input.status === "handed_to_delivery" &&
+        existing[0]?.status !== "handed_to_delivery"
+      ) {
+        try {
+          await ensureYandexDeliveryOrderForHandedToDelivery({
+            db,
+            orderId: input.id,
+            actorUserId: ctx.user?.id ?? null,
+            historyActionType: "yandex_delivery_created_from_order_status",
+          });
+        } catch (error: any) {
+          deliveryDispatchWarning =
+            error instanceof TRPCError
+              ? error.message
+              : error?.message || "Не удалось автоматически вызвать курьера.";
+          console.error("[yandex-delivery] handed_to_delivery dispatch failed", error);
+        }
+      }
+
       const notificationEmail = existing[0]?.customerEmail;
       const notificationOrderNumber = existing[0]?.orderNumber;
       if (notificationEmail && notificationOrderNumber) {
@@ -3342,7 +3334,7 @@ export const ecommerceRouter = createRouter({
           console.error("loyalty order sync enqueue failed", err);
         });
       }
-      return { success: true };
+      return { success: true, deliveryDispatchWarning };
     }),
 
   getOrderById: protectedProcedure

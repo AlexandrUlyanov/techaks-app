@@ -15,6 +15,7 @@ import {
 import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
 import { getMoyskladClient, MoyskladApiError } from "./moysklad-client";
+import { ensureYandexDeliveryOrderForHandedToDelivery } from "./yandex-delivery-orders";
 import {
   acquireMoyskladWorkerLock,
   getCachedMoyskladOrderMetadata,
@@ -1480,6 +1481,19 @@ async function processWebhookEvent(eventId: number) {
       newValue: { status: nextLocalStatus, source: "moysklad" },
       comment: "Статус заказа обновлён из webhook МойСклад.",
     });
+
+    if (nextLocalStatus === "handed_to_delivery") {
+      try {
+        await ensureYandexDeliveryOrderForHandedToDelivery({
+          db,
+          orderId: order.id,
+          actorUserId: null,
+          historyActionType: "yandex_delivery_created_from_moysklad_webhook",
+        });
+      } catch (error) {
+        console.error("[yandex-delivery] webhook dispatch failed", error);
+      }
+    }
   }
 
   await db
@@ -1561,6 +1575,19 @@ export async function resyncOrderStatusesFromMoysklad(limit = 100) {
         newValue: { status: nextLocalStatus, source: "moysklad_resync" },
         comment: "Статус заказа массово пересинхронизирован из МойСклад.",
       });
+
+      if (nextLocalStatus === "handed_to_delivery") {
+        try {
+          await ensureYandexDeliveryOrderForHandedToDelivery({
+            db,
+            orderId: order.id,
+            actorUserId: null,
+            historyActionType: "yandex_delivery_created_from_moysklad_resync",
+          });
+        } catch (error) {
+          console.error("[yandex-delivery] resync dispatch failed", error);
+        }
+      }
 
       updated += 1;
     } catch (error) {

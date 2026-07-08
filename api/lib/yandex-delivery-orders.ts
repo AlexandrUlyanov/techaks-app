@@ -412,6 +412,66 @@ export async function createYandexDeliveryOrderForOrder(params: {
   }
 }
 
+export async function ensureYandexDeliveryOrderForHandedToDelivery(params: {
+  db?: ReturnType<typeof getDb>;
+  orderId: number;
+  actorUserId?: number | null;
+  historyActionType?: string;
+}) {
+  const db = params.db ?? getDb();
+  await assertYandexDeliverySchemaReady(db);
+  const order = await getOrderCoreForYandexDelivery(db, params.orderId);
+
+  if (!order) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
+  }
+
+  if (order.deliveryType !== "delivery") {
+    return {
+      success: true,
+      created: false,
+      skipped: true,
+      reason: "not_delivery" as const,
+    };
+  }
+
+  if (order.status !== "handed_to_delivery") {
+    return {
+      success: true,
+      created: false,
+      skipped: true,
+      reason: "status_not_ready" as const,
+    };
+  }
+
+  if (order.deliveryProviderOrderId?.trim()) {
+    return {
+      success: true,
+      created: false,
+      skipped: true,
+      reason: "already_created" as const,
+      providerOrderId: order.deliveryProviderOrderId,
+      providerOfferId: order.deliveryProviderOfferId,
+      providerStatus: order.deliveryProviderStatus,
+      deliveryStatus: order.deliveryStatus,
+    };
+  }
+
+  const result = await createYandexDeliveryOrderForOrder({
+    db,
+    orderId: params.orderId,
+    actorUserId: params.actorUserId,
+    historyActionType: params.historyActionType,
+  });
+
+  return {
+    ...result,
+    created: true,
+    skipped: false,
+    reason: null,
+  };
+}
+
 export async function refreshYandexDeliveryOrderForOrder(params: {
   db?: ReturnType<typeof getDb>;
   orderId: number;
