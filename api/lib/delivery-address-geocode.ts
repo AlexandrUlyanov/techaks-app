@@ -84,6 +84,32 @@ function containsPenza(value: string) {
   return PENZA_CITY_TOKENS.some(token => normalized.includes(token));
 }
 
+function isPenzaAddress(address: {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  county?: string;
+  suburb?: string;
+  city_district?: string;
+  state?: string;
+} | null | undefined) {
+  const values = [
+    address?.city,
+    address?.town,
+    address?.village,
+    address?.municipality,
+    address?.county,
+    address?.suburb,
+    address?.city_district,
+    address?.state,
+  ]
+    .map(value => normalizeAddressPart(value))
+    .filter(Boolean);
+
+  return values.some(containsPenza);
+}
+
 function parseCoordinate(value: string | null | undefined) {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -105,7 +131,12 @@ function mapSuggestion(item: {
   const street = normalizeAddressPart(item.address?.road);
   const house = normalizeAddressPart(item.address?.house_number);
 
-  if (!displayName || !containsPenza(displayName) || !street || !house) {
+  if (
+    !displayName ||
+    (!containsPenza(displayName) && !isPenzaAddress(item.address)) ||
+    !street ||
+    !house
+  ) {
     return null;
   }
 
@@ -133,7 +164,11 @@ function mapStreetSuggestion(item: {
   const displayName = normalizeAddressPart(item.display_name);
   const street = normalizeAddressPart(item.address?.road);
 
-  if (!displayName || !containsPenza(displayName) || !street) {
+  if (
+    !displayName ||
+    (!containsPenza(displayName) && !isPenzaAddress(item.address)) ||
+    !street
+  ) {
     return null;
   }
 
@@ -320,6 +355,27 @@ export async function validatePenzaDeliveryAddress(input: {
     });
 
     if (!match) {
+      const streetMatches = payload
+        .map(item => normalizeAddressPart(item.address?.road))
+        .filter(candidate => areStreetNamesClose(street, candidate));
+
+      if (streetMatches.length > 0) {
+        return {
+          ok: true,
+          normalizedAddress: `Пенза, ${street}, ${house}`,
+          coordinates: null,
+        };
+      }
+
+      const knownStreetSuggestions = await searchPenzaDeliveryStreets({ street });
+      if (knownStreetSuggestions.length > 0) {
+        return {
+          ok: true,
+          normalizedAddress: `Пенза, ${knownStreetSuggestions[0]!.street}, ${house}`,
+          coordinates: null,
+        };
+      }
+
       return {
         ok: false,
         message:
