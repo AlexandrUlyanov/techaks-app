@@ -57,6 +57,10 @@ import {
   mapYandexDeliveryStatusToLocal,
 } from "../lib/yandex-delivery-client";
 import {
+  searchPenzaDeliveryAddresses,
+  validatePenzaDeliveryAddress,
+} from "../lib/delivery-address-geocode";
+import {
   assertYandexDeliverySchemaReady,
   buildOrderItemSummary,
   createYandexDeliveryOrderForOrder,
@@ -78,6 +82,39 @@ import {
 const PUBLIC_SITE_URL = env.isProduction ? "https://techaks.ru" : "http://localhost:5173";
 const ACCOUNT_ORDERS_URL = `${PUBLIC_SITE_URL}/account`;
 const PLACEHOLDER_EMAIL_DOMAIN = "@placeholder.techaks.ru";
+
+function normalizeDeliveryAddressPart(value: string | null | undefined) {
+  return (value || "").trim().replace(/\s+/g, " ");
+}
+
+function isLikelyValidDeliveryStreetInput(value: string) {
+  const street = normalizeDeliveryAddressPart(value);
+  if (street.length < 4 || street.length > 80) return false;
+  if (!/[A-Za-zА-Яа-яЁё]/.test(street)) return false;
+  if (/^\d+$/.test(street)) return false;
+  return true;
+}
+
+function isLikelyValidDeliveryHouseInput(value: string) {
+  const house = normalizeDeliveryAddressPart(value);
+  if (!house) return false;
+  return /^\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?$/i.test(
+    house,
+  );
+}
+
+function buildStructuredDeliveryAddress(params: {
+  street: string;
+  house: string;
+  apartment?: string | null;
+}) {
+  const street = normalizeDeliveryAddressPart(params.street);
+  const house = normalizeDeliveryAddressPart(params.house);
+  const apartment = normalizeDeliveryAddressPart(params.apartment ?? "");
+  const base = [street, house].filter(Boolean).join(", ");
+  if (!base) return "";
+  return apartment ? `${base}, кв./офис ${apartment}` : base;
+}
 
 function buildPlaceholderEmail(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -1894,7 +1931,9 @@ export const ecommerceRouter = createRouter({
             quantity: z.number().int().min(1),
           })
         ),
-        address: z.string().trim().min(5),
+        street: z.string().trim().min(1),
+        house: z.string().trim().min(1),
+        apartment: z.string().trim().max(120).optional().nullable(),
         storeId: z.number().int().positive().optional().nullable(),
       })
     )
@@ -1902,7 +1941,49 @@ export const ecommerceRouter = createRouter({
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
-      const normalizedAddress = input.address.trim();
+      const normalizedStreet = normalizeDeliveryAddressPart(input.street);
+      const normalizedHouse = normalizeDeliveryAddressPart(input.house);
+      const normalizedApartment = normalizeDeliveryAddressPart(
+        input.apartment ?? "",
+      );
+
+      if (!isLikelyValidDeliveryStreetInput(normalizedStreet)) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message:
+            "Укажите улицу в корректном формате, например: Суворова или улица Клары Цеткин.",
+          raw: null,
+          sourceStore: null,
+          itemSummary: null,
+        };
+      }
+
+      if (!isLikelyValidDeliveryHouseInput(normalizedHouse)) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message:
+            "Укажите корректный номер дома, например: 192, 14А или 7/1.",
+          raw: null,
+          sourceStore: null,
+          itemSummary: null,
+        };
+      }
+
+      const normalizedAddress = buildStructuredDeliveryAddress({
+        street: normalizedStreet,
+        house: normalizedHouse,
+        apartment: normalizedApartment || null,
+      });
       const { purchasableItems } = await resolvePurchasableCartItems(
         db,
         input.items.map(item => ({
@@ -1923,9 +2004,39 @@ export const ecommerceRouter = createRouter({
         storeId: input.storeId ?? null,
       });
 
+      const addressValidation = await validatePenzaDeliveryAddress({
+        street: normalizedStreet,
+        house: normalizedHouse,
+      });
+
+      if (!addressValidation.ok) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message: addressValidation.message,
+          raw: null,
+          sourceStore: {
+            id: sourceStore.id,
+            name: sourceStore.name,
+            address: sourceStore.address,
+          },
+          itemSummary: buildCartItemSummary(
+            purchasableItems.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+            })),
+          ),
+        };
+      }
+
       const quote = await calculateYandexDeliveryOffers({
         sourceAddress: sourceStore.address,
-        destinationAddress: normalizedAddress,
+        destinationAddress: addressValidation.normalizedAddress || normalizedAddress,
+        destinationCoordinates: addressValidation.coordinates,
       });
 
       return {
@@ -1942,6 +2053,31 @@ export const ecommerceRouter = createRouter({
           }))
         ),
       };
+    }),
+
+  searchPenzaDeliveryAddresses: publicQuery
+    .input(
+      z.object({
+        street: z.string().trim().min(1),
+        house: z.string().trim().min(1),
+      })
+    )
+    .query(async ({ input }) => {
+      const street = normalizeDeliveryAddressPart(input.street);
+      const house = normalizeDeliveryAddressPart(input.house);
+
+      if (
+        !isLikelyValidDeliveryStreetInput(street) ||
+        normalizeDeliveryAddressPart(street).length < 3 ||
+        normalizeDeliveryAddressPart(house).length < 1
+      ) {
+        return [];
+      }
+
+      return await searchPenzaDeliveryAddresses({
+        street,
+        house,
+      });
     }),
 
   getMyLoyaltyState: protectedProcedure

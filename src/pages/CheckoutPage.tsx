@@ -40,8 +40,31 @@ type CheckoutPickupStore = {
   hasConflict: boolean;
 };
 
+type DeliveryAddressSuggestion = {
+  label: string;
+  street: string;
+  house: string;
+  coordinates: [number, number] | null;
+};
+
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function isLikelyValidDeliveryStreet(value: string) {
+  const street = normalizeWhitespace(value);
+  if (street.length < 4 || street.length > 80) return false;
+  if (!/[A-Za-zА-Яа-яЁё]/.test(street)) return false;
+  if (/^\d+$/.test(street)) return false;
+  return true;
+}
+
+function isLikelyValidDeliveryHouse(value: string) {
+  const house = normalizeWhitespace(value);
+  if (!house) return false;
+  return /^\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?$/i.test(
+    house,
+  );
 }
 
 function buildCheckoutDeliveryAddress(params: {
@@ -112,6 +135,10 @@ export default function CheckoutPage() {
   const [deliveryHouse, setDeliveryHouse] = useState("");
   const [deliveryApartment, setDeliveryApartment] = useState("");
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
+  const [pendingDeliverySuggestion, setPendingDeliverySuggestion] =
+    useState<DeliveryAddressSuggestion | null>(null);
+  const [confirmedDeliverySuggestion, setConfirmedDeliverySuggestion] =
+    useState<DeliveryAddressSuggestion | null>(null);
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
     "cash"
   );
@@ -176,17 +203,84 @@ export default function CheckoutPage() {
     house: deliveryHouse,
     apartment: deliveryApartment,
   });
+  const deliveryAddressSearchStreet = normalizeWhitespace(deliveryStreet);
+  const deliveryAddressSearchHouse = normalizeWhitespace(deliveryHouse);
+  const isDeliveryStreetValid = isLikelyValidDeliveryStreet(deliveryStreet);
+  const isDeliveryHouseValid = isLikelyValidDeliveryHouse(deliveryHouse);
+  const hasStartedDeliveryAddress =
+    deliveryAddressSearchStreet.length > 0 || deliveryAddressSearchHouse.length > 0;
+  const isDeliveryAddressInputValid =
+    isDeliveryStreetValid && isDeliveryHouseValid;
+  const confirmedSuggestionMatchesCurrentInput =
+    confirmedDeliverySuggestion !== null &&
+    normalizeWhitespace(confirmedDeliverySuggestion.street) ===
+      deliveryAddressSearchStreet &&
+    normalizeWhitespace(confirmedDeliverySuggestion.house) ===
+      deliveryAddressSearchHouse;
+  const pendingSuggestionMatchesCurrentInput =
+    pendingDeliverySuggestion !== null &&
+    normalizeWhitespace(pendingDeliverySuggestion.street) ===
+      deliveryAddressSearchStreet &&
+    normalizeWhitespace(pendingDeliverySuggestion.house) ===
+      deliveryAddressSearchHouse;
   const isDeliveryQuoteCurrent =
     deliveryType !== "delivery" ||
     normalizedDeliveryAddress.length === 0 ||
     normalizedDeliveryAddress === debouncedDeliveryAddress.trim();
+  const shouldSearchDeliveryAddressSuggestions =
+    deliveryType === "delivery" &&
+    deliveryAddressSearchStreet.length >= 3 &&
+    deliveryAddressSearchHouse.length >= 1 &&
+    isDeliveryStreetValid;
+
+  const {
+    data: deliveryAddressSuggestions = [],
+    isFetching: deliveryAddressSuggestionsLoading,
+  } = trpc.ecommerce.searchPenzaDeliveryAddresses.useQuery(
+    {
+      street: deliveryAddressSearchStreet,
+      house: deliveryAddressSearchHouse,
+    },
+    {
+      enabled:
+        shouldSearchDeliveryAddressSuggestions &&
+        !confirmedSuggestionMatchesCurrentInput,
+      refetchOnWindowFocus: false,
+      retry: false,
+    }
+  );
 
   const shouldFetchYandexQuote =
     deliveryType === "delivery" &&
     items.length > 0 &&
-    normalizeWhitespace(deliveryStreet).length >= 4 &&
-    normalizeWhitespace(deliveryHouse).length >= 1 &&
+    isDeliveryAddressInputValid &&
+    confirmedSuggestionMatchesCurrentInput &&
     debouncedDeliveryAddress.trim().length >= 6;
+
+  useEffect(() => {
+    if (deliveryType !== "delivery") {
+      setPendingDeliverySuggestion(null);
+      setConfirmedDeliverySuggestion(null);
+      return;
+    }
+
+    if (pendingDeliverySuggestion && !pendingSuggestionMatchesCurrentInput) {
+      setPendingDeliverySuggestion(null);
+    }
+
+    if (
+      confirmedDeliverySuggestion &&
+      !confirmedSuggestionMatchesCurrentInput
+    ) {
+      setConfirmedDeliverySuggestion(null);
+    }
+  }, [
+    confirmedDeliverySuggestion,
+    confirmedSuggestionMatchesCurrentInput,
+    deliveryType,
+    pendingDeliverySuggestion,
+    pendingSuggestionMatchesCurrentInput,
+  ]);
 
   const { data: yandexDeliveryQuote, isFetching: yandexDeliveryQuoteLoading, error: yandexDeliveryQuoteError } =
     trpc.ecommerce.getYandexDeliveryQuote.useQuery(
@@ -196,7 +290,9 @@ export default function CheckoutPage() {
           variantId: item.variantId ?? null,
           quantity: item.quantity,
         })),
-        address: debouncedDeliveryAddress,
+        street: normalizeWhitespace(deliveryStreet),
+        house: normalizeWhitespace(deliveryHouse),
+        apartment: normalizeWhitespace(deliveryApartment) || null,
         storeId: pickupStoreId,
       },
       {
@@ -306,7 +402,14 @@ export default function CheckoutPage() {
     const fullName = customer.fullName.trim();
     const phone = customer.phone.trim();
     const email = customer.email.trim() || user?.email?.trim() || "";
-    const normalizedAddress = normalizedDeliveryAddress;
+    const normalizedAddress =
+      confirmedDeliverySuggestion && confirmedSuggestionMatchesCurrentInput
+        ? buildCheckoutDeliveryAddress({
+            street: confirmedDeliverySuggestion.label,
+            house: "",
+            apartment: deliveryApartment,
+          })
+        : normalizedDeliveryAddress;
 
     if (!fullName || !phone) {
       toast.error("Пожалуйста, заполните контактные данные");
@@ -314,6 +417,13 @@ export default function CheckoutPage() {
     }
     if (deliveryType === "delivery" && !normalizedAddress) {
       toast.error("Пожалуйста, укажите адрес доставки");
+      return;
+    }
+    if (
+      deliveryType === "delivery" &&
+      !confirmedSuggestionMatchesCurrentInput
+    ) {
+      toast.error("Подтвердите адрес из подсказок перед расчётом и оформлением");
       return;
     }
     if (deliveryType === "pickup" && !pickupStoreId) {
@@ -702,13 +812,17 @@ export default function CheckoutPage() {
                       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px] gap-4">
                         <Input
                           value={deliveryStreet}
-                          onChange={e => setDeliveryStreet(e.target.value)}
+                          onChange={e => {
+                            setDeliveryStreet(e.target.value);
+                          }}
                           placeholder="Улица"
                           className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                         />
                         <Input
                           value={deliveryHouse}
-                          onChange={e => setDeliveryHouse(e.target.value)}
+                          onChange={e => {
+                            setDeliveryHouse(e.target.value);
+                          }}
                           placeholder="Дом"
                           className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                         />
@@ -720,27 +834,142 @@ export default function CheckoutPage() {
                         className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                       />
                       {deliveryType === "delivery" &&
-                      (normalizeWhitespace(deliveryStreet).length > 0 ||
-                        normalizeWhitespace(deliveryHouse).length > 0) &&
+                      hasStartedDeliveryAddress &&
                       (!normalizeWhitespace(deliveryStreet) ||
                         !normalizeWhitespace(deliveryHouse)) ? (
                         <div className="text-xs text-muted-foreground">
                           Для точного расчёта укажите и улицу, и номер дома.
                         </div>
                       ) : null}
-                      {normalizedDeliveryAddress ? (
-                        <div className="text-xs text-muted-foreground">
-                          Рассчитываем доставку по адресу: <span className="font-medium text-foreground">{`Пенза, ${normalizedDeliveryAddress}`}</span>
+                      {deliveryType === "delivery" &&
+                      hasStartedDeliveryAddress &&
+                      normalizeWhitespace(deliveryStreet) &&
+                      !isDeliveryStreetValid ? (
+                        <div className="text-xs text-amber-700">
+                          Укажите улицу в нормальном формате, например: Суворова или улица Клары Цеткин.
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&
+                      hasStartedDeliveryAddress &&
+                      normalizeWhitespace(deliveryHouse) &&
+                      !isDeliveryHouseValid ? (
+                        <div className="text-xs text-amber-700">
+                          Укажите корректный номер дома, например: 192, 14А или 7/1.
+                        </div>
+                      ) : null}
+                      {confirmedSuggestionMatchesCurrentInput &&
+                      confirmedDeliverySuggestion ? (
+                        <div className="text-xs text-muted-foreground">
+                          Подтверждённый адрес:{" "}
+                          <span className="font-medium text-foreground">
+                            {confirmedDeliverySuggestion.label}
+                          </span>
+                        </div>
+                      ) : null}
+                      {shouldSearchDeliveryAddressSuggestions &&
+                      !confirmedSuggestionMatchesCurrentInput &&
+                      deliveryAddressSuggestionsLoading ? (
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                          Ищем адреса в Пензе...
+                        </div>
+                      ) : null}
+                      {shouldSearchDeliveryAddressSuggestions &&
+                      !confirmedSuggestionMatchesCurrentInput &&
+                      !deliveryAddressSuggestionsLoading &&
+                      pendingSuggestionMatchesCurrentInput &&
+                      pendingDeliverySuggestion ? (
+                        <div className="rounded-2xl border border-[#05C3D4]/25 bg-[#05C3D4]/5 px-4 py-4 text-sm">
+                          <div className="font-semibold text-foreground">
+                            Нашли адрес: {pendingDeliverySuggestion.label}
+                          </div>
+                          <div className="mt-1 text-muted-foreground">
+                            Подтвердите адрес, и мы рассчитаем стоимость доставки.
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() =>
+                                setConfirmedDeliverySuggestion(
+                                  pendingDeliverySuggestion,
+                                )
+                              }
+                            >
+                              Подтвердить адрес
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full"
+                              onClick={() => setPendingDeliverySuggestion(null)}
+                            >
+                              Выбрать другой
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {shouldSearchDeliveryAddressSuggestions &&
+                      !confirmedSuggestionMatchesCurrentInput &&
+                      !deliveryAddressSuggestionsLoading &&
+                      !pendingSuggestionMatchesCurrentInput &&
+                      deliveryAddressSuggestions.length > 0 ? (
+                        <div className="rounded-2xl border border-border bg-background p-2">
+                          <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            Подсказки адреса
+                          </div>
+                          <div className="space-y-1">
+                            {deliveryAddressSuggestions.map(suggestion => (
+                              <button
+                                key={`${suggestion.street}-${suggestion.house}`}
+                                type="button"
+                                onClick={() => {
+                                  setDeliveryStreet(suggestion.street);
+                                  setDeliveryHouse(suggestion.house);
+                                  setPendingDeliverySuggestion(suggestion);
+                                  setConfirmedDeliverySuggestion(null);
+                                }}
+                                className="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#05C3D4]/5"
+                              >
+                                <div className="font-medium text-foreground">
+                                  {suggestion.label}
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Нажмите, чтобы выбрать и подтвердить этот адрес.
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {shouldSearchDeliveryAddressSuggestions &&
+                      !confirmedSuggestionMatchesCurrentInput &&
+                      !deliveryAddressSuggestionsLoading &&
+                      !pendingSuggestionMatchesCurrentInput &&
+                      deliveryAddressSuggestions.length === 0 &&
+                      isDeliveryAddressInputValid ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          Мы не нашли точный адрес в Пензе. Проверьте улицу и номер дома или выберите другой вариант написания.
+                        </div>
+                      ) : null}
+                      {deliveryType === "delivery" &&
+                      isDeliveryAddressInputValid &&
+                      !confirmedSuggestionMatchesCurrentInput ? (
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                          Стоимость доставки появится только после подтверждения адреса из подсказок.
+                        </div>
+                      ) : null}
+                      {deliveryType === "delivery" &&
+                      confirmedSuggestionMatchesCurrentInput &&
                       normalizedDeliveryAddress.length >= 6 &&
                       !isDeliveryQuoteCurrent ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           Обновляем расчёт доставки для нового адреса...
                         </div>
                       ) : null}
-                      {yandexDeliveryQuoteLoading ? (
+                      {confirmedSuggestionMatchesCurrentInput &&
+                      yandexDeliveryQuoteLoading ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           Рассчитываем доставку...
                         </div>
@@ -774,6 +1003,7 @@ export default function CheckoutPage() {
                       {!yandexDeliveryQuoteLoading &&
                       deliveryType === "delivery" &&
                       isDeliveryQuoteCurrent &&
+                      confirmedSuggestionMatchesCurrentInput &&
                       yandexDeliveryQuoteError ? (
                         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                           {yandexDeliveryQuoteError.message}

@@ -528,6 +528,7 @@ async function acceptClaimIfNeeded(claimId: string) {
 export async function calculateYandexDeliveryOffers(params: {
   sourceAddress: string;
   destinationAddress: string;
+  destinationCoordinates?: [number, number] | null;
 }) {
   const sourceAddress = ensureNonEmpty(
     params.sourceAddress,
@@ -555,7 +556,11 @@ export async function calculateYandexDeliveryOffers(params: {
           body: JSON.stringify({
             route_points: [
               buildOfferRoutePoint(1, normalizedSourceAddress),
-              buildOfferRoutePoint(2, destinationCandidate),
+              buildOfferRoutePoint(
+                2,
+                destinationCandidate,
+                params.destinationCoordinates ?? undefined,
+              ),
             ],
             items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
             requirements: {
