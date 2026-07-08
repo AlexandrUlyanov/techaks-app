@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,8 @@ export default function CheckoutPage() {
   const [deliveryStreet, setDeliveryStreet] = useState("");
   const [deliveryHouse, setDeliveryHouse] = useState("");
   const [deliveryApartment, setDeliveryApartment] = useState("");
+  const [deliveryStreetFocused, setDeliveryStreetFocused] = useState(false);
+  const [deliveryStreetActiveIndex, setDeliveryStreetActiveIndex] = useState(-1);
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
   const [pendingDeliverySuggestion, setPendingDeliverySuggestion] =
     useState<DeliveryAddressSuggestion | null>(null);
@@ -144,6 +146,8 @@ export default function CheckoutPage() {
   );
   const [personalDataConsent, setPersonalDataConsent] = useState(false);
   const checkoutTrackedSignatureRef = useRef<string | null>(null);
+  const deliveryStreetFieldRef = useRef<HTMLDivElement | null>(null);
+  const deliveryHouseInputRef = useRef<HTMLInputElement | null>(null);
   const { data: pickupStores = [], isFetching: pickupStoresLoading } =
     trpc.ecommerce.getCheckoutPickupStores.useQuery(
       {
@@ -205,6 +209,11 @@ export default function CheckoutPage() {
   });
   const deliveryAddressSearchStreet = normalizeWhitespace(deliveryStreet);
   const deliveryAddressSearchHouse = normalizeWhitespace(deliveryHouse);
+  const canSearchDeliveryStreetSuggestions =
+    deliveryType === "delivery" &&
+    deliveryAddressSearchStreet.length >= 2 &&
+    /[A-Za-zА-Яа-яЁё]/.test(deliveryAddressSearchStreet) &&
+    !/^\d+$/.test(deliveryAddressSearchStreet);
   const isDeliveryStreetValid = isLikelyValidDeliveryStreet(deliveryStreet);
   const isDeliveryHouseValid = isLikelyValidDeliveryHouse(deliveryHouse);
   const hasStartedDeliveryAddress =
@@ -232,6 +241,56 @@ export default function CheckoutPage() {
     deliveryAddressSearchStreet.length >= 3 &&
     deliveryAddressSearchHouse.length >= 1 &&
     isDeliveryStreetValid;
+
+  const {
+    data: deliveryStreetSuggestions = [],
+    isFetching: deliveryStreetSuggestionsLoading,
+  } = trpc.ecommerce.searchPenzaDeliveryStreets.useQuery(
+    {
+      street: deliveryAddressSearchStreet,
+    },
+    {
+      enabled: canSearchDeliveryStreetSuggestions,
+      refetchOnWindowFocus: false,
+      retry: false,
+    }
+  );
+
+  const selectDeliveryStreetSuggestion = useCallback((street: string) => {
+    setDeliveryStreet(street);
+    setPendingDeliverySuggestion(null);
+    setConfirmedDeliverySuggestion(null);
+    setDeliveryStreetFocused(false);
+    setDeliveryStreetActiveIndex(-1);
+    window.setTimeout(() => {
+      deliveryHouseInputRef.current?.focus();
+      deliveryHouseInputRef.current?.select();
+    }, 0);
+  }, []);
+
+  const renderHighlightedStreetLabel = useCallback(
+    (label: string) => {
+      const query = deliveryAddressSearchStreet.trim();
+      if (!query) return label;
+
+      const labelLower = label.toLocaleLowerCase("ru");
+      const queryLower = query.toLocaleLowerCase("ru");
+      const matchIndex = labelLower.indexOf(queryLower);
+
+      if (matchIndex < 0) return label;
+
+      const matchEnd = matchIndex + query.length;
+
+      return (
+        <>
+          {label.slice(0, matchIndex)}
+          <span className="text-[#05C3D4]">{label.slice(matchIndex, matchEnd)}</span>
+          {label.slice(matchEnd)}
+        </>
+      );
+    },
+    [deliveryAddressSearchStreet]
+  );
 
   const {
     data: deliveryAddressSuggestions = [],
@@ -281,6 +340,47 @@ export default function CheckoutPage() {
     pendingDeliverySuggestion,
     pendingSuggestionMatchesCurrentInput,
   ]);
+
+  useEffect(() => {
+    if (!deliveryStreetFocused || deliveryStreetSuggestionsLoading) {
+      setDeliveryStreetActiveIndex(-1);
+      return;
+    }
+
+    if (deliveryStreetSuggestions.length === 0) {
+      setDeliveryStreetActiveIndex(-1);
+      return;
+    }
+
+    setDeliveryStreetActiveIndex(currentIndex => {
+      if (currentIndex < 0) return 0;
+      return Math.min(currentIndex, deliveryStreetSuggestions.length - 1);
+    });
+  }, [
+    deliveryStreetFocused,
+    deliveryStreetSuggestions,
+    deliveryStreetSuggestionsLoading,
+  ]);
+
+  useEffect(() => {
+    if (!deliveryStreetFocused) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (deliveryStreetFieldRef.current?.contains(target)) return;
+      setDeliveryStreetFocused(false);
+      setDeliveryStreetActiveIndex(-1);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [deliveryStreetFocused]);
 
   const { data: yandexDeliveryQuote, isFetching: yandexDeliveryQuoteLoading, error: yandexDeliveryQuoteError } =
     trpc.ecommerce.getYandexDeliveryQuote.useQuery(
@@ -810,15 +910,138 @@ export default function CheckoutPage() {
                         Адрес доставки
                       </Label>
                       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px] gap-4">
+                        <div ref={deliveryStreetFieldRef} className="relative">
+                          <Input
+                            value={deliveryStreet}
+                            onFocus={() => setDeliveryStreetFocused(true)}
+                            onKeyDown={event => {
+                              if (
+                                event.key === "ArrowDown" &&
+                                deliveryStreetSuggestions.length > 0
+                              ) {
+                                event.preventDefault();
+                                setDeliveryStreetFocused(true);
+                                setDeliveryStreetActiveIndex(currentIndex =>
+                                  currentIndex < 0
+                                    ? 0
+                                    : Math.min(
+                                        currentIndex + 1,
+                                        deliveryStreetSuggestions.length - 1
+                                      )
+                                );
+                                return;
+                              }
+
+                              if (
+                                event.key === "ArrowUp" &&
+                                deliveryStreetSuggestions.length > 0
+                              ) {
+                                event.preventDefault();
+                                setDeliveryStreetFocused(true);
+                                setDeliveryStreetActiveIndex(currentIndex =>
+                                  currentIndex <= 0 ? 0 : currentIndex - 1
+                                );
+                                return;
+                              }
+
+                              if (
+                                event.key === "Enter" &&
+                                deliveryStreetFocused &&
+                                deliveryStreetSuggestions.length > 0
+                              ) {
+                                event.preventDefault();
+                                const suggestion =
+                                  deliveryStreetSuggestions[
+                                    deliveryStreetActiveIndex >= 0
+                                      ? deliveryStreetActiveIndex
+                                      : 0
+                                  ];
+                                if (suggestion) {
+                                  selectDeliveryStreetSuggestion(
+                                    suggestion.street
+                                  );
+                                }
+                                return;
+                              }
+
+                              if (event.key === "Escape") {
+                                setDeliveryStreetFocused(false);
+                                setDeliveryStreetActiveIndex(-1);
+                              }
+                            }}
+                            onBlur={() => {
+                              window.setTimeout(() => {
+                                setDeliveryStreetFocused(false);
+                                setDeliveryStreetActiveIndex(-1);
+                              }, 120);
+                            }}
+                            onChange={e => {
+                              setDeliveryStreet(e.target.value);
+                              setPendingDeliverySuggestion(null);
+                              setConfirmedDeliverySuggestion(null);
+                              setDeliveryStreetActiveIndex(-1);
+                            }}
+                            placeholder="Улица"
+                            autoComplete="address-line1"
+                            className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
+                          />
+                          {deliveryStreetFocused && canSearchDeliveryStreetSuggestions ? (
+                            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-background">
+                              {deliveryStreetSuggestionsLoading ? (
+                                <div className="px-4 py-3 text-sm text-muted-foreground">
+                                  Ищем улицы в Пензе...
+                                </div>
+                              ) : deliveryStreetSuggestions.length > 0 ? (
+                                <div className="max-h-72 overflow-y-auto p-2">
+                                  <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                    Подсказки улиц
+                                  </div>
+                                  <div className="space-y-1">
+                                    {deliveryStreetSuggestions.map(suggestion => (
+                                      <button
+                                        key={suggestion.street}
+                                        type="button"
+                                        onMouseDown={event => event.preventDefault()}
+                                        onMouseEnter={() => {
+                                          const nextIndex =
+                                            deliveryStreetSuggestions.findIndex(
+                                              item =>
+                                                item.street === suggestion.street
+                                            );
+                                          setDeliveryStreetActiveIndex(nextIndex);
+                                        }}
+                                        onClick={() =>
+                                          selectDeliveryStreetSuggestion(
+                                            suggestion.street
+                                          )
+                                        }
+                                        className={`w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#05C3D4]/5 ${
+                                          deliveryStreetSuggestions[
+                                            deliveryStreetActiveIndex
+                                          ]?.street === suggestion.street
+                                            ? "bg-[#05C3D4]/8"
+                                            : ""
+                                        }`}
+                                      >
+                                        <div className="font-medium text-foreground">
+                                          {renderHighlightedStreetLabel(
+                                            suggestion.label
+                                          )}
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="px-4 py-3 text-sm text-muted-foreground">
+                                  Не нашли улицу. Попробуйте другой вариант написания.
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
                         <Input
-                          value={deliveryStreet}
-                          onChange={e => {
-                            setDeliveryStreet(e.target.value);
-                          }}
-                          placeholder="Улица"
-                          className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
-                        />
-                        <Input
+                          ref={deliveryHouseInputRef}
                           value={deliveryHouse}
                           onChange={e => {
                             setDeliveryHouse(e.target.value);

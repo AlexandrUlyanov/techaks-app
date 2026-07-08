@@ -58,6 +58,7 @@ import {
 } from "../lib/yandex-delivery-client";
 import {
   searchPenzaDeliveryAddresses,
+  searchPenzaDeliveryStreets,
   validatePenzaDeliveryAddress,
 } from "../lib/delivery-address-geocode";
 import {
@@ -2078,6 +2079,24 @@ export const ecommerceRouter = createRouter({
       return await searchPenzaDeliveryAddresses({
         street,
         house,
+      });
+    }),
+
+  searchPenzaDeliveryStreets: publicQuery
+    .input(
+      z.object({
+        street: z.string().trim().min(1),
+      })
+    )
+    .query(async ({ input }) => {
+      const street = normalizeDeliveryAddressPart(input.street);
+
+      if (street.length < 2 || !/[A-Za-zА-Яа-яЁё]/.test(street) || /^\d+$/.test(street)) {
+        return [];
+      }
+
+      return await searchPenzaDeliveryStreets({
+        street,
       });
     }),
 

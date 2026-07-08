@@ -16,6 +16,11 @@ export type PenzaDeliveryAddressSuggestion = {
   coordinates: [number, number] | null;
 };
 
+export type PenzaDeliveryStreetSuggestion = {
+  label: string;
+  street: string;
+};
+
 const PENZA_CITY_TOKENS = ["пенза", "penza"];
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 const STREET_PREFIXES = new Set([
@@ -116,6 +121,28 @@ function mapSuggestion(item: {
   };
 }
 
+function mapStreetSuggestion(item: {
+  display_name?: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    road?: string;
+  };
+}): PenzaDeliveryStreetSuggestion | null {
+  const displayName = normalizeAddressPart(item.display_name);
+  const street = normalizeAddressPart(item.address?.road);
+
+  if (!displayName || !containsPenza(displayName) || !street) {
+    return null;
+  }
+
+  return {
+    label: street,
+    street,
+  };
+}
+
 export async function searchPenzaDeliveryAddresses(input: {
   street: string;
   house: string;
@@ -170,6 +197,63 @@ export async function searchPenzaDeliveryAddresses(input: {
         if (!areStreetNamesClose(street, item.street)) return false;
         const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}`;
         if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  } catch {
+    return [];
+  }
+}
+
+export async function searchPenzaDeliveryStreets(input: {
+  street: string;
+}): Promise<PenzaDeliveryStreetSuggestion[]> {
+  const street = normalizeAddressPart(input.street);
+
+  if (!street) {
+    return [];
+  }
+
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("countrycodes", "ru");
+  url.searchParams.set("city", "Пенза");
+  url.searchParams.set("street", street);
+  url.searchParams.set("addressdetails", "1");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "ru",
+        "User-Agent": "TechaksCheckout/1.0 (support@techaks.ru)",
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const payload = (await response.json()) as Array<{
+      display_name?: string;
+      address?: {
+        city?: string;
+        town?: string;
+        village?: string;
+        road?: string;
+      };
+    }>;
+
+    const seen = new Set<string>();
+
+    return payload
+      .map(mapStreetSuggestion)
+      .filter((item): item is PenzaDeliveryStreetSuggestion => Boolean(item))
+      .filter(item => {
+        if (!areStreetNamesClose(street, item.street)) return false;
+        const key = normalizeStreetName(item.street);
+        if (!key || seen.has(key)) return false;
         seen.add(key);
         return true;
       });
