@@ -2230,6 +2230,13 @@ export const ecommerceRouter = createRouter({
         }
       }
 
+      if (input.deliveryType === "delivery" && input.paymentType !== "yookassa") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Для доставки доступна только онлайн-оплата.",
+        });
+      }
+
       const trustedTotal = purchasableItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0

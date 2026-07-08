@@ -202,6 +202,12 @@ export default function CheckoutPage() {
     return () => window.clearTimeout(timer);
   }, [deliveryType, deliveryStreet, deliveryHouse, deliveryApartment]);
 
+  useEffect(() => {
+    if (deliveryType === "delivery" && paymentType !== "yookassa") {
+      setPaymentType("yookassa");
+    }
+  }, [deliveryType, paymentType]);
+
   const normalizedDeliveryAddress = buildCheckoutDeliveryAddress({
     street: deliveryStreet,
     house: deliveryHouse,
@@ -1246,29 +1252,45 @@ export default function CheckoutPage() {
                   Способ оплаты
                 </h2>
                 <div className="grid grid-cols-1 gap-3">
-                  {[
-                    {
-                      id: "cash",
-                      label: "Наличными при получении",
-                      icon: ShoppingCart,
-                    },
-                    {
-                      id: "card",
-                      label: "Картой в магазине / курьеру",
-                      icon: CreditCard,
-                    },
-                    ...(yookassaStatus?.enabled
+                  {(
+                    deliveryType === "delivery"
                       ? [
+                          ...(yookassaStatus?.enabled
+                            ? [
+                                {
+                                  id: "yookassa",
+                                  label: yookassaStatus.testMode
+                                    ? "Онлайн-оплата (тест)"
+                                    : "Онлайн-оплата",
+                                  icon: CreditCard,
+                                },
+                              ]
+                            : []),
+                        ]
+                      : [
                           {
-                            id: "yookassa",
-                            label: yookassaStatus.testMode
-                              ? "Онлайн-оплата (тест)"
-                              : "Онлайн-оплата",
+                            id: "cash",
+                            label: "Наличными при получении",
+                            icon: ShoppingCart,
+                          },
+                          {
+                            id: "card",
+                            label: "Картой в магазине / курьеру",
                             icon: CreditCard,
                           },
+                          ...(yookassaStatus?.enabled
+                            ? [
+                                {
+                                  id: "yookassa",
+                                  label: yookassaStatus.testMode
+                                    ? "Онлайн-оплата (тест)"
+                                    : "Онлайн-оплата",
+                                  icon: CreditCard,
+                                },
+                              ]
+                            : []),
                         ]
-                      : []),
-                  ].map(p => (
+                  ).map(p => (
                     <button
                       key={p.id}
                       onClick={() => setPaymentType(p.id as any)}
@@ -1289,6 +1311,11 @@ export default function CheckoutPage() {
                     </button>
                   ))}
                 </div>
+                {deliveryType === "delivery" ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Для доставки доступна только онлайн-оплата.
+                  </p>
+                ) : null}
               </div>
 
               {isAuthenticated && loyaltyState?.enabled ? (
