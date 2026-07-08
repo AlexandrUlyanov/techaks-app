@@ -268,6 +268,10 @@ export default function CheckoutPage() {
     deliveryAddressSearchStreet.length > 0 || deliveryAddressSearchHouse.length > 0;
   const isDeliveryAddressInputValid =
     isDeliveryStreetValid && isDeliveryHouseValid;
+  const confirmedStreetMatchesCurrentInput =
+    confirmedDeliveryStreet !== null &&
+    normalizeDeliveryStreetName(confirmedDeliveryStreet) ===
+      normalizeDeliveryStreetName(deliveryAddressSearchStreet);
   const confirmedSuggestionMatchesCurrentInput =
     confirmedDeliverySuggestion !== null &&
     normalizeDeliveryStreetName(confirmedDeliverySuggestion.street) ===
@@ -306,10 +310,6 @@ export default function CheckoutPage() {
   );
   const typedDeliveryStreetSuggestions =
     deliveryStreetSuggestions as DeliveryStreetSuggestion[];
-  const confirmedStreetMatchesCurrentInput =
-    confirmedDeliveryStreet !== null &&
-    normalizeDeliveryStreetName(confirmedDeliveryStreet) ===
-      normalizeDeliveryStreetName(deliveryAddressSearchStreet);
 
   const selectDeliveryStreetSuggestion = useCallback((street: string) => {
     setDeliveryStreet(street);
@@ -941,7 +941,7 @@ export default function CheckoutPage() {
                                   ? ` · ${yandexDeliveryQuote.etaLabel}`
                                   : ""
                               }`
-                            : "Доставка по городу"}
+                            : "Доставка по адресу"}
                         </p>
                       </div>
                     </button>
@@ -1023,7 +1023,7 @@ export default function CheckoutPage() {
                             onKeyDown={event => {
                               if (
                                 event.key === "ArrowDown" &&
-                                deliveryStreetSuggestions.length > 0
+                                typedDeliveryStreetSuggestions.length > 0
                               ) {
                                 event.preventDefault();
                                 setDeliveryStreetFocused(true);
@@ -1292,11 +1292,11 @@ export default function CheckoutPage() {
                             Улица подтверждена: {confirmedDeliveryStreet}
                           </div>
                           <div className="mt-1 text-muted-foreground">
-                            Дом не найден в картографической базе, но мы можем рассчитать доставку по адресу{" "}
+                            Дом не найден в справочнике адресов, но мы можем рассчитать доставку по адресу{" "}
                             <span className="font-medium text-foreground">
                               {`${deliveryAddressSearchStreet}, ${deliveryAddressSearchHouse}`}
                             </span>
-                            .
+                            , если вы подтвердите его вручную.
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button
@@ -1350,7 +1350,7 @@ export default function CheckoutPage() {
                           <div className="mt-1 text-muted-foreground">
                             {yandexDeliveryQuote.etaLabel
                               ? `Ориентировочно ${yandexDeliveryQuote.etaLabel}.`
-                              : "Тариф найден и готов к оформлению."}
+                              : "Тариф найден и готов к оформлению заказа."}
                           </div>
                         </div>
                       ) : null}
@@ -1361,7 +1361,7 @@ export default function CheckoutPage() {
                       !hasResolvedDeliveryQuote ? (
                         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                           {yandexDeliveryQuote?.message ||
-                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу."}
+                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу. Проверьте написание улицы и номер дома."}
                         </div>
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&

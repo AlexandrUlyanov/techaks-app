@@ -115,6 +115,24 @@ function parseCoordinate(value: string | null | undefined) {
   return Number.isFinite(num) ? num : null;
 }
 
+type NominatimAddressPayload = {
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    county?: string;
+    suburb?: string;
+    city_district?: string;
+    state?: string;
+    road?: string;
+    house_number?: string;
+  };
+};
+
 function mapSuggestion(item: {
   display_name?: string;
   lat?: string;
@@ -178,6 +196,79 @@ function mapStreetSuggestion(item: {
   };
 }
 
+async function fetchNominatimPayload(
+  params: Record<string, string>,
+): Promise<NominatimAddressPayload[]> {
+  const url = new URL(NOMINATIM_ENDPOINT);
+
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", params.limit ?? "10");
+  url.searchParams.set("countrycodes", "ru");
+  url.searchParams.set("addressdetails", "1");
+
+  for (const [key, value] of Object.entries(params)) {
+    if (key === "limit") continue;
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "Accept-Language": "ru",
+      "User-Agent": "TechaksCheckout/1.0 (support@techaks.ru)",
+    },
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return (await response.json()) as NominatimAddressPayload[];
+}
+
+async function fetchPenzaStreetCandidates(street: string) {
+  const direct = await fetchNominatimPayload({
+    limit: "10",
+    city: "Пенза",
+    street,
+  });
+
+  if (direct.length > 0) {
+    return direct;
+  }
+
+  return await fetchNominatimPayload({
+    limit: "10",
+    q: `Пенза, ${street}`,
+  });
+}
+
+async function fetchPenzaAddressCandidates(street: string, house: string) {
+  const direct = await fetchNominatimPayload({
+    limit: "8",
+    city: "Пенза",
+    street: `${house} ${street}`,
+  });
+
+  if (direct.length > 0) {
+    return direct;
+  }
+
+  const exact = await fetchNominatimPayload({
+    limit: "8",
+    q: `Пенза, ${street}, ${house}`,
+  });
+
+  if (exact.length > 0) {
+    return exact;
+  }
+
+  return await fetchNominatimPayload({
+    limit: "8",
+    q: `Пенза, ${house} ${street}`,
+  });
+}
+
 export async function searchPenzaDeliveryAddresses(input: {
   street: string;
   house: string;
@@ -189,39 +280,8 @@ export async function searchPenzaDeliveryAddresses(input: {
     return [];
   }
 
-  const url = new URL(NOMINATIM_ENDPOINT);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "8");
-  url.searchParams.set("countrycodes", "ru");
-  url.searchParams.set("city", "Пенза");
-  url.searchParams.set("street", `${house} ${street}`);
-  url.searchParams.set("addressdetails", "1");
-
   try {
-    const response = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Language": "ru",
-        "User-Agent": "TechaksCheckout/1.0 (support@techaks.ru)",
-      },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = (await response.json()) as Array<{
-      display_name?: string;
-      lat?: string;
-      lon?: string;
-      address?: {
-        city?: string;
-        town?: string;
-        village?: string;
-        road?: string;
-        house_number?: string;
-      };
-    }>;
+    const payload = await fetchPenzaAddressCandidates(street, house);
 
     const seen = new Set<string>();
 
@@ -249,36 +309,8 @@ export async function searchPenzaDeliveryStreets(input: {
     return [];
   }
 
-  const url = new URL(NOMINATIM_ENDPOINT);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "10");
-  url.searchParams.set("countrycodes", "ru");
-  url.searchParams.set("city", "Пенза");
-  url.searchParams.set("street", street);
-  url.searchParams.set("addressdetails", "1");
-
   try {
-    const response = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Language": "ru",
-        "User-Agent": "TechaksCheckout/1.0 (support@techaks.ru)",
-      },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = (await response.json()) as Array<{
-      display_name?: string;
-      address?: {
-        city?: string;
-        town?: string;
-        village?: string;
-        road?: string;
-      };
-    }>;
+    const payload = await fetchPenzaStreetCandidates(street);
 
     const seen = new Set<string>();
 
@@ -305,43 +337,8 @@ export async function validatePenzaDeliveryAddress(input: {
   const house = normalizeAddressPart(input.house);
   const query = `${street}, ${house}, Пенза`;
 
-  const url = new URL(NOMINATIM_ENDPOINT);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "5");
-  url.searchParams.set("countrycodes", "ru");
-  url.searchParams.set("city", "Пенза");
-  url.searchParams.set("street", `${house} ${street}`);
-  url.searchParams.set("addressdetails", "1");
-
   try {
-    const response = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "Accept-Language": "ru",
-        "User-Agent": "TechaksCheckout/1.0 (support@techaks.ru)",
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        message:
-          "Не удалось подтвердить адрес доставки. Проверьте улицу и номер дома.",
-      };
-    }
-
-    const payload = (await response.json()) as Array<{
-      display_name?: string;
-      lat?: string;
-      lon?: string;
-      address?: {
-        city?: string;
-        town?: string;
-        village?: string;
-        road?: string;
-        house_number?: string;
-      };
-    }>;
+    const payload = await fetchPenzaAddressCandidates(street, house);
 
     const match = payload.find(item => {
       const mapped = mapSuggestion(item);
