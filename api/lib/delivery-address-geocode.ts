@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 type PenzaAddressValidationResult =
   | {
       ok: true;
@@ -23,6 +25,9 @@ export type PenzaDeliveryStreetSuggestion = {
 
 const PENZA_CITY_TOKENS = ["пенза", "penza"];
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
+const YANDEX_GEOCODER_ENDPOINT = "https://geocode-maps.yandex.ru/v1/";
+const PENZA_BBOX = "44.75,53.10~45.15,53.32";
+const GEOCODER_CACHE_TTL_MS = 10 * 60 * 1000;
 const STREET_PREFIXES = new Set([
   "ул",
   "улица",
@@ -48,6 +53,11 @@ const STREET_PREFIXES = new Set([
   "мкр",
   "микрорайон",
 ]);
+
+const yandexGeocoderCache = new Map<
+  string,
+  { expiresAt: number; value: YandexGeocoderFeature[] }
+>();
 
 function normalizeAddressPart(value: string | null | undefined) {
   return (value || "").trim().replace(/\s+/g, " ");
@@ -132,6 +142,153 @@ type NominatimAddressPayload = {
     house_number?: string;
   };
 };
+
+type YandexGeocoderFeature = {
+  GeoObject?: {
+    name?: string;
+    description?: string;
+    Point?: {
+      pos?: string;
+    };
+    metaDataProperty?: {
+      GeocoderMetaData?: {
+        kind?: string;
+        precision?: string;
+        text?: string;
+        Address?: {
+          Components?: Array<{
+            kind?: string;
+            name?: string;
+          }>;
+        };
+      };
+    };
+  };
+};
+
+function getYandexComponent(
+  item: YandexGeocoderFeature,
+  kind: string,
+): string {
+  const components =
+    item.GeoObject?.metaDataProperty?.GeocoderMetaData?.Address?.Components ??
+    [];
+
+  return normalizeAddressPart(
+    components.find(component => component.kind === kind)?.name,
+  );
+}
+
+function isYandexPenzaFeature(item: YandexGeocoderFeature) {
+  const meta = item.GeoObject?.metaDataProperty?.GeocoderMetaData;
+  const text = normalizeAddressPart(meta?.text);
+  const locality = getYandexComponent(item, "locality");
+  const province = getYandexComponent(item, "province");
+  const area = getYandexComponent(item, "area");
+
+  return [text, locality, province, area].some(containsPenza);
+}
+
+function parseYandexCoordinates(pos: string | null | undefined) {
+  const [lon, lat] = normalizeAddressPart(pos)
+    .split(/\s+/)
+    .map(value => Number(value));
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+
+  return [lon, lat] as [number, number];
+}
+
+function mapYandexSuggestion(
+  item: YandexGeocoderFeature,
+): PenzaDeliveryAddressSuggestion | null {
+  const meta = item.GeoObject?.metaDataProperty?.GeocoderMetaData;
+  const label = normalizeAddressPart(meta?.text || item.GeoObject?.name);
+  const street = getYandexComponent(item, "street");
+  const house = getYandexComponent(item, "house");
+
+  if (!label || !isYandexPenzaFeature(item) || !street || !house) {
+    return null;
+  }
+
+  return {
+    label,
+    street,
+    house,
+    coordinates: parseYandexCoordinates(item.GeoObject?.Point?.pos),
+  };
+}
+
+function mapYandexStreetSuggestion(
+  item: YandexGeocoderFeature,
+): PenzaDeliveryStreetSuggestion | null {
+  const street = getYandexComponent(item, "street");
+  const name = normalizeAddressPart(item.GeoObject?.name);
+
+  if (!isYandexPenzaFeature(item) || !street) {
+    return null;
+  }
+
+  return {
+    label: street || name,
+    street: street || name,
+  };
+}
+
+async function fetchYandexGeocoderFeatures(input: {
+  query: string;
+  limit: number;
+}): Promise<YandexGeocoderFeature[]> {
+  const apiKey = env.yandexGeocoderApiKey;
+  const query = normalizeAddressPart(input.query);
+
+  if (!apiKey || !query) return [];
+
+  const cacheKey = `${query}|${input.limit}`;
+  const cached = yandexGeocoderCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const url = new URL(YANDEX_GEOCODER_ENDPOINT);
+  url.searchParams.set("apikey", apiKey);
+  url.searchParams.set("geocode", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("lang", "ru_RU");
+  url.searchParams.set("results", String(input.limit));
+  url.searchParams.set("bbox", PENZA_BBOX);
+  url.searchParams.set("rspn", "1");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "TechaksCheckout/1.0",
+      },
+    });
+
+    if (!response.ok) return [];
+
+    const payload = (await response.json()) as {
+      response?: {
+        GeoObjectCollection?: {
+          featureMember?: YandexGeocoderFeature[];
+        };
+      };
+    };
+    const value = payload.response?.GeoObjectCollection?.featureMember ?? [];
+
+    yandexGeocoderCache.set(cacheKey, {
+      expiresAt: Date.now() + GEOCODER_CACHE_TTL_MS,
+      value,
+    });
+
+    return value;
+  } catch {
+    return [];
+  }
+}
 
 function mapSuggestion(item: {
   display_name?: string;
@@ -269,6 +426,54 @@ async function fetchPenzaAddressCandidates(street: string, house: string) {
   });
 }
 
+async function fetchYandexPenzaStreetSuggestions(street: string) {
+  const features = await fetchYandexGeocoderFeatures({
+    query: `Пенза, ${street}`,
+    limit: 10,
+  });
+
+  return features
+    .map(mapYandexStreetSuggestion)
+    .filter((item): item is PenzaDeliveryStreetSuggestion => Boolean(item));
+}
+
+async function fetchYandexPenzaAddressSuggestions(street: string, house: string) {
+  const features = await fetchYandexGeocoderFeatures({
+    query: `Пенза, ${street}, ${house}`,
+    limit: 8,
+  });
+
+  return features
+    .map(mapYandexSuggestion)
+    .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item));
+}
+
+function dedupeAddressSuggestions(
+  suggestions: PenzaDeliveryAddressSuggestion[],
+) {
+  const seen = new Set<string>();
+
+  return suggestions.filter(item => {
+    const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}`;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeStreetSuggestions(
+  suggestions: PenzaDeliveryStreetSuggestion[],
+) {
+  const seen = new Set<string>();
+
+  return suggestions.filter(item => {
+    const key = normalizeStreetName(item.street);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function searchPenzaDeliveryAddresses(input: {
   street: string;
   house: string;
@@ -281,20 +486,21 @@ export async function searchPenzaDeliveryAddresses(input: {
   }
 
   try {
+    const yandexSuggestions = await fetchYandexPenzaAddressSuggestions(
+      street,
+      house,
+    );
     const payload = await fetchPenzaAddressCandidates(street, house);
 
-    const seen = new Set<string>();
-
-    return payload
+    const nominatimSuggestions = payload
       .map(mapSuggestion)
       .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item))
-      .filter(item => {
-        if (!areStreetNamesClose(street, item.street)) return false;
-        const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      .filter(item => areStreetNamesClose(street, item.street));
+
+    return dedupeAddressSuggestions([
+      ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
+      ...nominatimSuggestions,
+    ]);
   } catch {
     return [];
   }
@@ -310,20 +516,18 @@ export async function searchPenzaDeliveryStreets(input: {
   }
 
   try {
+    const yandexSuggestions = await fetchYandexPenzaStreetSuggestions(street);
     const payload = await fetchPenzaStreetCandidates(street);
 
-    const seen = new Set<string>();
-
-    return payload
+    const nominatimSuggestions = payload
       .map(mapStreetSuggestion)
       .filter((item): item is PenzaDeliveryStreetSuggestion => Boolean(item))
-      .filter(item => {
-        if (!areStreetNamesClose(street, item.street)) return false;
-        const key = normalizeStreetName(item.street);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      .filter(item => areStreetNamesClose(street, item.street));
+
+    return dedupeStreetSuggestions([
+      ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
+      ...nominatimSuggestions,
+    ]);
   } catch {
     return [];
   }
@@ -338,11 +542,27 @@ export async function validatePenzaDeliveryAddress(input: {
   const query = `${street}, ${house}, Пенза`;
 
   try {
+    const yandexMatches = await fetchYandexPenzaAddressSuggestions(street, house);
+    const requestedHouse = normalizeHouseName(house);
+    const yandexMatch = yandexMatches.find(item => {
+      return (
+        areStreetNamesClose(street, item.street) &&
+        normalizeHouseName(item.house) === requestedHouse
+      );
+    });
+
+    if (yandexMatch) {
+      return {
+        ok: true,
+        normalizedAddress: yandexMatch.label,
+        coordinates: yandexMatch.coordinates,
+      };
+    }
+
     const payload = await fetchPenzaAddressCandidates(street, house);
 
     const match = payload.find(item => {
       const mapped = mapSuggestion(item);
-      const requestedHouse = normalizeHouseName(house);
 
       if (!mapped) return false;
       if (!areStreetNamesClose(street, mapped.street)) return false;
