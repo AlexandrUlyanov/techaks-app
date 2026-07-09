@@ -332,7 +332,12 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               <input
                 type="password"
                 value={geosuggestApiKey}
-                onChange={event => setGeosuggestApiKey(event.target.value)}
+                onChange={event => {
+                  setGeosuggestApiKey(event.target.value);
+                  if (event.target.value.trim()) {
+                    setGeosuggestEnabled(true);
+                  }
+                }}
                 placeholder={
                   data.geosuggest?.apiKeyConfigured
                     ? "Оставьте пустым, чтобы сохранить текущий ключ"

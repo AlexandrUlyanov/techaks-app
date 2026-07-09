@@ -177,6 +177,10 @@ type YandexGeoSuggestItem = {
       name?: string;
       kind?: string[] | string;
     }>;
+    components?: Array<{
+      name?: string;
+      kind?: string[] | string;
+    }>;
   };
   display_name?: string;
   uri?: string;
@@ -192,7 +196,10 @@ function getGeoSuggestComponent(
   item: YandexGeoSuggestItem,
   kind: string,
 ): string {
-  const components = item.address?.component ?? [];
+  const components = [
+    ...(item.address?.component ?? []),
+    ...(item.address?.components ?? []),
+  ];
 
   return normalizeAddressPart(
     components.find(component => {
@@ -348,7 +355,8 @@ async function fetchYandexGeoSuggestItems(input: {
   url.searchParams.set("lang", "ru_RU");
   url.searchParams.set("results", String(input.limit));
   url.searchParams.set("bbox", PENZA_BBOX);
-  url.searchParams.set("rspn", "1");
+  url.searchParams.set("strict_bounds", "1");
+  url.searchParams.set("countries", "ru");
 
   try {
     const response = await fetch(url.toString(), {

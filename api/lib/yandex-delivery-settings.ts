@@ -72,6 +72,27 @@ function tail4(value: string) {
   return value.slice(-4);
 }
 
+function resolveGeoSuggestEnabled(
+  settings: Partial<Record<(typeof SETTING_KEYS)[number], string>>,
+  hasApiKey: boolean,
+) {
+  if (!hasApiKey) return false;
+
+  const savedValue = settings.yandex_geosuggest_enabled;
+  if (!savedValue) return true;
+
+  // Старые настройки могли сохранить ключ, но оставить флаг выключенным.
+  // Если подключение уже успешно проверяли, считаем GeoSuggest рабочим.
+  if (
+    savedValue === "false" &&
+    settings.yandex_geosuggest_last_check_ok === "true"
+  ) {
+    return true;
+  }
+
+  return parseBoolean(savedValue, true);
+}
+
 function decryptStoredSecret(value: string) {
   if (!value || !env.appEncryptionKey.trim()) return "";
   return decryptSecret(value, env.appEncryptionKey);
@@ -147,6 +168,9 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
       env.yandexDeliverySelectedCorpClientId.trim()
   );
   const hasEnvGeosuggestSettings = Boolean(env.yandexGeosuggestApiKey.trim());
+  const hasGeoSuggestApiKey = Boolean(
+    dbEncryptedGeosuggestKey || hasEnvGeosuggestSettings
+  );
   const geosuggestSource: "database" | "env" | "none" = dbEncryptedGeosuggestKey
     ? "database"
     : hasEnvGeosuggestSettings
@@ -191,9 +215,7 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
       message: settings.yandex_delivery_last_check_message || null,
     },
     geosuggest: {
-      enabled: dbEncryptedGeosuggestKey || settings.yandex_geosuggest_enabled
-        ? parseBoolean(settings.yandex_geosuggest_enabled, false)
-        : hasEnvGeosuggestSettings,
+      enabled: resolveGeoSuggestEnabled(settings, hasGeoSuggestApiKey),
       apiKeyConfigured: Boolean(
         dbEncryptedGeosuggestKey || env.yandexGeosuggestApiKey.trim()
       ),
@@ -228,6 +250,9 @@ export async function saveYandexDeliveryAdminSettings(
   const normalized = yandexDeliverySettingsInputSchema.parse(input);
   const accessToken = normalized.accessToken.trim();
   const geosuggestApiKey = normalized.geosuggestApiKey.trim();
+  const nextGeoSuggestEnabled = geosuggestApiKey
+    ? true
+    : normalized.geosuggestEnabled;
   const changedFields = [
     "enabled",
     "selectedCorpClientId",
@@ -262,7 +287,7 @@ export async function saveYandexDeliveryAdminSettings(
   );
   await setAppSetting(
     "yandex_geosuggest_enabled",
-    normalized.geosuggestEnabled ? "true" : "false"
+    nextGeoSuggestEnabled ? "true" : "false"
   );
 
   if (accessToken) {
@@ -299,7 +324,7 @@ export async function saveYandexDeliveryAdminSettings(
     hasCorpClientId: Boolean(normalized.selectedCorpClientId),
     useSelectedCorpClientId: normalized.useSelectedCorpClientId,
     apiBaseUrl: buildBaseUrl(normalized.apiBaseUrl),
-    geosuggestEnabled: normalized.geosuggestEnabled,
+    geosuggestEnabled: nextGeoSuggestEnabled,
     geosuggestApiKeyUpdated: Boolean(geosuggestApiKey),
   });
 
@@ -351,10 +376,7 @@ export async function getYandexGeoSuggestRuntimeSettings() {
   const dbKey = decryptStoredSecret(dbEncryptedKey);
   const apiKey = dbKey || env.yandexGeosuggestApiKey.trim();
   const source = dbKey ? "database" : apiKey ? "env" : "none";
-  const enabled =
-    dbEncryptedKey || settings.yandex_geosuggest_enabled
-      ? parseBoolean(settings.yandex_geosuggest_enabled, false)
-      : Boolean(env.yandexGeosuggestApiKey.trim());
+  const enabled = resolveGeoSuggestEnabled(settings, Boolean(apiKey));
 
   return {
     enabled,
@@ -540,6 +562,9 @@ export async function testYandexGeoSuggestConnection(userId: number | null) {
   }
 
   await setAppSetting("yandex_geosuggest_last_check_ok", ok ? "true" : "false");
+  if (ok) {
+    await setAppSetting("yandex_geosuggest_enabled", "true");
+  }
   await setAppSetting(
     "yandex_geosuggest_last_check_status",
     String(statusCode || 200)
