@@ -213,6 +213,19 @@ function getGeoSuggestComponent(
   );
 }
 
+function parseHouseFromSuggestionLabel(label: string) {
+  const normalized = normalizeAddressPart(label);
+  const parts = normalized.split(",").map(part => normalizeAddressPart(part));
+  const lastPart = parts.at(-1) || "";
+  const houseMatch = lastPart.match(/\b\d+[А-ЯA-Zа-яa-z]?(?:[/-]\d+[А-ЯA-Zа-яa-z]?)?\b/u);
+
+  return houseMatch ? normalizeAddressPart(houseMatch[0]) : "";
+}
+
+function looksLikeHouseSuggestion(value: string) {
+  return /,\s*\d/.test(value) || /\b\d+[А-ЯA-Zа-яa-z]?\b/u.test(value);
+}
+
 function getYandexComponent(
   item: YandexGeocoderFeature,
   kind: string,
@@ -552,6 +565,9 @@ function mapGeoSuggestStreetSuggestion(
     getSuggestText(item.title).replace(/^улица\s+/i, "");
 
   if (!label || !containsPenza(label) || !street) return null;
+  if (!getGeoSuggestComponent(item, "street") && looksLikeHouseSuggestion(street)) {
+    return null;
+  }
 
   return {
     label: street,
@@ -562,7 +578,6 @@ function mapGeoSuggestStreetSuggestion(
 function mapGeoSuggestAddressSuggestion(
   item: YandexGeoSuggestItem,
   fallbackStreet: string,
-  fallbackHouse: string,
 ): PenzaDeliveryAddressSuggestion | null {
   const label = normalizeAddressPart(
     item.address?.formatted_address ||
@@ -572,7 +587,8 @@ function mapGeoSuggestAddressSuggestion(
       item.display_name,
   );
   const street = getGeoSuggestComponent(item, "street") || fallbackStreet;
-  const house = getGeoSuggestComponent(item, "house") || fallbackHouse;
+  const house =
+    getGeoSuggestComponent(item, "house") || parseHouseFromSuggestionLabel(label);
 
   if (!label || !containsPenza(label) || !street || !house) return null;
 
@@ -605,7 +621,7 @@ async function fetchGeoSuggestPenzaAddressSuggestions(
   });
 
   return items
-    .map(item => mapGeoSuggestAddressSuggestion(item, street, house))
+    .map(item => mapGeoSuggestAddressSuggestion(item, street))
     .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item));
 }
 
