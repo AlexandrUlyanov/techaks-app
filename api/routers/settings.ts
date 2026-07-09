@@ -22,6 +22,7 @@ import {
   getYandexDeliveryAdminSettings,
   saveYandexDeliveryAdminSettings,
   testYandexDeliveryConnection,
+  testYandexGeoSuggestConnection,
   yandexDeliverySettingsInputSchema,
 } from "../lib/yandex-delivery-settings";
 import {
@@ -1639,6 +1640,19 @@ export const settingsRouter = createRouter({
       action: "settings.yandex_delivery.test_connection",
       entityType: "settings",
       entityLabel: "Яндекс Доставка",
+      meta: result,
+    });
+    return result;
+  }),
+
+  testYandexGeoSuggestConnection: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    const result = await testYandexGeoSuggestConnection(ctx.user?.id ?? null);
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.yandex_geosuggest.test_connection",
+      entityType: "settings",
+      entityLabel: "GeoSuggest Яндекс",
       meta: result,
     });
     return result;

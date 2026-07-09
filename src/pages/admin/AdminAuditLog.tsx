@@ -40,6 +40,8 @@ function formatActionLabel(action: string) {
       "Изменение настроек Яндекс Доставки",
     "settings.yandex_delivery.test_connection":
       "Проверка подключения Яндекс Доставки",
+    "settings.yandex_geosuggest.test_connection":
+      "Проверка подключения GeoSuggest",
     "settings.feed.yandex_yml.update": "Изменение настроек Yandex YML",
     "settings.feed.vk.update": "Изменение настроек VK-фида",
     "settings.homepage_hero.update": "Изменение hero главной страницы",

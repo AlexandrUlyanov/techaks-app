@@ -20,6 +20,14 @@ const SETTING_KEYS = [
   "yandex_delivery_last_check_status",
   "yandex_delivery_last_check_at",
   "yandex_delivery_last_check_message",
+  "yandex_geosuggest_enabled",
+  "yandex_geosuggest_api_key_encrypted",
+  "yandex_geosuggest_api_key_last4",
+  "yandex_geosuggest_api_key_set_at",
+  "yandex_geosuggest_last_check_ok",
+  "yandex_geosuggest_last_check_status",
+  "yandex_geosuggest_last_check_at",
+  "yandex_geosuggest_last_check_message",
 ] as const;
 
 export const yandexDeliverySettingsInputSchema = z.object({
@@ -28,6 +36,8 @@ export const yandexDeliverySettingsInputSchema = z.object({
   selectedCorpClientId: z.string().trim().max(255).default(""),
   useSelectedCorpClientId: z.boolean().default(false),
   apiBaseUrl: z.string().trim().url().default(DEFAULT_API_BASE_URL),
+  geosuggestEnabled: z.boolean().default(false),
+  geosuggestApiKey: z.string().trim().max(1024).optional().default(""),
 });
 
 const TEST_ROUTE_POINTS = [
@@ -104,11 +114,26 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
     at: string | null;
     message: string | null;
   };
+  geosuggest: {
+    enabled: boolean;
+    apiKeyConfigured: boolean;
+    apiKeyLast4: string;
+    apiKeySetAt: string | null;
+    source: "database" | "env" | "none";
+    lastCheck: {
+      ok: boolean | null;
+      status: string | null;
+      at: string | null;
+      message: string | null;
+    };
+  };
   encryptionConfigured: boolean;
 }> {
   const settings = await getAppSettings([...SETTING_KEYS]);
   const dbEncryptedToken =
     settings.yandex_delivery_access_token_encrypted?.trim() || "";
+  const dbEncryptedGeosuggestKey =
+    settings.yandex_geosuggest_api_key_encrypted?.trim() || "";
   const dbCorpClientId =
     settings.yandex_delivery_selected_corp_client_id?.trim() || "";
   const dbUseCorpClientId = parseBoolean(
@@ -121,6 +146,12 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
     env.yandexDeliveryAccessToken.trim() ||
       env.yandexDeliverySelectedCorpClientId.trim()
   );
+  const hasEnvGeosuggestSettings = Boolean(env.yandexGeosuggestApiKey.trim());
+  const geosuggestSource: "database" | "env" | "none" = dbEncryptedGeosuggestKey
+    ? "database"
+    : hasEnvGeosuggestSettings
+      ? "env"
+      : "none";
 
   return {
     enabled: hasDatabaseSettings
@@ -159,6 +190,33 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
       at: settings.yandex_delivery_last_check_at || null,
       message: settings.yandex_delivery_last_check_message || null,
     },
+    geosuggest: {
+      enabled: dbEncryptedGeosuggestKey || settings.yandex_geosuggest_enabled
+        ? parseBoolean(settings.yandex_geosuggest_enabled, false)
+        : hasEnvGeosuggestSettings,
+      apiKeyConfigured: Boolean(
+        dbEncryptedGeosuggestKey || env.yandexGeosuggestApiKey.trim()
+      ),
+      apiKeyLast4:
+        settings.yandex_geosuggest_api_key_last4?.trim() ||
+        (env.yandexGeosuggestApiKey
+          ? tail4(env.yandexGeosuggestApiKey)
+          : "") ||
+        "",
+      apiKeySetAt: settings.yandex_geosuggest_api_key_set_at || null,
+      source: geosuggestSource,
+      lastCheck: {
+        ok:
+          settings.yandex_geosuggest_last_check_ok === "true"
+            ? true
+            : settings.yandex_geosuggest_last_check_ok === "false"
+              ? false
+              : null,
+        status: settings.yandex_geosuggest_last_check_status || null,
+        at: settings.yandex_geosuggest_last_check_at || null,
+        message: settings.yandex_geosuggest_last_check_message || null,
+      },
+    },
     encryptionConfigured: Boolean(env.appEncryptionKey.trim()),
   };
 }
@@ -169,18 +227,20 @@ export async function saveYandexDeliveryAdminSettings(
 ) {
   const normalized = yandexDeliverySettingsInputSchema.parse(input);
   const accessToken = normalized.accessToken.trim();
+  const geosuggestApiKey = normalized.geosuggestApiKey.trim();
   const changedFields = [
     "enabled",
     "selectedCorpClientId",
     "useSelectedCorpClientId",
     "apiBaseUrl",
+    "geosuggestEnabled",
   ];
 
-  if (accessToken && !env.appEncryptionKey.trim()) {
+  if ((accessToken || geosuggestApiKey) && !env.appEncryptionKey.trim()) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        "APP_ENCRYPTION_KEY не задан. Нельзя сохранить токен Яндекс Доставки.",
+        "APP_ENCRYPTION_KEY не задан. Нельзя сохранить секретные ключи интеграций.",
     });
   }
 
@@ -200,6 +260,10 @@ export async function saveYandexDeliveryAdminSettings(
     "yandex_delivery_api_base_url",
     buildBaseUrl(normalized.apiBaseUrl)
   );
+  await setAppSetting(
+    "yandex_geosuggest_enabled",
+    normalized.geosuggestEnabled ? "true" : "false"
+  );
 
   if (accessToken) {
     await setAppSetting(
@@ -213,6 +277,21 @@ export async function saveYandexDeliveryAdminSettings(
     );
     changedFields.push("accessToken");
   }
+  if (geosuggestApiKey) {
+    await setAppSetting(
+      "yandex_geosuggest_api_key_encrypted",
+      encryptSecret(geosuggestApiKey, env.appEncryptionKey)
+    );
+    await setAppSetting(
+      "yandex_geosuggest_api_key_last4",
+      tail4(geosuggestApiKey)
+    );
+    await setAppSetting(
+      "yandex_geosuggest_api_key_set_at",
+      new Date().toISOString()
+    );
+    changedFields.push("geosuggestApiKey");
+  }
 
   await logYandexDeliverySettingsAudit("settings_saved", userId, {
     changedFields,
@@ -220,6 +299,8 @@ export async function saveYandexDeliveryAdminSettings(
     hasCorpClientId: Boolean(normalized.selectedCorpClientId),
     useSelectedCorpClientId: normalized.useSelectedCorpClientId,
     apiBaseUrl: buildBaseUrl(normalized.apiBaseUrl),
+    geosuggestEnabled: normalized.geosuggestEnabled,
+    geosuggestApiKeyUpdated: Boolean(geosuggestApiKey),
   });
 
   return { success: true };
@@ -260,6 +341,26 @@ export async function getYandexDeliveryRuntimeSettings() {
     apiBaseUrl,
     source,
     isConfigured: Boolean(enabled && token),
+  };
+}
+
+export async function getYandexGeoSuggestRuntimeSettings() {
+  const settings = await getAppSettings([...SETTING_KEYS]);
+  const dbEncryptedKey =
+    settings.yandex_geosuggest_api_key_encrypted?.trim() || "";
+  const dbKey = decryptStoredSecret(dbEncryptedKey);
+  const apiKey = dbKey || env.yandexGeosuggestApiKey.trim();
+  const source = dbKey ? "database" : apiKey ? "env" : "none";
+  const enabled =
+    dbEncryptedKey || settings.yandex_geosuggest_enabled
+      ? parseBoolean(settings.yandex_geosuggest_enabled, false)
+      : Boolean(env.yandexGeosuggestApiKey.trim());
+
+  return {
+    enabled,
+    apiKey,
+    source,
+    isConfigured: Boolean(enabled && apiKey),
   };
 }
 
@@ -363,5 +464,97 @@ export async function testYandexDeliveryConnection(userId: number | null) {
   };
 
   await logYandexDeliverySettingsAudit("test_connection_ok", userId, result);
+  return result;
+}
+
+export async function testYandexGeoSuggestConnection(userId: number | null) {
+  const settings = await getYandexGeoSuggestRuntimeSettings();
+  if (!settings.apiKey) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "API-ключ GeoSuggest не задан. Сначала сохраните ключ.",
+    });
+  }
+
+  const url = new URL("https://suggest-maps.yandex.ru/v1/suggest");
+  url.searchParams.set("apikey", settings.apiKey);
+  url.searchParams.set("text", "Пенза, Ленина, 1");
+  url.searchParams.set("types", "geo");
+  url.searchParams.set("print_address", "1");
+  url.searchParams.set("lang", "ru_RU");
+  url.searchParams.set("results", "5");
+  url.searchParams.set("bbox", "44.75,53.10~45.15,53.32");
+  url.searchParams.set("strict_bounds", "1");
+  url.searchParams.set("countries", "ru");
+
+  let ok = false;
+  let statusCode = 0;
+  let message = "Подключение к GeoSuggest успешно проверено.";
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "ru",
+        "User-Agent": "TechaksCheckout/1.0",
+      },
+    });
+
+    statusCode = response.status;
+    const responseText = await response.text();
+    if (!response.ok) {
+      message =
+        responseText ||
+        `HTTP ${response.status}. GeoSuggest отклонил проверку подключения.`;
+      throw new TRPCError({ code: "BAD_REQUEST", message });
+    }
+
+    const payload = JSON.parse(responseText || "{}") as { results?: unknown[] };
+    const resultCount = Array.isArray(payload.results)
+      ? payload.results.length
+      : 0;
+    ok = true;
+    message = `GeoSuggest успешно отвечает (HTTP ${response.status}, подсказок: ${resultCount}).`;
+  } catch (error) {
+    if (!(error instanceof TRPCError)) {
+      message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось проверить подключение к GeoSuggest.";
+    }
+    await setAppSetting("yandex_geosuggest_last_check_ok", "false");
+    await setAppSetting(
+      "yandex_geosuggest_last_check_status",
+      String(statusCode || 0)
+    );
+    await setAppSetting("yandex_geosuggest_last_check_at", new Date().toISOString());
+    await setAppSetting("yandex_geosuggest_last_check_message", message);
+    await logYandexDeliverySettingsAudit("geosuggest_test_failed", userId, {
+      statusCode,
+      message,
+      source: settings.source,
+    });
+    throw error instanceof TRPCError
+      ? error
+      : new TRPCError({ code: "BAD_REQUEST", message });
+  }
+
+  await setAppSetting("yandex_geosuggest_last_check_ok", ok ? "true" : "false");
+  await setAppSetting(
+    "yandex_geosuggest_last_check_status",
+    String(statusCode || 200)
+  );
+  await setAppSetting("yandex_geosuggest_last_check_at", new Date().toISOString());
+  await setAppSetting("yandex_geosuggest_last_check_message", message);
+
+  const result = {
+    ok,
+    status: String(statusCode || 200),
+    at: new Date().toISOString(),
+    message,
+    source: settings.source,
+  };
+
+  await logYandexDeliverySettingsAudit("geosuggest_test_ok", userId, result);
   return result;
 }

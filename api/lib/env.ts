@@ -60,6 +60,10 @@ export const env = {
   yandexDeliveryApiBaseUrl:
     optional("YANDEX_DELIVERY_API_BASE_URL") ||
     "https://b2b.taxi.yandex.net",
+  yandexGeosuggestApiKey:
+    optional("YANDEX_GEOSUGGEST_API_KEY") ||
+    optional("YANDEX_GEOCODER_API_KEY") ||
+    optional("YANDEX_MAPS_API_KEY"),
   yandexGeocoderApiKey:
     optional("YANDEX_GEOCODER_API_KEY") || optional("YANDEX_MAPS_API_KEY"),
 };

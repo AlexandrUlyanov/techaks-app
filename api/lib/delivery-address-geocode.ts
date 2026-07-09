@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { getYandexGeoSuggestRuntimeSettings } from "./yandex-delivery-settings";
 
 type PenzaAddressValidationResult =
   | {
@@ -26,6 +27,7 @@ export type PenzaDeliveryStreetSuggestion = {
 const PENZA_CITY_TOKENS = ["пенза", "penza"];
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 const YANDEX_GEOCODER_ENDPOINT = "https://geocode-maps.yandex.ru/v1/";
+const YANDEX_GEOSUGGEST_ENDPOINT = "https://suggest-maps.yandex.ru/v1/suggest";
 const PENZA_BBOX = "44.75,53.10~45.15,53.32";
 const GEOCODER_CACHE_TTL_MS = 10 * 60 * 1000;
 const STREET_PREFIXES = new Set([
@@ -166,6 +168,44 @@ type YandexGeocoderFeature = {
   };
 };
 
+type YandexGeoSuggestItem = {
+  title?: string | { text?: string };
+  subtitle?: string | { text?: string };
+  address?: {
+    formatted_address?: string;
+    component?: Array<{
+      name?: string;
+      kind?: string[] | string;
+    }>;
+  };
+  display_name?: string;
+  uri?: string;
+};
+
+function getSuggestText(value: string | { text?: string } | null | undefined) {
+  return normalizeAddressPart(
+    typeof value === "string" ? value : value?.text,
+  );
+}
+
+function getGeoSuggestComponent(
+  item: YandexGeoSuggestItem,
+  kind: string,
+): string {
+  const components = item.address?.component ?? [];
+
+  return normalizeAddressPart(
+    components.find(component => {
+      const kinds = Array.isArray(component.kind)
+        ? component.kind
+        : component.kind
+          ? [component.kind]
+          : [];
+      return kinds.includes(kind);
+    })?.name,
+  );
+}
+
 function getYandexComponent(
   item: YandexGeocoderFeature,
   kind: string,
@@ -258,7 +298,8 @@ async function fetchYandexGeocoderFeatures(input: {
   url.searchParams.set("lang", "ru_RU");
   url.searchParams.set("results", String(input.limit));
   url.searchParams.set("bbox", PENZA_BBOX);
-  url.searchParams.set("rspn", "1");
+  url.searchParams.set("strict_bounds", "1");
+  url.searchParams.set("countries", "ru");
 
   try {
     const response = await fetch(url.toString(), {
@@ -285,6 +326,46 @@ async function fetchYandexGeocoderFeatures(input: {
     });
 
     return value;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchYandexGeoSuggestItems(input: {
+  query: string;
+  limit: number;
+}): Promise<YandexGeoSuggestItem[]> {
+  const settings = await getYandexGeoSuggestRuntimeSettings();
+  const query = normalizeAddressPart(input.query);
+
+  if (!settings.enabled || !settings.apiKey || !query) return [];
+
+  const url = new URL(YANDEX_GEOSUGGEST_ENDPOINT);
+  url.searchParams.set("apikey", settings.apiKey);
+  url.searchParams.set("text", query);
+  url.searchParams.set("types", "geo");
+  url.searchParams.set("print_address", "1");
+  url.searchParams.set("lang", "ru_RU");
+  url.searchParams.set("results", String(input.limit));
+  url.searchParams.set("bbox", PENZA_BBOX);
+  url.searchParams.set("rspn", "1");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "ru",
+        "User-Agent": "TechaksCheckout/1.0",
+      },
+    });
+
+    if (!response.ok) return [];
+
+    const payload = (await response.json()) as {
+      results?: YandexGeoSuggestItem[];
+    };
+
+    return Array.isArray(payload.results) ? payload.results : [];
   } catch {
     return [];
   }
@@ -448,6 +529,78 @@ async function fetchYandexPenzaAddressSuggestions(street: string, house: string)
     .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item));
 }
 
+function mapGeoSuggestStreetSuggestion(
+  item: YandexGeoSuggestItem,
+): PenzaDeliveryStreetSuggestion | null {
+  const label = normalizeAddressPart(
+    item.address?.formatted_address ||
+      [getSuggestText(item.subtitle), getSuggestText(item.title)]
+        .filter(Boolean)
+        .join(", ") ||
+      item.display_name,
+  );
+  const street =
+    getGeoSuggestComponent(item, "street") ||
+    getSuggestText(item.title).replace(/^улица\s+/i, "");
+
+  if (!label || !containsPenza(label) || !street) return null;
+
+  return {
+    label: street,
+    street,
+  };
+}
+
+function mapGeoSuggestAddressSuggestion(
+  item: YandexGeoSuggestItem,
+  fallbackStreet: string,
+  fallbackHouse: string,
+): PenzaDeliveryAddressSuggestion | null {
+  const label = normalizeAddressPart(
+    item.address?.formatted_address ||
+      [getSuggestText(item.subtitle), getSuggestText(item.title)]
+        .filter(Boolean)
+        .join(", ") ||
+      item.display_name,
+  );
+  const street = getGeoSuggestComponent(item, "street") || fallbackStreet;
+  const house = getGeoSuggestComponent(item, "house") || fallbackHouse;
+
+  if (!label || !containsPenza(label) || !street || !house) return null;
+
+  return {
+    label,
+    street,
+    house,
+    coordinates: null,
+  };
+}
+
+async function fetchGeoSuggestPenzaStreetSuggestions(street: string) {
+  const items = await fetchYandexGeoSuggestItems({
+    query: `Пенза, ${street}`,
+    limit: 10,
+  });
+
+  return items
+    .map(mapGeoSuggestStreetSuggestion)
+    .filter((item): item is PenzaDeliveryStreetSuggestion => Boolean(item));
+}
+
+async function fetchGeoSuggestPenzaAddressSuggestions(
+  street: string,
+  house: string,
+) {
+  const items = await fetchYandexGeoSuggestItems({
+    query: `Пенза, ${street}, ${house}`,
+    limit: 8,
+  });
+
+  return items
+    .map(item => mapGeoSuggestAddressSuggestion(item, street, house))
+    .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item));
+}
+
 function dedupeAddressSuggestions(
   suggestions: PenzaDeliveryAddressSuggestion[],
 ) {
@@ -486,6 +639,10 @@ export async function searchPenzaDeliveryAddresses(input: {
   }
 
   try {
+    const geoSuggestSuggestions = await fetchGeoSuggestPenzaAddressSuggestions(
+      street,
+      house,
+    );
     const yandexSuggestions = await fetchYandexPenzaAddressSuggestions(
       street,
       house,
@@ -498,6 +655,9 @@ export async function searchPenzaDeliveryAddresses(input: {
       .filter(item => areStreetNamesClose(street, item.street));
 
     return dedupeAddressSuggestions([
+      ...geoSuggestSuggestions.filter(item =>
+        areStreetNamesClose(street, item.street),
+      ),
       ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
       ...nominatimSuggestions,
     ]);
@@ -516,6 +676,9 @@ export async function searchPenzaDeliveryStreets(input: {
   }
 
   try {
+    const geoSuggestSuggestions = await fetchGeoSuggestPenzaStreetSuggestions(
+      street,
+    );
     const yandexSuggestions = await fetchYandexPenzaStreetSuggestions(street);
     const payload = await fetchPenzaStreetCandidates(street);
 
@@ -525,6 +688,9 @@ export async function searchPenzaDeliveryStreets(input: {
       .filter(item => areStreetNamesClose(street, item.street));
 
     return dedupeStreetSuggestions([
+      ...geoSuggestSuggestions.filter(item =>
+        areStreetNamesClose(street, item.street),
+      ),
       ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
       ...nominatimSuggestions,
     ]);
@@ -542,8 +708,27 @@ export async function validatePenzaDeliveryAddress(input: {
   const query = `${street}, ${house}, Пенза`;
 
   try {
+    const geoSuggestMatches = await fetchGeoSuggestPenzaAddressSuggestions(
+      street,
+      house,
+    );
     const yandexMatches = await fetchYandexPenzaAddressSuggestions(street, house);
     const requestedHouse = normalizeHouseName(house);
+    const geoSuggestMatch = geoSuggestMatches.find(item => {
+      return (
+        areStreetNamesClose(street, item.street) &&
+        normalizeHouseName(item.house) === requestedHouse
+      );
+    });
+
+    if (geoSuggestMatch) {
+      return {
+        ok: true,
+        normalizedAddress: geoSuggestMatch.label,
+        coordinates: geoSuggestMatch.coordinates,
+      };
+    }
+
     const yandexMatch = yandexMatches.find(item => {
       return (
         areStreetNamesClose(street, item.street) &&

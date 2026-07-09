@@ -84,6 +84,7 @@ jobs:
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
             APP_SECRET="${{ secrets.APP_SECRET || 'secret-techaks-2026' }}"
             APP_ENCRYPTION_KEY="${{ secrets.APP_ENCRYPTION_KEY }}"
+            YANDEX_GEOSUGGEST_API_KEY="${{ secrets.YANDEX_GEOSUGGEST_API_KEY }}"
             YANDEX_GEOCODER_API_KEY="${{ secrets.YANDEX_GEOCODER_API_KEY }}"
             YANDEX_MAPS_API_KEY="${{ secrets.YANDEX_MAPS_API_KEY }}"
             

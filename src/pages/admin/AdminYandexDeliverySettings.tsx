@@ -1,6 +1,7 @@
 import {
   Clipboard,
   Loader2,
+  MapPin,
   Save,
   ShieldCheck,
   TestTube2,
@@ -30,6 +31,19 @@ type SettingsPayload = {
     status: string | null;
     at: string | null;
     message: string | null;
+  };
+  geosuggest: {
+    enabled: boolean;
+    apiKeyConfigured: boolean;
+    apiKeyLast4: string;
+    apiKeySetAt: string | null;
+    source: "database" | "env" | "none";
+    lastCheck: {
+      ok: boolean | null;
+      status: string | null;
+      at: string | null;
+      message: string | null;
+    };
   };
   encryptionConfigured: boolean;
 };
@@ -97,6 +111,10 @@ export default function AdminYandexDeliverySettings() {
             data.source || "",
             data.lastCheck?.status || "",
             data.lastCheck?.at || "",
+            data.geosuggest?.enabled ? "1" : "0",
+            data.geosuggest?.apiKeyLast4 || "",
+            data.geosuggest?.lastCheck?.status || "",
+            data.geosuggest?.lastCheck?.at || "",
           ].join(":")}
           data={data}
         />
@@ -118,6 +136,10 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
   const [apiBaseUrl, setApiBaseUrl] = useState(
     data.apiBaseUrl || DEFAULT_API_BASE_URL
   );
+  const [geosuggestEnabled, setGeosuggestEnabled] = useState(
+    data.geosuggest?.enabled ?? false
+  );
+  const [geosuggestApiKey, setGeosuggestApiKey] = useState("");
 
   const saveMutation = trpc.settings.saveYandexDeliverySettings.useMutation({
     onSuccess: async () => {
@@ -132,6 +154,13 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
       void utils.settings.getYandexDeliverySettings.invalidate();
     },
   });
+  const testGeoSuggestMutation =
+    trpc.settings.testYandexGeoSuggestConnection.useMutation({
+      onSuccess: result => {
+        alert(result.message);
+        void utils.settings.getYandexDeliverySettings.invalidate();
+      },
+    });
 
   const copyBaseUrl = async () => {
     await navigator.clipboard.writeText(apiBaseUrl);
@@ -145,6 +174,8 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
       selectedCorpClientId,
       useSelectedCorpClientId,
       apiBaseUrl,
+      geosuggestEnabled,
+      geosuggestApiKey,
     });
   };
 
@@ -237,6 +268,102 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
         </AdminSection>
 
         <AdminSection
+          title="GeoSuggest для адресов"
+          description="Автоподсказки улиц и домов в checkout. Ключ хранится отдельно от OAuth-токена доставки и не отдаётся на frontend."
+        >
+          <div className="space-y-5">
+            <ToggleRow
+              title="Использовать GeoSuggest в оформлении заказа"
+              description="Если включено и ключ задан, поле адреса будет сначала получать подсказки из Яндекс GeoSuggest, а затем fallback-иться на старые источники."
+              checked={geosuggestEnabled}
+              onCheckedChange={setGeosuggestEnabled}
+            />
+
+            <div className="rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-600">
+              Статус ключа:{" "}
+              <span className="font-black text-[#15171A]">
+                {data.geosuggest?.apiKeyConfigured
+                  ? `задан${data.geosuggest.apiKeyLast4 ? `, последние 4: ${data.geosuggest.apiKeyLast4}` : ""}`
+                  : "не задан"}
+              </span>
+              <div className="mt-2 text-xs">
+                Источник:{" "}
+                <span className="font-black text-[#15171A]">
+                  {data.geosuggest?.source === "database"
+                    ? "База данных"
+                    : data.geosuggest?.source === "env"
+                      ? ".env"
+                      : "Не настроено"}
+                </span>
+              </div>
+              {data.geosuggest?.apiKeySetAt ? (
+                <div className="mt-1 text-xs">
+                  Последняя замена:{" "}
+                  {new Date(data.geosuggest.apiKeySetAt).toLocaleString("ru-RU")}
+                </div>
+              ) : null}
+              {data.geosuggest?.lastCheck?.at ? (
+                <div className="mt-2 text-xs">
+                  Последняя проверка GeoSuggest:{" "}
+                  <span
+                    className={
+                      data.geosuggest.lastCheck.ok
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }
+                  >
+                    {data.geosuggest.lastCheck.ok ? "успешно" : "ошибка"}
+                  </span>{" "}
+                  (HTTP {data.geosuggest.lastCheck.status}) —{" "}
+                  {new Date(data.geosuggest.lastCheck.at).toLocaleString("ru-RU")}
+                </div>
+              ) : null}
+              {data.geosuggest?.lastCheck?.message ? (
+                <div className="mt-2 text-xs text-gray-500">
+                  {data.geosuggest.lastCheck.message}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-[#15171A]">
+                Новый API-ключ GeoSuggest
+              </label>
+              <input
+                type="password"
+                value={geosuggestApiKey}
+                onChange={event => setGeosuggestApiKey(event.target.value)}
+                placeholder={
+                  data.geosuggest?.apiKeyConfigured
+                    ? "Оставьте пустым, чтобы сохранить текущий ключ"
+                    : "Вставьте API-ключ Яндекс GeoSuggest"
+                }
+                className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+              />
+              <p className="text-xs leading-5 text-gray-500">
+                Для продакшена лучше хранить ключ здесь или в{" "}
+                <span className="font-mono">YANDEX_GEOSUGGEST_API_KEY</span>.
+                Старые ключи геокодера остаются fallback-источником.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => testGeoSuggestMutation.mutate()}
+              disabled={testGeoSuggestMutation.isPending}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#15171A] ring-1 ring-gray-200 disabled:opacity-50"
+            >
+              {testGeoSuggestMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <MapPin size={16} />
+              )}
+              Проверить GeoSuggest
+            </button>
+          </div>
+        </AdminSection>
+
+        <AdminSection
           title="Базовый URL API"
           description="По умолчанию используется b2b.taxi.yandex.net. Менять нужно только если Яндекс официально переведет интеграцию на другой base URL."
           actions={
@@ -325,9 +452,11 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               </div>
             </div>
 
-            {saveMutation.error || testMutation.error ? (
+            {saveMutation.error || testMutation.error || testGeoSuggestMutation.error ? (
               <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                {saveMutation.error?.message || testMutation.error?.message}
+                {saveMutation.error?.message ||
+                  testMutation.error?.message ||
+                  testGeoSuggestMutation.error?.message}
               </div>
             ) : null}
 
