@@ -365,15 +365,10 @@ export default function CheckoutPage() {
     }
   );
 
-  const hasConfirmedDeliveryAddress =
-    deliveryType === "delivery" &&
-    confirmedSuggestionMatchesCurrentInput &&
-    isDeliveryAddressInputValid;
   const shouldFetchYandexQuote =
     deliveryType === "delivery" &&
     items.length > 0 &&
     isDeliveryAddressInputValid &&
-    confirmedSuggestionMatchesCurrentInput &&
     debouncedDeliveryAddress.trim().length >= 6;
   const canConfirmTypedDeliveryAddress =
     deliveryType === "delivery" &&
@@ -512,7 +507,7 @@ export default function CheckoutPage() {
     );
 
   const hasResolvedDeliveryQuote =
-    hasConfirmedDeliveryAddress &&
+    deliveryType === "delivery" &&
     isDeliveryQuoteCurrent &&
     Boolean(yandexDeliveryQuote?.available) &&
     typeof yandexDeliveryQuote?.price === "number";
@@ -522,10 +517,9 @@ export default function CheckoutPage() {
   const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent + deliveryPrice);
   const canSubmitDeliveryOrder =
     deliveryType !== "delivery" ||
-    (isDeliveryQuoteCurrent &&
-      shouldFetchYandexQuote &&
-      !yandexDeliveryQuoteLoading &&
-      hasResolvedDeliveryQuote);
+    (isDeliveryAddressInputValid &&
+      isDeliveryQuoteCurrent &&
+      !yandexDeliveryQuoteLoading);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -625,11 +619,8 @@ export default function CheckoutPage() {
       toast.error("Пожалуйста, укажите адрес доставки");
       return;
     }
-    if (
-      deliveryType === "delivery" &&
-      !confirmedSuggestionMatchesCurrentInput
-    ) {
-      toast.error("Подтвердите адрес из подсказок перед расчётом и оформлением");
+    if (deliveryType === "delivery" && !isDeliveryAddressInputValid) {
+      toast.error("Укажите улицу и номер дома. Если адрес не найдётся, менеджер уточнит доставку по телефону.");
       return;
     }
     if (deliveryType === "pickup" && !pickupStoreId) {
@@ -1215,7 +1206,7 @@ export default function CheckoutPage() {
                             Нашли адрес: {pendingDeliverySuggestion.label}
                           </div>
                           <div className="mt-1 text-muted-foreground">
-                            Подтвердите адрес, и мы рассчитаем стоимость доставки.
+                            Подтвердите адрес для точного расчёта. Если пропустить подтверждение, менеджер уточнит доставку по телефону.
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button
@@ -1268,7 +1259,7 @@ export default function CheckoutPage() {
                                   {suggestion.label}
                                 </div>
                                 <div className="mt-1 text-xs text-muted-foreground">
-                                  Нажмите, чтобы выбрать и подтвердить этот адрес.
+                                  Нажмите, чтобы выбрать адрес для точного расчёта.
                                 </div>
                               </button>
                             ))}
@@ -1283,7 +1274,7 @@ export default function CheckoutPage() {
                       isDeliveryAddressInputValid &&
                       !confirmedStreetMatchesCurrentInput ? (
                         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                          Сначала выберите улицу из подсказок, чтобы мы смогли точно рассчитать доставку.
+                          Мы не нашли улицу в подсказках. Заказ всё равно можно оформить, менеджер уточнит доставку по телефону.
                         </div>
                       ) : null}
                       {canConfirmTypedDeliveryAddress ? (
@@ -1292,11 +1283,10 @@ export default function CheckoutPage() {
                             Улица подтверждена: {confirmedDeliveryStreet}
                           </div>
                           <div className="mt-1 text-muted-foreground">
-                            Дом не найден в справочнике адресов, но мы можем рассчитать доставку по адресу{" "}
+                            Дом не найден в справочнике адресов. Подтвердите адрес для расчёта или оформите заказ сейчас: менеджер уточнит доставку по телефону. Адрес:{" "}
                             <span className="font-medium text-foreground">
                               {`${deliveryAddressSearchStreet}, ${deliveryAddressSearchHouse}`}
                             </span>
-                            , если вы подтвердите его вручную.
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button
@@ -1321,18 +1311,17 @@ export default function CheckoutPage() {
                       isDeliveryAddressInputValid &&
                       !confirmedSuggestionMatchesCurrentInput ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                          Стоимость доставки появится только после подтверждения адреса.
+                          Заказ можно оформить без подтверждения адреса. Стоимость доставки уточнит менеджер.
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&
-                      confirmedSuggestionMatchesCurrentInput &&
                       normalizedDeliveryAddress.length >= 6 &&
                       !isDeliveryQuoteCurrent ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           Обновляем расчёт доставки для нового адреса...
                         </div>
                       ) : null}
-                      {confirmedSuggestionMatchesCurrentInput &&
+                      {deliveryType === "delivery" &&
                       yandexDeliveryQuoteLoading ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           Рассчитываем доставку...
@@ -1361,13 +1350,12 @@ export default function CheckoutPage() {
                       !hasResolvedDeliveryQuote ? (
                         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                           {yandexDeliveryQuote?.message ||
-                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу. Проверьте написание улицы и номер дома."}
+                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу. Можно оформить заказ, менеджер уточнит стоимость и условия доставки по телефону."}
                         </div>
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
                       deliveryType === "delivery" &&
                       isDeliveryQuoteCurrent &&
-                      confirmedSuggestionMatchesCurrentInput &&
                       yandexDeliveryQuoteError ? (
                         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                           {yandexDeliveryQuoteError.message}
@@ -1583,13 +1571,13 @@ export default function CheckoutPage() {
                   <span className="text-[#22c55e] font-bold">
                     {deliveryType === "pickup"
                       ? "Бесплатно"
-                      : !hasConfirmedDeliveryAddress
-                        ? "Уточняется"
+                      : !isDeliveryAddressInputValid
+                        ? "Уточнит менеджер"
                         : yandexDeliveryQuoteLoading || !isDeliveryQuoteCurrent
                         ? "Расчёт..."
                         : hasResolvedDeliveryQuote
                           ? formatPrice(deliveryPrice)
-                          : "Уточняется"}
+                          : "Уточнит менеджер"}
                   </span>
                 </div>
                 <Separator className="my-6 bg-border/50" />
