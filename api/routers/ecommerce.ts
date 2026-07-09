@@ -2010,39 +2010,26 @@ export const ecommerceRouter = createRouter({
         street: normalizedStreet,
         house: normalizedHouse,
       });
-
-      if (!addressValidation.ok) {
-        return {
-          available: false,
-          price: null,
-          currency: "RUB",
-          etaMinutes: null,
-          etaLabel: null,
-          offerId: null,
-          message: addressValidation.message,
-          raw: null,
-          sourceStore: {
-            id: sourceStore.id,
-            name: sourceStore.name,
-            address: sourceStore.address,
-          },
-          itemSummary: buildCartItemSummary(
-            purchasableItems.map(item => ({
-              name: item.name,
-              quantity: item.quantity,
-            })),
-          ),
-        };
-      }
+      const destinationAddress = addressValidation.ok
+        ? addressValidation.normalizedAddress
+        : normalizedAddress;
+      const destinationCoordinates = addressValidation.ok
+        ? addressValidation.coordinates
+        : null;
 
       const quote = await calculateYandexDeliveryOffers({
         sourceAddress: sourceStore.address,
-        destinationAddress: addressValidation.normalizedAddress || normalizedAddress,
-        destinationCoordinates: addressValidation.coordinates,
+        destinationAddress,
+        destinationCoordinates,
       });
 
       return {
         ...quote,
+        message:
+          quote.available || addressValidation.ok
+            ? quote.message
+            : quote.message ||
+              "Адрес не подтвердился автоматически, но заказ можно оформить. Менеджер уточнит доставку по телефону.",
         sourceStore: {
           id: sourceStore.id,
           name: sourceStore.name,

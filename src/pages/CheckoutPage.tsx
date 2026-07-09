@@ -292,8 +292,7 @@ export default function CheckoutPage() {
     deliveryType === "delivery" &&
     deliveryAddressSearchStreet.length >= 3 &&
     deliveryAddressSearchHouse.length >= 1 &&
-    isDeliveryStreetValid &&
-    confirmedStreetMatchesCurrentInput;
+    isDeliveryStreetValid;
 
   const {
     data: deliveryStreetSuggestions = [],
@@ -1273,8 +1272,8 @@ export default function CheckoutPage() {
                       deliveryAddressSuggestions.length === 0 &&
                       isDeliveryAddressInputValid &&
                       !confirmedStreetMatchesCurrentInput ? (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                          Мы не нашли улицу в подсказках. Заказ всё равно можно оформить, менеджер уточнит доставку по телефону.
+                        <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#05C3D4]/5 px-4 py-3 text-sm text-muted-foreground">
+                          Мы не нашли точную подсказку по этому адресу. Заказ всё равно можно оформить, менеджер уточнит доставку по телефону.
                         </div>
                       ) : null}
                       {canConfirmTypedDeliveryAddress ? (
@@ -1348,7 +1347,7 @@ export default function CheckoutPage() {
                       isDeliveryQuoteCurrent &&
                       shouldFetchYandexQuote &&
                       !hasResolvedDeliveryQuote ? (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           {yandexDeliveryQuote?.message ||
                             "Сейчас не удалось найти подходящий тариф доставки по этому адресу. Можно оформить заказ, менеджер уточнит стоимость и условия доставки по телефону."}
                         </div>
