@@ -47,6 +47,7 @@ type DeliveryAddressSuggestion = {
   house: string;
   coordinates: [number, number] | null;
   type: "street" | "address";
+  source: "geosuggest" | "yandex_geocoder" | "nominatim";
 };
 
 function normalizeWhitespace(value: string) {

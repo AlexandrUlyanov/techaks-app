@@ -17,11 +17,13 @@ export type PenzaDeliveryAddressSuggestion = {
   street: string;
   house: string;
   coordinates: [number, number] | null;
+  source: "geosuggest" | "yandex_geocoder" | "nominatim";
 };
 
 export type PenzaDeliveryStreetSuggestion = {
   label: string;
   street: string;
+  source: "geosuggest" | "yandex_geocoder" | "nominatim";
 };
 
 export type PenzaDeliveryAddressLineSuggestion = {
@@ -31,6 +33,7 @@ export type PenzaDeliveryAddressLineSuggestion = {
   house: string;
   coordinates: [number, number] | null;
   type: "street" | "address";
+  source: "geosuggest" | "yandex_geocoder" | "nominatim";
 };
 
 const PENZA_CITY_TOKENS = ["пенза", "penza"];
@@ -320,6 +323,7 @@ function mapYandexSuggestion(
     street,
     house,
     coordinates: parseYandexCoordinates(item.GeoObject?.Point?.pos),
+    source: "yandex_geocoder",
   };
 }
 
@@ -336,6 +340,7 @@ function mapYandexStreetSuggestion(
   return {
     label: street || name,
     street: street || name,
+    source: "yandex_geocoder",
   };
 }
 
@@ -470,6 +475,7 @@ function mapSuggestion(item: {
     house,
     coordinates:
       lat !== null && lon !== null ? ([lon, lat] as [number, number]) : null,
+    source: "nominatim",
   };
 }
 
@@ -496,6 +502,7 @@ function mapStreetSuggestion(item: {
   return {
     label: street,
     street,
+    source: "nominatim",
   };
 }
 
@@ -616,6 +623,7 @@ function mapGeoSuggestStreetSuggestion(
   return {
     label: street,
     street,
+    source: "geosuggest",
   };
 }
 
@@ -641,6 +649,7 @@ function mapGeoSuggestAddressSuggestion(
     street,
     house,
     coordinates: null,
+    source: "geosuggest",
   };
 }
 
@@ -710,11 +719,23 @@ export async function searchPenzaDeliveryAddresses(input: {
     const geoSuggestSuggestions = await fetchGeoSuggestPenzaAddressSuggestions(
       street,
       house,
+    ).then(items =>
+      items.filter(item => areStreetNamesClose(street, item.street)),
     );
+    if (geoSuggestSuggestions.length > 0) {
+      return dedupeAddressSuggestions(geoSuggestSuggestions);
+    }
+
     const yandexSuggestions = await fetchYandexPenzaAddressSuggestions(
       street,
       house,
+    ).then(items =>
+      items.filter(item => areStreetNamesClose(street, item.street)),
     );
+    if (yandexSuggestions.length > 0) {
+      return dedupeAddressSuggestions(yandexSuggestions);
+    }
+
     const payload = await fetchPenzaAddressCandidates(street, house);
 
     const nominatimSuggestions = payload
@@ -722,13 +743,7 @@ export async function searchPenzaDeliveryAddresses(input: {
       .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item))
       .filter(item => areStreetNamesClose(street, item.street));
 
-    return dedupeAddressSuggestions([
-      ...geoSuggestSuggestions.filter(item =>
-        areStreetNamesClose(street, item.street),
-      ),
-      ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
-      ...nominatimSuggestions,
-    ]);
+    return dedupeAddressSuggestions(nominatimSuggestions);
   } catch {
     return [];
   }
@@ -746,8 +761,22 @@ export async function searchPenzaDeliveryStreets(input: {
   try {
     const geoSuggestSuggestions = await fetchGeoSuggestPenzaStreetSuggestions(
       street,
+    ).then(items =>
+      items.filter(item =>
+        areStreetNamesClose(street, item.street),
+      ),
     );
-    const yandexSuggestions = await fetchYandexPenzaStreetSuggestions(street);
+    if (geoSuggestSuggestions.length > 0) {
+      return dedupeStreetSuggestions(geoSuggestSuggestions);
+    }
+
+    const yandexSuggestions = await fetchYandexPenzaStreetSuggestions(street).then(
+      items => items.filter(item => areStreetNamesClose(street, item.street)),
+    );
+    if (yandexSuggestions.length > 0) {
+      return dedupeStreetSuggestions(yandexSuggestions);
+    }
+
     const payload = await fetchPenzaStreetCandidates(street);
 
     const nominatimSuggestions = payload
@@ -755,13 +784,7 @@ export async function searchPenzaDeliveryStreets(input: {
       .filter((item): item is PenzaDeliveryStreetSuggestion => Boolean(item))
       .filter(item => areStreetNamesClose(street, item.street));
 
-    return dedupeStreetSuggestions([
-      ...geoSuggestSuggestions.filter(item =>
-        areStreetNamesClose(street, item.street),
-      ),
-      ...yandexSuggestions.filter(item => areStreetNamesClose(street, item.street)),
-      ...nominatimSuggestions,
-    ]);
+    return dedupeStreetSuggestions(nominatimSuggestions);
   } catch {
     return [];
   }
@@ -790,6 +813,7 @@ export async function searchPenzaDeliveryAddressLine(input: {
         house: item.house,
         coordinates: item.coordinates,
         type: "address" as const,
+        source: item.source,
       })),
     );
   }
@@ -807,6 +831,7 @@ export async function searchPenzaDeliveryAddressLine(input: {
         house: parsed.house,
         coordinates: null,
         type: parsed.house ? ("address" as const) : ("street" as const),
+        source: item.source,
       })),
     );
   }
