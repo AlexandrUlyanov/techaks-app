@@ -98,6 +98,18 @@ function buildCheckoutDeliveryAddress(params: {
   return apartment ? `${addressLine}, кв./офис ${apartment}` : addressLine;
 }
 
+function formatDeliverySourceStore(store: CheckoutPickupStore) {
+  const name = normalizeWhitespace(store.storeName || "Техакс");
+  const address = normalizeWhitespace(store.storeAddress || "");
+
+  if (!address) return name;
+  if (address.toLocaleLowerCase("ru").includes(name.toLocaleLowerCase("ru"))) {
+    return address;
+  }
+
+  return `${name}: ${address}`;
+}
+
 export default function CheckoutPage() {
   useSeo({
     title: "Оформление заказа — ТЕХАКС",
@@ -961,7 +973,7 @@ export default function CheckoutPage() {
                             setConfirmedDeliverySuggestion(null);
                             setDeliveryAddressActiveIndex(-1);
                           }}
-                          placeholder="Начните вводить адрес: улица и дом"
+                          placeholder="Введите адрес одной строкой: улица и дом"
                           autoComplete="street-address"
                           className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                         />
@@ -1028,7 +1040,7 @@ export default function CheckoutPage() {
                         <div className="text-xs text-muted-foreground">
                           Доставка будет собрана из магазина:{" "}
                           <span className="font-medium text-foreground">
-                            {deliverySourceStore.storeName}
+                            {formatDeliverySourceStore(deliverySourceStore)}
                           </span>
                         </div>
                       ) : null}
