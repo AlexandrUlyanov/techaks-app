@@ -789,7 +789,26 @@ export const settingsRouter = createRouter({
 
   getYandexDeliverySettings: protectedProcedure.query(async ({ ctx }) => {
     requireAbility(ctx, "configure", "Settings");
-    return getYandexDeliveryAdminSettings();
+    const db = getDb();
+    const settings = await getYandexDeliveryAdminSettings();
+    const stores = await db
+      .select({
+        id: schema.stores.id,
+        name: schema.stores.name,
+        address: schema.stores.address,
+        sortOrder: schema.stores.sortOrder,
+      })
+      .from(schema.stores)
+      .orderBy(asc(schema.stores.sortOrder), asc(schema.stores.id));
+
+    return {
+      ...settings,
+      stores: stores.map(store => ({
+        id: store.id,
+        name: store.name,
+        address: store.address,
+      })),
+    };
   }),
 
   saveLoyaltySettings: protectedProcedure

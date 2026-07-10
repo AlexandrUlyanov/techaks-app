@@ -163,11 +163,17 @@ function readNumericCandidate(value: unknown): number | null {
       readNumericCandidate(record.amount) ??
       readNumericCandidate(record.value) ??
       readNumericCandidate(record.price) ??
+      readNumericCandidate(record.price_with_vat) ??
       readNumericCandidate(record.total_price) ??
       readNumericCandidate(record.total_price_with_vat) ??
       readNumericCandidate(record.base_price) ??
       readNumericCandidate(record.final_price) ??
-      readNumericCandidate(record.cost)
+      readNumericCandidate(record.cost) ??
+      readNumericCandidate(record.total) ??
+      readNumericCandidate(record.sum) ??
+      readNumericCandidate(record.pricing) ??
+      readNumericCandidate(record.billing) ??
+      readNumericCandidate(record.billing_details)
     );
   }
   return null;
@@ -232,7 +238,11 @@ function normalizeDeliveryOfferQuote(
     readNumericCandidate(firstOffer.price) ??
     readNumericCandidate(firstOffer.cost) ??
     readNumericCandidate(firstOffer.total_price) ??
-    readNumericCandidate(firstOffer.final_price);
+    readNumericCandidate(firstOffer.final_price) ??
+    readNumericCandidate(firstOffer.price_with_vat) ??
+    readNumericCandidate(firstOffer.pricing) ??
+    readNumericCandidate(firstOffer.billing) ??
+    readNumericCandidate(firstOffer.billing_details);
   const currency =
     readStringCandidate((firstOffer.price as any)?.currency) ??
     readStringCandidate((firstOffer.cost as any)?.currency) ??
@@ -541,45 +551,55 @@ export async function calculateYandexDeliveryOffers(params: {
 
   const sourceCandidates = buildYandexRouteFullnameCandidates(sourceAddress);
   const destinationCandidates = buildYandexRouteFullnameCandidates(destinationAddress);
-  const normalizedSourceAddress =
-    sourceCandidates[0] ?? normalizeYandexRouteFullname(sourceAddress);
+  const limitedSourceCandidates = (
+    sourceCandidates.length > 0
+      ? sourceCandidates
+      : [normalizeYandexRouteFullname(sourceAddress)]
+  ).slice(0, 4);
+  const limitedDestinationCandidates = (
+    destinationCandidates.length > 0
+      ? destinationCandidates
+      : [normalizeYandexRouteFullname(destinationAddress)]
+  ).slice(0, 4);
 
   let bestUnavailableQuote: YandexDeliveryQuote | null = null;
   let lastError: unknown = null;
 
-  for (const destinationCandidate of destinationCandidates) {
-    try {
-      const result = await yandexDeliveryRequest<DeliveryOfferPayload>(
-        "/b2b/cargo/integration/v2/offers/calculate",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            route_points: [
-              buildOfferRoutePoint(1, normalizedSourceAddress),
-              buildOfferRoutePoint(
-                2,
-                destinationCandidate,
-                params.destinationCoordinates ?? undefined,
-              ),
-            ],
-            items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
-            requirements: {
-              taxi_classes: ["express"],
-            },
-          }),
-        },
-      );
+  for (const sourceCandidate of limitedSourceCandidates) {
+    for (const destinationCandidate of limitedDestinationCandidates) {
+      try {
+        const result = await yandexDeliveryRequest<DeliveryOfferPayload>(
+          "/b2b/cargo/integration/v2/offers/calculate",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              route_points: [
+                buildOfferRoutePoint(1, sourceCandidate),
+                buildOfferRoutePoint(
+                  2,
+                  destinationCandidate,
+                  params.destinationCoordinates ?? undefined,
+                ),
+              ],
+              items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
+              requirements: {
+                taxi_classes: ["express"],
+              },
+            }),
+          },
+        );
 
-      const normalizedQuote = normalizeDeliveryOfferQuote(result.payload);
-      if (normalizedQuote.available && normalizedQuote.price !== null) {
-        return normalizedQuote;
-      }
+        const normalizedQuote = normalizeDeliveryOfferQuote(result.payload);
+        if (normalizedQuote.available && normalizedQuote.price !== null) {
+          return normalizedQuote;
+        }
 
-      if (!bestUnavailableQuote) {
-        bestUnavailableQuote = normalizedQuote;
+        if (!bestUnavailableQuote) {
+          bestUnavailableQuote = normalizedQuote;
+        }
+      } catch (error) {
+        lastError = error;
       }
-    } catch (error) {
-      lastError = error;
     }
   }
 

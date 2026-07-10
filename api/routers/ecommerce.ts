@@ -57,12 +57,9 @@ import {
   mapYandexDeliveryStatusToLocal,
 } from "../lib/yandex-delivery-client";
 import {
-  parsePenzaDeliveryAddressLine,
   searchPenzaDeliveryAddressLine,
-  searchPenzaDeliveryAddresses,
-  searchPenzaDeliveryStreets,
-  validatePenzaDeliveryAddress,
 } from "../lib/delivery-address-geocode";
+import { getYandexDeliveryRuntimeSettings } from "../lib/yandex-delivery-settings";
 import {
   assertYandexDeliverySchemaReady,
   createYandexDeliveryOrderForOrder,
@@ -87,35 +84,6 @@ const PLACEHOLDER_EMAIL_DOMAIN = "@placeholder.techaks.ru";
 
 function normalizeDeliveryAddressPart(value: string | null | undefined) {
   return (value || "").trim().replace(/\s+/g, " ");
-}
-
-function isLikelyValidDeliveryStreetInput(value: string) {
-  const street = normalizeDeliveryAddressPart(value);
-  if (street.length < 4 || street.length > 80) return false;
-  if (!/[A-Za-zА-Яа-яЁё]/.test(street)) return false;
-  if (/^\d+$/.test(street)) return false;
-  return true;
-}
-
-function isLikelyValidDeliveryHouseInput(value: string) {
-  const house = normalizeDeliveryAddressPart(value);
-  if (!house) return false;
-  return /^\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?$/i.test(
-    house,
-  );
-}
-
-function buildStructuredDeliveryAddress(params: {
-  street: string;
-  house: string;
-  apartment?: string | null;
-}) {
-  const street = normalizeDeliveryAddressPart(params.street);
-  const house = normalizeDeliveryAddressPart(params.house);
-  const apartment = normalizeDeliveryAddressPart(params.apartment ?? "");
-  const base = [street, house].filter(Boolean).join(", ");
-  if (!base) return "";
-  return apartment ? `${base}, кв./офис ${apartment}` : base;
 }
 
 function normalizeCheckoutAddressLine(value: string | null | undefined) {
@@ -927,9 +895,14 @@ async function resolveCheckoutFulfillmentStore(
   },
 ) {
   const availableStores = await getCheckoutPickupStoresForItems(db, input.items);
-  const preferred =
+  const deliverySettings = await getYandexDeliveryRuntimeSettings();
+  const preferredStoreId =
     typeof input.preferredStoreId === "number"
-      ? availableStores.find(store => store.storeId === input.preferredStoreId)
+      ? input.preferredStoreId
+      : deliverySettings.defaultSourceStoreId;
+  const preferred =
+    typeof preferredStoreId === "number"
+      ? availableStores.find(store => store.storeId === preferredStoreId)
       : null;
   const selected = preferred ?? availableStores[0] ?? null;
 
@@ -1964,67 +1937,52 @@ export const ecommerceRouter = createRouter({
           })
         ),
         addressLine: z.string().trim().optional().nullable(),
-        street: z.string().trim().optional().nullable(),
-        house: z.string().trim().optional().nullable(),
-        apartment: z.string().trim().max(120).optional().nullable(),
-        storeId: z.number().int().positive().optional().nullable(),
+        destinationCoordinates: z
+          .tuple([z.number(), z.number()])
+          .optional()
+          .nullable(),
+        confirmedByGeoSuggest: z.boolean().optional().default(false),
       })
     )
     .query(async ({ input }) => {
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
-      const parsedLine = parsePenzaDeliveryAddressLine(input.addressLine ?? "");
-      const normalizedStreet = normalizeDeliveryAddressPart(
-        input.street || parsedLine.street,
-      );
-      const normalizedHouse = normalizeDeliveryAddressPart(
-        input.house || parsedLine.house,
-      );
-      const normalizedApartment = normalizeDeliveryAddressPart(
-        input.apartment ?? "",
-      );
-
-      if (!isLikelyValidDeliveryStreetInput(normalizedStreet)) {
-        return {
-          available: false,
-          price: null,
-          currency: "RUB",
-          etaMinutes: null,
-          etaLabel: null,
-          offerId: null,
-          message:
-            "Укажите улицу в корректном формате, например: Суворова или улица Клары Цеткин.",
-          raw: null,
-          sourceStore: null,
-          itemSummary: null,
-        };
-      }
-
-      if (!isLikelyValidDeliveryHouseInput(normalizedHouse)) {
-        return {
-          available: false,
-          price: null,
-          currency: "RUB",
-          etaMinutes: null,
-          etaLabel: null,
-          offerId: null,
-          message:
-            "Укажите корректный номер дома, например: 192, 14А или 7/1.",
-          raw: null,
-          sourceStore: null,
-          itemSummary: null,
-        };
-      }
-
-      const normalizedAddress = buildStructuredDeliveryAddress({
-        street: normalizedStreet,
-        house: normalizedHouse,
-        apartment: normalizedApartment || null,
-      });
       const normalizedAddressLine = normalizeCheckoutAddressLine(
-        input.addressLine || normalizedAddress,
+        input.addressLine ?? "",
       );
+
+      if (normalizedAddressLine.length < 6) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message: "Введите адрес доставки одной строкой и выберите подсказку.",
+          raw: null,
+          sourceStore: null,
+          itemSummary: null,
+        };
+      }
+
+      if (!input.confirmedByGeoSuggest) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message:
+            "Выберите адрес из подсказки GeoSuggest, чтобы рассчитать доставку.",
+          raw: null,
+          sourceStore: null,
+          itemSummary: null,
+        };
+      }
+
       const { purchasableItems } = await resolvePurchasableCartItems(
         db,
         input.items.map(item => ({
@@ -2042,7 +2000,7 @@ export const ecommerceRouter = createRouter({
       }
 
       const sourceStore = await resolveCheckoutFulfillmentStore(db, {
-        preferredStoreId: input.storeId ?? null,
+        preferredStoreId: null,
         items: purchasableItems.map(item => ({
           productId: item.productId,
           variantId: item.variantId ?? null,
@@ -2050,30 +2008,21 @@ export const ecommerceRouter = createRouter({
         })),
       });
 
-      const addressValidation = await validatePenzaDeliveryAddress({
-        street: normalizedStreet,
-        house: normalizedHouse,
-      });
-      const destinationAddress = addressValidation.ok
-        ? addressValidation.normalizedAddress
-        : normalizedAddressLine;
-      const destinationCoordinates = addressValidation.ok
-        ? addressValidation.coordinates
-        : null;
+      const destinationCoordinates =
+        input.destinationCoordinates &&
+        input.destinationCoordinates.every(value => Number.isFinite(value))
+          ? input.destinationCoordinates
+          : null;
 
       const quote = await calculateYandexDeliveryOffers({
         sourceAddress: sourceStore.address,
-        destinationAddress,
+        destinationAddress: normalizedAddressLine,
         destinationCoordinates,
       });
 
       return {
         ...quote,
-        message:
-          quote.available || addressValidation.ok
-            ? quote.message
-            : quote.message ||
-              "Адрес не подтвердился автоматически, но заказ можно оформить. Менеджер уточнит доставку по телефону.",
+        message: quote.message,
         sourceStore: {
           id: sourceStore.id,
           name: sourceStore.name,
@@ -2086,49 +2035,6 @@ export const ecommerceRouter = createRouter({
           }))
         ),
       };
-    }),
-
-  searchPenzaDeliveryAddresses: publicQuery
-    .input(
-      z.object({
-        street: z.string().trim().min(1),
-        house: z.string().trim().min(1),
-      })
-    )
-    .query(async ({ input }) => {
-      const street = normalizeDeliveryAddressPart(input.street);
-      const house = normalizeDeliveryAddressPart(input.house);
-
-      if (
-        !isLikelyValidDeliveryStreetInput(street) ||
-        normalizeDeliveryAddressPart(street).length < 3 ||
-        normalizeDeliveryAddressPart(house).length < 1
-      ) {
-        return [];
-      }
-
-      return await searchPenzaDeliveryAddresses({
-        street,
-        house,
-      });
-    }),
-
-  searchPenzaDeliveryStreets: publicQuery
-    .input(
-      z.object({
-        street: z.string().trim().min(1),
-      })
-    )
-    .query(async ({ input }) => {
-      const street = normalizeDeliveryAddressPart(input.street);
-
-      if (street.length < 2 || !/[A-Za-zА-Яа-яЁё]/.test(street) || /^\d+$/.test(street)) {
-        return [];
-      }
-
-      return await searchPenzaDeliveryStreets({
-        street,
-      });
     }),
 
   searchPenzaDeliveryAddressLine: publicQuery

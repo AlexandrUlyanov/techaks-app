@@ -43,57 +43,22 @@ type CheckoutPickupStore = {
 type DeliveryAddressSuggestion = {
   label: string;
   addressLine: string;
-  street: string;
-  house: string;
   coordinates: [number, number] | null;
   type: "street" | "address";
-  source: "geosuggest" | "yandex_geocoder" | "nominatim";
+  source: "geosuggest";
 };
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function parseDeliveryAddressLine(value: string) {
-  const addressLine = normalizeWhitespace(value)
-    .replace(/^пенза\s*,?\s*/i, "")
-    .replace(/^г\.?\s*пенза\s*,?\s*/i, "");
-
-  if (!addressLine) return { street: "", house: "" };
-
-  const commaParts = addressLine
-    .split(",")
-    .map(part => normalizeWhitespace(part))
-    .filter(Boolean);
-
-  if (commaParts.length >= 2) {
-    return {
-      street: commaParts[0] ?? "",
-      house: commaParts[1] ?? "",
-    };
-  }
-
-  const match = addressLine.match(
-    /^(.*?)(?:\s+)(\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?)$/i,
-  );
-
-  if (!match) {
-    return { street: addressLine, house: "" };
-  }
-
-  return {
-    street: normalizeWhitespace(match[1] ?? ""),
-    house: normalizeWhitespace(match[2] ?? ""),
-  };
-}
-
 function buildCheckoutDeliveryAddress(addressLine: string) {
   return normalizeWhitespace(addressLine);
 }
 
-function formatDeliverySourceStore(store: CheckoutPickupStore) {
-  const name = normalizeWhitespace(store.storeName || "Техакс");
-  const address = normalizeWhitespace(store.storeAddress || "");
+function formatStoreSourceLine(store: { name?: string | null; storeName?: string | null; address?: string | null; storeAddress?: string | null }) {
+  const name = normalizeWhitespace(store.name || store.storeName || "Техакс");
+  const address = normalizeWhitespace(store.address || store.storeAddress || "");
 
   if (!address) return name;
   if (address.toLocaleLowerCase("ru").includes(name.toLocaleLowerCase("ru"))) {
@@ -209,9 +174,6 @@ export default function CheckoutPage() {
     deliveryAddressLine,
   );
   const deliveryAddressSearchLine = normalizeWhitespace(deliveryAddressLine);
-  const parsedDeliveryAddressLine = parseDeliveryAddressLine(
-    deliveryAddressSearchLine,
-  );
   const hasStartedDeliveryAddress =
     deliveryAddressSearchLine.length > 0;
   const isDeliveryAddressInputValid =
@@ -221,6 +183,21 @@ export default function CheckoutPage() {
     confirmedDeliverySuggestion !== null &&
     normalizeWhitespace(confirmedDeliverySuggestion.addressLine).toLocaleLowerCase("ru") ===
       deliveryAddressSearchLine.toLocaleLowerCase("ru");
+  const confirmedDeliveryAddressLine =
+    confirmedSuggestionMatchesCurrentInput && confirmedDeliverySuggestion
+      ? normalizeWhitespace(
+          confirmedDeliverySuggestion.addressLine ||
+            confirmedDeliverySuggestion.label,
+        )
+      : null;
+  const confirmedDeliveryCoordinates =
+    confirmedSuggestionMatchesCurrentInput && confirmedDeliverySuggestion
+      ? confirmedDeliverySuggestion.coordinates
+      : null;
+  const confirmedByGeoSuggest =
+    confirmedSuggestionMatchesCurrentInput &&
+    confirmedDeliverySuggestion?.source === "geosuggest" &&
+    confirmedDeliverySuggestion.type === "address";
   const canSearchDeliveryAddressSuggestions =
     deliveryType === "delivery" &&
     deliveryAddressSearchLine.length >= 2 &&
@@ -233,14 +210,9 @@ export default function CheckoutPage() {
     deliveryType === "delivery" &&
     items.length > 0 &&
     isDeliveryAddressInputValid &&
-    Boolean(parsedDeliveryAddressLine.street) &&
-    Boolean(parsedDeliveryAddressLine.house) &&
+    confirmedByGeoSuggest &&
+    Boolean(confirmedDeliveryAddressLine) &&
     debouncedDeliveryAddress.trim().length >= 6;
-  const deliverySourceStore =
-    typedPickupStores.find(store => store.storeId === pickupStoreId) ??
-    typedPickupStores[0] ??
-    null;
-  const deliverySourceStoreId = deliverySourceStore?.storeId ?? null;
 
   useEffect(() => {
     if (deliveryType !== "delivery") {
@@ -283,7 +255,7 @@ export default function CheckoutPage() {
     );
     setDeliveryAddressLine(nextAddressLine);
     setConfirmedDeliverySuggestion(
-      suggestion.type === "address" && suggestion.house
+      suggestion.type === "address"
         ? { ...suggestion, addressLine: nextAddressLine }
         : null,
     );
@@ -382,10 +354,9 @@ export default function CheckoutPage() {
           variantId: item.variantId ?? null,
           quantity: item.quantity,
         })),
-        addressLine: deliveryAddressSearchLine,
-        street: parsedDeliveryAddressLine.street || null,
-        house: parsedDeliveryAddressLine.house || null,
-        storeId: deliverySourceStoreId,
+        addressLine: confirmedDeliveryAddressLine || "",
+        destinationCoordinates: confirmedDeliveryCoordinates,
+        confirmedByGeoSuggest: true,
       },
       {
         enabled: shouldFetchYandexQuote,
@@ -534,8 +505,7 @@ export default function CheckoutPage() {
         price: i.price,
       })),
       deliveryType,
-      storeId:
-        deliveryType === "pickup" ? pickupStoreId : deliverySourceStoreId,
+      storeId: deliveryType === "pickup" ? pickupStoreId : null,
       address:
         deliveryType === "delivery"
           ? normalizedAddress
@@ -1013,11 +983,12 @@ export default function CheckoutPage() {
                           </div>
                         ) : null}
                       </div>
-                      {deliverySourceStore ? (
+                      {hasResolvedDeliveryQuote &&
+                      yandexDeliveryQuote?.sourceStore ? (
                         <div className="text-xs text-muted-foreground">
                           Доставка будет собрана из магазина:{" "}
                           <span className="font-medium text-foreground">
-                            {formatDeliverySourceStore(deliverySourceStore)}
+                            {formatStoreSourceLine(yandexDeliveryQuote.sourceStore)}
                           </span>
                         </div>
                       ) : null}

@@ -21,6 +21,7 @@ type SettingsPayload = {
   enabled: boolean;
   selectedCorpClientId: string;
   useSelectedCorpClientId: boolean;
+  defaultSourceStoreId: number | null;
   apiBaseUrl: string;
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
@@ -46,6 +47,12 @@ type SettingsPayload = {
     };
   };
   encryptionConfigured: boolean;
+  stores?: Array<{
+    id: number;
+    name: string;
+    address: string | null;
+    sortOrder?: number | null;
+  }>;
 };
 
 export default function AdminYandexDeliverySettings() {
@@ -115,6 +122,7 @@ export default function AdminYandexDeliverySettings() {
             data.geosuggest?.apiKeyLast4 || "",
             data.geosuggest?.lastCheck?.status || "",
             data.geosuggest?.lastCheck?.at || "",
+            String(data.defaultSourceStoreId ?? ""),
           ].join(":")}
           data={data}
         />
@@ -132,6 +140,9 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
   );
   const [useSelectedCorpClientId, setUseSelectedCorpClientId] = useState(
     data.useSelectedCorpClientId
+  );
+  const [defaultSourceStoreId, setDefaultSourceStoreId] = useState(
+    data.defaultSourceStoreId ? String(data.defaultSourceStoreId) : ""
   );
   const [apiBaseUrl, setApiBaseUrl] = useState(
     data.apiBaseUrl || DEFAULT_API_BASE_URL
@@ -173,11 +184,19 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
       accessToken,
       selectedCorpClientId,
       useSelectedCorpClientId,
+      defaultSourceStoreId: defaultSourceStoreId
+        ? Number(defaultSourceStoreId)
+        : null,
       apiBaseUrl,
       geosuggestEnabled,
       geosuggestApiKey,
     });
   };
+
+  const stores = data.stores ?? [];
+  const selectedDefaultSourceStore = stores.find(
+    store => String(store.id) === defaultSourceStoreId,
+  );
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -219,6 +238,30 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               checked={useSelectedCorpClientId}
               onCheckedChange={setUseSelectedCorpClientId}
             />
+          </div>
+
+          <div className="mt-5 space-y-2">
+            <label className="text-sm font-bold text-[#15171A]">
+              Магазин отправления по умолчанию
+            </label>
+            <select
+              value={defaultSourceStoreId}
+              onChange={event => setDefaultSourceStoreId(event.target.value)}
+              className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[#05C3D4]"
+            >
+              <option value="">Автоматически по остаткам</option>
+              {stores.map(store => (
+                <option key={store.id} value={store.id}>
+                  {store.name}
+                  {store.address ? ` — ${store.address}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs leading-5 text-gray-500">
+              От этого магазина считается доставка и вызывается курьер. Если
+              заказ нельзя собрать там по остаткам, система возьмёт доступный
+              магазин, где есть все товары.
+            </p>
           </div>
         </AdminSection>
 
@@ -274,7 +317,7 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
           <div className="space-y-5">
             <ToggleRow
               title="Использовать GeoSuggest в оформлении заказа"
-              description="Если включено и ключ задан, поле адреса будет сначала получать подсказки из Яндекс GeoSuggest, а затем fallback-иться на старые источники."
+              description="Если включено и ключ задан, checkout использует только Яндекс GeoSuggest: без старых геокодеров и локальных fallback-подсказок."
               checked={geosuggestEnabled}
               onCheckedChange={setGeosuggestEnabled}
             />
@@ -348,7 +391,7 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               <p className="text-xs leading-5 text-gray-500">
                 Для продакшена лучше хранить ключ здесь или в{" "}
                 <span className="font-mono">YANDEX_GEOSUGGEST_API_KEY</span>.
-                Старые ключи геокодера остаются fallback-источником.
+                Старые геокодеры в checkout не используются.
               </p>
             </div>
 
@@ -421,6 +464,14 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
                 Базовый URL:{" "}
                 <span className="font-black text-[#15171A]">
                   {data.apiBaseUrl || DEFAULT_API_BASE_URL}
+                </span>
+              </div>
+              <div className="mt-1 text-xs">
+                Магазин отправления:{" "}
+                <span className="font-black text-[#15171A]">
+                  {selectedDefaultSourceStore
+                    ? `${selectedDefaultSourceStore.name}${selectedDefaultSourceStore.address ? `: ${selectedDefaultSourceStore.address}` : ""}`
+                    : "Автоматически по остаткам"}
                 </span>
               </div>
               {data.lastCheck?.at ? (

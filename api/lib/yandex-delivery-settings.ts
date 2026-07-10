@@ -16,6 +16,7 @@ const SETTING_KEYS = [
   "yandex_delivery_selected_corp_client_id",
   "yandex_delivery_use_selected_corp_client_id",
   "yandex_delivery_api_base_url",
+  "yandex_delivery_default_source_store_id",
   "yandex_delivery_last_check_ok",
   "yandex_delivery_last_check_status",
   "yandex_delivery_last_check_at",
@@ -36,6 +37,7 @@ export const yandexDeliverySettingsInputSchema = z.object({
   selectedCorpClientId: z.string().trim().max(255).default(""),
   useSelectedCorpClientId: z.boolean().default(false),
   apiBaseUrl: z.string().trim().url().default(DEFAULT_API_BASE_URL),
+  defaultSourceStoreId: z.number().int().positive().nullable().optional().default(null),
   geosuggestEnabled: z.boolean().default(false),
   geosuggestApiKey: z.string().trim().max(1024).optional().default(""),
 });
@@ -66,6 +68,11 @@ function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value === "true") return true;
   if (value === "false") return false;
   return fallback;
+}
+
+function parsePositiveInteger(value: string | null | undefined) {
+  const parsed = Number.parseInt((value || "").trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function tail4(value: string) {
@@ -125,6 +132,7 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
   selectedCorpClientId: string;
   useSelectedCorpClientId: boolean;
   apiBaseUrl: string;
+  defaultSourceStoreId: number | null;
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
   accessTokenSetAt: string | null;
@@ -162,6 +170,9 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
     false
   );
   const dbApiBaseUrl = buildBaseUrl(settings.yandex_delivery_api_base_url);
+  const dbDefaultSourceStoreId = parsePositiveInteger(
+    settings.yandex_delivery_default_source_store_id
+  );
   const hasDatabaseSettings = Boolean(dbEncryptedToken || dbCorpClientId);
   const hasEnvSettings = Boolean(
     env.yandexDeliveryAccessToken.trim() ||
@@ -188,6 +199,7 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
         ? dbUseCorpClientId
         : Boolean(env.yandexDeliverySelectedCorpClientId.trim()),
     apiBaseUrl: dbApiBaseUrl || buildBaseUrl(env.yandexDeliveryApiBaseUrl),
+    defaultSourceStoreId: dbDefaultSourceStoreId,
     accessTokenConfigured: Boolean(
       dbEncryptedToken || env.yandexDeliveryAccessToken.trim()
     ),
@@ -258,6 +270,7 @@ export async function saveYandexDeliveryAdminSettings(
     "selectedCorpClientId",
     "useSelectedCorpClientId",
     "apiBaseUrl",
+    "defaultSourceStoreId",
     "geosuggestEnabled",
   ];
 
@@ -284,6 +297,10 @@ export async function saveYandexDeliveryAdminSettings(
   await setAppSetting(
     "yandex_delivery_api_base_url",
     buildBaseUrl(normalized.apiBaseUrl)
+  );
+  await setAppSetting(
+    "yandex_delivery_default_source_store_id",
+    normalized.defaultSourceStoreId ? String(normalized.defaultSourceStoreId) : ""
   );
   await setAppSetting(
     "yandex_geosuggest_enabled",
@@ -324,6 +341,7 @@ export async function saveYandexDeliveryAdminSettings(
     hasCorpClientId: Boolean(normalized.selectedCorpClientId),
     useSelectedCorpClientId: normalized.useSelectedCorpClientId,
     apiBaseUrl: buildBaseUrl(normalized.apiBaseUrl),
+    defaultSourceStoreId: normalized.defaultSourceStoreId ?? null,
     geosuggestEnabled: nextGeoSuggestEnabled,
     geosuggestApiKeyUpdated: Boolean(geosuggestApiKey),
   });
@@ -343,6 +361,9 @@ export async function getYandexDeliveryRuntimeSettings() {
     false
   );
   const dbApiBaseUrl = buildBaseUrl(settings.yandex_delivery_api_base_url);
+  const defaultSourceStoreId = parsePositiveInteger(
+    settings.yandex_delivery_default_source_store_id
+  );
 
   const token = dbToken || env.yandexDeliveryAccessToken.trim();
   const selectedCorpClientId =
@@ -364,6 +385,7 @@ export async function getYandexDeliveryRuntimeSettings() {
     selectedCorpClientId,
     useSelectedCorpClientId,
     apiBaseUrl,
+    defaultSourceStoreId,
     source,
     isConfigured: Boolean(enabled && token),
   };

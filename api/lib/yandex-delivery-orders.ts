@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { TRPCError } from "@trpc/server";
-import { asc, eq, isNotNull, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "../queries/connection";
 import { orderHistory, orderItems, orders, products, stores } from "@db/schema";
@@ -12,6 +12,7 @@ import {
 } from "./yandex-delivery-client";
 import { getAppSetting, setAppSetting } from "./app-settings";
 import { getOrderDbCapabilities } from "./order-compat";
+import { getYandexDeliveryRuntimeSettings } from "./yandex-delivery-settings";
 
 const YANDEX_DELIVERY_SYNC_LOCK_KEY = "yandex_delivery_sync_worker_lock";
 const YANDEX_DELIVERY_SYNC_LOCK_TTL_MS = 4 * 60_000;
@@ -188,8 +189,13 @@ export async function resolveDeliveryStore(
   db: ReturnType<typeof getDb>,
   order: { storeId?: number | null },
 ) {
-  const byId =
+  const deliverySettings = await getYandexDeliveryRuntimeSettings();
+  const preferredStoreId =
     typeof order.storeId === "number" && Number.isFinite(order.storeId)
+      ? order.storeId
+      : deliverySettings.defaultSourceStoreId;
+  const byId =
+    typeof preferredStoreId === "number" && Number.isFinite(preferredStoreId)
       ? await db
           .select({
             id: stores.id,
@@ -197,7 +203,7 @@ export async function resolveDeliveryStore(
             address: stores.address,
           })
           .from(stores)
-          .where(eq(stores.id, order.storeId))
+          .where(eq(stores.id, preferredStoreId))
           .limit(1)
       : [];
 
