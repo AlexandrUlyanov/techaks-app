@@ -212,6 +212,27 @@ type MetadataLoadResult = {
 };
 
 const ORDER_METADATA_CACHE_TTL_MS = 10 * 60_000;
+const PREFERRED_ORDER_ORGANIZATION_NAME_RE = /\bасташкина\b/;
+const PREFERRED_ORDER_ORGANIZATION_INITIALS_RE = /\bт\s*а\b/;
+
+function normalizeMoyskladName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^a-zа-я0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getOrderOrganizationPreferenceScore(name: string) {
+  const normalized = normalizeMoyskladName(name);
+  if (!PREFERRED_ORDER_ORGANIZATION_NAME_RE.test(normalized)) return 0;
+  if (normalized.includes("татьяна") && normalized.includes("алексеевна")) return 100;
+  if (PREFERRED_ORDER_ORGANIZATION_INITIALS_RE.test(normalized)) return 90;
+  if (normalized.includes("татьяна")) return 80;
+  return 50;
+}
 
 function parseBoolean(value: string | null | undefined, fallback: boolean) {
   if (value == null) return fallback;
@@ -391,6 +412,19 @@ export async function getMoyskladOrderSyncSettings(): Promise<OrderSyncSettings>
   };
 }
 
+async function applyDefaultMoyskladOrderOrganization(
+  settings: OrderSyncSettings
+): Promise<OrderSyncSettings> {
+  if (settings.organizationHref?.trim()) return settings;
+
+  const metadata = await loadMoyskladMetadata();
+  const organizationHref = metadata.organization?.href?.trim() || null;
+  return {
+    ...settings,
+    organizationHref,
+  };
+}
+
 export async function saveMoyskladOrderSyncSettings(input: {
   enabled: boolean;
   organizationHref: string;
@@ -439,12 +473,22 @@ export async function getDefaultOrganization() {
     "/entity/organization",
     { limit: 50 }
   );
-  return (data.rows ?? [])
+  const organizations = (data.rows ?? [])
     .map(row => ({
       name: row.name?.trim() || "",
       href: row.meta?.href?.trim() || "",
     }))
-    .filter(row => row.href)[0] ?? null;
+    .filter(row => row.href);
+
+  const selected = organizations
+    .map((organization, index) => ({
+      ...organization,
+      index,
+      preferenceScore: getOrderOrganizationPreferenceScore(organization.name),
+    }))
+    .sort((a, b) => b.preferenceScore - a.preferenceScore || a.index - b.index)[0] ?? null;
+
+  return selected ? { name: selected.name, href: selected.href } : null;
 }
 
 export async function getDefaultStore() {
@@ -1023,7 +1067,9 @@ function buildPaymentInPayload(args: {
 
 async function syncOrderToMoysklad(orderId: number, action: JobAction) {
   const db = getDb();
-  const settings = await getMoyskladOrderSyncSettings();
+  const settings = await applyDefaultMoyskladOrderOrganization(
+    await getMoyskladOrderSyncSettings()
+  );
   if (!settings.enabled) {
     await markOrderSyncState({
       orderId,
@@ -1147,7 +1193,9 @@ async function syncOrderToMoysklad(orderId: number, action: JobAction) {
 
 async function syncOrderPaymentToMoysklad(orderId: number) {
   const db = getDb();
-  const settings = await getMoyskladOrderSyncSettings();
+  const settings = await applyDefaultMoyskladOrderOrganization(
+    await getMoyskladOrderSyncSettings()
+  );
   if (!settings.enabled) {
     await markPaymentSyncState({
       orderId,
