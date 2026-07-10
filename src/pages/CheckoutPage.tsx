@@ -734,14 +734,14 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
-                      Имя и Фамилия
+                      Имя (ФИО)
                     </Label>
                     <Input
                       value={customer.fullName}
                       onChange={e =>
                         setCustomer({ ...customer, fullName: e.target.value })
                       }
-                      placeholder="Александр Ульянов"
+                      placeholder="Иванов Иван Иванович"
                       className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                     />
                   </div>
