@@ -273,6 +273,35 @@ function looksLikeHouseSuggestion(value: string) {
   return /,\s*\d/.test(value) || /\b\d+[А-ЯA-Zа-яa-z]?\b/u.test(value);
 }
 
+function cleanPenzaSuggestionLabel(value: string) {
+  const label = normalizeAddressPart(value)
+    .replace(/^Россия\s*,?\s*/i, "")
+    .replace(/^Пензенская область\s*,?\s*/i, "")
+    .replace(/^городской округ Пенза\s*,?\s*/i, "")
+    .replace(/^г\.?\s*Пенза\s*,?\s*/i, "Пенза, ");
+
+  return normalizeAddressPart(label);
+}
+
+function buildPenzaLineLabel(input: {
+  label: string;
+  street: string;
+  house?: string;
+}) {
+  const label = cleanPenzaSuggestionLabel(input.label);
+
+  if (containsPenza(label)) {
+    return label;
+  }
+
+  const street = normalizeAddressPart(input.street);
+  const house = normalizeAddressPart(input.house);
+
+  return normalizeAddressPart(
+    ["Пенза", street, house].filter(Boolean).join(", "),
+  );
+}
+
 function getYandexComponent(
   item: YandexGeocoderFeature,
   kind: string,
@@ -645,10 +674,44 @@ function mapGeoSuggestAddressSuggestion(
   if (!label || !containsPenza(label) || !street || !house) return null;
 
   return {
-    label,
+    label: buildPenzaLineLabel({ label, street, house }),
     street,
     house,
     coordinates: null,
+    source: "geosuggest",
+  };
+}
+
+function mapGeoSuggestAddressLineSuggestion(
+  item: YandexGeoSuggestItem,
+  fallbackStreet: string,
+): PenzaDeliveryAddressLineSuggestion | null {
+  const rawLabel = normalizeAddressPart(
+    item.address?.formatted_address ||
+      [getSuggestText(item.subtitle), getSuggestText(item.title)]
+        .filter(Boolean)
+        .join(", ") ||
+      item.display_name,
+  );
+  const title = getSuggestText(item.title);
+  const street =
+    getGeoSuggestComponent(item, "street") ||
+    fallbackStreet ||
+    title.replace(/^улица\s+/i, "");
+  const house =
+    getGeoSuggestComponent(item, "house") || parseHouseFromSuggestionLabel(rawLabel);
+
+  if (!rawLabel || !containsPenza(rawLabel) || !street) return null;
+
+  const label = buildPenzaLineLabel({ label: rawLabel, street, house });
+
+  return {
+    label,
+    addressLine: label,
+    street,
+    house,
+    coordinates: null,
+    type: house ? "address" : "street",
     source: "geosuggest",
   };
 }
@@ -676,6 +739,23 @@ async function fetchGeoSuggestPenzaAddressSuggestions(
   return items
     .map(item => mapGeoSuggestAddressSuggestion(item, street))
     .filter((item): item is PenzaDeliveryAddressSuggestion => Boolean(item));
+}
+
+async function fetchGeoSuggestPenzaAddressLineSuggestions(query: string) {
+  const normalizedQuery = normalizeAddressPart(query);
+  if (!normalizedQuery) return [];
+
+  const parsed = parsePenzaDeliveryAddressLine(normalizedQuery);
+  const fallbackStreet = parsed.street || normalizedQuery;
+  const items = await fetchYandexGeoSuggestItems({
+    query: `Пенза, ${normalizedQuery}`,
+    limit: 10,
+  });
+
+  return items
+    .map(item => mapGeoSuggestAddressLineSuggestion(item, fallbackStreet))
+    .filter((item): item is PenzaDeliveryAddressLineSuggestion => Boolean(item))
+    .filter(item => areStreetNamesClose(fallbackStreet, item.street));
 }
 
 function dedupeAddressSuggestions(
@@ -803,11 +883,14 @@ export async function searchPenzaDeliveryAddressLine(input: {
   const parsed = parsePenzaDeliveryAddressLine(query);
   const suggestions: PenzaDeliveryAddressLineSuggestion[] = [];
 
-  if (!parsed.street || !parsed.house) {
-    return [];
+  const geoSuggestLineSuggestions =
+    await fetchGeoSuggestPenzaAddressLineSuggestions(query);
+
+  if (geoSuggestLineSuggestions.length > 0) {
+    suggestions.push(...geoSuggestLineSuggestions);
   }
 
-  if (parsed.street && parsed.house) {
+  if (parsed.street && parsed.house && suggestions.length === 0) {
     const addresses = await searchPenzaDeliveryAddresses({
       street: parsed.street,
       house: parsed.house,
@@ -816,13 +899,38 @@ export async function searchPenzaDeliveryAddressLine(input: {
     suggestions.push(
       ...addresses.map(item => ({
         label: item.label,
-        addressLine: item.label.replace(/^Россия\s*,?\s*/i, ""),
+        addressLine: cleanPenzaSuggestionLabel(item.label),
         street: item.street,
         house: item.house,
         coordinates: item.coordinates,
         type: "address" as const,
         source: item.source,
       })),
+    );
+  }
+
+  if (parsed.street && !parsed.house && suggestions.length === 0) {
+    const streets = await searchPenzaDeliveryStreets({
+      street: parsed.street,
+    });
+
+    suggestions.push(
+      ...streets.map(item => {
+        const label = buildPenzaLineLabel({
+          label: item.label,
+          street: item.street,
+        });
+
+        return {
+          label,
+          addressLine: label,
+          street: item.street,
+          house: "",
+          coordinates: null,
+          type: "street" as const,
+          source: item.source,
+        };
+      }),
     );
   }
 
