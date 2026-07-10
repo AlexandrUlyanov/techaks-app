@@ -24,6 +24,15 @@ export type PenzaDeliveryStreetSuggestion = {
   street: string;
 };
 
+export type PenzaDeliveryAddressLineSuggestion = {
+  label: string;
+  addressLine: string;
+  street: string;
+  house: string;
+  coordinates: [number, number] | null;
+  type: "street" | "address";
+};
+
 const PENZA_CITY_TOKENS = ["пенза", "penza"];
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 const YANDEX_GEOCODER_ENDPOINT = "https://geocode-maps.yandex.ru/v1/";
@@ -77,6 +86,41 @@ function normalizeStreetName(value: string | null | undefined) {
 
 function normalizeHouseName(value: string | null | undefined) {
   return normalizeAddressPart(value).toUpperCase().replace(/\s+/g, "");
+}
+
+export function parsePenzaDeliveryAddressLine(value: string | null | undefined) {
+  const addressLine = normalizeAddressPart(value)
+    .replace(/^пенза\s*,?\s*/i, "")
+    .replace(/^г\.?\s*пенза\s*,?\s*/i, "");
+
+  if (!addressLine) {
+    return { street: "", house: "" };
+  }
+
+  const commaParts = addressLine
+    .split(",")
+    .map(part => normalizeAddressPart(part))
+    .filter(Boolean);
+
+  if (commaParts.length >= 2) {
+    return {
+      street: commaParts[0] || "",
+      house: commaParts[1] || "",
+    };
+  }
+
+  const match = addressLine.match(
+    /^(.*?)(?:\s+)(\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?)$/i,
+  );
+
+  if (!match) {
+    return { street: addressLine, house: "" };
+  }
+
+  return {
+    street: normalizeAddressPart(match[1]),
+    house: normalizeAddressPart(match[2]),
+  };
 }
 
 function areStreetNamesClose(inputStreet: string, candidateStreet: string) {
@@ -721,6 +765,61 @@ export async function searchPenzaDeliveryStreets(input: {
   } catch {
     return [];
   }
+}
+
+export async function searchPenzaDeliveryAddressLine(input: {
+  query: string;
+}): Promise<PenzaDeliveryAddressLineSuggestion[]> {
+  const query = normalizeAddressPart(input.query);
+  if (query.length < 2) return [];
+
+  const parsed = parsePenzaDeliveryAddressLine(query);
+  const suggestions: PenzaDeliveryAddressLineSuggestion[] = [];
+
+  if (parsed.street && parsed.house) {
+    const addresses = await searchPenzaDeliveryAddresses({
+      street: parsed.street,
+      house: parsed.house,
+    });
+
+    suggestions.push(
+      ...addresses.map(item => ({
+        label: item.label,
+        addressLine: item.label.replace(/^Россия\s*,?\s*/i, ""),
+        street: item.street,
+        house: item.house,
+        coordinates: item.coordinates,
+        type: "address" as const,
+      })),
+    );
+  }
+
+  if (suggestions.length < 8 && parsed.street) {
+    const streets = await searchPenzaDeliveryStreets({ street: parsed.street });
+
+    suggestions.push(
+      ...streets.map(item => ({
+        label: item.label,
+        addressLine: parsed.house
+          ? `${item.street}, ${parsed.house}`
+          : item.street,
+        street: item.street,
+        house: parsed.house,
+        coordinates: null,
+        type: parsed.house ? ("address" as const) : ("street" as const),
+      })),
+    );
+  }
+
+  const seen = new Set<string>();
+  return suggestions
+    .filter(item => {
+      const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}|${item.type}`;
+      if (!item.street || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
 }
 
 export async function validatePenzaDeliveryAddress(input: {

@@ -42,85 +42,60 @@ type CheckoutPickupStore = {
 
 type DeliveryAddressSuggestion = {
   label: string;
+  addressLine: string;
   street: string;
   house: string;
   coordinates: [number, number] | null;
-};
-
-type DeliveryStreetSuggestion = {
-  label: string;
-  street: string;
+  type: "street" | "address";
 };
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-const DELIVERY_STREET_PREFIXES = new Set([
-  "ул",
-  "улица",
-  "пр",
-  "проспект",
-  "пр-кт",
-  "переулок",
-  "пер",
-  "проезд",
-  "площадь",
-  "пл",
-  "бульвар",
-  "бул",
-  "шоссе",
-  "ш",
-  "набережная",
-  "наб",
-  "аллея",
-  "линия",
-  "тракт",
-  "тупик",
-  "туп",
-  "мкр",
-  "микрорайон",
-]);
+function parseDeliveryAddressLine(value: string) {
+  const addressLine = normalizeWhitespace(value)
+    .replace(/^пенза\s*,?\s*/i, "")
+    .replace(/^г\.?\s*пенза\s*,?\s*/i, "");
 
-function normalizeDeliveryStreetName(value: string) {
-  return normalizeWhitespace(value)
-    .toLowerCase()
-    .replace(/[.,]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter(part => !DELIVERY_STREET_PREFIXES.has(part))
-    .join(" ");
-}
+  if (!addressLine) return { street: "", house: "" };
 
-function isLikelyValidDeliveryStreet(value: string) {
-  const street = normalizeWhitespace(value);
-  if (street.length < 4 || street.length > 80) return false;
-  if (!/[A-Za-zА-Яа-яЁё]/.test(street)) return false;
-  if (/^\d+$/.test(street)) return false;
-  return true;
-}
+  const commaParts = addressLine
+    .split(",")
+    .map(part => normalizeWhitespace(part))
+    .filter(Boolean);
 
-function isLikelyValidDeliveryHouse(value: string) {
-  const house = normalizeWhitespace(value);
-  if (!house) return false;
-  return /^\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?$/i.test(
-    house,
+  if (commaParts.length >= 2) {
+    return {
+      street: commaParts[0] ?? "",
+      house: commaParts[1] ?? "",
+    };
+  }
+
+  const match = addressLine.match(
+    /^(.*?)(?:\s+)(\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?)$/i,
   );
+
+  if (!match) {
+    return { street: addressLine, house: "" };
+  }
+
+  return {
+    street: normalizeWhitespace(match[1] ?? ""),
+    house: normalizeWhitespace(match[2] ?? ""),
+  };
 }
 
 function buildCheckoutDeliveryAddress(params: {
-  street: string;
-  house: string;
+  addressLine: string;
   apartment: string;
 }) {
-  const street = normalizeWhitespace(params.street);
-  const house = normalizeWhitespace(params.house);
+  const addressLine = normalizeWhitespace(params.addressLine);
   const apartment = normalizeWhitespace(params.apartment);
 
-  const base = [street, house].filter(Boolean).join(", ");
-  if (!base) return "";
+  if (!addressLine) return "";
 
-  return apartment ? `${base}, кв./офис ${apartment}` : base;
+  return apartment ? `${addressLine}, кв./офис ${apartment}` : addressLine;
 }
 
 export default function CheckoutPage() {
@@ -172,15 +147,11 @@ export default function CheckoutPage() {
     "pickup"
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
-  const [deliveryStreet, setDeliveryStreet] = useState("");
-  const [deliveryHouse, setDeliveryHouse] = useState("");
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
   const [deliveryApartment, setDeliveryApartment] = useState("");
-  const [deliveryStreetFocused, setDeliveryStreetFocused] = useState(false);
-  const [deliveryStreetActiveIndex, setDeliveryStreetActiveIndex] = useState(-1);
+  const [deliveryAddressFocused, setDeliveryAddressFocused] = useState(false);
+  const [deliveryAddressActiveIndex, setDeliveryAddressActiveIndex] = useState(-1);
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
-  const [confirmedDeliveryStreet, setConfirmedDeliveryStreet] = useState<string | null>(null);
-  const [pendingDeliverySuggestion, setPendingDeliverySuggestion] =
-    useState<DeliveryAddressSuggestion | null>(null);
   const [confirmedDeliverySuggestion, setConfirmedDeliverySuggestion] =
     useState<DeliveryAddressSuggestion | null>(null);
   const [paymentType, setPaymentType] = useState<"cash" | "card" | "yookassa">(
@@ -188,8 +159,7 @@ export default function CheckoutPage() {
   );
   const [personalDataConsent, setPersonalDataConsent] = useState(false);
   const checkoutTrackedSignatureRef = useRef<string | null>(null);
-  const deliveryStreetFieldRef = useRef<HTMLDivElement | null>(null);
-  const deliveryHouseInputRef = useRef<HTMLInputElement | null>(null);
+  const deliveryAddressFieldRef = useRef<HTMLDivElement | null>(null);
   const { data: pickupStores = [], isFetching: pickupStoresLoading } =
     trpc.ecommerce.getCheckoutPickupStores.useQuery(
       {
@@ -231,6 +201,45 @@ export default function CheckoutPage() {
     ? Math.max(0, loyaltyPreview?.appliedAmount ?? 0)
     : 0;
 
+  const normalizedDeliveryAddress = buildCheckoutDeliveryAddress({
+    addressLine: deliveryAddressLine,
+    apartment: deliveryApartment,
+  });
+  const deliveryAddressSearchLine = normalizeWhitespace(deliveryAddressLine);
+  const parsedDeliveryAddressLine = parseDeliveryAddressLine(
+    deliveryAddressSearchLine,
+  );
+  const hasStartedDeliveryAddress =
+    deliveryAddressSearchLine.length > 0 ||
+    normalizeWhitespace(deliveryApartment).length > 0;
+  const isDeliveryAddressInputValid =
+    deliveryAddressSearchLine.length >= 5 &&
+    /[A-Za-zА-Яа-яЁё]/.test(deliveryAddressSearchLine);
+  const confirmedSuggestionMatchesCurrentInput =
+    confirmedDeliverySuggestion !== null &&
+    normalizeWhitespace(confirmedDeliverySuggestion.addressLine).toLocaleLowerCase("ru") ===
+      deliveryAddressSearchLine.toLocaleLowerCase("ru");
+  const canSearchDeliveryAddressSuggestions =
+    deliveryType === "delivery" &&
+    deliveryAddressSearchLine.length >= 2 &&
+    /[A-Za-zА-Яа-яЁё]/.test(deliveryAddressSearchLine);
+  const isDeliveryQuoteCurrent =
+    deliveryType !== "delivery" ||
+    normalizedDeliveryAddress.length === 0 ||
+    normalizedDeliveryAddress === debouncedDeliveryAddress.trim();
+  const shouldFetchYandexQuote =
+    deliveryType === "delivery" &&
+    items.length > 0 &&
+    isDeliveryAddressInputValid &&
+    Boolean(parsedDeliveryAddressLine.street) &&
+    Boolean(parsedDeliveryAddressLine.house) &&
+    debouncedDeliveryAddress.trim().length >= 6;
+  const deliverySourceStore =
+    typedPickupStores.find(store => store.storeId === pickupStoreId) ??
+    typedPickupStores[0] ??
+    null;
+  const deliverySourceStoreId = deliverySourceStore?.storeId ?? null;
+
   useEffect(() => {
     if (deliveryType !== "delivery") {
       setDebouncedDeliveryAddress("");
@@ -242,7 +251,7 @@ export default function CheckoutPage() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [deliveryType, deliveryStreet, deliveryHouse, deliveryApartment]);
+  }, [deliveryType, normalizedDeliveryAddress]);
 
   useEffect(() => {
     if (deliveryType === "delivery" && paymentType !== "yookassa") {
@@ -250,82 +259,39 @@ export default function CheckoutPage() {
     }
   }, [deliveryType, paymentType]);
 
-  const normalizedDeliveryAddress = buildCheckoutDeliveryAddress({
-    street: deliveryStreet,
-    house: deliveryHouse,
-    apartment: deliveryApartment,
-  });
-  const deliveryAddressSearchStreet = normalizeWhitespace(deliveryStreet);
-  const deliveryAddressSearchHouse = normalizeWhitespace(deliveryHouse);
-  const canSearchDeliveryStreetSuggestions =
-    deliveryType === "delivery" &&
-    deliveryAddressSearchStreet.length >= 2 &&
-    /[A-Za-zА-Яа-яЁё]/.test(deliveryAddressSearchStreet) &&
-    !/^\d+$/.test(deliveryAddressSearchStreet);
-  const isDeliveryStreetValid = isLikelyValidDeliveryStreet(deliveryStreet);
-  const isDeliveryHouseValid = isLikelyValidDeliveryHouse(deliveryHouse);
-  const hasStartedDeliveryAddress =
-    deliveryAddressSearchStreet.length > 0 || deliveryAddressSearchHouse.length > 0;
-  const isDeliveryAddressInputValid =
-    isDeliveryStreetValid && isDeliveryHouseValid;
-  const confirmedStreetMatchesCurrentInput =
-    confirmedDeliveryStreet !== null &&
-    normalizeDeliveryStreetName(confirmedDeliveryStreet) ===
-      normalizeDeliveryStreetName(deliveryAddressSearchStreet);
-  const confirmedSuggestionMatchesCurrentInput =
-    confirmedDeliverySuggestion !== null &&
-    normalizeDeliveryStreetName(confirmedDeliverySuggestion.street) ===
-      normalizeDeliveryStreetName(deliveryAddressSearchStreet) &&
-    normalizeWhitespace(confirmedDeliverySuggestion.house) ===
-      deliveryAddressSearchHouse;
-  const pendingSuggestionMatchesCurrentInput =
-    pendingDeliverySuggestion !== null &&
-    normalizeDeliveryStreetName(pendingDeliverySuggestion.street) ===
-      normalizeDeliveryStreetName(deliveryAddressSearchStreet) &&
-    normalizeWhitespace(pendingDeliverySuggestion.house) ===
-      deliveryAddressSearchHouse;
-  const isDeliveryQuoteCurrent =
-    deliveryType !== "delivery" ||
-    normalizedDeliveryAddress.length === 0 ||
-    normalizedDeliveryAddress === debouncedDeliveryAddress.trim();
-  const shouldSearchDeliveryAddressSuggestions =
-    deliveryType === "delivery" &&
-    deliveryAddressSearchStreet.length >= 3 &&
-    deliveryAddressSearchHouse.length >= 1 &&
-    isDeliveryStreetValid;
-
   const {
-    data: deliveryStreetSuggestions = [],
-    isFetching: deliveryStreetSuggestionsLoading,
-  } = trpc.ecommerce.searchPenzaDeliveryStreets.useQuery(
+    data: deliveryAddressSuggestions = [],
+    isFetching: deliveryAddressSuggestionsLoading,
+  } = trpc.ecommerce.searchPenzaDeliveryAddressLine.useQuery(
     {
-      street: deliveryAddressSearchStreet,
+      query: deliveryAddressSearchLine,
     },
     {
-      enabled: canSearchDeliveryStreetSuggestions,
+      enabled: canSearchDeliveryAddressSuggestions,
       refetchOnWindowFocus: false,
       retry: false,
     }
   );
-  const typedDeliveryStreetSuggestions =
-    deliveryStreetSuggestions as DeliveryStreetSuggestion[];
+  const typedDeliveryAddressSuggestions =
+    deliveryAddressSuggestions as DeliveryAddressSuggestion[];
 
-  const selectDeliveryStreetSuggestion = useCallback((street: string) => {
-    setDeliveryStreet(street);
-    setConfirmedDeliveryStreet(street);
-    setPendingDeliverySuggestion(null);
-    setConfirmedDeliverySuggestion(null);
-    setDeliveryStreetFocused(false);
-    setDeliveryStreetActiveIndex(-1);
-    window.setTimeout(() => {
-      deliveryHouseInputRef.current?.focus();
-      deliveryHouseInputRef.current?.select();
-    }, 0);
+  const selectDeliveryAddressSuggestion = useCallback((suggestion: DeliveryAddressSuggestion) => {
+    const nextAddressLine = normalizeWhitespace(
+      suggestion.addressLine || suggestion.label,
+    );
+    setDeliveryAddressLine(nextAddressLine);
+    setConfirmedDeliverySuggestion(
+      suggestion.type === "address" && suggestion.house
+        ? { ...suggestion, addressLine: nextAddressLine }
+        : null,
+    );
+    setDeliveryAddressFocused(false);
+    setDeliveryAddressActiveIndex(-1);
   }, []);
 
-  const renderHighlightedStreetLabel = useCallback(
+  const renderHighlightedAddressLabel = useCallback(
     (label: string) => {
-      const query = deliveryAddressSearchStreet.trim();
+      const query = deliveryAddressSearchLine.trim();
       if (!query) return label;
 
       const labelLower = label.toLocaleLowerCase("ru");
@@ -344,54 +310,13 @@ export default function CheckoutPage() {
         </>
       );
     },
-    [deliveryAddressSearchStreet]
+    [deliveryAddressSearchLine]
   );
-
-  const {
-    data: deliveryAddressSuggestions = [],
-    isFetching: deliveryAddressSuggestionsLoading,
-  } = trpc.ecommerce.searchPenzaDeliveryAddresses.useQuery(
-    {
-      street: deliveryAddressSearchStreet,
-      house: deliveryAddressSearchHouse,
-    },
-    {
-      enabled:
-        shouldSearchDeliveryAddressSuggestions &&
-        !confirmedSuggestionMatchesCurrentInput,
-      refetchOnWindowFocus: false,
-      retry: false,
-    }
-  );
-
-  const shouldFetchYandexQuote =
-    deliveryType === "delivery" &&
-    items.length > 0 &&
-    isDeliveryAddressInputValid &&
-    debouncedDeliveryAddress.trim().length >= 6;
-  const canConfirmTypedDeliveryAddress =
-    deliveryType === "delivery" &&
-    confirmedStreetMatchesCurrentInput &&
-    isDeliveryAddressInputValid &&
-    !confirmedSuggestionMatchesCurrentInput &&
-    !deliveryAddressSuggestionsLoading &&
-    !pendingSuggestionMatchesCurrentInput &&
-    deliveryAddressSuggestions.length === 0;
 
   useEffect(() => {
     if (deliveryType !== "delivery") {
-      setConfirmedDeliveryStreet(null);
-      setPendingDeliverySuggestion(null);
       setConfirmedDeliverySuggestion(null);
       return;
-    }
-
-    if (confirmedDeliveryStreet && !confirmedStreetMatchesCurrentInput) {
-      setConfirmedDeliveryStreet(null);
-    }
-
-    if (pendingDeliverySuggestion && !pendingSuggestionMatchesCurrentInput) {
-      setPendingDeliverySuggestion(null);
     }
 
     if (
@@ -401,45 +326,41 @@ export default function CheckoutPage() {
       setConfirmedDeliverySuggestion(null);
     }
   }, [
-    confirmedDeliveryStreet,
-    confirmedStreetMatchesCurrentInput,
     confirmedDeliverySuggestion,
     confirmedSuggestionMatchesCurrentInput,
     deliveryType,
-    pendingDeliverySuggestion,
-    pendingSuggestionMatchesCurrentInput,
   ]);
 
   useEffect(() => {
-    if (!deliveryStreetFocused || deliveryStreetSuggestionsLoading) {
-      setDeliveryStreetActiveIndex(-1);
+    if (!deliveryAddressFocused || deliveryAddressSuggestionsLoading) {
+      setDeliveryAddressActiveIndex(-1);
       return;
     }
 
-    if (typedDeliveryStreetSuggestions.length === 0) {
-      setDeliveryStreetActiveIndex(-1);
+    if (typedDeliveryAddressSuggestions.length === 0) {
+      setDeliveryAddressActiveIndex(-1);
       return;
     }
 
-    setDeliveryStreetActiveIndex(currentIndex => {
+    setDeliveryAddressActiveIndex(currentIndex => {
       if (currentIndex < 0) return 0;
-      return Math.min(currentIndex, typedDeliveryStreetSuggestions.length - 1);
+      return Math.min(currentIndex, typedDeliveryAddressSuggestions.length - 1);
     });
   }, [
-    deliveryStreetFocused,
-    typedDeliveryStreetSuggestions,
-    deliveryStreetSuggestionsLoading,
+    deliveryAddressFocused,
+    typedDeliveryAddressSuggestions,
+    deliveryAddressSuggestionsLoading,
   ]);
 
   useEffect(() => {
-    if (!deliveryStreetFocused) return;
+    if (!deliveryAddressFocused) return;
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
-      if (deliveryStreetFieldRef.current?.contains(target)) return;
-      setDeliveryStreetFocused(false);
-      setDeliveryStreetActiveIndex(-1);
+      if (deliveryAddressFieldRef.current?.contains(target)) return;
+      setDeliveryAddressFocused(false);
+      setDeliveryAddressActiveIndex(-1);
     };
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -449,41 +370,7 @@ export default function CheckoutPage() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("touchstart", handlePointerDown);
     };
-  }, [deliveryStreetFocused]);
-
-  useEffect(() => {
-    if (deliveryType !== "delivery") return;
-    if (!deliveryAddressSearchStreet || typedDeliveryStreetSuggestions.length === 0) {
-      return;
-    }
-
-    const normalizedTypedStreet =
-      normalizeDeliveryStreetName(deliveryAddressSearchStreet);
-    if (!normalizedTypedStreet) return;
-
-    const exactStreetMatch = typedDeliveryStreetSuggestions.find(suggestion => {
-      return (
-        normalizeDeliveryStreetName(suggestion.street) ===
-        normalizedTypedStreet
-      );
-    });
-
-    if (!exactStreetMatch) return;
-    if (
-      confirmedDeliveryStreet &&
-      normalizeWhitespace(confirmedDeliveryStreet) ===
-        normalizeWhitespace(exactStreetMatch.street)
-    ) {
-      return;
-    }
-
-    setConfirmedDeliveryStreet(exactStreetMatch.street);
-  }, [
-    confirmedDeliveryStreet,
-    deliveryAddressSearchStreet,
-    deliveryType,
-    typedDeliveryStreetSuggestions,
-  ]);
+  }, [deliveryAddressFocused]);
 
   const { data: yandexDeliveryQuote, isFetching: yandexDeliveryQuoteLoading, error: yandexDeliveryQuoteError } =
     trpc.ecommerce.getYandexDeliveryQuote.useQuery(
@@ -493,10 +380,11 @@ export default function CheckoutPage() {
           variantId: item.variantId ?? null,
           quantity: item.quantity,
         })),
-        street: normalizeWhitespace(deliveryStreet),
-        house: normalizeWhitespace(deliveryHouse),
+        addressLine: deliveryAddressSearchLine,
+        street: parsedDeliveryAddressLine.street || null,
+        house: parsedDeliveryAddressLine.house || null,
         apartment: normalizeWhitespace(deliveryApartment) || null,
-        storeId: pickupStoreId,
+        storeId: deliverySourceStoreId,
       },
       {
         enabled: shouldFetchYandexQuote,
@@ -516,9 +404,7 @@ export default function CheckoutPage() {
   const totalWithBonuses = Math.max(0, subtotal - effectiveBonusSpent + deliveryPrice);
   const canSubmitDeliveryOrder =
     deliveryType !== "delivery" ||
-    (isDeliveryAddressInputValid &&
-      isDeliveryQuoteCurrent &&
-      !yandexDeliveryQuoteLoading);
+    isDeliveryAddressInputValid;
 
   useEffect(() => {
     if (items.length === 0) {
@@ -604,8 +490,9 @@ export default function CheckoutPage() {
     const normalizedAddress =
       confirmedDeliverySuggestion && confirmedSuggestionMatchesCurrentInput
         ? buildCheckoutDeliveryAddress({
-            street: confirmedDeliverySuggestion.label,
-            house: "",
+            addressLine:
+              confirmedDeliverySuggestion.addressLine ||
+              confirmedDeliverySuggestion.label,
             apartment: deliveryApartment,
           })
         : normalizedDeliveryAddress;
@@ -619,7 +506,7 @@ export default function CheckoutPage() {
       return;
     }
     if (deliveryType === "delivery" && !isDeliveryAddressInputValid) {
-      toast.error("Укажите улицу и номер дома. Если адрес не найдётся, менеджер уточнит доставку по телефону.");
+      toast.error("Укажите адрес доставки одной строкой: улица и дом.");
       return;
     }
     if (deliveryType === "pickup" && !pickupStoreId) {
@@ -648,7 +535,8 @@ export default function CheckoutPage() {
         price: i.price,
       })),
       deliveryType,
-      storeId: deliveryType === "pickup" ? pickupStoreId : null,
+      storeId:
+        deliveryType === "pickup" ? pickupStoreId : deliverySourceStoreId,
       address:
         deliveryType === "delivery"
           ? normalizedAddress
@@ -1001,153 +889,134 @@ export default function CheckoutPage() {
                   )}
 
                   {deliveryType === "delivery" && (
-                    <div className="space-y-2 animate-in fade-in zoom-in duration-300">
+                    <div className="space-y-3 animate-in fade-in zoom-in duration-300">
                       <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
                         Адрес доставки
                       </Label>
-                      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px] gap-4">
-                        <div ref={deliveryStreetFieldRef} className="relative">
-                          <Input
-                            value={deliveryStreet}
-                            onFocus={() => setDeliveryStreetFocused(true)}
-                            onKeyDown={event => {
-                              if (
-                                event.key === "ArrowDown" &&
-                                typedDeliveryStreetSuggestions.length > 0
-                              ) {
-                                event.preventDefault();
-                                setDeliveryStreetFocused(true);
-                                setDeliveryStreetActiveIndex(currentIndex =>
-                                  currentIndex < 0
-                                    ? 0
-                                    : Math.min(
-                                        currentIndex + 1,
-                                        typedDeliveryStreetSuggestions.length - 1
-                                      )
-                                );
-                                return;
-                              }
+                      <div ref={deliveryAddressFieldRef} className="relative">
+                        <Input
+                          value={deliveryAddressLine}
+                          onFocus={() => setDeliveryAddressFocused(true)}
+                          onKeyDown={event => {
+                            if (
+                              event.key === "ArrowDown" &&
+                              typedDeliveryAddressSuggestions.length > 0
+                            ) {
+                              event.preventDefault();
+                              setDeliveryAddressFocused(true);
+                              setDeliveryAddressActiveIndex(currentIndex =>
+                                currentIndex < 0
+                                  ? 0
+                                  : Math.min(
+                                      currentIndex + 1,
+                                      typedDeliveryAddressSuggestions.length - 1,
+                                    ),
+                              );
+                              return;
+                            }
 
-                              if (
-                                event.key === "ArrowUp" &&
-                                typedDeliveryStreetSuggestions.length > 0
-                              ) {
-                                event.preventDefault();
-                                setDeliveryStreetFocused(true);
-                                setDeliveryStreetActiveIndex(currentIndex =>
-                                  currentIndex <= 0 ? 0 : currentIndex - 1
-                                );
-                                return;
-                              }
+                            if (
+                              event.key === "ArrowUp" &&
+                              typedDeliveryAddressSuggestions.length > 0
+                            ) {
+                              event.preventDefault();
+                              setDeliveryAddressFocused(true);
+                              setDeliveryAddressActiveIndex(currentIndex =>
+                                currentIndex <= 0 ? 0 : currentIndex - 1,
+                              );
+                              return;
+                            }
 
-                              if (
-                                event.key === "Enter" &&
-                                deliveryStreetFocused &&
-                                typedDeliveryStreetSuggestions.length > 0
-                              ) {
-                                event.preventDefault();
-                                const suggestion =
-                                  typedDeliveryStreetSuggestions[
-                                    deliveryStreetActiveIndex >= 0
-                                      ? deliveryStreetActiveIndex
-                                      : 0
-                                  ];
-                                if (suggestion) {
-                                  selectDeliveryStreetSuggestion(
-                                    suggestion.street
-                                  );
-                                }
-                                return;
+                            if (
+                              event.key === "Enter" &&
+                              deliveryAddressFocused &&
+                              typedDeliveryAddressSuggestions.length > 0
+                            ) {
+                              event.preventDefault();
+                              const suggestion =
+                                typedDeliveryAddressSuggestions[
+                                  deliveryAddressActiveIndex >= 0
+                                    ? deliveryAddressActiveIndex
+                                    : 0
+                                ];
+                              if (suggestion) {
+                                selectDeliveryAddressSuggestion(suggestion);
                               }
+                              return;
+                            }
 
-                              if (event.key === "Escape") {
-                                setDeliveryStreetFocused(false);
-                                setDeliveryStreetActiveIndex(-1);
-                              }
-                            }}
-                            onBlur={() => {
-                              window.setTimeout(() => {
-                                setDeliveryStreetFocused(false);
-                                setDeliveryStreetActiveIndex(-1);
-                              }, 120);
-                            }}
-                            onChange={e => {
-                              setDeliveryStreet(e.target.value);
-                              setConfirmedDeliveryStreet(null);
-                              setPendingDeliverySuggestion(null);
-                              setConfirmedDeliverySuggestion(null);
-                              setDeliveryStreetActiveIndex(-1);
-                            }}
-                            placeholder="Улица"
-                            autoComplete="address-line1"
-                            className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
-                          />
-                          {deliveryStreetFocused && canSearchDeliveryStreetSuggestions ? (
-                            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-background">
-                              {deliveryStreetSuggestionsLoading ? (
-                                <div className="px-4 py-3 text-sm text-muted-foreground">
-                                  Ищем улицы в Пензе...
+                            if (event.key === "Escape") {
+                              setDeliveryAddressFocused(false);
+                              setDeliveryAddressActiveIndex(-1);
+                            }
+                          }}
+                          onBlur={() => {
+                            window.setTimeout(() => {
+                              setDeliveryAddressFocused(false);
+                              setDeliveryAddressActiveIndex(-1);
+                            }, 120);
+                          }}
+                          onChange={event => {
+                            setDeliveryAddressLine(event.target.value);
+                            setConfirmedDeliverySuggestion(null);
+                            setDeliveryAddressActiveIndex(-1);
+                          }}
+                          placeholder="Начните вводить адрес: улица и дом"
+                          autoComplete="street-address"
+                          className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
+                        />
+                        {deliveryAddressFocused && canSearchDeliveryAddressSuggestions ? (
+                          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-background">
+                            {deliveryAddressSuggestionsLoading ? (
+                              <div className="px-4 py-3 text-sm text-muted-foreground">
+                                Ищем адрес в Пензе...
+                              </div>
+                            ) : typedDeliveryAddressSuggestions.length > 0 ? (
+                              <div className="max-h-72 overflow-y-auto p-2">
+                                <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                  Подсказки адреса
                                 </div>
-                              ) : typedDeliveryStreetSuggestions.length > 0 ? (
-                                <div className="max-h-72 overflow-y-auto p-2">
-                                  <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                                    Подсказки улиц
-                                  </div>
-                                  <div className="space-y-1">
-                                    {typedDeliveryStreetSuggestions.map(suggestion => (
+                                <div className="space-y-1">
+                                  {typedDeliveryAddressSuggestions.map(
+                                    (suggestion, index) => (
                                       <button
-                                        key={suggestion.street}
+                                        key={`${suggestion.type}-${suggestion.addressLine}-${index}`}
                                         type="button"
                                         onMouseDown={event => event.preventDefault()}
-                                        onMouseEnter={() => {
-                                          const nextIndex =
-                                            typedDeliveryStreetSuggestions.findIndex(
-                                              item =>
-                                                item.street === suggestion.street
-                                            );
-                                          setDeliveryStreetActiveIndex(nextIndex);
-                                        }}
+                                        onMouseEnter={() =>
+                                          setDeliveryAddressActiveIndex(index)
+                                        }
                                         onClick={() =>
-                                          selectDeliveryStreetSuggestion(
-                                            suggestion.street
-                                          )
+                                          selectDeliveryAddressSuggestion(suggestion)
                                         }
                                         className={`w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#05C3D4]/5 ${
-                                          typedDeliveryStreetSuggestions[
-                                            deliveryStreetActiveIndex
-                                          ]?.street === suggestion.street
+                                          deliveryAddressActiveIndex === index
                                             ? "bg-[#05C3D4]/8"
                                             : ""
                                         }`}
                                       >
                                         <div className="font-medium text-foreground">
-                                          {renderHighlightedStreetLabel(
-                                            suggestion.label
+                                          {renderHighlightedAddressLabel(
+                                            suggestion.label,
                                           )}
                                         </div>
+                                        {suggestion.type === "street" ? (
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            Добавьте номер дома в это же поле.
+                                          </div>
+                                        ) : null}
                                       </button>
-                                    ))}
-                                  </div>
+                                    ),
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="px-4 py-3 text-sm text-muted-foreground">
-                                  Не нашли улицу. Попробуйте другой вариант написания.
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-                        <Input
-                          ref={deliveryHouseInputRef}
-                          value={deliveryHouse}
-                          onChange={e => {
-                            setDeliveryHouse(e.target.value);
-                            setPendingDeliverySuggestion(null);
-                            setConfirmedDeliverySuggestion(null);
-                          }}
-                          placeholder="Дом"
-                          className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
-                        />
+                              </div>
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-muted-foreground">
+                                Точной подсказки нет. Заказ всё равно можно оформить, менеджер уточнит доставку.
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                       <Input
                         value={deliveryApartment}
@@ -1155,28 +1024,19 @@ export default function CheckoutPage() {
                         placeholder="Квартира, офис или подъезд (необязательно)"
                         className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
                       />
-                      {deliveryType === "delivery" &&
-                      hasStartedDeliveryAddress &&
-                      (!normalizeWhitespace(deliveryStreet) ||
-                        !normalizeWhitespace(deliveryHouse)) ? (
+                      {deliverySourceStore ? (
                         <div className="text-xs text-muted-foreground">
-                          Для точного расчёта укажите и улицу, и номер дома.
+                          Доставка будет собрана из магазина:{" "}
+                          <span className="font-medium text-foreground">
+                            {deliverySourceStore.storeName}
+                          </span>
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&
                       hasStartedDeliveryAddress &&
-                      normalizeWhitespace(deliveryStreet) &&
-                      !isDeliveryStreetValid ? (
-                        <div className="text-xs text-amber-700">
-                          Укажите улицу в нормальном формате, например: Суворова или улица Клары Цеткин.
-                        </div>
-                      ) : null}
-                      {deliveryType === "delivery" &&
-                      hasStartedDeliveryAddress &&
-                      normalizeWhitespace(deliveryHouse) &&
-                      !isDeliveryHouseValid ? (
-                        <div className="text-xs text-amber-700">
-                          Укажите корректный номер дома, например: 192, 14А или 7/1.
+                      !isDeliveryAddressInputValid ? (
+                        <div className="text-xs text-muted-foreground">
+                          Укажите адрес одной строкой: улица и дом. Если подсказка не найдётся, заказ всё равно можно оформить.
                         </div>
                       ) : null}
                       {confirmedSuggestionMatchesCurrentInput &&
@@ -1186,124 +1046,6 @@ export default function CheckoutPage() {
                           <span className="font-medium text-foreground">
                             {confirmedDeliverySuggestion.label}
                           </span>
-                        </div>
-                      ) : null}
-                      {shouldSearchDeliveryAddressSuggestions &&
-                      !confirmedSuggestionMatchesCurrentInput &&
-                      deliveryAddressSuggestionsLoading ? (
-                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                          Ищем адреса в Пензе...
-                        </div>
-                      ) : null}
-                      {shouldSearchDeliveryAddressSuggestions &&
-                      !confirmedSuggestionMatchesCurrentInput &&
-                      !deliveryAddressSuggestionsLoading &&
-                      pendingSuggestionMatchesCurrentInput &&
-                      pendingDeliverySuggestion ? (
-                        <div className="rounded-2xl border border-[#05C3D4]/25 bg-[#05C3D4]/5 px-4 py-4 text-sm">
-                          <div className="font-semibold text-foreground">
-                            Нашли адрес: {pendingDeliverySuggestion.label}
-                          </div>
-                          <div className="mt-1 text-muted-foreground">
-                            Подтвердите адрес для точного расчёта. Если пропустить подтверждение, менеджер уточнит доставку по телефону.
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="rounded-full"
-                              onClick={() =>
-                                setConfirmedDeliverySuggestion(
-                                  pendingDeliverySuggestion,
-                                )
-                              }
-                            >
-                              Подтвердить адрес
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="rounded-full"
-                              onClick={() => setPendingDeliverySuggestion(null)}
-                            >
-                              Выбрать другой
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                      {shouldSearchDeliveryAddressSuggestions &&
-                      !confirmedSuggestionMatchesCurrentInput &&
-                      !deliveryAddressSuggestionsLoading &&
-                      !pendingSuggestionMatchesCurrentInput &&
-                      deliveryAddressSuggestions.length > 0 ? (
-                        <div className="rounded-2xl border border-border bg-background p-2">
-                          <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                            Подсказки адреса
-                          </div>
-                          <div className="space-y-1">
-                            {deliveryAddressSuggestions.map(suggestion => (
-                              <button
-                                key={`${suggestion.street}-${suggestion.house}`}
-                                type="button"
-                                onClick={() => {
-                                  setDeliveryStreet(suggestion.street);
-                                  setDeliveryHouse(suggestion.house);
-                                  setPendingDeliverySuggestion(suggestion);
-                                  setConfirmedDeliverySuggestion(null);
-                                }}
-                                className="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#05C3D4]/5"
-                              >
-                                <div className="font-medium text-foreground">
-                                  {suggestion.label}
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  Нажмите, чтобы выбрать адрес для точного расчёта.
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {shouldSearchDeliveryAddressSuggestions &&
-                      !confirmedSuggestionMatchesCurrentInput &&
-                      !deliveryAddressSuggestionsLoading &&
-                      !pendingSuggestionMatchesCurrentInput &&
-                      deliveryAddressSuggestions.length === 0 &&
-                      isDeliveryAddressInputValid &&
-                      !confirmedStreetMatchesCurrentInput ? (
-                        <div className="rounded-2xl border border-[#05C3D4]/20 bg-[#05C3D4]/5 px-4 py-3 text-sm text-muted-foreground">
-                          Мы не нашли точную подсказку по этому адресу. Заказ всё равно можно оформить, менеджер уточнит доставку по телефону.
-                        </div>
-                      ) : null}
-                      {canConfirmTypedDeliveryAddress ? (
-                        <div className="rounded-2xl border border-[#05C3D4]/25 bg-[#05C3D4]/5 px-4 py-4 text-sm">
-                          <div className="font-semibold text-foreground">
-                            Улица подтверждена: {confirmedDeliveryStreet}
-                          </div>
-                          <div className="mt-1 text-muted-foreground">
-                            Дом не найден в справочнике адресов. Подтвердите адрес для расчёта или оформите заказ сейчас: менеджер уточнит доставку по телефону. Адрес:{" "}
-                            <span className="font-medium text-foreground">
-                              {`${deliveryAddressSearchStreet}, ${deliveryAddressSearchHouse}`}
-                            </span>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="rounded-full"
-                              onClick={() =>
-                                setConfirmedDeliverySuggestion({
-                                  label: `Пенза, ${deliveryAddressSearchStreet}, ${deliveryAddressSearchHouse}`,
-                                  street: deliveryAddressSearchStreet,
-                                  house: deliveryAddressSearchHouse,
-                                  coordinates: null,
-                                })
-                              }
-                            >
-                              Подтвердить адрес
-                            </Button>
-                          </div>
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&

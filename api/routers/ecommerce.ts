@@ -57,19 +57,19 @@ import {
   mapYandexDeliveryStatusToLocal,
 } from "../lib/yandex-delivery-client";
 import {
+  parsePenzaDeliveryAddressLine,
+  searchPenzaDeliveryAddressLine,
   searchPenzaDeliveryAddresses,
   searchPenzaDeliveryStreets,
   validatePenzaDeliveryAddress,
 } from "../lib/delivery-address-geocode";
 import {
   assertYandexDeliverySchemaReady,
-  buildOrderItemSummary,
   createYandexDeliveryOrderForOrder,
   ensureYandexDeliveryOrderForHandedToDelivery,
   getOrderCoreForYandexDelivery,
   patchOrderYandexDeliveryState,
   refreshYandexDeliveryOrderForOrder,
-  resolveDeliveryStore,
 } from "../lib/yandex-delivery-orders";
 import {
   attachLoyaltyToOrder,
@@ -116,6 +116,12 @@ function buildStructuredDeliveryAddress(params: {
   const base = [street, house].filter(Boolean).join(", ");
   if (!base) return "";
   return apartment ? `${base}, кв./офис ${apartment}` : base;
+}
+
+function normalizeCheckoutAddressLine(value: string | null | undefined) {
+  const address = normalizeDeliveryAddressPart(value);
+  if (!address) return "";
+  return /^пенза\b/i.test(address) ? address : `Пенза, ${address}`;
 }
 
 function buildPlaceholderEmail(phone: string) {
@@ -911,6 +917,30 @@ async function getCheckoutPickupStoresForItems(
     .map(storeId => firstAvailability.find(row => Number(row.storeId) === storeId))
     .filter((row): row is NonNullable<typeof row> => Boolean(row))
     .sort((left, right) => left.storeName.localeCompare(right.storeName, "ru"));
+}
+
+async function resolveCheckoutFulfillmentStore(
+  db: ReturnType<typeof getDb>,
+  input: {
+    items: Array<{ productId: number; variantId?: number | null; quantity: number }>;
+    preferredStoreId?: number | null;
+  },
+) {
+  const availableStores = await getCheckoutPickupStoresForItems(db, input.items);
+  const preferred =
+    typeof input.preferredStoreId === "number"
+      ? availableStores.find(store => store.storeId === input.preferredStoreId)
+      : null;
+  const selected = preferred ?? availableStores[0] ?? null;
+
+  if (!selected) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Сейчас нет магазина, где можно собрать весь заказ.",
+    });
+  }
+
+  return await assertStoreExists(db, selected.storeId);
 }
 
 function buildCartItemSummary(items: Array<{ name: string; quantity: number }>) {
@@ -1933,8 +1963,9 @@ export const ecommerceRouter = createRouter({
             quantity: z.number().int().min(1),
           })
         ),
-        street: z.string().trim().min(1),
-        house: z.string().trim().min(1),
+        addressLine: z.string().trim().optional().nullable(),
+        street: z.string().trim().optional().nullable(),
+        house: z.string().trim().optional().nullable(),
         apartment: z.string().trim().max(120).optional().nullable(),
         storeId: z.number().int().positive().optional().nullable(),
       })
@@ -1943,8 +1974,13 @@ export const ecommerceRouter = createRouter({
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
-      const normalizedStreet = normalizeDeliveryAddressPart(input.street);
-      const normalizedHouse = normalizeDeliveryAddressPart(input.house);
+      const parsedLine = parsePenzaDeliveryAddressLine(input.addressLine ?? "");
+      const normalizedStreet = normalizeDeliveryAddressPart(
+        input.street || parsedLine.street,
+      );
+      const normalizedHouse = normalizeDeliveryAddressPart(
+        input.house || parsedLine.house,
+      );
       const normalizedApartment = normalizeDeliveryAddressPart(
         input.apartment ?? "",
       );
@@ -1986,6 +2022,9 @@ export const ecommerceRouter = createRouter({
         house: normalizedHouse,
         apartment: normalizedApartment || null,
       });
+      const normalizedAddressLine = normalizeCheckoutAddressLine(
+        input.addressLine || normalizedAddress,
+      );
       const { purchasableItems } = await resolvePurchasableCartItems(
         db,
         input.items.map(item => ({
@@ -2002,8 +2041,13 @@ export const ecommerceRouter = createRouter({
         });
       }
 
-      const sourceStore = await resolveDeliveryStore(db, {
-        storeId: input.storeId ?? null,
+      const sourceStore = await resolveCheckoutFulfillmentStore(db, {
+        preferredStoreId: input.storeId ?? null,
+        items: purchasableItems.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          quantity: item.quantity,
+        })),
       });
 
       const addressValidation = await validatePenzaDeliveryAddress({
@@ -2012,7 +2056,7 @@ export const ecommerceRouter = createRouter({
       });
       const destinationAddress = addressValidation.ok
         ? addressValidation.normalizedAddress
-        : normalizedAddress;
+        : normalizedAddressLine;
       const destinationCoordinates = addressValidation.ok
         ? addressValidation.coordinates
         : null;
@@ -2085,6 +2129,22 @@ export const ecommerceRouter = createRouter({
       return await searchPenzaDeliveryStreets({
         street,
       });
+    }),
+
+  searchPenzaDeliveryAddressLine: publicQuery
+    .input(
+      z.object({
+        query: z.string().trim().min(1),
+      })
+    )
+    .query(async ({ input }) => {
+      const query = normalizeDeliveryAddressPart(input.query);
+
+      if (query.length < 2 || !/[A-Za-zА-Яа-яЁё]/.test(query)) {
+        return [];
+      }
+
+      return await searchPenzaDeliveryAddressLine({ query });
     }),
 
   getMyLoyaltyState: protectedProcedure
@@ -2188,6 +2248,15 @@ export const ecommerceRouter = createRouter({
             hours: string | null;
           }
         | null = null;
+      let fulfillmentStore:
+        | {
+            id: number;
+            name: string;
+            address: string;
+            phone: string | null;
+            hours: string | null;
+          }
+        | null = null;
 
       if (input.deliveryType === "pickup") {
         if (!input.storeId) {
@@ -2199,6 +2268,7 @@ export const ecommerceRouter = createRouter({
 
         const resolvedPickupStore = await assertStoreExists(db, input.storeId);
         pickupStore = resolvedPickupStore;
+        fulfillmentStore = resolvedPickupStore;
 
         for (const item of purchasableItems) {
           const stock = await getAvailableStock(
@@ -2221,6 +2291,17 @@ export const ecommerceRouter = createRouter({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Для доставки доступна только онлайн-оплата.",
+        });
+      }
+
+      if (input.deliveryType === "delivery") {
+        fulfillmentStore = await resolveCheckoutFulfillmentStore(db, {
+          preferredStoreId: input.storeId ?? null,
+          items: purchasableItems.map(item => ({
+            productId: item.productId,
+            variantId: item.variantId ?? null,
+            quantity: item.quantity,
+          })),
         });
       }
 
@@ -2347,11 +2428,30 @@ export const ecommerceRouter = createRouter({
           }
         }
 
+        if (input.deliveryType === "delivery" && fulfillmentStore) {
+          await expireDueReservations(tx);
+          for (const item of purchasableItems) {
+            const stock = await getAvailableStock(
+              tx,
+              item.productId,
+              fulfillmentStore.id,
+              item.variantId ?? null
+            );
+
+            if (stock.availableQty < item.quantity) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `Товар «${item.name}» уже недоступен для доставки из магазина «${fulfillmentStore.name}».`,
+              });
+            }
+          }
+        }
+
         let newOrder;
         if (canUseModernOrderInsertSchema(capabilities)) {
           newOrder = await tx.insert(orders).values({
             userId,
-            storeId: input.deliveryType === "pickup" ? input.storeId ?? null : null,
+            storeId: fulfillmentStore?.id ?? null,
             orderNumber,
             customerName: normalizedFullName,
             customerPhone: normalizedPhone,
@@ -2439,14 +2539,14 @@ export const ecommerceRouter = createRouter({
           }
         }
 
-        if (input.deliveryType === "pickup" && input.storeId) {
+        if (fulfillmentStore) {
           const now = new Date();
           const reservedUntil = getReservationExpiryDate(reservationDurationMinutes, now);
           for (const item of purchasableItems) {
             await tx.insert(productReservations).values({
               productId: item.productId,
               variantId: item.variantId ?? null,
-              storeId: input.storeId,
+              storeId: fulfillmentStore.id,
               userId,
               phone: normalizedPhone,
               customerName: normalizedFullName,
@@ -2454,7 +2554,10 @@ export const ecommerceRouter = createRouter({
               status: RESERVATION_STATUS_ACTIVE,
               reservedUntil,
               source: "checkout",
-              comment: `Заказ ${orderNumber}`,
+              comment:
+                input.deliveryType === "delivery"
+                  ? `Заказ ${orderNumber}, доставка`
+                  : `Заказ ${orderNumber}`,
               updatedAt: now,
             });
           }
