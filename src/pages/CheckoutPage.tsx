@@ -1037,13 +1037,6 @@ export default function CheckoutPage() {
                         </div>
                       ) : null}
                       {deliveryType === "delivery" &&
-                      isDeliveryAddressInputValid &&
-                      !confirmedSuggestionMatchesCurrentInput ? (
-                        <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                          Заказ можно оформить без подтверждения адреса. Стоимость доставки уточнит менеджер.
-                        </div>
-                      ) : null}
-                      {deliveryType === "delivery" &&
                       normalizedDeliveryAddress.length >= 6 &&
                       !isDeliveryQuoteCurrent ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
@@ -1079,7 +1072,9 @@ export default function CheckoutPage() {
                       !hasResolvedDeliveryQuote ? (
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
                           {yandexDeliveryQuote?.message ||
-                            "Сейчас не удалось найти подходящий тариф доставки по этому адресу. Можно оформить заказ, менеджер уточнит стоимость и условия доставки по телефону."}
+                            "Подходящий тариф доставки сейчас не найден."}{" "}
+                          Заказ можно оформить без подтверждения адреса.
+                          Стоимость доставки уточнит менеджер.
                         </div>
                       ) : null}
                       {!yandexDeliveryQuoteLoading &&
