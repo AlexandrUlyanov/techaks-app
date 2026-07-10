@@ -74,7 +74,7 @@ function parseDeliveryAddressLine(value: string) {
   }
 
   const match = addressLine.match(
-    /^(.*?)(?:\s+)(\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?)$/i,
+    /^(.*?)(?:\s+)(\d{1,4}[A-Za-zА-Яа-яЁё]?(?:[/-]\d{1,4}[A-Za-zА-Яа-яЁё]?)?(?:\s?(?:к|корп|корпус|стр|строение)\.?\s?\d{1,3}[A-Za-zА-Яа-яЁё]?)?)$/i,
   );
 
   if (!match) {
@@ -87,16 +87,8 @@ function parseDeliveryAddressLine(value: string) {
   };
 }
 
-function buildCheckoutDeliveryAddress(params: {
-  addressLine: string;
-  apartment: string;
-}) {
-  const addressLine = normalizeWhitespace(params.addressLine);
-  const apartment = normalizeWhitespace(params.apartment);
-
-  if (!addressLine) return "";
-
-  return apartment ? `${addressLine}, кв./офис ${apartment}` : addressLine;
+function buildCheckoutDeliveryAddress(addressLine: string) {
+  return normalizeWhitespace(addressLine);
 }
 
 function formatDeliverySourceStore(store: CheckoutPickupStore) {
@@ -161,7 +153,6 @@ export default function CheckoutPage() {
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
   const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
-  const [deliveryApartment, setDeliveryApartment] = useState("");
   const [deliveryAddressFocused, setDeliveryAddressFocused] = useState(false);
   const [deliveryAddressActiveIndex, setDeliveryAddressActiveIndex] = useState(-1);
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
@@ -214,17 +205,15 @@ export default function CheckoutPage() {
     ? Math.max(0, loyaltyPreview?.appliedAmount ?? 0)
     : 0;
 
-  const normalizedDeliveryAddress = buildCheckoutDeliveryAddress({
-    addressLine: deliveryAddressLine,
-    apartment: deliveryApartment,
-  });
+  const normalizedDeliveryAddress = buildCheckoutDeliveryAddress(
+    deliveryAddressLine,
+  );
   const deliveryAddressSearchLine = normalizeWhitespace(deliveryAddressLine);
   const parsedDeliveryAddressLine = parseDeliveryAddressLine(
     deliveryAddressSearchLine,
   );
   const hasStartedDeliveryAddress =
-    deliveryAddressSearchLine.length > 0 ||
-    normalizeWhitespace(deliveryApartment).length > 0;
+    deliveryAddressSearchLine.length > 0;
   const isDeliveryAddressInputValid =
     deliveryAddressSearchLine.length >= 5 &&
     /[A-Za-zА-Яа-яЁё]/.test(deliveryAddressSearchLine);
@@ -396,7 +385,6 @@ export default function CheckoutPage() {
         addressLine: deliveryAddressSearchLine,
         street: parsedDeliveryAddressLine.street || null,
         house: parsedDeliveryAddressLine.house || null,
-        apartment: normalizeWhitespace(deliveryApartment) || null,
         storeId: deliverySourceStoreId,
       },
       {
@@ -502,12 +490,10 @@ export default function CheckoutPage() {
     const email = customer.email.trim() || user?.email?.trim() || "";
     const normalizedAddress =
       confirmedDeliverySuggestion && confirmedSuggestionMatchesCurrentInput
-        ? buildCheckoutDeliveryAddress({
-            addressLine:
-              confirmedDeliverySuggestion.addressLine ||
+        ? buildCheckoutDeliveryAddress(
+            confirmedDeliverySuggestion.addressLine ||
               confirmedDeliverySuggestion.label,
-            apartment: deliveryApartment,
-          })
+          )
         : normalizedDeliveryAddress;
 
     if (!fullName || !phone) {
@@ -1013,11 +999,6 @@ export default function CheckoutPage() {
                                             suggestion.label,
                                           )}
                                         </div>
-                                        {suggestion.type === "street" ? (
-                                          <div className="mt-1 text-xs text-muted-foreground">
-                                            Добавьте номер дома в это же поле.
-                                          </div>
-                                        ) : null}
                                       </button>
                                     ),
                                   )}
@@ -1031,12 +1012,6 @@ export default function CheckoutPage() {
                           </div>
                         ) : null}
                       </div>
-                      <Input
-                        value={deliveryApartment}
-                        onChange={e => setDeliveryApartment(e.target.value)}
-                        placeholder="Квартира, офис или подъезд (необязательно)"
-                        className="h-14 rounded-xl border-border bg-background focus:ring-2 focus:ring-[#05C3D4]/20"
-                      />
                       {deliverySourceStore ? (
                         <div className="text-xs text-muted-foreground">
                           Доставка будет собрана из магазина:{" "}

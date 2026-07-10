@@ -684,7 +684,11 @@ function dedupeAddressSuggestions(
   const seen = new Set<string>();
 
   return suggestions.filter(item => {
-    const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}`;
+    const key = [
+      normalizeStreetName(item.street),
+      normalizeHouseName(item.house),
+      normalizeAddressPart(item.label).toLocaleLowerCase("ru"),
+    ].join("|");
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -799,6 +803,10 @@ export async function searchPenzaDeliveryAddressLine(input: {
   const parsed = parsePenzaDeliveryAddressLine(query);
   const suggestions: PenzaDeliveryAddressLineSuggestion[] = [];
 
+  if (!parsed.street || !parsed.house) {
+    return [];
+  }
+
   if (parsed.street && parsed.house) {
     const addresses = await searchPenzaDeliveryAddresses({
       street: parsed.street,
@@ -818,28 +826,15 @@ export async function searchPenzaDeliveryAddressLine(input: {
     );
   }
 
-  if (suggestions.length < 8 && parsed.street) {
-    const streets = await searchPenzaDeliveryStreets({ street: parsed.street });
-
-    suggestions.push(
-      ...streets.map(item => ({
-        label: item.label,
-        addressLine: parsed.house
-          ? `${item.street}, ${parsed.house}`
-          : item.street,
-        street: item.street,
-        house: parsed.house,
-        coordinates: null,
-        type: parsed.house ? ("address" as const) : ("street" as const),
-        source: item.source,
-      })),
-    );
-  }
-
   const seen = new Set<string>();
   return suggestions
     .filter(item => {
-      const key = `${normalizeStreetName(item.street)}|${normalizeHouseName(item.house)}|${item.type}`;
+      const key = [
+        normalizeStreetName(item.street),
+        normalizeHouseName(item.house),
+        item.type,
+        normalizeAddressPart(item.label).toLocaleLowerCase("ru"),
+      ].join("|");
       if (!item.street || seen.has(key)) return false;
       seen.add(key);
       return true;
