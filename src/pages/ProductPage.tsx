@@ -561,7 +561,7 @@ export default function ProductPage() {
         })
         .join("; ")
     : "Уточняйте у менеджера";
-  const compactDeliveryText = "По Пензе и России";
+  const compactDeliveryText = "Доставка по городу Пенза";
   const availabilitySummary = availableStores.length
     ? `Доступно в ${availableStores.length} ${availableStores.length === 1 ? "точке" : "точках"}`
     : "Сейчас нет доступного остатка";

@@ -813,12 +813,12 @@ export default function CheckoutPage() {
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground mt-1">
                           {deliveryType === "delivery" && hasResolvedDeliveryQuote
-                            ? `Доставка · ${formatPrice(deliveryPrice)}${
+                            ? `Доставка по городу Пенза · ${formatPrice(deliveryPrice)}${
                                 yandexDeliveryQuote.etaLabel
                                   ? ` · ${yandexDeliveryQuote.etaLabel}`
                                   : ""
                               }`
-                            : "Доставка по адресу"}
+                            : "Доставка по городу Пенза"}
                         </p>
                       </div>
                     </button>
