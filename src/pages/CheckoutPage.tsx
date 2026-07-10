@@ -957,6 +957,7 @@ export default function CheckoutPage() {
                           }}
                           onChange={event => {
                             setDeliveryAddressLine(event.target.value);
+                            setDeliveryAddressFocused(true);
                             setConfirmedDeliverySuggestion(null);
                             setDeliveryAddressActiveIndex(-1);
                           }}
