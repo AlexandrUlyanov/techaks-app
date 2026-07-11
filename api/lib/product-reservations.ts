@@ -8,7 +8,7 @@ import {
   stores,
   users,
 } from "@db/schema";
-import { and, eq, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, lte, or, sql } from "drizzle-orm";
 import { getAppSetting } from "./app-settings";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
 import { isSoftValidPhone, normalizePhone } from "@contracts/phone";
@@ -155,6 +155,34 @@ export async function getProductStoreAvailability(
   const visibleStoreCondition = options.includeHiddenStores
     ? undefined
     : eq(stores.isPublic, true);
+  const allStoreRows: Array<{
+    storeId: number;
+    storeName: string;
+    storeAddress: string;
+    storePhone: string | null;
+    storeHours: string | null;
+  }> = visibleStoreCondition
+    ? await db
+        .select({
+          storeId: stores.id,
+          storeName: stores.name,
+          storeAddress: stores.address,
+          storePhone: stores.phone,
+          storeHours: stores.hours,
+        })
+        .from(stores)
+        .where(visibleStoreCondition)
+        .orderBy(asc(stores.sortOrder), asc(stores.id))
+    : await db
+        .select({
+          storeId: stores.id,
+          storeName: stores.name,
+          storeAddress: stores.address,
+          storePhone: stores.phone,
+          storeHours: stores.hours,
+        })
+        .from(stores)
+        .orderBy(asc(stores.sortOrder), asc(stores.id));
   const rows: Array<{
     storeId: number;
     storeName: string;
@@ -212,9 +240,20 @@ export async function getProductStoreAvailability(
             .where(and(eq(productStocks.productId, productId), visibleStoreCondition))
             .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours);
 
-  if (rows.length === 0) return [];
+  const rowsByStoreId = new Map(rows.map(row => [row.storeId, row]));
+  const availabilityRows = allStoreRows.map(store => {
+    const row = rowsByStoreId.get(store.storeId);
+    return row
+      ? row
+      : {
+          ...store,
+          rawStockQty: 0,
+        };
+  });
 
-  const storeIds = rows.map(row => row.storeId);
+  if (availabilityRows.length === 0) return [];
+
+  const storeIds = availabilityRows.map(row => row.storeId);
   const reservedResult =
     variantId
       ? await db.execute(sql`
@@ -264,7 +303,7 @@ export async function getProductStoreAvailability(
     ])
   );
 
-  return rows.map(row => {
+  return availabilityRows.map(row => {
     const rawStockQty = Number(row.rawStockQty ?? 0);
     const activeReservedQty = reservedByStore.get(row.storeId) ?? 0;
     return {
