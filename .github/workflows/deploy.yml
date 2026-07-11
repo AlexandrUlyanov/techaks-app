@@ -101,8 +101,7 @@ jobs:
             SMTP_FROM="${{ secrets.SMTP_FROM || 'TechAks <no-reply@techaks.ru>' }}"
             EOF
 
-            # 3. Install dependencies and build only.
-            # Production DB changes are intentionally excluded from automatic deploy.
+            # 3. Install dependencies, apply safe idempotent migrations, and build.
             echo "Environment versions:"
             node -v
             npm -v
@@ -116,6 +115,35 @@ jobs:
               rm -rf node_modules || true
               npm ci
             fi
+
+            echo "Applying safe store visibility migration..."
+            node --input-type=module <<'NODE'
+            import "dotenv/config";
+            import mysql from "mysql2/promise";
+
+            const databaseUrl = process.env.DATABASE_URL;
+            if (!databaseUrl) {
+              throw new Error("DATABASE_URL is required for store visibility migration.");
+            }
+
+            const connection = await mysql.createConnection(databaseUrl);
+            try {
+              const [columns] = await connection.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stores' AND COLUMN_NAME = 'is_public'",
+              );
+
+              if (Array.isArray(columns) && columns.length > 0) {
+                console.log("stores.is_public already exists");
+              } else {
+                await connection.execute(
+                  "ALTER TABLE `stores` ADD COLUMN `is_public` boolean NOT NULL DEFAULT true",
+                );
+                console.log("stores.is_public added");
+              }
+            } finally {
+              await connection.end();
+            }
+            NODE
 
             echo "Building application..."
             npm run build

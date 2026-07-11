@@ -40,11 +40,12 @@ export default function AdminStores() {
   const [selectedMsStoreId, setSelectedMsStoreId] = useState<Record<number, string>>({});
 
   const utils = trpc.useUtils();
-  const { data: stores = [], isLoading } = trpc.store.getAll.useQuery();
+  const { data: stores = [], isLoading } = trpc.store.getAdminAll.useQuery();
   const { data: msStores = [] } = trpc.sync.getStores.useQuery({});
 
   const upsertMutation = trpc.store.upsert.useMutation({
     onSuccess: () => {
+      utils.store.getAdminAll.invalidate();
       utils.store.getAll.invalidate();
       setEditingStore(null);
       toast.success("Магазин сохранён");
@@ -56,6 +57,7 @@ export default function AdminStores() {
 
   const deleteMutation = trpc.store.delete.useMutation({
     onSuccess: () => {
+      utils.store.getAdminAll.invalidate();
       utils.store.getAll.invalidate();
     },
   });
@@ -82,6 +84,7 @@ export default function AdminStores() {
       reviewCount: parseInt((formData.get("reviewCount") as string) || "0"),
       image: formData.get("image") as string,
       mapUrl: normalizedMapUrl,
+      isPublic: formData.get("isPublic") === "on",
       sortOrder: parseInt((formData.get("sortOrder") as string) || "0"),
     };
 
@@ -107,6 +110,7 @@ export default function AdminStores() {
         reviewCount: Number(store.reviewCount || 0),
         image: store.image,
         mapUrl: store.mapUrl || null,
+        isPublic: store.isPublic ?? true,
         sortOrder: Number(store.sortOrder || 0),
       },
     });
@@ -169,6 +173,15 @@ export default function AdminStores() {
                               msStores.find(ms => ms.id === store.msId)?.name || store.msId
                             }`
                           : "Склад не привязан"}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          store.isPublic
+                            ? "bg-sky-100 text-sky-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {store.isPublic ? "На сайте и самовывоз" : "Скрыт с сайта"}
                       </span>
                     </div>
                   </div>
@@ -400,6 +413,24 @@ export default function AdminStores() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-[#05C3D4]"
                 />
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl bg-cyan-50/70 p-4 text-sm text-gray-700">
+                <input
+                  name="isPublic"
+                  type="checkbox"
+                  defaultChecked={editingStore.isPublic ?? true}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#05C3D4] focus:ring-[#05C3D4]"
+                />
+                <span>
+                  <span className="block font-semibold text-gray-900">
+                    Показывать на сайте и разрешить самовывоз
+                  </span>
+                  <span className="mt-1 block text-gray-500">
+                    Выключите для складов вроде РЦ: они останутся доступны внутри админки,
+                    для остатков и расчёта доставки, но не появятся на сайте как магазин.
+                  </span>
+                </span>
+              </label>
 
               <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
                 <button

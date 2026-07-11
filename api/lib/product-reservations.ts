@@ -145,12 +145,16 @@ async function getProductHasActiveVariants(db: DbLike, productId: number) {
 export async function getProductStoreAvailability(
   db: DbLike,
   productId: number,
-  variantId?: number | null
+  variantId?: number | null,
+  options: { includeHiddenStores?: boolean } = {}
 ) {
   const now = new Date();
   await expireDueReservations(db, now);
 
   const hasVariants = !variantId && (await getProductHasActiveVariants(db, productId));
+  const visibleStoreCondition = options.includeHiddenStores
+    ? undefined
+    : eq(stores.isPublic, true);
   const rows: Array<{
     storeId: number;
     storeName: string;
@@ -171,7 +175,7 @@ export async function getProductStoreAvailability(
           })
           .from(productVariantStocks)
           .innerJoin(stores, eq(productVariantStocks.storeId, stores.id))
-          .where(eq(productVariantStocks.variantId, variantId))
+          .where(and(eq(productVariantStocks.variantId, variantId), visibleStoreCondition))
           .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours)
       : hasVariants
         ? await db
@@ -189,7 +193,8 @@ export async function getProductStoreAvailability(
             .where(
               and(
                 eq(productVariants.productId, productId),
-                eq(productVariants.isActive, true)
+                eq(productVariants.isActive, true),
+                visibleStoreCondition
               )
             )
             .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours)
@@ -204,7 +209,7 @@ export async function getProductStoreAvailability(
             })
             .from(productStocks)
             .innerJoin(stores, eq(productStocks.storeId, stores.id))
-            .where(eq(productStocks.productId, productId))
+            .where(and(eq(productStocks.productId, productId), visibleStoreCondition))
             .groupBy(stores.id, stores.name, stores.address, stores.phone, stores.hours);
 
   if (rows.length === 0) return [];

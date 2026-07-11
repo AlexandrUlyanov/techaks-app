@@ -853,7 +853,8 @@ async function resolveOrCreateCustomerUser(
 
 async function getCheckoutPickupStoresForItems(
   db: ReturnType<typeof getDb>,
-  items: Array<{ productId: number; variantId?: number | null; quantity: number }>
+  items: Array<{ productId: number; variantId?: number | null; quantity: number }>,
+  options: { includeHiddenStores?: boolean } = {}
 ) {
   if (items.length === 0) return [];
 
@@ -865,7 +866,7 @@ async function getCheckoutPickupStoresForItems(
 
   const perItemAvailability = await Promise.all(
     normalizedItems.map(item =>
-      getProductStoreAvailability(db, item.productId, item.variantId ?? null)
+      getProductStoreAvailability(db, item.productId, item.variantId ?? null, options)
     )
   );
 
@@ -894,15 +895,19 @@ async function resolveCheckoutFulfillmentStore(
     preferredStoreId?: number | null;
   },
 ) {
-  const availableStores = await getCheckoutPickupStoresForItems(db, input.items);
   const deliverySettings = await getYandexDeliveryRuntimeSettings();
   const preferredStoreId =
     typeof input.preferredStoreId === "number"
       ? input.preferredStoreId
       : deliverySettings.defaultSourceStoreId;
+  const availableStores = await getCheckoutPickupStoresForItems(db, input.items);
   const preferred =
     typeof preferredStoreId === "number"
-      ? availableStores.find(store => store.storeId === preferredStoreId)
+      ? (
+          await getCheckoutPickupStoresForItems(db, input.items, {
+            includeHiddenStores: true,
+          })
+        ).find(store => store.storeId === preferredStoreId)
       : null;
   const selected = preferred ?? availableStores[0] ?? null;
 
@@ -2173,6 +2178,12 @@ export const ecommerceRouter = createRouter({
         }
 
         const resolvedPickupStore = await assertStoreExists(db, input.storeId);
+        if (!resolvedPickupStore.isPublic) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Этот склад недоступен для самовывоза.",
+          });
+        }
         pickupStore = resolvedPickupStore;
         fulfillmentStore = resolvedPickupStore;
 

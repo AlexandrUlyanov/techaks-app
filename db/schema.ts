@@ -110,6 +110,7 @@ export const stores = mysqlTable("stores", {
   reviewCount: int("review_count").notNull().default(0),
   image: varchar("image", { length: 255 }).notNull(),
   mapUrl: text("map_url"),
+  isPublic: boolean("is_public").notNull().default(true),
   sortOrder: int("sort_order").notNull().default(0),
 });
 

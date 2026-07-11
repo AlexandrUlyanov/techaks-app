@@ -796,6 +796,7 @@ export const settingsRouter = createRouter({
         id: schema.stores.id,
         name: schema.stores.name,
         address: schema.stores.address,
+        isPublic: schema.stores.isPublic,
         sortOrder: schema.stores.sortOrder,
       })
       .from(schema.stores)
@@ -807,6 +808,7 @@ export const settingsRouter = createRouter({
         id: store.id,
         name: store.name,
         address: store.address,
+        isPublic: store.isPublic,
       })),
     };
   }),

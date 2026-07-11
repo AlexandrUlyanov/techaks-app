@@ -43,7 +43,11 @@ export async function buildHomepageData() {
       .where(isNull(categories.parentId))
       .orderBy(asc(categories.sortOrder))
       .limit(8),
-    db.select().from(stores).orderBy(asc(stores.sortOrder)),
+    db
+      .select()
+      .from(stores)
+      .where(eq(stores.isPublic, true))
+      .orderBy(asc(stores.sortOrder)),
     db
       .select()
       .from(banners)

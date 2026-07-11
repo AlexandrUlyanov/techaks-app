@@ -1533,6 +1533,7 @@ async function buildProductSeoData(url: URL) {
     .where(
       and(
         eq(schema.productStocks.productId, product.id),
+        eq(schema.stores.isPublic, true),
         sql`${schema.productStocks.quantity} > 0`
       )
     )
@@ -1829,7 +1830,11 @@ async function buildProductSeoData(url: URL) {
 async function buildStoresSeoData() {
   const [profile, stores] = await Promise.all([
     getPublicSiteProfile(),
-    getDb().select().from(schema.stores).orderBy(asc(schema.stores.sortOrder)),
+    getDb()
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.isPublic, true))
+      .orderBy(asc(schema.stores.sortOrder)),
   ]);
 
   return buildBasePageData("/stores", {
@@ -1880,7 +1885,11 @@ async function buildStoresSeoData() {
 async function buildContactsSeoData() {
   const [profile, stores] = await Promise.all([
     getPublicSiteProfile(),
-    getDb().select().from(schema.stores).orderBy(asc(schema.stores.sortOrder)),
+    getDb()
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.isPublic, true))
+      .orderBy(asc(schema.stores.sortOrder)),
   ]);
 
   return buildBasePageData("/contacts", {
@@ -1958,7 +1967,11 @@ async function buildContactsSeoData() {
 async function buildAboutSeoData() {
   const [profile, stores] = await Promise.all([
     getPublicSiteProfile(),
-    getDb().select().from(schema.stores).orderBy(asc(schema.stores.sortOrder)),
+    getDb()
+      .select()
+      .from(schema.stores)
+      .where(eq(schema.stores.isPublic, true))
+      .orderBy(asc(schema.stores.sortOrder)),
   ]);
 
   return buildBasePageData("/about", {

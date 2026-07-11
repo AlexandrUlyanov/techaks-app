@@ -37,11 +37,22 @@ const storeSchema = z.object({
   reviewCount: z.number(),
   image: z.string(),
   mapUrl: z.string().nullable().transform(normalizeStoreMapUrl),
+  isPublic: z.boolean().default(true),
   sortOrder: z.number(),
 });
 
 export const storeRouter = createRouter({
   getAll: publicQuery.query(async () => {
+    const db = getDb();
+    return await db
+      .select()
+      .from(stores)
+      .where(eq(stores.isPublic, true))
+      .orderBy(asc(stores.sortOrder));
+  }),
+
+  getAdminAll: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Store");
     const db = getDb();
     return await db.select().from(stores).orderBy(asc(stores.sortOrder));
   }),

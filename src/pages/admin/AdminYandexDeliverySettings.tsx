@@ -51,6 +51,7 @@ type SettingsPayload = {
     id: number;
     name: string;
     address: string | null;
+    isPublic?: boolean;
     sortOrder?: number | null;
   }>;
 };
@@ -254,6 +255,7 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
                 <option key={store.id} value={store.id}>
                   {store.name}
                   {store.address ? ` — ${store.address}` : ""}
+                  {store.isPublic === false ? " — скрыт с сайта" : ""}
                 </option>
               ))}
             </select>
