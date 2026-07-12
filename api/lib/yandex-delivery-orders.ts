@@ -45,6 +45,7 @@ type DeliveryOrderCore = {
   customerEmail: string | null;
   customerName: string | null;
   customerComment?: string | null;
+  deliveryComment?: string | null;
   orderNumber: string | null;
 };
 
@@ -176,6 +177,7 @@ export async function getOrderCoreForYandexDelivery(
       customerEmail: orders.customerEmail,
       customerName: orders.customerName,
       customerComment: orders.customerComment,
+      deliveryComment: orders.deliveryComment,
       orderNumber: orders.orderNumber,
     })
     .from(orders)
@@ -345,7 +347,7 @@ export async function createYandexDeliveryOrderForOrder(params: {
       destinationAddress: order.address,
       customerPhone: order.customerPhone,
       customerName: order.customerName || null,
-      customerComment: order.customerComment || null,
+      customerComment: order.deliveryComment || order.customerComment || null,
       orderNumber: order.orderNumber || `ORDER-${order.id}`,
       itemSummary,
       totalPrice: order.totalPrice,

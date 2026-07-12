@@ -118,6 +118,7 @@ export default function CheckoutPage() {
   );
   const [pickupStoreId, setPickupStoreId] = useState<number | null>(null);
   const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
+  const [deliveryCourierComment, setDeliveryCourierComment] = useState("");
   const [deliveryAddressFocused, setDeliveryAddressFocused] = useState(false);
   const [deliveryAddressActiveIndex, setDeliveryAddressActiveIndex] = useState(-1);
   const [debouncedDeliveryAddress, setDebouncedDeliveryAddress] = useState("");
@@ -513,6 +514,8 @@ export default function CheckoutPage() {
       paymentType,
       totalPrice: totalWithBonuses,
       deliveryPrice,
+      deliveryComment:
+        deliveryType === "delivery" ? deliveryCourierComment.trim() || null : null,
       loyaltyBonusAmount: useBonuses ? effectiveBonusSpent : 0,
     });
   };
@@ -1008,6 +1011,14 @@ export default function CheckoutPage() {
                           </span>
                         </div>
                       ) : null}
+                      <textarea
+                        value={deliveryCourierComment}
+                        onChange={event => setDeliveryCourierComment(event.target.value)}
+                        rows={3}
+                        maxLength={1000}
+                        className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-[#05C3D4]"
+                        placeholder="Комментарий курьеру: подъезд, этаж, домофон, как найти вход"
+                      />
                       {deliveryType === "delivery" &&
                       normalizedDeliveryAddress.length >= 6 &&
                       !isDeliveryQuoteCurrent ? (

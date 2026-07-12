@@ -129,6 +129,8 @@ function getOrderHistoryActionLabel(actionType?: string | null) {
       return "Статус обновлён из МойСклад";
     case "payment_updated":
       return "Оплата обновлена";
+    case "payment_restarted":
+      return "Онлайн-оплата запущена повторно";
     case "order_created":
       return "Заказ создан";
     case "one_click_order_created":
@@ -139,6 +141,8 @@ function getOrderHistoryActionLabel(actionType?: string | null) {
       return "Данные заказа обновлены";
     case "delivery_updated":
       return "Доставка обновлена";
+    case "manual_delivery_calculated":
+      return "Ручной расчёт доставки";
     case "delivery_update_skipped_not_required":
       return "Доставка не требуется";
     case "delivery_update_skipped_legacy":
@@ -394,6 +398,8 @@ export default function AdminOrderDetails() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [manualDeliveryPrice, setManualDeliveryPrice] = useState("0");
+  const [courierComment, setCourierComment] = useState("");
   const [markedClientReadAt, setMarkedClientReadAt] = useState<string | null>(null);
 
   const {
@@ -436,6 +442,21 @@ export default function AdminOrderDetails() {
       toast.success("Данные заказа обновлены");
     },
     onError: err => toast.error(err.message || "Ошибка обновления заказа"),
+  });
+  const setManualOrderDelivery = trpc.ecommerce.setManualOrderDelivery.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success(
+        result.amountDue > 0
+          ? `Расчёт сохранён. Клиенту осталось оплатить ${formatPrice(result.amountDue)}`
+          : "Расчёт доставки сохранён"
+      );
+    },
+    onError: err => toast.error(err.message || "Ошибка сохранения расчёта доставки"),
   });
   const updateItemQuantity = trpc.ecommerce.updateOrderItemQuantity.useMutation({
     onSuccess: async () => {
@@ -550,6 +571,8 @@ export default function AdminOrderDetails() {
     setCustomerPhone(order.customerPhone || "");
     setCustomerEmail(order.customerEmail || "");
     setAddress(order.address || "");
+    setManualDeliveryPrice(String(order.deliveryPrice || 0));
+    setCourierComment(order.deliveryComment || "");
   }, [order]);
 
   useEffect(() => {
@@ -705,6 +728,7 @@ export default function AdminOrderDetails() {
     deliveryProviderLastSyncAt?: string | Date | null;
     deliveryProviderError?: string | null;
   };
+  const remainingAmount = Math.max(0, (order.totalPrice || 0) - (order.paidAmount || 0));
 
   const itemTotal = order.items.reduce(
     (acc: number, item: OrderItem) =>
@@ -1225,6 +1249,74 @@ export default function AdminOrderDetails() {
                     yookassaDiagnostics.paymentCancellationReason
                   )}
                 />
+              </div>
+            </AdminSection>
+          ) : null}
+
+          {order.deliveryType === "delivery" ? (
+            <AdminSection
+              title="Расчёт доставки"
+              description="Укажите стоимость вручную, если автоматический тариф недоступен или его нужно скорректировать. Клиент оплатит только оставшуюся сумму."
+            >
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+                    Стоимость доставки, ₽
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={manualDeliveryPrice}
+                    onChange={event => setManualDeliveryPrice(event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm font-semibold text-[#15171A] outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-gray-500">
+                    Комментарий курьеру
+                  </span>
+                  <textarea
+                    rows={4}
+                    value={courierComment}
+                    onChange={event => setCourierComment(event.target.value)}
+                    maxLength={1000}
+                    placeholder="Подъезд, этаж, домофон, ориентир и другие важные детали"
+                    className="w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm text-[#15171A] outline-none focus:border-[#05C3D4]"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <InfoRow label="Оплачено" value={formatPrice(order.paidAmount)} />
+                  <InfoRow label="Текущий итог" value={formatPrice(order.totalPrice)} />
+                  <InfoRow label="Осталось" value={formatPrice(remainingAmount)} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parsedPrice = Number(manualDeliveryPrice);
+                    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+                      toast.error("Укажите корректную стоимость доставки");
+                      return;
+                    }
+                    setManualOrderDelivery.mutate({
+                      id: orderId,
+                      deliveryPrice: Math.round(parsedPrice),
+                      deliveryComment: courierComment.trim() || null,
+                    });
+                  }}
+                  disabled={setManualOrderDelivery.isPending}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-5 text-sm font-black text-white disabled:opacity-50"
+                >
+                  {setManualOrderDelivery.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Сохранить расчёт
+                </button>
+                <p className="text-xs leading-5 text-gray-500">
+                  После сохранения клиент увидит кнопку онлайн-оплаты в личном кабинете. Если товары уже оплачены, счёт будет только на доплату.
+                </p>
               </div>
             </AdminSection>
           ) : null}

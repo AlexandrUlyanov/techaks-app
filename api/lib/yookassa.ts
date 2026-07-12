@@ -80,6 +80,10 @@ type CreateYooKassaPaymentInput = {
     price: number;
     paymentSubject?: "commodity" | "service";
   }>;
+  paymentAttemptKey?: string;
+  preserveOrderStatus?: boolean;
+  paidAmountBefore?: number;
+  aggregateTotalPrice?: number;
 };
 
 function buildCredentials(shopId: string, secretKey: string) {
@@ -406,6 +410,7 @@ export async function createYooKassaPaymentForOrder(
       source: "techaks",
       testMode: runtime.testMode ? "true" : "false",
       mode: runtime.mode,
+      paymentPurpose: input.preserveOrderStatus ? "additional_payment" : "order_payment",
     },
     receipt: {
       customer: {
@@ -430,7 +435,9 @@ export async function createYooKassaPaymentForOrder(
     const payment = await requestYooKassa<YooKassaPaymentObject>("/payments", {
       method: "POST",
       body,
-      idempotenceKey: `techaks-order-${input.orderId}`,
+      idempotenceKey: input.paymentAttemptKey
+        ? `techaks-order-${input.orderId}-${input.paymentAttemptKey}`
+        : `techaks-order-${input.orderId}`,
     });
 
     if (!payment?.id) {
@@ -441,19 +448,40 @@ export async function createYooKassaPaymentForOrder(
     }
 
     const paymentMetadataPatch = await buildAvailablePaymentMetadataPatch(payment);
+    const paidAmountBefore = Math.max(0, input.paidAmountBefore ?? 0);
+    const aggregateTotalPrice = Math.max(
+      input.totalPrice,
+      input.aggregateTotalPrice ?? input.totalPrice
+    );
+    const nextPaidAmount =
+      payment.status === "succeeded"
+        ? Math.min(aggregateTotalPrice, paidAmountBefore + input.totalPrice)
+        : paidAmountBefore;
+    const nextPaymentStatus =
+      payment.status === "succeeded"
+        ? nextPaidAmount >= aggregateTotalPrice
+          ? "paid"
+          : "partially_paid"
+        : paidAmountBefore > 0
+          ? "partially_paid"
+          : "awaiting_payment";
 
     await getDb()
       .update(orders)
       .set({
         paymentMethod: "yookassa",
         paymentId: payment.id,
-        paymentStatus:
-          payment.status === "succeeded" ? "paid" : "awaiting_payment",
+        paymentStatus: nextPaymentStatus,
         paidAt: payment.status === "succeeded" ? new Date() : null,
-        paidAmount: payment.status === "succeeded" ? input.totalPrice : 0,
+        paidAmount: nextPaidAmount,
         paymentError: null,
         ...paymentMetadataPatch,
-        status: payment.status === "succeeded" ? "processing" : "awaiting_payment",
+        ...(input.preserveOrderStatus
+          ? {}
+          : {
+              status:
+                payment.status === "succeeded" ? "processing" : "awaiting_payment",
+            }),
         updatedAt: new Date(),
       })
       .where(eq(orders.id, input.orderId));
@@ -520,6 +548,7 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
       customerName: orders.customerName,
       customerEmail: orders.customerEmail,
       totalPrice: orders.totalPrice,
+      paidAmount: orders.paidAmount,
       status: orders.status,
       paymentStatus: orders.paymentStatus,
       paymentMethod: orders.paymentMethod,
@@ -562,15 +591,31 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
   );
   const nextPaidAt = mapped.paidAt;
   const nextPaymentError = mapped.error;
+  const currentPaidAmount = Math.max(0, order.paidAmount || 0);
+  const nextPaidAmount =
+    mapped.paidAmount === null
+      ? order.totalPrice
+      : mapped.paymentStatus === "refund"
+        ? mapped.paidAmount
+        : currentPaidAmount;
+  const nextPaymentStatus =
+    mapped.paymentStatus === "paid" || mapped.paymentStatus === "refund"
+      ? mapped.paymentStatus
+      : currentPaidAmount > 0
+        ? "partially_paid"
+        : mapped.paymentStatus;
+  const preserveOrderStatus =
+    paymentWithReceipt.metadata?.paymentPurpose === "additional_payment";
   await db
     .update(orders)
     .set({
-      paymentStatus: mapped.paymentStatus,
-      paidAmount:
-        mapped.paidAmount === null ? order.totalPrice : mapped.paidAmount,
+      paymentStatus: nextPaymentStatus,
+      paidAmount: nextPaidAmount,
       paidAt: nextPaidAt,
       paymentError: nextPaymentError,
-      ...(mapped.orderStatus ? { status: mapped.orderStatus } : {}),
+      ...(mapped.orderStatus && !preserveOrderStatus
+        ? { status: mapped.orderStatus }
+        : {}),
       ...paymentMetadataPatch,
       updatedAt: new Date(),
     })
@@ -579,7 +624,7 @@ export async function refreshYooKassaPaymentForOrder(orderId: number) {
   await notifyAboutPaymentTransition(
     order,
     {
-      paymentStatus: mapped.paymentStatus,
+      paymentStatus: nextPaymentStatus,
       paymentError: nextPaymentError,
       paidAt: nextPaidAt,
     },
@@ -691,6 +736,7 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
       paymentStatus: orders.paymentStatus,
       paymentMethod: orders.paymentMethod,
       paymentTest: orders.paymentTest,
+      paidAmount: orders.paidAmount,
     })
     .from(orders)
     .where(
@@ -769,15 +815,31 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
     await buildAvailablePaymentMetadataPatch(verifiedPayment);
   const nextPaidAt = mapped.paidAt;
   const nextPaymentError = mapped.error;
+  const currentPaidAmount = Math.max(0, order.paidAmount || 0);
+  const nextPaidAmount =
+    mapped.paidAmount === null
+      ? order.totalPrice
+      : mapped.paymentStatus === "refund"
+        ? mapped.paidAmount
+        : currentPaidAmount;
+  const nextPaymentStatus =
+    mapped.paymentStatus === "paid" || mapped.paymentStatus === "refund"
+      ? mapped.paymentStatus
+      : currentPaidAmount > 0
+        ? "partially_paid"
+        : mapped.paymentStatus;
+  const preserveOrderStatus =
+    verifiedPayment.metadata?.paymentPurpose === "additional_payment";
   await db
     .update(orders)
     .set({
-      paymentStatus: mapped.paymentStatus,
-      paidAmount:
-        mapped.paidAmount === null ? order.totalPrice : mapped.paidAmount,
+      paymentStatus: nextPaymentStatus,
+      paidAmount: nextPaidAmount,
       paidAt: nextPaidAt,
       paymentError: nextPaymentError,
-      ...(mapped.orderStatus ? { status: mapped.orderStatus } : {}),
+      ...(mapped.orderStatus && !preserveOrderStatus
+        ? { status: mapped.orderStatus }
+        : {}),
       ...paymentMetadataPatch,
       updatedAt: new Date(),
     })
@@ -786,7 +848,7 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
   await notifyAboutPaymentTransition(
     order,
     {
-      paymentStatus: mapped.paymentStatus,
+      paymentStatus: nextPaymentStatus,
       paymentError: nextPaymentError,
       paidAt: nextPaidAt,
     },
@@ -811,7 +873,7 @@ export async function handleYooKassaWebhook(payload: YooKassaWebhookPayload) {
     event,
     paymentId,
     orderId: order.id,
-    paymentStatus: mapped.paymentStatus,
+    paymentStatus: nextPaymentStatus,
     test: verifiedPayment.test,
   });
 

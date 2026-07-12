@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
@@ -510,6 +511,10 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
         deliveryService: orders.deliveryService,
         deliveryTrackNumber: orders.deliveryTrackNumber,
         deliveryPrice: orders.deliveryPrice,
+        paidAmount: orders.paidAmount,
+        subtotal: orders.subtotal,
+        discountTotal: orders.discountTotal,
+        deliveryComment: orders.deliveryComment,
         deliveryCity: orders.deliveryCity,
         deliveryRegion: orders.deliveryRegion,
         deliveryProvider: orders.deliveryProvider,
@@ -550,6 +555,10 @@ async function getOrderCoreForUpdate(db: ReturnType<typeof getDb>, orderId: numb
         NULL AS deliveryService,
         NULL AS deliveryTrackNumber,
         0 AS deliveryPrice,
+        0 AS paidAmount,
+        total_price AS subtotal,
+        0 AS discountTotal,
+        NULL AS deliveryComment,
         NULL AS deliveryCity,
         NULL AS deliveryRegion,
         NULL AS deliveryProvider,
@@ -2114,6 +2123,7 @@ export const ecommerceRouter = createRouter({
         paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
         deliveryPrice: z.number().min(0).optional().nullable(),
+        deliveryComment: z.string().trim().max(1000).optional().nullable(),
         loyaltyBonusAmount: z.number().min(0).optional().nullable(),
       })
     )
@@ -2378,6 +2388,10 @@ export const ecommerceRouter = createRouter({
             subtotal: trustedTotal,
             discountTotal: loyaltyBonusSpent,
             deliveryPrice,
+            deliveryComment:
+              input.deliveryType === "delivery"
+                ? input.deliveryComment?.trim() || null
+                : null,
             paidAmount: 0,
             deliveryType: input.deliveryType,
             address: orderAddress,
@@ -2645,6 +2659,257 @@ export const ecommerceRouter = createRouter({
       return {
         ...order,
         items,
+      };
+    }),
+
+  createMyOrderPayment: protectedProcedure
+    .input(z.object({ orderId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+      const allowed = await canViewerAccessOrder(
+        db,
+        input.orderId,
+        {
+          id: ctx.user.id,
+          phone: ctx.user.phone || null,
+          email: ctx.user.email || null,
+        },
+        capabilities
+      );
+
+      if (!allowed) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Заказ недоступен" });
+      }
+      if (!canUseRichOrdersSchema(capabilities)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Повторная онлайн-оплата недоступна для старого формата заказа.",
+        });
+      }
+
+      const loadOrder = () =>
+        db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            status: orders.status,
+            totalPrice: orders.totalPrice,
+            deliveryPrice: orders.deliveryPrice,
+            paymentStatus: orders.paymentStatus,
+            paymentId: orders.paymentId,
+            paymentRawResponseJson: orders.paymentRawResponseJson,
+            paidAmount: orders.paidAmount,
+            customerName: sql<string>`coalesce(${orders.customerName}, ${users.fullName})`,
+            customerPhone: sql<string>`coalesce(${orders.customerPhone}, ${users.phone})`,
+            customerEmail: sql<string>`coalesce(${orders.customerEmail}, ${users.email})`,
+          })
+          .from(orders)
+          .leftJoin(users, eq(orders.userId, users.id))
+          .where(eq(orders.id, input.orderId))
+          .limit(1);
+
+      let order = (await loadOrder())[0];
+      if (!order) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
+      }
+
+      if (order.paymentId && order.paymentStatus === "awaiting_payment") {
+        try {
+          await refreshYooKassaPaymentForOrder(order.id);
+          order = (await loadOrder())[0] ?? order;
+        } catch (error) {
+          console.warn("[yookassa] pre-retry payment refresh failed", error);
+        }
+      }
+
+      const amountDue = Math.max(0, order.totalPrice - (order.paidAmount || 0));
+      if (order.paymentStatus === "paid" || amountDue === 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Заказ уже оплачен." });
+      }
+      if (["cancelled", "completed", "return_requested"].includes(order.status)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Этот заказ уже нельзя оплатить онлайн.",
+        });
+      }
+      if (order.totalPrice <= 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Сумма заказа должна быть больше нуля.",
+        });
+      }
+
+      if (order.paymentStatus === "awaiting_payment" && order.paymentRawResponseJson) {
+        const rawPayment = order.paymentRawResponseJson as Record<string, any>;
+        const existingConfirmationUrl = rawPayment?.confirmation?.confirmation_url;
+        const createdAtMs = rawPayment?.created_at
+          ? new Date(rawPayment.created_at).getTime()
+          : Number.NaN;
+        const expiresAtMs = rawPayment?.expires_at
+          ? new Date(rawPayment.expires_at).getTime()
+          : Number.NaN;
+        const now = Date.now();
+        const isStillFresh = Number.isFinite(expiresAtMs)
+          ? expiresAtMs > now + 60_000
+          : Number.isFinite(createdAtMs) && now - createdAtMs < 30 * 60_000;
+
+        if (typeof existingConfirmationUrl === "string" && isStillFresh) {
+          return {
+            success: true,
+            confirmationUrl: existingConfirmationUrl,
+          };
+        }
+      }
+
+      const itemRows = await db
+        .select({
+          productName: sql<string>`coalesce(${orderItems.productName}, ${products.name})`,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+        })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, order.id))
+        .orderBy(orderItems.id);
+
+      if (itemRows.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "В заказе нет товаров для оплаты.",
+        });
+      }
+
+      const isDeliverySupplement = (order.paidAmount || 0) > 0;
+      const deliveryPrice = Math.max(0, Math.min(order.deliveryPrice || 0, amountDue));
+      const productsTotal = amountDue - deliveryPrice;
+      const rawProductsTotal = itemRows.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const paymentItems: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+        paymentSubject: "commodity" | "service";
+      }> = [];
+
+      if (isDeliverySupplement) {
+        paymentItems.push({
+          name: `Доплата за доставку по заказу ${order.orderNumber || `#${order.id}`}`,
+          quantity: 1,
+          price: amountDue,
+          paymentSubject: "service",
+        });
+      } else if (productsTotal > 0 && rawProductsTotal === productsTotal) {
+        paymentItems.push(
+          ...itemRows.map(item => ({
+            name: item.productName || "Товар",
+            quantity: item.quantity,
+            price: item.price,
+            paymentSubject: "commodity" as const,
+          }))
+        );
+      } else if (productsTotal > 0) {
+        let allocated = 0;
+        itemRows.forEach((item, index) => {
+          const isLast = index === itemRows.length - 1;
+          const linePrice = isLast
+            ? productsTotal - allocated
+            : Math.min(
+                productsTotal - allocated,
+                Math.max(
+                  0,
+                  Math.round(
+                    (item.price * item.quantity * productsTotal) /
+                      Math.max(1, rawProductsTotal)
+                  )
+                )
+              );
+          allocated += linePrice;
+          if (linePrice > 0) {
+            paymentItems.push({
+              name:
+                item.quantity > 1
+                  ? `${item.productName || "Товар"} × ${item.quantity}`
+                  : item.productName || "Товар",
+              quantity: 1,
+              price: linePrice,
+              paymentSubject: "commodity",
+            });
+          }
+        });
+      }
+
+      if (!isDeliverySupplement && deliveryPrice > 0) {
+        paymentItems.push({
+          name: "Доставка",
+          quantity: 1,
+          price: deliveryPrice,
+          paymentSubject: "service",
+        });
+      }
+
+      const payment = await createYooKassaPaymentForOrder({
+        orderId: order.id,
+        orderNumber: order.orderNumber || `#${order.id}`,
+        totalPrice: amountDue,
+        customerPhone: order.customerPhone || ctx.user.phone || "",
+        customerEmail: order.customerEmail || ctx.user.email || null,
+        items: paymentItems,
+        paymentAttemptKey: randomUUID(),
+        preserveOrderStatus: true,
+        paidAmountBefore: order.paidAmount || 0,
+        aggregateTotalPrice: order.totalPrice,
+      });
+
+      await db
+        .insert(orderHistory)
+        .values({
+          orderId: order.id,
+          userId: ctx.user.id,
+          actionType: "payment_restarted",
+          newValue: {
+            paymentId: payment.id,
+            status: payment.status,
+          },
+          comment: "Покупатель повторно запустил онлайн-оплату из личного кабинета.",
+        })
+        .catch(error => {
+          console.error("repeat payment history write failed", error);
+        });
+
+      if (order.customerEmail && !isPlaceholderEmail(order.customerEmail)) {
+        await sendOrderNotificationEmail({
+          email: order.customerEmail,
+          orderNumber: order.orderNumber || `#${order.id}`,
+          eventType: "payment_pending",
+          data: {
+            customerName: order.customerName,
+            customerEmail: order.customerEmail,
+            customerPhone: order.customerPhone,
+            paymentMethod: "yookassa",
+            paymentStatus: "awaiting_payment",
+            totalAmount: order.totalPrice,
+            paymentUrl: payment.confirmationUrl || undefined,
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
+          message: "Создана новая ссылка для онлайн-оплаты заказа.",
+        }).catch(error => {
+          console.error("repeat payment email failed", error);
+        });
+      }
+
+      if (!payment.confirmationUrl) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Платёж создан, но YooKassa не вернула ссылку для оплаты.",
+        });
+      }
+
+      return {
+        success: true,
+        confirmationUrl: payment.confirmationUrl,
       };
     }),
 
@@ -4336,6 +4601,131 @@ export const ecommerceRouter = createRouter({
         newValue: patch as any,
       });
       return { success: true };
+    }),
+
+  setManualOrderDelivery: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        deliveryPrice: z.number().int().min(0).max(1_000_000),
+        deliveryComment: z.string().trim().max(1000).optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
+      const db = getDb();
+      const capabilities = await getOrderDbCapabilities(db);
+      const existing = await getOrderCoreForUpdate(db, input.id);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
+      }
+      if (existing.deliveryType !== "delivery") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ручной расчёт доступен только для заказа с доставкой.",
+        });
+      }
+      if (!canUseModernOrderDetailsSchema(capabilities)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Ручной расчёт доставки недоступен для старого формата заказа.",
+        });
+      }
+
+      const subtotal = Math.max(0, existing.subtotal ?? existing.totalPrice ?? 0);
+      const discountTotal = Math.max(0, existing.discountTotal ?? 0);
+      const nextTotalPrice = Math.max(0, subtotal - discountTotal + input.deliveryPrice);
+      const paidAmount = Math.max(0, existing.paidAmount ?? 0);
+      const amountDue = Math.max(0, nextTotalPrice - paidAmount);
+      const nextPaymentStatus =
+        nextTotalPrice > 0 && paidAmount >= nextTotalPrice
+          ? "paid"
+          : paidAmount > 0
+            ? "partially_paid"
+            : existing.paymentStatus || "unpaid";
+      const nextComment = input.deliveryComment?.trim() || null;
+
+      await db
+        .update(orders)
+        .set({
+          deliveryPrice: input.deliveryPrice,
+          deliveryComment: nextComment,
+          totalPrice: nextTotalPrice,
+          paymentStatus: nextPaymentStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, input.id));
+
+      await safeInsertOrderHistory(db, {
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "manual_delivery_calculated",
+        oldValue: {
+          deliveryPrice: existing.deliveryPrice ?? 0,
+          deliveryComment: existing.deliveryComment ?? null,
+          totalPrice: existing.totalPrice,
+          paymentStatus: existing.paymentStatus,
+        },
+        newValue: {
+          deliveryPrice: input.deliveryPrice,
+          deliveryComment: nextComment,
+          totalPrice: nextTotalPrice,
+          paymentStatus: nextPaymentStatus,
+          amountDue,
+        },
+        comment: "Менеджер вручную установил стоимость доставки.",
+      });
+
+      await enqueueMoyskladSyncJob({
+        entityType: "order",
+        entityId: input.id,
+        action: "update",
+        payloadSnapshot: {
+          source: "admin",
+          reason: "manual_delivery_calculation",
+          deliveryPrice: input.deliveryPrice,
+          totalPrice: nextTotalPrice,
+          amountDue,
+        },
+      }).catch(error => {
+        console.error("manual delivery MoySklad sync enqueue failed", error);
+      });
+
+      if (
+        amountDue > 0 &&
+        existing.customerEmail &&
+        existing.orderNumber &&
+        !isPlaceholderEmail(existing.customerEmail)
+      ) {
+        await sendOrderNotificationEmail({
+          email: existing.customerEmail,
+          orderNumber: existing.orderNumber,
+          eventType: "payment_pending",
+          data: {
+            customerName: existing.customerName,
+            orderStatus: existing.status,
+            paymentMethod: existing.paymentMethod || existing.paymentType,
+            paymentStatus: nextPaymentStatus,
+            paidAmount,
+            totalAmount: nextTotalPrice,
+            orderUrl: ACCOUNT_ORDERS_URL,
+          },
+          message: `Стоимость доставки рассчитана: ${input.deliveryPrice} ₽. К оплате осталось ${amountDue} ₽. Оплатить можно в личном кабинете.`,
+        }).catch(error => {
+          console.error("manual delivery payment email failed", error);
+        });
+      }
+
+      return {
+        success: true,
+        deliveryPrice: input.deliveryPrice,
+        totalPrice: nextTotalPrice,
+        paidAmount,
+        amountDue,
+        paymentStatus: nextPaymentStatus,
+      };
     }),
 
   updateOrderPayment: protectedProcedure

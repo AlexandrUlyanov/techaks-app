@@ -241,6 +241,7 @@ function resolveOrderActions(params: {
   const needsPayment =
     paymentStatus === "unpaid" ||
     paymentStatus === "awaiting_payment" ||
+    paymentStatus === "partially_paid" ||
     paymentStatus === "payment_error";
 
   return {
@@ -314,6 +315,23 @@ function AccountOrderCard({
         utils.ecommerce.getMyOrderNotifications.invalidate(),
         utils.ecommerce.getMyOrderHistory.invalidate({ orderId: order.id }),
       ]);
+    },
+  });
+  const createPayment = trpc.ecommerce.createMyOrderPayment.useMutation({
+    onSuccess: async result => {
+      await Promise.all([
+        utils.ecommerce.getMyOrders.invalidate(),
+        utils.ecommerce.getMyOrderDetails.invalidate({ orderId: order.id }),
+      ]);
+      toast.success("Переходим к безопасной онлайн-оплате");
+      window.location.assign(result.confirmationUrl);
+    },
+    onError: async error => {
+      await Promise.all([
+        utils.ecommerce.getMyOrders.invalidate(),
+        utils.ecommerce.getMyOrderDetails.invalidate({ orderId: order.id }),
+      ]);
+      toast.error(error.message || "Не удалось подготовить оплату");
     },
   });
 
@@ -525,8 +543,18 @@ function AccountOrderCard({
                       Открыть чек
                     </Button>
                   ) : actions.showPay ? (
-                    <Button type="button" disabled className="w-full rounded-full sm:w-auto">
-                      Оплатить заказ
+                    <Button
+                      type="button"
+                      disabled={createPayment.isPending}
+                      onClick={() => createPayment.mutate({ orderId: order.id })}
+                      className="w-full rounded-full bg-[#05C3D4] text-black hover:bg-[#05C3D4]/90 sm:w-auto"
+                    >
+                      {createPayment.isPending ? (
+                        <Loader2 size={16} className="mr-2 animate-spin" />
+                      ) : (
+                        <ShoppingBag size={16} className="mr-2" />
+                      )}
+                      {createPayment.isPending ? "Готовим оплату" : "Оплатить онлайн"}
                     </Button>
                   ) : actions.showReceiptPending ? (
                     <Button type="button" variant="outline" disabled className="w-full rounded-full sm:w-auto">
