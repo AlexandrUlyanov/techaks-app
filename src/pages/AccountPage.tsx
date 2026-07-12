@@ -1053,7 +1053,9 @@ export default function AccountPage() {
                       Доступно бонусов
                     </div>
                     <div className="mt-2 text-3xl font-black text-[#05C3D4]">
-                      {formatPrice(loyaltyState.availableToSpend ?? 0)}
+                      {loyaltyState.canSpend
+                        ? formatPrice(loyaltyState.availableToSpend ?? 0)
+                        : "Обновляется"}
                     </div>
                     <div className="mt-2 text-sm text-muted-foreground">
                       Группа участия: {loyaltyState.groupName}
@@ -1063,9 +1065,9 @@ export default function AccountPage() {
                     </div>
                   </div>
 
-                  {loyaltyState.lastError ? (
-                    <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-                      {loyaltyState.lastError}
+                  {!loyaltyState.canSpend && loyaltyState.availabilityReason ? (
+                    <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                      {loyaltyState.availabilityReason}
                     </div>
                   ) : null}
 

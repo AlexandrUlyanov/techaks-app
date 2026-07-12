@@ -140,6 +140,21 @@ jobs:
                 );
                 console.log("stores.is_public added");
               }
+
+              const [loyaltyColumns] = await connection.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'loyalty_sync_jobs' AND COLUMN_NAME = 'active_key'",
+              );
+              if (!Array.isArray(loyaltyColumns) || loyaltyColumns.length === 0) {
+                await connection.execute(
+                  "ALTER TABLE `loyalty_sync_jobs` ADD COLUMN `active_key` varchar(190) NULL AFTER `payload_json`",
+                );
+                await connection.execute(
+                  "CREATE UNIQUE INDEX `loyalty_sync_jobs_active_key_unique` ON `loyalty_sync_jobs` (`active_key`)",
+                );
+                console.log("loyalty_sync_jobs.active_key added");
+              } else {
+                console.log("loyalty_sync_jobs.active_key already exists");
+              }
             } finally {
               await connection.end();
             }

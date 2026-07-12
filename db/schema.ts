@@ -602,6 +602,7 @@ export const loyaltySyncJobs = mysqlTable("loyalty_sync_jobs", {
   lockedAt: timestamp("locked_at"),
   lastError: text("last_error"),
   payloadJson: json("payload_json"),
+  activeKey: varchar("active_key", { length: 190 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, table => ({
@@ -613,6 +614,7 @@ export const loyaltySyncJobs = mysqlTable("loyalty_sync_jobs", {
   userIdx: index("loyalty_sync_jobs_user_idx").on(table.userId, table.createdAt),
   orderIdx: index("loyalty_sync_jobs_order_idx").on(table.orderId, table.createdAt),
   typeIdx: index("loyalty_sync_jobs_type_idx").on(table.jobType, table.status, table.createdAt),
+  activeKeyUnique: unique("loyalty_sync_jobs_active_key_unique").on(table.activeKey),
 }));
 
 export const productStocks = mysqlTable("product_stocks", {

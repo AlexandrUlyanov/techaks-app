@@ -51,7 +51,7 @@ describe("buildBonusPreviewFromState", () => {
         programName: "Бонусы",
         maxWriteoffPercent: 30,
         expectedAccrualPercent: 7,
-        lastSyncedAt: new Date("2026-06-19T10:00:00.000Z"),
+        lastSyncedAt: new Date(),
         lastError: null,
         counterpartyId: "cp-1",
         counterpartyHref: "/entity/counterparty/1",
@@ -67,6 +67,36 @@ describe("buildBonusPreviewFromState", () => {
     expect(result.appliedAmount).toBe(600);
     expect(result.totalAfterWriteoff).toBe(1400);
     expect(result.expectedAccrualAmount).toBe(98);
+  });
+
+  it("does not allow spending when the cached balance is stale", () => {
+    const result = buildBonusPreviewFromState({
+      state: {
+        enabled: true,
+        participant: true,
+        status: "active",
+        groupName: "техакс",
+        participantTag: "техакс",
+        balance: 900,
+        availableToSpend: 900,
+        pendingAccrual: 0,
+        programName: "Бонусы",
+        maxWriteoffPercent: 30,
+        expectedAccrualPercent: 7,
+        lastSyncedAt: new Date(Date.now() - 24 * 60 * 60_000),
+        lastError: null,
+        counterpartyId: "cp-1",
+        counterpartyHref: "/entity/counterparty/1",
+        rawPayload: null,
+        rulesSnapshot: null,
+      },
+      subtotal: 2000,
+      requestedAmount: 500,
+    });
+
+    expect(result.canSpend).toBe(false);
+    expect(result.appliedAmount).toBe(0);
+    expect(result.warning).toContain("обновляется");
   });
 });
 

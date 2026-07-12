@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import {
   bonusTransactions,
@@ -12,6 +12,11 @@ import { getDb } from "../queries/connection";
 import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
 import { getMoyskladClient, MoyskladApiError } from "./moysklad-client";
+import {
+  buildLoyaltyJobActiveKey,
+  getLoyaltyAvailability,
+  readScopedNumber,
+} from "./loyalty-domain";
 
 const LOYALTY_SETTING_KEYS = [
   "loyalty_enabled",
@@ -69,6 +74,8 @@ type BonusPreviewResult = {
   subtotal: number;
   totalAfterWriteoff: number;
   warning: string | null;
+  dataFresh: boolean;
+  canSpend: boolean;
   groupName: string;
   programName: string | null;
   rawPayload?: Record<string, unknown> | null;
@@ -93,6 +100,9 @@ type LoyaltyState = {
   counterpartyHref: string | null;
   rawPayload?: Record<string, unknown> | null;
   rulesSnapshot?: Record<string, unknown> | null;
+  dataFresh?: boolean;
+  canSpend?: boolean;
+  availabilityReason?: string | null;
 };
 
 type LoyaltyRuntimeSettings = {
@@ -247,33 +257,8 @@ function extractNumberByKnownKeys(input: unknown, keys: string[]): number | null
   return null;
 }
 
-function extractTextByKnownKeys(input: unknown, keys: string[]): string | null {
-  if (input === null || input === undefined) return null;
-  if (typeof input === "string") {
-    const value = input.trim();
-    return value || null;
-  }
-  if (Array.isArray(input)) {
-    for (const item of input) {
-      const nested = extractTextByKnownKeys(item, keys);
-      if (nested) return nested;
-    }
-    return null;
-  }
-  if (typeof input === "object") {
-    const record = input as Record<string, unknown>;
-    for (const key of keys) {
-      if (key in record) {
-        const nested = extractTextByKnownKeys(record[key], keys);
-        if (nested) return nested;
-      }
-    }
-  }
-  return null;
-}
-
 function buildExpectedAccrual(subtotal: number, rawPayload: Record<string, unknown> | null) {
-  const explicitAmount = extractNumberByKnownKeys(rawPayload, [
+  const explicitAmount = readScopedNumber(rawPayload, [
     "expectedAccrualAmount",
     "bonusAccrualAmount",
     "expectedBonusAmount",
@@ -284,7 +269,7 @@ function buildExpectedAccrual(subtotal: number, rawPayload: Record<string, unkno
     return clampInt(explicitAmount, 0, 10_000_000);
   }
 
-  const percent = extractNumberByKnownKeys(rawPayload, [
+  const percent = readScopedNumber(rawPayload, [
     "accrualPercent",
     "bonusAccrualPercent",
     "bonusPercent",
@@ -305,7 +290,7 @@ function buildRulesSnapshot(
   subtotal: number
 ) {
   const maxWriteoffPercent = clampInt(
-    extractNumberByKnownKeys(rawPayload, [
+    readScopedNumber(rawPayload, [
       "maxSalePaymentPercent",
       "maxPaymentPercent",
       "maxPayPercent",
@@ -319,7 +304,7 @@ function buildRulesSnapshot(
 
   const expectedAccrualAmount = buildExpectedAccrual(subtotal, rawPayload);
   const expectedAccrualPercent = clampInt(
-    extractNumberByKnownKeys(rawPayload, [
+    readScopedNumber(rawPayload, [
       "accrualPercent",
       "bonusAccrualPercent",
       "bonusPercent",
@@ -397,6 +382,22 @@ async function writeLoyaltySyncLog(input: {
   message: string;
   details?: Record<string, unknown> | null;
 }) {
+  if (input.status === "error") {
+    const recentBoundary = new Date(Date.now() - 60 * 60_000);
+    const conditions = [
+      eq(loyaltySyncLogs.status, "error"),
+      eq(loyaltySyncLogs.message, input.message),
+      sql`${loyaltySyncLogs.createdAt} >= ${recentBoundary}`,
+      input.userId ? eq(loyaltySyncLogs.userId, input.userId) : isNull(loyaltySyncLogs.userId),
+      input.orderId ? eq(loyaltySyncLogs.orderId, input.orderId) : isNull(loyaltySyncLogs.orderId),
+    ];
+    const [duplicate] = await getDb()
+      .select({ id: loyaltySyncLogs.id })
+      .from(loyaltySyncLogs)
+      .where(and(...conditions))
+      .limit(1);
+    if (duplicate) return;
+  }
   await getDb().insert(loyaltySyncLogs).values({
     userId: input.userId ?? null,
     orderId: input.orderId ?? null,
@@ -493,7 +494,7 @@ function buildLoyaltyStateFromPayload(args: {
   const { rawPayload, runtime, user } = args;
 
   const bonusPoints =
-    extractNumberByKnownKeys(rawPayload, [
+    readScopedNumber(rawPayload, [
       "bonusPoints",
       "availableBonusPoints",
       "availableBonuses",
@@ -502,7 +503,7 @@ function buildLoyaltyStateFromPayload(args: {
       "bonusBalance",
     ]) ?? user.loyaltyBalance ?? 0;
   const pendingAccrual =
-    extractNumberByKnownKeys(rawPayload, [
+    readScopedNumber(rawPayload, [
       "pendingBonusPoints",
       "pendingBonuses",
       "awaitingBonuses",
@@ -543,7 +544,7 @@ export function buildOrderLoyaltySyncOutcome(args: {
   >;
   rawPayload: Record<string, unknown> | null;
   stateAfter: LoyaltyState | null;
-}) {
+}): LoyaltySyncOutcome {
   const paidOrCompleted =
     args.order.paymentStatus === "paid" || args.order.status === "completed";
   const cancelled =
@@ -556,7 +557,7 @@ export function buildOrderLoyaltySyncOutcome(args: {
     args.order.status === "return_requested";
 
   const actualSpent = clampInt(
-    extractNumberByKnownKeys(args.rawPayload, [
+    readScopedNumber(args.rawPayload, [
       "bonusPayment",
       "bonusWriteoff",
       "bonusWriteOff",
@@ -570,7 +571,7 @@ export function buildOrderLoyaltySyncOutcome(args: {
   );
 
   const actualAccrued = clampInt(
-    extractNumberByKnownKeys(args.rawPayload, [
+    readScopedNumber(args.rawPayload, [
       "bonusAccrual",
       "bonusAccrued",
       "bonusAdded",
@@ -992,7 +993,7 @@ export async function getUserLoyaltyState(
     100
   );
 
-  return {
+  const baseState = {
     enabled: runtime.enabled,
     participant: Boolean(
       user.loyaltyParticipantTag?.trim() &&
@@ -1015,6 +1016,13 @@ export async function getUserLoyaltyState(
     rawPayload: (user.loyaltyProfileJson as Record<string, unknown> | null) ?? null,
     rulesSnapshot: rules,
   };
+  const availability = getLoyaltyAvailability(baseState);
+  return {
+    ...baseState,
+    dataFresh: availability.dataFresh,
+    canSpend: availability.canSpend,
+    availabilityReason: availability.reason,
+  };
 }
 
 export function buildBonusPreviewFromState(args: {
@@ -1024,6 +1032,7 @@ export function buildBonusPreviewFromState(args: {
 }): BonusPreviewResult {
   const subtotal = clampInt(args.subtotal, 0, 10_000_000);
   const requestedAmount = clampInt(args.requestedAmount ?? 0, 0, 10_000_000);
+  const availability = getLoyaltyAvailability(args.state);
 
   if (!args.state.enabled) {
     return {
@@ -1041,6 +1050,8 @@ export function buildBonusPreviewFromState(args: {
       subtotal,
       totalAfterWriteoff: subtotal,
       warning: "Бонусная программа выключена.",
+      dataFresh: false,
+      canSpend: false,
       groupName: args.state.groupName,
       programName: args.state.programName,
       rawPayload: args.state.rawPayload ?? null,
@@ -1064,6 +1075,33 @@ export function buildBonusPreviewFromState(args: {
       subtotal,
       totalAfterWriteoff: subtotal,
       warning: `Покупатель не участвует в группе «${args.state.groupName}».`,
+      dataFresh: false,
+      canSpend: false,
+      groupName: args.state.groupName,
+      programName: args.state.programName,
+      rawPayload: args.state.rawPayload ?? null,
+      rulesSnapshot: args.state.rulesSnapshot ?? null,
+    };
+  }
+
+  if (!availability.canSpend) {
+    return {
+      enabled: true,
+      participant: true,
+      source: "fallback",
+      balance: args.state.balance,
+      availableToSpend: 0,
+      pendingAccrual: args.state.pendingAccrual,
+      maxWriteoffPercent: args.state.maxWriteoffPercent,
+      maxWriteoffAmount: 0,
+      requestedAmount,
+      appliedAmount: 0,
+      expectedAccrualAmount: 0,
+      subtotal,
+      totalAfterWriteoff: subtotal,
+      warning: availability.reason,
+      dataFresh: availability.dataFresh,
+      canSpend: false,
       groupName: args.state.groupName,
       programName: args.state.programName,
       rawPayload: args.state.rawPayload ?? null,
@@ -1101,6 +1139,8 @@ export function buildBonusPreviewFromState(args: {
     subtotal,
     totalAfterWriteoff: Math.max(0, subtotal - appliedAmount),
     warning: null,
+    dataFresh: availability.dataFresh,
+    canSpend: availability.canSpend,
     groupName: args.state.groupName,
     programName: args.state.programName,
     rawPayload: args.state.rawPayload ?? null,
@@ -1471,15 +1511,22 @@ export async function enqueueLoyaltySyncJob(input: {
   payloadJson?: Record<string, unknown> | null;
 }) {
   const db = getDb();
-  const pendingStatuses: LoyaltyJobStatus[] = ["pending", "processing"];
+  const activeKey = buildLoyaltyJobActiveKey(input);
+  const pendingStatuses: LoyaltyJobStatus[] = ["pending", "processing", "error"];
+  const userCondition = input.userId
+    ? eq(loyaltySyncJobs.userId, input.userId)
+    : isNull(loyaltySyncJobs.userId);
+  const orderCondition = input.orderId
+    ? eq(loyaltySyncJobs.orderId, input.orderId)
+    : isNull(loyaltySyncJobs.orderId);
   const [existing] = await db
     .select({ id: loyaltySyncJobs.id })
     .from(loyaltySyncJobs)
     .where(
       and(
         eq(loyaltySyncJobs.jobType, input.jobType),
-        eq(loyaltySyncJobs.userId, input.userId ?? null),
-        eq(loyaltySyncJobs.orderId, input.orderId ?? null),
+        userCondition,
+        orderCondition,
         inArray(loyaltySyncJobs.status, pendingStatuses)
       )
     )
@@ -1493,7 +1540,8 @@ export async function enqueueLoyaltySyncJob(input: {
     jobType: input.jobType,
     userId: input.userId ?? null,
     orderId: input.orderId ?? null,
-    payloadJson: input.payloadJson ?? null,
+      payloadJson: input.payloadJson ?? null,
+      activeKey,
     status: "pending",
     attempts: 0,
     nextRunAt: new Date(),
@@ -1522,7 +1570,9 @@ async function claimNextLoyaltyJob(db: ReturnType<typeof getDb>) {
     const result = await tx.execute(sql`
       SELECT *
       FROM ${loyaltySyncJobs}
-      WHERE (${loyaltySyncJobs.status} = 'pending' OR ${loyaltySyncJobs.status} = 'error')
+      WHERE (${loyaltySyncJobs.status} = 'pending'
+        OR ${loyaltySyncJobs.status} = 'error'
+        OR (${loyaltySyncJobs.status} = 'processing' AND ${loyaltySyncJobs.lockedAt} < ${staleBefore}))
         AND ${loyaltySyncJobs.nextRunAt} <= ${now}
         AND (${loyaltySyncJobs.lockedAt} IS NULL OR ${loyaltySyncJobs.lockedAt} < ${staleBefore})
       ORDER BY ${loyaltySyncJobs.createdAt} ASC
@@ -1562,6 +1612,7 @@ async function completeLoyaltyJob(jobId: number) {
     .update(loyaltySyncJobs)
     .set({
       status: "success",
+      activeKey: null,
       lockedAt: null,
       lastError: null,
       updatedAt: new Date(),
@@ -1594,6 +1645,7 @@ async function failLoyaltyJob(
       lastError: message,
       nextRunAt,
       lockedAt: null,
+      activeKey: shouldRetry ? buildLoyaltyJobActiveKey(job) : null,
       updatedAt: new Date(),
     })
     .where(eq(loyaltySyncJobs.id, job.id));
@@ -1654,6 +1706,10 @@ async function processLoyaltyJob(job: {
 }
 
 export async function processLoyaltySyncJobs(limit = 5) {
+  const runtime = await getLoyaltyRuntimeSettings();
+  if (!runtime.enabled) {
+    return { processed: 0, skipped: true, reason: "disabled" as const };
+  }
   const lock = await acquireLoyaltyWorkerLock();
   if (!lock) {
     return { processed: 0, skipped: true };
@@ -1682,6 +1738,10 @@ export async function processLoyaltySyncJobs(limit = 5) {
 
 export async function scheduleLoyaltyMaintenanceJobs(limit = 25) {
   const db = getDb();
+  const runtime = await getLoyaltyRuntimeSettings();
+  if (!runtime.enabled) {
+    return { usersQueued: 0, ordersQueued: 0, retryQueued: 0, skipped: true };
+  }
   const staleBefore = new Date(Date.now() - LOYALTY_STALE_SYNC_MS);
 
   const candidateUsers = await db
@@ -1695,7 +1755,10 @@ export async function scheduleLoyaltyMaintenanceJobs(limit = 25) {
     .where(
       or(
         eq(users.loyaltyStatus, "pending"),
-        eq(users.loyaltyStatus, "error"),
+        and(
+          eq(users.loyaltyStatus, "error"),
+          sql`${users.loyaltyLastSyncedAt} < ${staleBefore}`
+        ),
         sql`${users.loyaltyLastSyncedAt} IS NULL`,
         sql`${users.loyaltyLastSyncedAt} < ${staleBefore}`
       )
@@ -1754,54 +1817,41 @@ export async function scheduleLoyaltyMaintenanceJobs(limit = 25) {
     });
   }
 
-  const failedLogs = await db
-    .select({
-      userId: loyaltySyncLogs.userId,
-      orderId: loyaltySyncLogs.orderId,
-    })
-    .from(loyaltySyncLogs)
-    .where(eq(loyaltySyncLogs.status, "error"))
-    .orderBy(desc(loyaltySyncLogs.createdAt))
-    .limit(limit);
-
-  for (const entry of failedLogs) {
-    await enqueueLoyaltySyncJob({
-      jobType: "loyalty_retry_failed",
-      userId: entry.userId,
-      orderId: entry.orderId,
-      payloadJson: {
-        userId: entry.userId,
-        orderId: entry.orderId,
-        reason: "retry_failed_log",
-      },
-    });
-  }
-
   return {
     usersQueued: candidateUsers.length,
     ordersQueued: candidateOrders.length,
-    retryQueued: failedLogs.length,
+    retryQueued: 0,
+    skipped: false,
   };
 }
 
 export async function getLoyaltyAdminOverview() {
   const db = getDb();
   const runtime = await getLoyaltyRuntimeSettings();
-  const [summary] = await db
+  const [userSummary] = await db
     .select({
       participants: sql<number>`SUM(CASE WHEN ${users.loyaltyParticipantTag} IS NOT NULL THEN 1 ELSE 0 END)`,
       activeParticipants: sql<number>`SUM(CASE WHEN ${users.loyaltyStatus} = 'active' THEN 1 ELSE 0 END)`,
       errors: sql<number>`SUM(CASE WHEN ${users.loyaltyStatus} = 'error' THEN 1 ELSE 0 END)`,
+      lastUserSync: sql<Date | null>`MAX(${users.loyaltyLastSyncedAt})`,
+    })
+    .from(users);
+  const [orderSummary] = await db
+    .select({
       ordersWithBonuses: sql<number>`SUM(CASE WHEN ${orders.loyaltyBonusSpent} > 0 OR ${orders.loyaltyBonusExpectedAccrued} > 0 THEN 1 ELSE 0 END)`,
       bonusSpent: sql<number>`COALESCE(SUM(${orders.loyaltyBonusSpent}), 0)`,
       bonusAccrued: sql<number>`COALESCE(SUM(${orders.loyaltyBonusAccrued}), 0)`,
-      queuedJobs: sql<number>`(SELECT COUNT(*) FROM loyalty_sync_jobs WHERE status IN ('pending','processing'))`,
-      failedJobs: sql<number>`(SELECT COUNT(*) FROM loyalty_sync_jobs WHERE status = 'error')`,
-      lastUserSync: sql<Date | null>`MAX(${users.loyaltyLastSyncedAt})`,
       lastOrderSync: sql<Date | null>`MAX(${orders.loyaltyLastSyncedAt})`,
     })
-    .from(users)
-    .leftJoin(orders, eq(orders.userId, users.id));
+    .from(orders);
+  const [jobSummary] = await db
+    .select({
+      queuedJobs: sql<number>`SUM(CASE WHEN ${loyaltySyncJobs.status} IN ('pending','processing') THEN 1 ELSE 0 END)`,
+      failedJobs: sql<number>`SUM(CASE WHEN ${loyaltySyncJobs.status} = 'error' THEN 1 ELSE 0 END)`,
+      staleProcessingJobs: sql<number>`SUM(CASE WHEN ${loyaltySyncJobs.status} = 'processing' AND ${loyaltySyncJobs.lockedAt} < DATE_SUB(NOW(), INTERVAL 10 MINUTE) THEN 1 ELSE 0 END)`,
+      oldestQueuedAt: sql<Date | null>`MIN(CASE WHEN ${loyaltySyncJobs.status} IN ('pending','processing') THEN ${loyaltySyncJobs.createdAt} ELSE NULL END)`,
+    })
+    .from(loyaltySyncJobs);
 
   const [lastLog] = await db
     .select({
@@ -1817,17 +1867,28 @@ export async function getLoyaltyAdminOverview() {
   return {
     settings: runtime,
     summary: {
-      participants: Number(summary?.participants ?? 0),
-      activeParticipants: Number(summary?.activeParticipants ?? 0),
-      errors: Number(summary?.errors ?? 0),
-      ordersWithBonuses: Number(summary?.ordersWithBonuses ?? 0),
-      bonusSpent: Number(summary?.bonusSpent ?? 0),
-      bonusAccrued: Number(summary?.bonusAccrued ?? 0),
-      queuedJobs: Number(summary?.queuedJobs ?? 0),
-      failedJobs: Number(summary?.failedJobs ?? 0),
-      lastUserSync: summary?.lastUserSync ?? null,
-      lastOrderSync: summary?.lastOrderSync ?? null,
+      participants: Number(userSummary?.participants ?? 0),
+      activeParticipants: Number(userSummary?.activeParticipants ?? 0),
+      errors: Number(userSummary?.errors ?? 0),
+      ordersWithBonuses: Number(orderSummary?.ordersWithBonuses ?? 0),
+      bonusSpent: Number(orderSummary?.bonusSpent ?? 0),
+      bonusAccrued: Number(orderSummary?.bonusAccrued ?? 0),
+      queuedJobs: Number(jobSummary?.queuedJobs ?? 0),
+      failedJobs: Number(jobSummary?.failedJobs ?? 0),
+      staleProcessingJobs: Number(jobSummary?.staleProcessingJobs ?? 0),
+      oldestQueuedAt: jobSummary?.oldestQueuedAt ?? null,
+      lastUserSync: userSummary?.lastUserSync ?? null,
+      lastOrderSync: orderSummary?.lastOrderSync ?? null,
       lastLog: lastLog ?? null,
+    },
+    health: {
+      enabled: runtime.enabled,
+      configured: Boolean(runtime.posCashierUid),
+      healthy:
+        runtime.enabled &&
+        Boolean(runtime.posCashierUid) &&
+        Number(userSummary?.errors ?? 0) === 0 &&
+        Number(jobSummary?.staleProcessingJobs ?? 0) === 0,
     },
   };
 }

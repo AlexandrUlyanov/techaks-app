@@ -202,7 +202,7 @@ export default function AdminLoyalty() {
       {
         label: "Ошибки / очередь",
         value: `${summary?.errors ?? 0} / ${summary?.queuedJobs ?? 0}`,
-        hint: `Failed jobs: ${summary?.failedJobs ?? 0}`,
+        hint: `Задач с ошибкой: ${summary?.failedJobs ?? 0}`,
         icon: Wrench,
       },
     ],
@@ -247,6 +247,41 @@ export default function AdminLoyalty() {
           />
         ))}
       </div>
+
+      <AdminSection
+        title="Состояние интеграции"
+        description="Перед включением бонусов здесь должны быть настроены POS-кассир и торговая точка, а очередь не должна содержать зависших задач."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Режим</div>
+            <div className="mt-2 font-bold">{overviewQuery.data?.health.enabled ? "Включена" : "Выключена"}</div>
+          </div>
+          <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">POS-настройки</div>
+            <div className="mt-2 font-bold">{overviewQuery.data?.health.configured ? "Заполнены" : "Нужна настройка"}</div>
+          </div>
+          <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Зависшие задачи</div>
+            <div className="mt-2 font-bold">{summary?.staleProcessingJobs ?? 0}</div>
+          </div>
+          <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--tech-color-text-muted)]">Итог</div>
+            <div className="mt-2 font-bold">
+              {overviewQuery.data?.health.healthy
+                ? "Готово к работе"
+                : overviewQuery.data?.health.enabled
+                  ? "Требует внимания"
+                  : "Безопасно остановлена"}
+            </div>
+          </div>
+        </div>
+        {!overviewQuery.data?.health.configured ? (
+          <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">
+            Укажите корректные UID кассира и торговой точки из POS-контекста МоегоСклада. Обычный логин пользователя не всегда является UID кассира.
+          </p>
+        ) : null}
+      </AdminSection>
 
       <AdminSection
         title="Контур программы"

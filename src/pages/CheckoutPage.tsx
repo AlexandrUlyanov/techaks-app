@@ -156,18 +156,19 @@ export default function CheckoutPage() {
         refetchOnWindowFocus: false,
       }
     );
+  const bonusesEnabled = useBonuses && Boolean(loyaltyState?.canSpend);
   const { data: loyaltyPreview, isFetching: loyaltyPreviewLoading } =
     trpc.ecommerce.previewBonusWriteoff.useQuery(
       {
         subtotal,
-        requestedAmount: useBonuses ? parsedBonusAmount : 0,
+        requestedAmount: bonusesEnabled ? parsedBonusAmount : 0,
       },
       {
         enabled: isAuthenticated && Boolean(loyaltyState?.enabled),
         refetchOnWindowFocus: false,
       }
     );
-  const effectiveBonusSpent = useBonuses
+  const effectiveBonusSpent = bonusesEnabled
     ? Math.max(0, loyaltyPreview?.appliedAmount ?? 0)
     : 0;
 
@@ -516,7 +517,7 @@ export default function CheckoutPage() {
       deliveryPrice,
       deliveryComment:
         deliveryType === "delivery" ? deliveryCourierComment.trim() || null : null,
-      loyaltyBonusAmount: useBonuses ? effectiveBonusSpent : 0,
+      loyaltyBonusAmount: bonusesEnabled ? effectiveBonusSpent : 0,
     });
   };
 
@@ -1196,13 +1197,20 @@ export default function CheckoutPage() {
                       </div>
                       <input
                         type="checkbox"
-                        checked={useBonuses}
+                        checked={bonusesEnabled}
                         onChange={e => setUseBonuses(e.target.checked)}
+                        disabled={!loyaltyState.canSpend}
                         className="h-5 w-5 rounded border-border"
                       />
                     </label>
 
-                    {useBonuses ? (
+                    {!loyaltyState.canSpend && loyaltyState.availabilityReason ? (
+                      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                        {loyaltyState.availabilityReason}
+                      </div>
+                    ) : null}
+
+                    {bonusesEnabled ? (
                       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
                         <div className="space-y-2">
                           <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">
@@ -1232,11 +1240,6 @@ export default function CheckoutPage() {
                     {loyaltyPreview?.warning ? (
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                         {loyaltyPreview.warning}
-                      </div>
-                    ) : null}
-                    {loyaltyState.lastError ? (
-                      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {loyaltyState.lastError}
                       </div>
                     ) : null}
                     {(loyaltyPreviewLoading || loyaltyStateRefreshing) && (
