@@ -155,6 +155,23 @@ jobs:
               } else {
                 console.log("loyalty_sync_jobs.active_key already exists");
               }
+
+              await connection.execute(`
+                CREATE TABLE IF NOT EXISTS loyalty_bonus_holds (
+                  id serial NOT NULL,
+                  user_id int NOT NULL,
+                  order_id int NOT NULL,
+                  amount int NOT NULL,
+                  status varchar(20) NOT NULL DEFAULT 'active',
+                  expires_at timestamp NOT NULL,
+                  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY loyalty_bonus_holds_order_unique (order_id),
+                  KEY loyalty_bonus_holds_user_status_idx (user_id, status, expires_at)
+                )
+              `);
+              console.log("loyalty_bonus_holds is ready");
             } finally {
               await connection.end();
             }

@@ -617,6 +617,24 @@ export const loyaltySyncJobs = mysqlTable("loyalty_sync_jobs", {
   activeKeyUnique: unique("loyalty_sync_jobs_active_key_unique").on(table.activeKey),
 }));
 
+export const loyaltyBonusHolds = mysqlTable("loyalty_bonus_holds", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  orderId: int("order_id").notNull(),
+  amount: int("amount").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  orderUnique: unique("loyalty_bonus_holds_order_unique").on(table.orderId),
+  userStatusIdx: index("loyalty_bonus_holds_user_status_idx").on(
+    table.userId,
+    table.status,
+    table.expiresAt
+  ),
+}));
+
 export const productStocks = mysqlTable("product_stocks", {
   id: serial("id").primaryKey(),
   productId: int("product_id").notNull(),

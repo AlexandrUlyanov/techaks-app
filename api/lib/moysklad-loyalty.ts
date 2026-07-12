@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto";
 import {
   bonusTransactions,
+  loyaltyBonusHolds,
   loyaltySyncJobs,
   loyaltySyncLogs,
   orders,
@@ -993,6 +994,17 @@ export async function getUserLoyaltyState(
     100
   );
 
+  const [holdSummary] = await getDb()
+    .select({ amount: sql<number>`COALESCE(SUM(${loyaltyBonusHolds.amount}), 0)` })
+    .from(loyaltyBonusHolds)
+    .where(
+      and(
+        eq(loyaltyBonusHolds.userId, userId),
+        eq(loyaltyBonusHolds.status, "active"),
+        sql`${loyaltyBonusHolds.expiresAt} > NOW()`
+      )
+    );
+  const heldAmount = Number(holdSummary?.amount ?? 0);
   const baseState = {
     enabled: runtime.enabled,
     participant: Boolean(
@@ -1004,7 +1016,7 @@ export async function getUserLoyaltyState(
     groupName: runtime.groupName,
     participantTag: runtime.participantTag,
     balance: user.loyaltyBalance ?? 0,
-    availableToSpend: user.loyaltyAvailableToSpend ?? 0,
+    availableToSpend: Math.max(0, (user.loyaltyAvailableToSpend ?? 0) - heldAmount),
     pendingAccrual: user.loyaltyPendingAccrual ?? 0,
     programName: user.loyaltyProgramName ?? null,
     maxWriteoffPercent,
@@ -1329,6 +1341,19 @@ async function applyOrderLoyaltyOutcome(
       updatedAt: new Date(),
     })
     .where(eq(orders.id, order.id));
+
+  await db
+    .update(loyaltyBonusHolds)
+    .set({
+      status:
+        outcome.syncStatus === "synced"
+          ? "captured"
+          : outcome.syncStatus === "pending"
+            ? "active"
+            : "released",
+      updatedAt: new Date(),
+    })
+    .where(eq(loyaltyBonusHolds.orderId, order.id));
 
   if (!order.userId) return;
 

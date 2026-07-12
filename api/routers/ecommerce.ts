@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants, categories, productReviews, syncRuns, moyskladSyncJobs } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants, categories, productReviews, syncRuns, moyskladSyncJobs, loyaltyBonusHolds } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
@@ -2437,6 +2437,45 @@ export const ecommerceRouter = createRouter({
         }
 
         const createdOrderId = Number(newOrder[0].insertId);
+
+        if (userId && loyaltyBonusSpent > 0) {
+          const [lockedUser] = await tx
+            .select({ available: users.loyaltyAvailableToSpend })
+            .from(users)
+            .where(eq(users.id, userId))
+            .for("update")
+            .limit(1);
+          const [holdSummary] = await tx
+            .select({
+              amount: sql<number>`COALESCE(SUM(${loyaltyBonusHolds.amount}), 0)`,
+            })
+            .from(loyaltyBonusHolds)
+            .where(
+              and(
+                eq(loyaltyBonusHolds.userId, userId),
+                eq(loyaltyBonusHolds.status, "active"),
+                sql`${loyaltyBonusHolds.expiresAt} > NOW()`
+              )
+            );
+          const availableAfterHolds = Math.max(
+            0,
+            Number(lockedUser?.available ?? 0) - Number(holdSummary?.amount ?? 0)
+          );
+          if (loyaltyBonusSpent > availableAfterHolds) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "Бонусный баланс изменился. Обновите страницу и повторите оформление.",
+            });
+          }
+          await tx.insert(loyaltyBonusHolds).values({
+            userId,
+            orderId: createdOrderId,
+            amount: loyaltyBonusSpent,
+            status: "active",
+            expiresAt: new Date(Date.now() + 2 * 60 * 60_000),
+            updatedAt: new Date(),
+          });
+        }
 
         for (const item of purchasableItems) {
           if (canUseModernOrderInsertSchema(capabilities)) {
