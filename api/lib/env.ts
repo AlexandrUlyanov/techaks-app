@@ -38,6 +38,7 @@ export const env = {
   moyskladDefaultCounterpartyHref: optional("MOYSKLAD_DEFAULT_COUNTERPARTY_HREF"),
   moyskladLoyaltyCashierUid: optional("MOYSKLAD_LOYALTY_CASHIER_UID"),
   moyskladLoyaltyStoreUid: optional("MOYSKLAD_LOYALTY_STORE_UID"),
+  moyskladLoyaltyPosToken: optional("MOYSKLAD_LOYALTY_POS_TOKEN"),
   moyskladReserveOnOrder:
     optional("MOYSKLAD_RESERVE_ON_ORDER").toLowerCase() === "true",
   appEncryptionKey: optional("APP_ENCRYPTION_KEY"),

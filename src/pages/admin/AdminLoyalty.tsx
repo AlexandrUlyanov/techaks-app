@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Coins,
+  KeyRound,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -102,6 +103,7 @@ export default function AdminLoyalty() {
   const [maxWriteoffPercent, setMaxWriteoffPercent] = useState(30);
   const [posCashierUid, setPosCashierUid] = useState("");
   const [posStoreUid, setPosStoreUid] = useState("");
+  const [posToken, setPosToken] = useState("");
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -126,6 +128,7 @@ export default function AdminLoyalty() {
 
   const saveSettings = trpc.loyalty.saveSettings.useMutation({
     onSuccess: async () => {
+      setPosToken("");
       toast.success("Настройки бонусной программы сохранены.");
       await invalidateAll();
     },
@@ -137,6 +140,14 @@ export default function AdminLoyalty() {
       toast.success(
         `Очередь обновлена: клиентов ${result.scheduled.usersQueued}, заказов ${result.scheduled.ordersQueued}, retry ${result.scheduled.retryQueued}.`
       );
+      await invalidateAll();
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const testPosConnection = trpc.loyalty.testPosConnection.useMutation({
+    onSuccess: async result => {
+      toast.success(result.message);
       await invalidateAll();
     },
     onError: error => toast.error(error.message),
@@ -339,6 +350,24 @@ export default function AdminLoyalty() {
               className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none transition focus:border-[#05C3D4]"
             />
           </label>
+          <label className="space-y-2 text-sm font-semibold text-[var(--tech-color-text-main)]">
+            <span>POS-токен точки продаж</span>
+            <input
+              value={posToken}
+              onChange={event => setPosToken(event.target.value)}
+              type="password"
+              autoComplete="new-password"
+              placeholder={
+                settingsQuery.data?.posTokenConfigured
+                  ? `Настроен, последние символы: ${settingsQuery.data.posTokenLast4 || "••••"}`
+                  : "Отдельный токен кассы из МойСклад"
+              }
+              className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none transition focus:border-[#05C3D4] dark:bg-[var(--tech-color-surface-muted)]"
+            />
+            <span className="block text-xs font-normal text-[var(--tech-color-text-muted)]">
+              Поле оставьте пустым, чтобы сохранить текущий токен. Общий API-токен здесь не подходит.
+            </span>
+          </label>
           <label className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-[var(--tech-color-text-main)]">
             <span>Включить программу</span>
             <input
@@ -366,6 +395,7 @@ export default function AdminLoyalty() {
                 defaultMaxWriteoffPercent: maxWriteoffPercent,
                 posCashierUid,
                 posStoreUid,
+                posToken,
               })
             }
             disabled={saveSettings.isPending}
@@ -373,10 +403,36 @@ export default function AdminLoyalty() {
             {saveSettings.isPending ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
             Сохранить настройки
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => testPosConnection.mutate()}
+            disabled={testPosConnection.isPending || !settingsQuery.data?.posDetailConfigured}
+          >
+            {testPosConnection.isPending ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <KeyRound size={16} />
+            )}
+            Проверить POS API
+          </Button>
           <div className="rounded-2xl bg-[var(--tech-color-surface-muted)] px-4 py-3 text-sm text-[var(--tech-color-text-muted)]">
             Последний лог: {formatDateTime(summary?.lastLog?.createdAt)}
           </div>
         </div>
+        {settingsQuery.data?.lastCheck?.at ? (
+          <div
+            className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+              settingsQuery.data.lastCheck.ok
+                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                : "bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200"
+            }`}
+          >
+            <div className="font-bold">
+              Последняя проверка: {formatDateTime(settingsQuery.data.lastCheck.at)}
+            </div>
+            <div className="mt-1">{settingsQuery.data.lastCheck.message}</div>
+          </div>
+        ) : null}
       </AdminSection>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">

@@ -12,9 +12,11 @@ import {
 import { getDb } from "../queries/connection";
 import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
+import { decryptSecret, encryptSecret } from "./secret-crypto";
 import { getMoyskladClient, MoyskladApiError } from "./moysklad-client";
 import {
   buildLoyaltyJobActiveKey,
+  buildLoyaltyPosAuthHeaders,
   getLoyaltyAvailability,
   readScopedNumber,
 } from "./loyalty-domain";
@@ -27,6 +29,12 @@ const LOYALTY_SETTING_KEYS = [
   "loyalty_sync_mode",
   "loyalty_pos_cashier_uid",
   "loyalty_pos_store_uid",
+  "loyalty_pos_token_encrypted",
+  "loyalty_pos_token_last4",
+  "loyalty_pos_token_set_at",
+  "loyalty_pos_last_check_ok",
+  "loyalty_pos_last_check_at",
+  "loyalty_pos_last_check_message",
 ] as const;
 
 const DEFAULT_LOYALTY_GROUP_NAME = "техакс";
@@ -114,6 +122,7 @@ type LoyaltyRuntimeSettings = {
   syncMode: "tag";
   posCashierUid: string;
   posStoreUid: string;
+  posToken: string;
 };
 
 type LoyaltyOrderSnapshot = {
@@ -409,11 +418,6 @@ async function writeLoyaltySyncLog(input: {
   });
 }
 
-async function getMoyskladToken() {
-  const settings = await getAppSettings(["moysklad_token"]);
-  return env.moyskladToken.trim() || settings.moysklad_token?.trim() || "";
-}
-
 async function getMoyskladOrderPayload(orderHref: string | null) {
   if (!orderHref?.trim()) return null;
   const client = await getMoyskladClient();
@@ -645,6 +649,15 @@ export function buildOrderLoyaltySyncOutcome(args: {
 
 export async function getLoyaltyRuntimeSettings(): Promise<LoyaltyRuntimeSettings> {
   const settings = await getAppSettings([...LOYALTY_SETTING_KEYS]);
+  const encryptedPosToken = settings.loyalty_pos_token_encrypted?.trim() || "";
+  let storedPosToken = "";
+  if (encryptedPosToken && env.appEncryptionKey.trim()) {
+    try {
+      storedPosToken = decryptSecret(encryptedPosToken, env.appEncryptionKey);
+    } catch {
+      storedPosToken = "";
+    }
+  }
   return {
     enabled: parseBoolean(settings.loyalty_enabled, false),
     groupName:
@@ -666,10 +679,12 @@ export async function getLoyaltyRuntimeSettings(): Promise<LoyaltyRuntimeSetting
     posStoreUid:
       settings.loyalty_pos_store_uid?.trim() ||
       env.moyskladLoyaltyStoreUid.trim(),
+    posToken: storedPosToken || env.moyskladLoyaltyPosToken.trim(),
   };
 }
 
 export async function getLoyaltyAdminSettings() {
+  const settings = await getAppSettings([...LOYALTY_SETTING_KEYS]);
   const runtime = await getLoyaltyRuntimeSettings();
   return {
     enabled: runtime.enabled,
@@ -679,7 +694,19 @@ export async function getLoyaltyAdminSettings() {
     syncMode: runtime.syncMode,
     posCashierUid: runtime.posCashierUid,
     posStoreUid: runtime.posStoreUid,
-    posDetailConfigured: Boolean(runtime.posCashierUid.trim()),
+    posTokenConfigured: Boolean(runtime.posToken.trim()),
+    posTokenLast4:
+      settings.loyalty_pos_token_last4?.trim() ||
+      env.moyskladLoyaltyPosToken.trim().slice(-4),
+    posTokenSetAt: settings.loyalty_pos_token_set_at || null,
+    posDetailConfigured: Boolean(
+      runtime.posCashierUid.trim() && runtime.posToken.trim()
+    ),
+    lastCheck: {
+      ok: parseBoolean(settings.loyalty_pos_last_check_ok, false),
+      at: settings.loyalty_pos_last_check_at || null,
+      message: settings.loyalty_pos_last_check_message || null,
+    },
   };
 }
 
@@ -690,7 +717,9 @@ export async function saveLoyaltyAdminSettings(input: {
   defaultMaxWriteoffPercent?: number;
   posCashierUid?: string;
   posStoreUid?: string;
+  posToken?: string;
 }) {
+  const currentRuntime = await getLoyaltyRuntimeSettings();
   const groupName = input.groupName?.trim() || DEFAULT_LOYALTY_GROUP_NAME;
   const participantTag = input.participantTag?.trim() || groupName;
   const defaultMaxWriteoffPercent = clampInt(
@@ -700,6 +729,34 @@ export async function saveLoyaltyAdminSettings(input: {
   );
   const posCashierUid = input.posCashierUid?.trim() || "";
   const posStoreUid = input.posStoreUid?.trim() || "";
+  const posToken = input.posToken?.trim() || "";
+  if (input.enabled && (!posCashierUid || !(posToken || currentRuntime.posToken))) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Перед включением программы укажите UID кассира и отдельный POS-токен точки продаж.",
+    });
+  }
+  if (posToken && !env.appEncryptionKey.trim()) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "APP_ENCRYPTION_KEY не настроен: POS-токен нельзя сохранить безопасно.",
+    });
+  }
+
+  const secretUpdates = posToken
+    ? [
+        setAppSetting(
+          "loyalty_pos_token_encrypted",
+          encryptSecret(posToken, env.appEncryptionKey)
+        ),
+        setAppSetting("loyalty_pos_token_last4", posToken.slice(-4)),
+        setAppSetting("loyalty_pos_token_set_at", new Date().toISOString()),
+        setAppSetting("loyalty_pos_last_check_ok", "false"),
+        setAppSetting("loyalty_pos_last_check_at", null),
+        setAppSetting("loyalty_pos_last_check_message", null),
+      ]
+    : [];
 
   await Promise.all([
     setAppSetting("loyalty_enabled", input.enabled ? "true" : "false"),
@@ -712,6 +769,7 @@ export async function saveLoyaltyAdminSettings(input: {
     setAppSetting("loyalty_sync_mode", "tag"),
     setAppSetting("loyalty_pos_cashier_uid", posCashierUid || null),
     setAppSetting("loyalty_pos_store_uid", posStoreUid || null),
+    ...secretUpdates,
   ]);
 
   return getLoyaltyAdminSettings();
@@ -849,31 +907,59 @@ async function loadCounterpartyForPosDetail(counterpartyHref: string) {
   };
 }
 
-async function fetchPosCounterpartyDetail(counterpartyHref: string) {
-  const token = await getMoyskladToken();
-  if (!token) {
-    throw new Error("Токен МойСклад не настроен.");
-  }
+function getPosAuthHeaders(runtime: LoyaltyRuntimeSettings) {
+  return buildLoyaltyPosAuthHeaders(runtime.posToken, runtime.posCashierUid);
+}
+
+export async function testLoyaltyPosConnection() {
   const runtime = await getLoyaltyRuntimeSettings();
-  if (!runtime.posCashierUid.trim()) {
-    throw new Error(
-      "Не настроен uid кассира POS API. Укажите его в настройках бонусной программы."
+  const checkedAt = new Date().toISOString();
+  try {
+    const response = await fetch(
+      `${POS_API_BASE_URL}/entity/counterparty?limit=1`,
+      { headers: getPosAuthHeaders(runtime) }
     );
+    const body = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `POS API вернул HTTP ${response.status}${body ? ` — ${body}` : ""}`
+      );
+    }
+    await Promise.all([
+      setAppSetting("loyalty_pos_last_check_ok", "true"),
+      setAppSetting("loyalty_pos_last_check_at", checkedAt),
+      setAppSetting(
+        "loyalty_pos_last_check_message",
+        "Подключение к POS API МойСклад успешно проверено."
+      ),
+    ]);
+    return {
+      ok: true,
+      checkedAt,
+      message: "Подключение к POS API МойСклад успешно проверено.",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка POS API";
+    await Promise.all([
+      setAppSetting("loyalty_pos_last_check_ok", "false"),
+      setAppSetting("loyalty_pos_last_check_at", checkedAt),
+      setAppSetting("loyalty_pos_last_check_message", message),
+    ]);
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message,
+    });
   }
+}
+
+async function fetchPosCounterpartyDetail(counterpartyHref: string) {
+  const runtime = await getLoyaltyRuntimeSettings();
 
   const payload = await loadCounterpartyForPosDetail(counterpartyHref);
   const response = await fetch(`${POS_API_BASE_URL}/entity/counterparty/detail`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lognex-Pos-Auth-Token": token,
-      "Lognex-Pos-Auth-Uid": runtime.posCashierUid,
-    },
-    body: JSON.stringify({
-      ...payload,
-      uid: runtime.posCashierUid,
-      storeUid: runtime.posStoreUid || undefined,
-    }),
+    headers: getPosAuthHeaders(runtime),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -1890,7 +1976,16 @@ export async function getLoyaltyAdminOverview() {
     .limit(1);
 
   return {
-    settings: runtime,
+    settings: {
+      enabled: runtime.enabled,
+      groupName: runtime.groupName,
+      participantTag: runtime.participantTag,
+      fallbackMaxWriteoffPercent: runtime.fallbackMaxWriteoffPercent,
+      syncMode: runtime.syncMode,
+      posCashierUid: runtime.posCashierUid,
+      posStoreUid: runtime.posStoreUid,
+      posTokenConfigured: Boolean(runtime.posToken),
+    },
     summary: {
       participants: Number(userSummary?.participants ?? 0),
       activeParticipants: Number(userSummary?.activeParticipants ?? 0),
@@ -1908,10 +2003,10 @@ export async function getLoyaltyAdminOverview() {
     },
     health: {
       enabled: runtime.enabled,
-      configured: Boolean(runtime.posCashierUid),
+      configured: Boolean(runtime.posCashierUid && runtime.posToken),
       healthy:
         runtime.enabled &&
-        Boolean(runtime.posCashierUid) &&
+        Boolean(runtime.posCashierUid && runtime.posToken) &&
         Number(userSummary?.errors ?? 0) === 0 &&
         Number(jobSummary?.staleProcessingJobs ?? 0) === 0,
     },

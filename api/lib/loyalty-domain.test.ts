@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLoyaltyJobActiveKey,
+  buildLoyaltyPosAuthHeaders,
   getLoyaltyAvailability,
   readScopedNumber,
 } from "./loyalty-domain";
@@ -31,5 +32,13 @@ describe("loyalty domain", () => {
     expect(
       buildLoyaltyJobActiveKey({ jobType: "customer_loyalty_sync", userId: 7 })
     ).toBe("customer_loyalty_sync:u7:o0");
+  });
+
+  it("uses the documented POS cashier header", () => {
+    expect(buildLoyaltyPosAuthHeaders(" pos-token ", " cashier@company ")).toEqual({
+      "Content-Type": "application/json",
+      "Lognex-Pos-Auth-Token": "pos-token",
+      "Lognex-Pos-Auth-Cashier-Uid": "cashier@company",
+    });
   });
 });

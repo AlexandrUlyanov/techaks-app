@@ -13,6 +13,7 @@ import {
   resyncLoyaltyOrder,
   saveLoyaltyAdminSettings,
   scheduleLoyaltyMaintenanceJobs,
+  testLoyaltyPosConnection,
 } from "../lib/moysklad-loyalty";
 import { writeAdminAuditLog } from "../lib/admin-audit";
 
@@ -41,6 +42,7 @@ export const loyaltyRouter = createRouter({
         defaultMaxWriteoffPercent: z.number().int().min(1).max(100).optional(),
         posCashierUid: z.string().trim().max(255).optional(),
         posStoreUid: z.string().trim().max(255).optional(),
+        posToken: z.string().trim().max(512).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -57,6 +59,19 @@ export const loyaltyRouter = createRouter({
       });
       return result;
     }),
+
+  testPosConnection: protectedProcedure.mutation(async ({ ctx }) => {
+    requireLoyaltyAccess(ctx);
+    const result = await testLoyaltyPosConnection();
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.loyalty.pos_test",
+      entityType: "settings",
+      entityLabel: "POS API бонусной программы",
+      after: { ok: result.ok, checkedAt: result.checkedAt },
+    });
+    return result;
+  }),
 
   getOverview: protectedProcedure.query(async ({ ctx }) => {
     requireLoyaltyAccess(ctx);

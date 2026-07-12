@@ -82,3 +82,16 @@ export function buildLoyaltyJobActiveKey(input: {
 }) {
   return `${input.jobType}:u${input.userId ?? 0}:o${input.orderId ?? 0}`;
 }
+
+export function buildLoyaltyPosAuthHeaders(posToken: string, cashierUid: string) {
+  const token = posToken.trim();
+  const uid = cashierUid.trim();
+  if (!token || !uid) {
+    throw new Error("POS-токен и UID кассира обязательны.");
+  }
+  return {
+    "Content-Type": "application/json",
+    "Lognex-Pos-Auth-Token": token,
+    "Lognex-Pos-Auth-Cashier-Uid": uid,
+  } as const;
+}
