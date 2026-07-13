@@ -30,6 +30,7 @@ type DeliveryOrderCore = {
   totalPrice: number;
   status: string | null;
   paymentStatus: string | null;
+  paidAmount: number;
   deliveryStatus: string | null;
   deliveryType: string | null;
   deliveryService: string | null;
@@ -48,6 +49,14 @@ type DeliveryOrderCore = {
   deliveryComment?: string | null;
   orderNumber: string | null;
 };
+
+export function isDeliveryDispatchPaymentReady(input: {
+  paymentStatus: string | null;
+  paidAmount: number;
+  totalPrice: number;
+}) {
+  return input.paymentStatus === "paid" && input.paidAmount >= input.totalPrice;
+}
 
 function parseWorkerLock(raw: string | null) {
   if (!raw) return null;
@@ -162,6 +171,7 @@ export async function getOrderCoreForYandexDelivery(
       totalPrice: orders.totalPrice,
       status: orders.status,
       paymentStatus: orders.paymentStatus,
+      paidAmount: orders.paidAmount,
       deliveryStatus: orders.deliveryStatus,
       deliveryType: orders.deliveryType,
       deliveryService: orders.deliveryService,
@@ -450,6 +460,14 @@ export async function ensureYandexDeliveryOrderForHandedToDelivery(params: {
       skipped: true,
       reason: "status_not_ready" as const,
     };
+  }
+
+  const isPaid = isDeliveryDispatchPaymentReady(order);
+  if (!isPaid) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Курьер не вызван: заказ ещё не оплачен полностью.",
+    });
   }
 
   if (order.deliveryProviderOrderId?.trim()) {

@@ -8,6 +8,7 @@ import {
   MessageSquarePlus,
   Package,
   Printer,
+  RefreshCw,
   Save,
   Send,
   ShieldAlert,
@@ -83,6 +84,45 @@ function getOrderStatusLabel(value: string | null | undefined) {
     default:
       return value || "Не задан";
   }
+}
+
+function getDeliveryJobStatusLabel(value: string | null | undefined) {
+  switch (value) {
+    case "pending":
+      return "Ожидает запуска";
+    case "processing":
+      return "Выполняется";
+    case "blocked":
+      return "Ожидает полной оплаты";
+    case "failed":
+      return "Будет повторён автоматически";
+    case "dead":
+      return "Нужна ручная проверка";
+    case "completed":
+      return "Выполнен";
+    default:
+      return "Не ставился в очередь";
+  }
+}
+
+function getDeliveryDispatchJob(order: unknown) {
+  if (!order || typeof order !== "object" || !("deliveryDispatchJob" in order)) {
+    return null;
+  }
+  return (
+    order as {
+      deliveryDispatchJob?: {
+        id: number;
+        status: string;
+        attempts: number;
+        maxAttempts: number;
+        lastError: string | null;
+        runAfter: Date | string | null;
+        completedAt: Date | string | null;
+        updatedAt: Date | string;
+      } | null;
+    }
+  ).deliveryDispatchJob ?? null;
 }
 
 function getPaymentStatusLabel(value: string | null | undefined) {
@@ -533,6 +573,17 @@ export default function AdminOrderDetails() {
     },
     onError: err => toast.error(err.message || "Ошибка создания заявки Яндекс Доставки"),
   });
+  const retryYandexDeliveryDispatch = trpc.ecommerce.retryYandexDeliveryDispatch.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.ecommerce.getOrderById.invalidate({ id: orderId }),
+        utils.ecommerce.getOrderHistory.invalidate({ orderId }),
+        utils.ecommerce.listOrders.invalidate(),
+      ]);
+      toast.success("Повторный вызов курьера поставлен в очередь");
+    },
+    onError: err => toast.error(err.message || "Не удалось повторить вызов курьера"),
+  });
   const refreshYandexDeliveryOrder = trpc.ecommerce.refreshYandexDeliveryOrder.useMutation({
     onSuccess: async result => {
       await Promise.all([
@@ -728,6 +779,7 @@ export default function AdminOrderDetails() {
     deliveryProviderLastSyncAt?: string | Date | null;
     deliveryProviderError?: string | null;
   };
+  const deliveryDispatchJob = getDeliveryDispatchJob(order);
   const remainingAmount = Math.max(0, (order.totalPrice || 0) - (order.paidAmount || 0));
 
   const itemTotal = order.items.reduce(
@@ -1357,19 +1409,34 @@ export default function AdminOrderDetails() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => createYandexDeliveryOrder.mutate({ id: orderId })}
-                      disabled={createYandexDeliveryOrder.isPending}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
-                    >
-                      {createYandexDeliveryOrder.isPending ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Package size={16} />
-                      )}
-                      Создать заявку
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => createYandexDeliveryOrder.mutate({ id: orderId })}
+                        disabled={createYandexDeliveryOrder.isPending}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#E8FAFC] px-4 text-sm font-black text-[#047987] disabled:opacity-50"
+                      >
+                        {createYandexDeliveryOrder.isPending ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Package size={16} />
+                        )}
+                        Создать сейчас
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => retryYandexDeliveryDispatch.mutate({ id: orderId })}
+                        disabled={retryYandexDeliveryDispatch.isPending}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-100 px-4 text-sm font-black text-slate-700 disabled:opacity-50"
+                      >
+                        {retryYandexDeliveryDispatch.isPending ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={16} />
+                        )}
+                        Повторить через очередь
+                      </button>
+                    </div>
                   )}
                 </div>
               }
@@ -1407,6 +1474,24 @@ export default function AdminOrderDetails() {
                   label="Последняя синхронизация"
                   value={formatDateTime(yandexDeliveryDiagnostics.deliveryProviderLastSyncAt)}
                 />
+                {deliveryDispatchJob ? (
+                  <>
+                    <InfoRow
+                      label="Фоновый вызов курьера"
+                      value={getDeliveryJobStatusLabel(deliveryDispatchJob.status)}
+                    />
+                    <InfoRow
+                      label="Попытки"
+                      value={`${deliveryDispatchJob.attempts} из ${deliveryDispatchJob.maxAttempts}`}
+                    />
+                    {deliveryDispatchJob.lastError ? (
+                      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <span className="font-black">Последняя ошибка очереди:</span>{" "}
+                        {deliveryDispatchJob.lastError}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
                 {yandexDeliveryDiagnostics.deliveryProviderError ? (
                   <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     <span className="font-black">Ошибка провайдера:</span>{" "}

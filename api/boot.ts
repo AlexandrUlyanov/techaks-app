@@ -35,6 +35,10 @@ import {
 } from "./lib/sync-runtime-settings";
 import { handleYooKassaWebhook } from "./lib/yookassa";
 import { processYandexDeliveryStatusSync } from "./lib/yandex-delivery-orders";
+import {
+  processDeliveryJobs,
+  reconcileDeliveryDispatchJobs,
+} from "./lib/delivery-jobs";
 import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
 import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
 import { shouldIncludeCategoryListingInSitemap } from "./lib/listing-pages";
@@ -1059,6 +1063,18 @@ if (env.isProduction) {
       console.error("[yandex-delivery-sync] cycle failed:", error);
     });
   }, 60_000);
+
+  setInterval(() => {
+    processDeliveryJobs(5).catch(error => {
+      console.error("[delivery-jobs] cycle failed:", error);
+    });
+  }, 15_000);
+
+  setInterval(() => {
+    reconcileDeliveryDispatchJobs(50).catch(error => {
+      console.error("[delivery-reconciliation] cycle failed:", error);
+    });
+  }, 5 * 60_000);
 
   setInterval(() => {
     runMoyskladFullSyncWatchdog().catch(error => {

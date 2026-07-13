@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, createRouter, publicQuery, protectedProcedure, requireAbility } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants, categories, productReviews, syncRuns, moyskladSyncJobs, loyaltyBonusHolds } from "@db/schema";
+import { users, orders, orderItems, orderComments, orderHistory, products, productReviewRequests, stores, productReservations, productStocks, productVariantStocks, productVariants, categories, productReviews, syncRuns, moyskladSyncJobs, loyaltyBonusHolds, deliveryJobs } from "@db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { env } from "../lib/env";
@@ -64,11 +64,16 @@ import { getYandexDeliveryRuntimeSettings } from "../lib/yandex-delivery-setting
 import {
   assertYandexDeliverySchemaReady,
   createYandexDeliveryOrderForOrder,
-  ensureYandexDeliveryOrderForHandedToDelivery,
   getOrderCoreForYandexDelivery,
   patchOrderYandexDeliveryState,
   refreshYandexDeliveryOrderForOrder,
 } from "../lib/yandex-delivery-orders";
+import {
+  consumeDeliveryQuote,
+  getValidDeliveryQuote,
+  persistDeliveryQuote,
+} from "../lib/delivery-quotes";
+import { enqueueDeliveryDispatch } from "../lib/delivery-jobs";
 import {
   attachLoyaltyToOrder,
   enqueueLoyaltySyncJob,
@@ -1958,7 +1963,7 @@ export const ecommerceRouter = createRouter({
         confirmedByGeoSuggest: z.boolean().optional().default(false),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = getDb();
       await assertYandexDeliverySchemaReady(db);
 
@@ -1978,6 +1983,8 @@ export const ecommerceRouter = createRouter({
           raw: null,
           sourceStore: null,
           itemSummary: null,
+          quoteId: null,
+          expiresAt: null,
         };
       }
 
@@ -1994,6 +2001,8 @@ export const ecommerceRouter = createRouter({
           raw: null,
           sourceStore: null,
           itemSummary: null,
+          quoteId: null,
+          expiresAt: null,
         };
       }
 
@@ -2034,6 +2043,28 @@ export const ecommerceRouter = createRouter({
         destinationCoordinates,
       });
 
+      const persistedQuote =
+        quote.available && typeof quote.price === "number"
+          ? await persistDeliveryQuote({
+              db,
+              userId: ctx.user?.id ?? null,
+              items: purchasableItems.map(item => ({
+                productId: item.productId,
+                variantId: item.variantId ?? null,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+              sourceStore,
+              destinationAddress: normalizedAddressLine,
+              destinationCoordinates,
+              providerOfferId: quote.offerId,
+              price: quote.price,
+              currency: quote.currency,
+              etaMinutes: quote.etaMinutes,
+              raw: quote.raw,
+            })
+          : null;
+
       return {
         ...quote,
         message: quote.message,
@@ -2048,6 +2079,8 @@ export const ecommerceRouter = createRouter({
             quantity: item.quantity,
           }))
         ),
+        quoteId: persistedQuote?.publicId ?? null,
+        expiresAt: persistedQuote?.expiresAt ?? null,
       };
     }),
 
@@ -2123,6 +2156,7 @@ export const ecommerceRouter = createRouter({
         paymentType: z.enum(["cash", "card", "sbp", "yookassa"]),
         totalPrice: z.number(),
         deliveryPrice: z.number().min(0).optional().nullable(),
+        deliveryQuoteId: z.string().uuid().optional().nullable(),
         deliveryComment: z.string().trim().max(1000).optional().nullable(),
         loyaltyBonusAmount: z.number().min(0).optional().nullable(),
       })
@@ -2232,6 +2266,29 @@ export const ecommerceRouter = createRouter({
         });
       }
 
+      const trustedDeliveryQuote =
+        input.deliveryType === "delivery" && input.deliveryQuoteId && fulfillmentStore
+          ? await getValidDeliveryQuote({
+              db,
+              publicId: input.deliveryQuoteId,
+              items: purchasableItems.map(item => ({
+                productId: item.productId,
+                variantId: item.variantId ?? null,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+              sourceStoreId: fulfillmentStore.id,
+              destinationAddress: normalizeCheckoutAddressLine(input.address ?? ""),
+            })
+          : null;
+
+      if (input.deliveryType === "delivery" && input.deliveryQuoteId && !trustedDeliveryQuote) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Расчёт доставки устарел. Рассчитайте стоимость ещё раз.",
+        });
+      }
+
       const trustedTotal = purchasableItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
@@ -2319,7 +2376,7 @@ export const ecommerceRouter = createRouter({
 
       const deliveryPrice =
         input.deliveryType === "delivery"
-          ? Math.max(0, Math.round(Number(input.deliveryPrice ?? 0)))
+          ? Math.max(0, Math.round(Number(trustedDeliveryQuote?.price ?? 0)))
           : 0;
       const finalTotal = Math.max(0, trustedTotal - loyaltyBonusSpent + deliveryPrice);
 
@@ -2388,6 +2445,7 @@ export const ecommerceRouter = createRouter({
             subtotal: trustedTotal,
             discountTotal: loyaltyBonusSpent,
             deliveryPrice,
+            deliveryQuoteId: trustedDeliveryQuote?.publicId ?? null,
             deliveryComment:
               input.deliveryType === "delivery"
                 ? input.deliveryComment?.trim() || null
@@ -2437,6 +2495,14 @@ export const ecommerceRouter = createRouter({
         }
 
         const createdOrderId = Number(newOrder[0].insertId);
+
+        if (trustedDeliveryQuote) {
+          await consumeDeliveryQuote({
+            db: tx,
+            publicId: trustedDeliveryQuote.publicId,
+            orderId: createdOrderId,
+          });
+        }
 
         if (userId && loyaltyBonusSpent > 0) {
           const [lockedUser] = await tx
@@ -3599,11 +3665,11 @@ export const ecommerceRouter = createRouter({
         existing[0]?.status !== "handed_to_delivery"
       ) {
         try {
-          await ensureYandexDeliveryOrderForHandedToDelivery({
+          await enqueueDeliveryDispatch({
             db,
             orderId: input.id,
             actorUserId: ctx.user?.id ?? null,
-            historyActionType: "yandex_delivery_created_from_order_status",
+            source: "admin_status_change",
           });
         } catch (error: any) {
           deliveryDispatchWarning =
@@ -3807,11 +3873,27 @@ export const ecommerceRouter = createRouter({
           .orderBy(orderItems.id);
 
         const receiptMeta = extractReceiptMeta(orderRows[0].paymentRawResponseJson);
+        const [deliveryDispatchJob] = await db
+          .select({
+            id: deliveryJobs.id,
+            status: deliveryJobs.status,
+            attempts: deliveryJobs.attempts,
+            maxAttempts: deliveryJobs.maxAttempts,
+            lastError: deliveryJobs.lastError,
+            runAfter: deliveryJobs.runAfter,
+            completedAt: deliveryJobs.completedAt,
+            updatedAt: deliveryJobs.updatedAt,
+          })
+          .from(deliveryJobs)
+          .where(eq(deliveryJobs.orderId, input.id))
+          .orderBy(desc(deliveryJobs.createdAt))
+          .limit(1);
 
         return {
           ...withFallbackDeliveryStatus(orderRows[0]),
           ...receiptMeta,
           items,
+          deliveryDispatchJob: deliveryDispatchJob ?? null,
           compatibilityMode: "modern" as const,
           compatibilityWarnings: [] as string[],
         };
@@ -4949,6 +5031,49 @@ export const ecommerceRouter = createRouter({
       } catch (error: any) {
         throw error;
       }
+    }),
+
+  retryYandexDeliveryDispatch: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "update", "Order");
+      ensureOrderOperationAllowedByRole(ctx.user?.role, "update_delivery");
+      const db = getDb();
+      await assertYandexDeliverySchemaReady(db);
+
+      const order = await getOrderCoreForYandexDelivery(db, input.id);
+      if (!order) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Заказ не найден" });
+      }
+      if (order.deliveryType !== "delivery") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Для самовывоза вызов курьера не требуется.",
+        });
+      }
+      if (order.deliveryProviderOrderId) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Заявка перевозчика уже создана.",
+        });
+      }
+
+      await enqueueDeliveryDispatch({
+        db,
+        orderId: input.id,
+        actorUserId: ctx.user?.id ?? null,
+        source: "admin_manual_retry",
+        force: true,
+      });
+      await safeInsertOrderHistory(db, {
+        orderId: input.id,
+        userId: ctx.user?.id ?? null,
+        actionType: "yandex_delivery_dispatch_queued",
+        newValue: { source: "admin_manual_retry" } as any,
+        comment: "Повторный вызов курьера поставлен в очередь.",
+      });
+
+      return { success: true };
     }),
 
   refreshYandexDeliveryOrder: protectedProcedure

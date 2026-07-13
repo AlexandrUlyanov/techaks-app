@@ -15,8 +15,18 @@ const CRITICAL_TABLES = [
   },
   {
     tableName: "orders",
-    columns: ["payment_raw_response_json", "payment_provider_status"],
-    reason: "payment flow and order diagnostics rely on these fields",
+    columns: ["payment_raw_response_json", "payment_provider_status", "delivery_quote_id"],
+    reason: "payment and trusted delivery flows rely on these fields",
+  },
+  {
+    tableName: "delivery_quotes",
+    columns: ["public_id", "cart_fingerprint", "price", "expires_at", "status"],
+    reason: "checkout must use a trusted server-side delivery quote",
+  },
+  {
+    tableName: "delivery_jobs",
+    columns: ["order_id", "idempotency_key", "status", "attempts", "run_after"],
+    reason: "courier dispatch must survive provider and process failures",
   },
 ];
 

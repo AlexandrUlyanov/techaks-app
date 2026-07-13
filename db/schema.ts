@@ -405,6 +405,7 @@ export const orders = mysqlTable("orders", {
   subtotal: int("subtotal").notNull().default(0),
   discountTotal: int("discount_total").notNull().default(0),
   deliveryPrice: int("delivery_price").notNull().default(0),
+  deliveryQuoteId: varchar("delivery_quote_id", { length: 36 }),
   paidAmount: int("paid_amount").notNull().default(0),
   loyaltyBalanceBefore: int("loyalty_balance_before").notNull().default(0),
   loyaltyBonusRequested: int("loyalty_bonus_requested").notNull().default(0),
@@ -500,6 +501,62 @@ export const orders = mysqlTable("orders", {
     table.moyskladSyncStatus,
     table.createdAt
   ),
+}));
+
+export const deliveryQuotes = mysqlTable("delivery_quotes", {
+  id: serial("id").primaryKey(),
+  publicId: varchar("public_id", { length: 36 }).notNull().unique(),
+  orderId: int("order_id"),
+  userId: int("user_id"),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  provider: varchar("provider", { length: 40 }).notNull().default("yandex_delivery"),
+  cartFingerprint: varchar("cart_fingerprint", { length: 64 }).notNull(),
+  sourceStoreId: int("source_store_id").notNull(),
+  sourceStoreName: varchar("source_store_name", { length: 255 }),
+  sourceAddress: text("source_address").notNull(),
+  destinationAddress: text("destination_address").notNull(),
+  destinationCoordinates: json("destination_coordinates"),
+  providerOfferId: varchar("provider_offer_id", { length: 128 }),
+  price: int("price").notNull(),
+  currency: varchar("currency", { length: 8 }).notNull().default("RUB"),
+  etaMinutes: int("eta_minutes"),
+  rawJson: json("raw_json"),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  statusExpiryIdx: index("delivery_quotes_status_expiry_idx").on(
+    table.status,
+    table.expiresAt,
+  ),
+  cartIdx: index("delivery_quotes_cart_idx").on(table.cartFingerprint),
+  orderIdx: index("delivery_quotes_order_idx").on(table.orderId),
+}));
+
+export const deliveryJobs = mysqlTable("delivery_jobs", {
+  id: serial("id").primaryKey(),
+  orderId: int("order_id").notNull(),
+  type: varchar("type", { length: 24 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull().unique(),
+  attempts: int("attempts").notNull().default(0),
+  maxAttempts: int("max_attempts").notNull().default(8),
+  runAfter: timestamp("run_after").notNull().defaultNow(),
+  lockedAt: timestamp("locked_at"),
+  lockedBy: varchar("locked_by", { length: 64 }),
+  lastError: text("last_error"),
+  payloadJson: json("payload_json"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  queueIdx: index("delivery_jobs_queue_idx").on(
+    table.status,
+    table.runAfter,
+    table.id,
+  ),
+  orderIdx: index("delivery_jobs_order_idx").on(table.orderId, table.createdAt),
 }));
 
 export const orderItems = mysqlTable("order_items", {

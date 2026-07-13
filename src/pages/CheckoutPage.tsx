@@ -515,6 +515,8 @@ export default function CheckoutPage() {
       paymentType,
       totalPrice: totalWithBonuses,
       deliveryPrice,
+      deliveryQuoteId:
+        deliveryType === "delivery" ? yandexDeliveryQuote?.quoteId ?? null : null,
       deliveryComment:
         deliveryType === "delivery" ? deliveryCourierComment.trim() || null : null,
       loyaltyBonusAmount: bonusesEnabled ? effectiveBonusSpent : 0,

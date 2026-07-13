@@ -15,7 +15,7 @@ import {
 import { getAppSettings, setAppSetting } from "./app-settings";
 import { env } from "./env";
 import { getMoyskladClient, MoyskladApiError } from "./moysklad-client";
-import { ensureYandexDeliveryOrderForHandedToDelivery } from "./yandex-delivery-orders";
+import { enqueueDeliveryDispatch } from "./delivery-jobs";
 import {
   acquireMoyskladWorkerLock,
   getCachedMoyskladOrderMetadata,
@@ -116,9 +116,13 @@ async function acquireNamedDbLock(db: ReturnType<typeof getDb>, lockName: string
   const result = await db.execute<{ acquired: number | bigint | null }[]>(
     sql`SELECT GET_LOCK(${lockName}, ${timeoutSeconds}) AS acquired`
   );
-  const rows = Array.isArray((result as { 0?: { acquired: number | bigint | null }[] })?.[0])
-    ? ((result as { 0?: { acquired: number | bigint | null }[] })[0] ?? [])
-    : (result as { acquired: number | bigint | null }[]);
+  const normalizedResult = result as unknown as
+    | [{ acquired: number | bigint | null }[], unknown]
+    | { acquired: number | bigint | null }[];
+  const firstResult = normalizedResult[0];
+  const rows: { acquired: number | bigint | null }[] = Array.isArray(firstResult)
+    ? firstResult
+    : (normalizedResult as { acquired: number | bigint | null }[]);
   const acquired = Number(rows?.[0]?.acquired ?? 0);
   return acquired === 1;
 }
@@ -1532,11 +1536,11 @@ async function processWebhookEvent(eventId: number) {
 
     if (nextLocalStatus === "handed_to_delivery") {
       try {
-        await ensureYandexDeliveryOrderForHandedToDelivery({
+        await enqueueDeliveryDispatch({
           db,
           orderId: order.id,
           actorUserId: null,
-          historyActionType: "yandex_delivery_created_from_moysklad_webhook",
+          source: "moysklad_webhook",
         });
       } catch (error) {
         console.error("[yandex-delivery] webhook dispatch failed", error);
@@ -1626,11 +1630,11 @@ export async function resyncOrderStatusesFromMoysklad(limit = 100) {
 
       if (nextLocalStatus === "handed_to_delivery") {
         try {
-          await ensureYandexDeliveryOrderForHandedToDelivery({
+          await enqueueDeliveryDispatch({
             db,
             orderId: order.id,
             actorUserId: null,
-            historyActionType: "yandex_delivery_created_from_moysklad_resync",
+            source: "moysklad_resync",
           });
         } catch (error) {
           console.error("[yandex-delivery] resync dispatch failed", error);
