@@ -1,5 +1,5 @@
 import { Slider } from "@/components/ui/slider";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,10 @@ function CatalogPriceSlider({
     priceRange.currentMin,
     priceRange.currentMax,
   ]);
+
+  useEffect(() => {
+    setDraftPrice([priceRange.currentMin, priceRange.currentMax]);
+  }, [priceRange.currentMax, priceRange.currentMin]);
 
   return (
     <div className="pb-3">

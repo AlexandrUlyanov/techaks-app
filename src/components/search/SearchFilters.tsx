@@ -2,6 +2,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
+import { normalizePriceRange } from "@/lib/price-range";
 
 type Facet = { id: number; name: string; count: number };
 
@@ -34,14 +35,15 @@ export default function SearchFilters({
   onPriceChange: (from: number, to: number) => void;
   onReset: () => void;
 }) {
-  const minPrice = facets.price.min || 0;
-  const maxPrice = facets.price.max || Math.max(minPrice, 1000);
+  const normalizedRange = useMemo(
+    () => normalizePriceRange(facets.price, { from: priceFrom, to: priceTo }),
+    [facets.price.max, facets.price.min, priceFrom, priceTo]
+  );
+  const minPrice = normalizedRange.sliderMin;
+  const maxPrice = normalizedRange.sliderMax;
   const normalizedSliderValue = useMemo<[number, number]>(
-    () => [
-      typeof priceFrom === "number" ? priceFrom : minPrice,
-      typeof priceTo === "number" ? priceTo : maxPrice,
-    ],
-    [maxPrice, minPrice, priceFrom, priceTo]
+    () => [normalizedRange.currentMin, normalizedRange.currentMax],
+    [normalizedRange.currentMax, normalizedRange.currentMin]
   );
   const [draftPrice, setDraftPrice] = useState<[number, number]>(normalizedSliderValue);
 
@@ -49,7 +51,7 @@ export default function SearchFilters({
     setDraftPrice(normalizedSliderValue);
   }, [normalizedSliderValue]);
 
-  const sliderMax = Math.max(maxPrice, minPrice + 1);
+  const sliderMax = maxPrice;
   const isPriceChanged = useMemo(
     () =>
       draftPrice[0] !== normalizedSliderValue[0] ||

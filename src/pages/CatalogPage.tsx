@@ -41,6 +41,7 @@ import {
 import { useSeo } from "@/lib/seo";
 import { buildBreadcrumbStructuredData } from "@/lib/seo-structured";
 import { reachYandexGoal } from "@/lib/yandex-metrika";
+import { isFullPriceRange, normalizePriceRange } from "@/lib/price-range";
 import {
   categoryHasChildren,
   isCatalogProductMode,
@@ -339,8 +340,10 @@ export default function CatalogPage() {
     if (priceBounds) {
       const baseMin = Math.max(0, Math.floor(priceBounds.min));
       const baseMax = Math.max(baseMin, Math.ceil(priceBounds.max));
-      const isFullRange =
-        normalizedMin <= baseMin && normalizedMax >= baseMax;
+      const isFullRange = isFullPriceRange(
+        { min: baseMin, max: baseMax },
+        { from: normalizedMin, to: normalizedMax }
+      );
 
       if (isFullRange) {
         nextParams.delete("priceFrom");
@@ -410,14 +413,10 @@ export default function CatalogPage() {
       return null;
     }
 
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    return {
-      min,
-      max,
-      currentMin: typeof priceFrom === "number" ? Math.max(priceFrom, min) : min,
-      currentMax: typeof priceTo === "number" ? Math.min(priceTo, max) : max,
-    };
+    return normalizePriceRange(
+      { min: Math.min(...prices), max: Math.max(...prices) },
+      { from: priceFrom, to: priceTo }
+    );
   }, [priceFrom, priceTo, products]);
 
   const filteredProducts = useMemo(() => {
@@ -512,12 +511,7 @@ export default function CatalogPage() {
     });
   }, [selectedFilters, specFilters]);
   const hasSelectedFilters = selectedFilterLabels.length > 0;
-  const hasPriceFilter =
-    Boolean(
-      priceBounds &&
-      (priceBounds.currentMin !== priceBounds.min ||
-        priceBounds.currentMax !== priceBounds.max)
-    );
+  const hasPriceFilter = Boolean(priceBounds?.isActive);
   const primarySelectedFilterLabel =
     selectedFilterLabels.length === 1 && !hasPriceFilter ? selectedFilterLabels[0] : null;
 

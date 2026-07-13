@@ -13,6 +13,7 @@ import SearchEmptyState from "@/components/search/SearchEmptyState";
 import SearchResultsGrid from "@/components/search/SearchResultsGrid";
 import SearchHighlight from "@/components/search/SearchHighlight";
 import SearchResultsSkeleton from "@/components/loading/SearchResultsSkeleton";
+import { isFullPriceRange, normalizePriceRange } from "@/lib/price-range";
 import {
   Sheet,
   SheetContent,
@@ -28,6 +29,11 @@ function parseNumber(value: string | null) {
   return Number.isFinite(candidate) && candidate > 0 ? candidate : undefined;
 }
 
+function parsePriceNumber(value: string | null) {
+  const candidate = Number(value);
+  return Number.isFinite(candidate) && candidate >= 0 ? candidate : undefined;
+}
+
 function formatPrice(value: number) {
   return `${new Intl.NumberFormat("ru-RU").format(Math.round(value))} ₽`;
 }
@@ -40,8 +46,8 @@ export default function SearchPage() {
   const limit = parseNumber(searchParams.get("limit")) || DEFAULT_PAGE_SIZE;
   const categoryId = parseNumber(searchParams.get("categoryId"));
   const brandId = parseNumber(searchParams.get("brandId"));
-  const priceFrom = parseNumber(searchParams.get("priceFrom"));
-  const priceTo = parseNumber(searchParams.get("priceTo"));
+  const priceFrom = parsePriceNumber(searchParams.get("priceFrom"));
+  const priceTo = parsePriceNumber(searchParams.get("priceTo"));
   const inStockOnly = searchParams.get("inStockOnly") === "true";
   const sort = (searchParams.get("sort") as SearchSortValue | null) || "relevance";
 
@@ -121,12 +127,15 @@ export default function SearchPage() {
     return data.facets.brands.find(item => item.id === brandId)?.name ?? null;
   }, [brandId, data]);
 
-  const hasPriceFilter =
-    Boolean(
-      data &&
-      ((typeof priceFrom === "number" && priceFrom > data.facets.price.min) ||
-        (typeof priceTo === "number" && priceTo < data.facets.price.max))
-    );
+  const priceRange = useMemo(
+    () =>
+      data
+        ? normalizePriceRange(data.facets.price, { from: priceFrom, to: priceTo })
+        : null,
+    [data, priceFrom, priceTo]
+  );
+
+  const hasPriceFilter = Boolean(priceRange?.isActive);
 
   const hasActiveFilters =
     Boolean(categoryId || brandId || inStockOnly || hasPriceFilter);
@@ -170,9 +179,14 @@ export default function SearchPage() {
       onInStockChange={value =>
         updateSearch({ inStockOnly: value ? "true" : undefined, page: 1 })
       }
-      onPriceChange={(from, to) =>
-        updateSearch({ priceFrom: from, priceTo: to, page: 1 })
-      }
+      onPriceChange={(from, to) => {
+        const fullRange = isFullPriceRange(data.facets.price, { from, to });
+        updateSearch({
+          priceFrom: fullRange ? undefined : from,
+          priceTo: fullRange ? undefined : to,
+          page: 1,
+        });
+      }}
       onReset={() =>
         updateSearch({
           categoryId: undefined,
@@ -320,7 +334,7 @@ export default function SearchPage() {
                           className="inline-flex h-8 items-center gap-2 rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_12%,var(--tech-color-surface))] px-3.5 text-[13px] font-semibold text-foreground transition hover:bg-[color:color-mix(in_srgb,var(--tech-color-primary)_18%,var(--tech-color-surface))]"
                         >
                           <span>
-                            Цена: {formatPrice(typeof priceFrom === "number" ? priceFrom : data.facets.price.min)} - {formatPrice(typeof priceTo === "number" ? priceTo : data.facets.price.max)}
+                            Цена: {formatPrice(priceRange?.currentMin ?? data.facets.price.min)} - {formatPrice(priceRange?.currentMax ?? data.facets.price.max)}
                           </span>
                           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--tech-color-primary)_20%,var(--tech-color-surface))] text-[var(--tech-color-primary)]">
                             ×
