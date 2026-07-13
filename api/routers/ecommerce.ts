@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 import { env } from "../lib/env";
 import { sendOrderNotificationEmail, sendReviewRequestEmail } from "../lib/mail";
 import { isProductVisibleOnSite } from "@contracts/product-visibility";
+import { buildDeliveryCustomerView } from "@contracts/delivery-customer-status";
 import { ensureReviewRequestRowsForOrder } from "../lib/product-reviews";
 import {
   assertReservableProductSelection,
@@ -3167,7 +3168,10 @@ export const ecommerceRouter = createRouter({
         WHERE ${sql.join(legacyConditions, sql` OR `)}
         ORDER BY created_at DESC
       `);
-      return rowsFromExecute<any>(raw);
+      return rowsFromExecute<any>(raw).map(order => ({
+        ...order,
+        deliveryCustomer: null,
+      }));
     }
 
     const orderLookupConditions = buildAccountOrderLookupConditions(
@@ -3177,7 +3181,7 @@ export const ecommerceRouter = createRouter({
       capabilities
     );
 
-    return await db
+    const orderRows = await db
       .select({
         id: orders.id,
         userId: orders.userId,
@@ -3185,6 +3189,7 @@ export const ecommerceRouter = createRouter({
         status: orders.status,
         totalPrice: orders.totalPrice,
         deliveryType: orders.deliveryType,
+        deliveryStatus: orders.deliveryStatus,
         address: orders.address,
         paymentType: orders.paymentType,
         paymentStatus: orders.paymentStatus,
@@ -3193,9 +3198,6 @@ export const ecommerceRouter = createRouter({
           : sql<string | null>`NULL`,
         deliveryProviderStatus: capabilities.hasOrdersDeliveryProviderMetadata
           ? orders.deliveryProviderStatus
-          : sql<string | null>`NULL`,
-        deliveryProviderOrderId: capabilities.hasOrdersDeliveryProviderMetadata
-          ? orders.deliveryProviderOrderId
           : sql<string | null>`NULL`,
         deliveryProviderLastSyncAt: capabilities.hasOrdersDeliveryProviderMetadata
           ? orders.deliveryProviderLastSyncAt
@@ -3213,6 +3215,20 @@ export const ecommerceRouter = createRouter({
       .from(orders)
       .orderBy(desc(orders.createdAt))
       .where(or(...orderLookupConditions));
+
+    return orderRows.map(order => {
+      const deliveryCustomer =
+        order.deliveryType === "delivery"
+          ? buildDeliveryCustomerView({
+              providerStatus: order.deliveryProviderStatus,
+              localStatus: order.deliveryStatus,
+            })
+          : null;
+      const publicOrder: Record<string, unknown> = { ...order };
+      delete publicOrder.deliveryProviderStatus;
+      delete publicOrder.deliveryStatus;
+      return { ...publicOrder, deliveryCustomer };
+    });
   }),
 
   getMyOrderNotifications: protectedProcedure.query(async ({ ctx }) => {
@@ -4143,8 +4159,24 @@ export const ecommerceRouter = createRouter({
           .where(eq(orderItems.orderId, input.orderId))
           .orderBy(orderItems.id);
 
+        const normalizedOrder = withFallbackDeliveryStatus(orderRows[0]);
+        const deliveryCustomer =
+          normalizedOrder?.deliveryType === "delivery"
+            ? buildDeliveryCustomerView({
+                providerStatus: normalizedOrder.deliveryProviderStatus,
+                localStatus: normalizedOrder.deliveryStatus,
+                rawPayload: normalizedOrder.deliveryProviderRawJson,
+              })
+            : null;
+        const publicOrder: Record<string, unknown> = { ...normalizedOrder };
+        delete publicOrder.deliveryStatus;
+        delete publicOrder.deliveryProviderStatus;
+        delete publicOrder.deliveryProviderError;
+        delete publicOrder.deliveryProviderRawJson;
+
         return {
-          ...withFallbackDeliveryStatus(orderRows[0]),
+          ...publicOrder,
+          deliveryCustomer,
           items,
           compatibilityMode: "modern" as const,
           compatibilityWarnings: [] as string[],
@@ -4229,6 +4261,7 @@ export const ecommerceRouter = createRouter({
       return {
         ...mappedLegacy,
         ...receiptMeta,
+        deliveryCustomer: null,
         items: legacyItemsRows.map(mapLegacyOrderItemRow),
         compatibilityMode: "legacy" as const,
         compatibilityWarnings: [

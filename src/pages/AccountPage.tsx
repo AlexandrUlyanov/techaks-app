@@ -38,9 +38,14 @@ type AccountOrder = {
   paymentType?: string | null;
   paymentStatus?: string | null;
   deliveryProvider?: string | null;
-  deliveryProviderStatus?: string | null;
-  deliveryProviderOrderId?: string | null;
   deliveryProviderLastSyncAt?: string | Date | null;
+  deliveryCustomer?: {
+    status: string;
+    label: string;
+    message: string;
+    tone: string;
+    isProblem: boolean;
+  } | null;
   createdAt?: string | Date | null;
   latestManagerCommentAt?: string | Date | null;
   latestClientCommentAt?: string | Date | null;
@@ -76,23 +81,6 @@ const paymentStatusLabels: Record<string, string> = {
   payment_error: "Ошибка оплаты",
   refund: "Возврат",
   partial_refund: "Частичный возврат",
-};
-
-const yandexDeliveryStatusLabels: Record<string, string> = {
-  new: "Новая заявка",
-  estimating: "Идёт расчёт",
-  ready_for_approval: "Ожидает подтверждения",
-  accepted: "Принята",
-  performer_lookup: "Ищем курьера",
-  performer_found: "Курьер найден",
-  pickup_arrived: "Курьер прибыл к отправителю",
-  pickuped: "Заказ у курьера",
-  delivery_arrived: "Курьер прибыл к получателю",
-  delivered: "Доставлено",
-  returned: "Возврат у отправителя",
-  cancelled: "Отменено",
-  failed: "Ошибка доставки",
-  unknown: "Статус уточняется",
 };
 
 function formatPrice(price: number) {
@@ -224,9 +212,19 @@ function getDeliveryTypeLabel(type?: string | null) {
   return type;
 }
 
-function getYandexDeliveryStatusLabel(status?: string | null) {
-  if (!status) return "Статус уточняется";
-  return yandexDeliveryStatusLabels[status] || status;
+function getDeliveryCustomerToneClass(tone?: string | null) {
+  switch (tone) {
+    case "success":
+      return "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-200";
+    case "warning":
+      return "bg-amber-50 text-amber-800 dark:bg-amber-950/35 dark:text-amber-200";
+    case "danger":
+      return "bg-red-50 text-red-800 dark:bg-red-950/35 dark:text-red-200";
+    case "progress":
+      return "bg-cyan-50 text-cyan-900 dark:bg-cyan-950/35 dark:text-cyan-100";
+    default:
+      return "bg-muted/70 text-foreground";
+  }
 }
 
 function resolveOrderActions(params: {
@@ -394,6 +392,22 @@ function AccountOrderCard({
   ]);
 
   const detailsAny = details as Record<string, any> | undefined;
+  const deliveryCustomer = detailsAny?.deliveryCustomer as
+    | {
+        status: string;
+        label: string;
+        message: string;
+        tone: string;
+        isProblem: boolean;
+        etaLabel: string | null;
+        timeline: Array<{
+          key: string;
+          label: string;
+          state: "completed" | "current" | "upcoming";
+        }>;
+      }
+    | null
+    | undefined;
   const receiptMetaFromBackend =
     detailsAny?.receiptUrl || detailsAny?.receiptPdfUrl || detailsAny?.receiptStatus
       ? {
@@ -491,6 +505,14 @@ function AccountOrderCard({
             <p className="text-sm text-muted-foreground">
               {getDeliveryTypeLabel(order.deliveryType)} · {getPaymentTypeLabel(order.paymentType)}
             </p>
+            {order.deliveryType === "delivery" && order.deliveryCustomer ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getDeliveryCustomerToneClass(order.deliveryCustomer.tone)}`}>
+                  {order.deliveryCustomer.label}
+                </span>
+                <span className="text-muted-foreground">{order.deliveryCustomer.message}</span>
+              </div>
+            ) : null}
           </div>
           <div className="space-y-1 text-left lg:text-right">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
@@ -749,34 +771,71 @@ function AccountOrderCard({
                           ) : null}
                         </div>
                       </div>
-                      {detailsAny?.deliveryProvider === "yandex_delivery" ? (
-                        <div className="rounded-xl bg-background/90 p-3">
-                          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#05C3D4]">
-                            Яндекс Доставка
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
+                      {detailsAny?.deliveryType === "delivery" && deliveryCustomer ? (
+                        <div className="rounded-2xl bg-background/90 p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <div className="text-muted-foreground">Статус доставки</div>
-                              <div className="font-semibold">
-                                {getYandexDeliveryStatusLabel(detailsAny?.deliveryProviderStatus)}
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#05C3D4]">
+                                Доставка
+                              </div>
+                              <div className="mt-1 text-base font-black">{deliveryCustomer.label}</div>
+                              <div className="mt-1 max-w-xl text-sm text-muted-foreground">
+                                {deliveryCustomer.message}
                               </div>
                             </div>
-                            <div>
-                              <div className="text-muted-foreground">Номер заявки</div>
-                              <div className="break-all font-semibold">
-                                {detailsAny?.deliveryProviderOrderId || "—"}
-                              </div>
-                            </div>
-                            <div className="sm:col-span-2">
-                              <div className="text-muted-foreground">Последнее обновление</div>
-                              <div className="font-semibold">
-                                {formatDateTime(detailsAny?.deliveryProviderLastSyncAt)}
-                              </div>
+                            <div className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${getDeliveryCustomerToneClass(deliveryCustomer.tone)}`}>
+                              {deliveryCustomer.label}
                             </div>
                           </div>
-                          {detailsAny?.deliveryProviderError ? (
-                            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                              {detailsAny.deliveryProviderError}
+
+                          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                            <div>
+                              <div className="text-muted-foreground">Стоимость</div>
+                              <div className="font-semibold">
+                                {Number(detailsAny?.deliveryPrice || 0) > 0
+                                  ? formatPrice(Number(detailsAny.deliveryPrice))
+                                  : "Уточняется"}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Тип</div>
+                              <div className="font-semibold">Курьерская доставка</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Ориентир по времени</div>
+                              <div className="font-semibold">{deliveryCustomer.etaLabel || "Уточняется"}</div>
+                            </div>
+                          </div>
+
+                          {!deliveryCustomer.isProblem ? (
+                            <div className="mt-5 grid grid-cols-5 gap-1" aria-label="Этапы доставки">
+                              {deliveryCustomer.timeline.map(step => (
+                                <div key={step.key} className="min-w-0">
+                                  <div
+                                    className={`h-1.5 rounded-full ${
+                                      step.state === "completed"
+                                        ? "bg-[#05C3D4]"
+                                        : step.state === "current"
+                                          ? "bg-[#05C3D4]/55"
+                                          : "bg-muted"
+                                    }`}
+                                  />
+                                  <div className={`mt-2 hidden text-[10px] leading-tight sm:block ${step.state === "upcoming" ? "text-muted-foreground" : "font-semibold"}`}>
+                                    {step.label}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={openOrderConversation}>
+                              <MessageSquare size={16} className="mr-2" />
+                              Написать по заказу
+                            </Button>
+                          )}
+
+                          {detailsAny?.deliveryProviderLastSyncAt ? (
+                            <div className="mt-4 text-xs text-muted-foreground">
+                              Обновлено: {formatDateTime(detailsAny.deliveryProviderLastSyncAt)}
                             </div>
                           ) : null}
                         </div>
