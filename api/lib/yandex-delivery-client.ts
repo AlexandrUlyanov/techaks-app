@@ -39,7 +39,7 @@ type RoutePointWithAddress = {
   external_order_id?: string;
   external_order_cost?: {
     value: string;
-    currency: string;
+    currency_sign: string;
   };
 };
 
@@ -138,6 +138,13 @@ function buildYandexRouteFullnameCandidates(value: string) {
 function toMoneyString(value: number | null | undefined) {
   const normalized = Number.isFinite(value) ? Number(value) : 0;
   return normalized.toFixed(2);
+}
+
+export function buildYandexDeliveryExternalOrderCost(value: number) {
+  return {
+    value: toMoneyString(value),
+    currency_sign: "RUB",
+  };
 }
 
 function pickFirstObject(value: unknown[]): Record<string, any> | null {
@@ -476,10 +483,9 @@ function buildClaimRoutePoint(params: {
       : {}),
     ...(typeof params.externalOrderCost === "number"
       ? {
-          external_order_cost: {
-            value: toMoneyString(params.externalOrderCost),
-            currency: "RUB",
-          },
+          external_order_cost: buildYandexDeliveryExternalOrderCost(
+            params.externalOrderCost,
+          ),
         }
       : {}),
   };
