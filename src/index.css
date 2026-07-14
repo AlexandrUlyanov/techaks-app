@@ -103,6 +103,42 @@
   }
 }
 
+@layer components {
+  /*
+   * Some legacy admin pages still use native form controls instead of the
+   * shared UI primitives. Keep their rendering independent from the saved
+   * storefront theme and from the browser's preferred color scheme.
+   */
+  :root[data-theme-scope="admin"] .tech-admin-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  :root[data-theme-scope="admin"] .tech-admin-root select,
+  :root[data-theme-scope="admin"] .tech-admin-root textarea {
+    color-scheme: light;
+    background-color: #ffffff !important;
+    color: #1f2933 !important;
+    -webkit-text-fill-color: #1f2933;
+  }
+
+  :root[data-theme-scope="admin"] .tech-admin-root input::placeholder,
+  :root[data-theme-scope="admin"] .tech-admin-root textarea::placeholder {
+    color: var(--tech-color-text-muted, #6b7280);
+    opacity: 0.78;
+  }
+
+  :root[data-theme-scope="admin"] .tech-admin-root select option {
+    background-color: #ffffff;
+    color: #1f2933;
+  }
+
+  :root[data-theme-scope="admin"] .tech-admin-root input:disabled,
+  :root[data-theme-scope="admin"] .tech-admin-root select:disabled,
+  :root[data-theme-scope="admin"] .tech-admin-root textarea:disabled {
+    background-color: #f1f4f6 !important;
+    color: #667085 !important;
+    -webkit-text-fill-color: #667085;
+    opacity: 1 !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

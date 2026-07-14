@@ -72,7 +72,7 @@ export default function AdminLayout() {
   }, [expandedIds]);
 
   return (
-    <div className="min-h-screen bg-[var(--tech-color-background)]">
+    <div className="tech-admin-root min-h-screen bg-[var(--tech-color-background)]">
       <div className="grid min-h-screen lg:grid-cols-[304px_minmax(0,1fr)]">
         <aside className="flex flex-col border-r border-white/8 bg-[var(--tech-color-brand-dark)] text-white">
           <div className="border-b border-white/10 px-7 py-7">

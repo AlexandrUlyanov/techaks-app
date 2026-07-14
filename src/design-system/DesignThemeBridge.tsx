@@ -27,6 +27,10 @@ export default function DesignThemeBridge() {
     if (isAdminRoute) {
       root.classList.remove("dark");
       root.dataset.themeScope = "admin";
+      // next-themes writes color-scheme as an inline style. Without resetting it,
+      // native inputs and selects remain dark even after the storefront palette
+      // and the `dark` class have been removed.
+      root.style.colorScheme = "light";
       if (data?.theme) {
         applyThemeToElement(root, data.theme.admin);
       }
@@ -35,6 +39,7 @@ export default function DesignThemeBridge() {
 
     root.dataset.themeScope = "site";
     root.classList.toggle("dark", isDarkSiteTheme);
+    root.style.colorScheme = isDarkSiteTheme ? "dark" : "light";
     if (data?.theme) {
       applyThemeToElement(root, isDarkSiteTheme ? data.theme.siteDark : data.theme.siteLight);
     }
