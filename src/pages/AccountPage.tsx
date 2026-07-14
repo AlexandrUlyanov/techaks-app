@@ -3,11 +3,14 @@ import { Link, Navigate, useNavigate } from "react-router";
 import {
   ChevronDown,
   ChevronRight,
-  ExternalLink,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
   Heart,
   Loader2,
   LogOut,
   MessageSquare,
+  MapPin,
   Package,
   Receipt,
   Send,
@@ -128,7 +131,8 @@ function getPaymentStatusTone(status?: string | null) {
     return {
       className: "bg-violet-100 text-violet-700",
       dot: "bg-violet-500",
-      title: status === "partial_refund" ? "Частичный возврат" : "Возврат выполнен",
+      title:
+        status === "partial_refund" ? "Частичный возврат" : "Возврат выполнен",
       subtitle: "Деньги возвращены покупателю",
     };
   }
@@ -181,7 +185,8 @@ function extractReceiptMeta(rawPayload: unknown): {
   if (candidateUrl || candidatePdf) {
     return {
       receiptUrl: typeof candidateUrl === "string" ? candidateUrl : undefined,
-      receiptPdfUrl: typeof candidatePdf === "string" ? candidatePdf : undefined,
+      receiptPdfUrl:
+        typeof candidatePdf === "string" ? candidatePdf : undefined,
       receiptStatus: "ready",
     };
   }
@@ -265,8 +270,11 @@ function AccountOrderCard({
 }) {
   const utils = trpc.useUtils();
   const [message, setMessage] = useState("");
-  const [editingReviewProductId, setEditingReviewProductId] = useState<number | null>(null);
-  const [lastMarkedManagerCommentIso, setLastMarkedManagerCommentIso] = useState<string | null>(null);
+  const [editingReviewProductId, setEditingReviewProductId] = useState<
+    number | null
+  >(null);
+  const [lastMarkedManagerCommentIso, setLastMarkedManagerCommentIso] =
+    useState<string | null>(null);
 
   const {
     data: details,
@@ -306,15 +314,16 @@ function AccountOrderCard({
       toast.error(err.message || "Не удалось отправить сообщение");
     },
   });
-  const markConversationRead = trpc.ecommerce.markMyOrderConversationRead.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.ecommerce.getMyOrders.invalidate(),
-        utils.ecommerce.getMyOrderNotifications.invalidate(),
-        utils.ecommerce.getMyOrderHistory.invalidate({ orderId: order.id }),
-      ]);
-    },
-  });
+  const markConversationRead =
+    trpc.ecommerce.markMyOrderConversationRead.useMutation({
+      onSuccess: async () => {
+        await Promise.all([
+          utils.ecommerce.getMyOrders.invalidate(),
+          utils.ecommerce.getMyOrderNotifications.invalidate(),
+          utils.ecommerce.getMyOrderHistory.invalidate({ orderId: order.id }),
+        ]);
+      },
+    });
   const createPayment = trpc.ecommerce.createMyOrderPayment.useMutation({
     onSuccess: async result => {
       await Promise.all([
@@ -379,7 +388,8 @@ function AccountOrderCard({
       null;
     if (
       serverSeenAt &&
-      new Date(serverSeenAt).getTime() >= new Date(latestManagerCommentIso).getTime()
+      new Date(serverSeenAt).getTime() >=
+        new Date(latestManagerCommentIso).getTime()
     ) {
       setLastMarkedManagerCommentIso(current =>
         current === latestManagerCommentIso ? current : latestManagerCommentIso
@@ -409,10 +419,14 @@ function AccountOrderCard({
     | null
     | undefined;
   const receiptMetaFromBackend =
-    detailsAny?.receiptUrl || detailsAny?.receiptPdfUrl || detailsAny?.receiptStatus
+    detailsAny?.receiptUrl ||
+    detailsAny?.receiptPdfUrl ||
+    detailsAny?.receiptStatus
       ? {
           receiptUrl:
-            typeof detailsAny?.receiptUrl === "string" ? detailsAny.receiptUrl : undefined,
+            typeof detailsAny?.receiptUrl === "string"
+              ? detailsAny.receiptUrl
+              : undefined,
           receiptPdfUrl:
             typeof detailsAny?.receiptPdfUrl === "string"
               ? detailsAny.receiptPdfUrl
@@ -426,8 +440,12 @@ function AccountOrderCard({
               : "not_required",
         }
       : null;
-  const receiptMeta = receiptMetaFromBackend ?? extractReceiptMeta(detailsAny?.paymentRawResponseJson);
-  const canDownloadReceipt = Boolean(receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl);
+  const receiptMeta =
+    receiptMetaFromBackend ??
+    extractReceiptMeta(detailsAny?.paymentRawResponseJson);
+  const canDownloadReceipt = Boolean(
+    receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl
+  );
   const receiptActionHref = receiptMeta.receiptPdfUrl || receiptMeta.receiptUrl;
   const orderNumberLabel = order.orderNumber || `#${order.id}`;
   const openOrderConversation = () => {
@@ -451,7 +469,8 @@ function AccountOrderCard({
         null;
       const shouldMark =
         !serverSeenAt ||
-        new Date(latestManagerCommentIso).getTime() > new Date(serverSeenAt).getTime();
+        new Date(latestManagerCommentIso).getTime() >
+          new Date(serverSeenAt).getTime();
       if (
         shouldMark &&
         latestManagerCommentIso !== lastMarkedManagerCommentIso &&
@@ -480,11 +499,17 @@ function AccountOrderCard({
 
   return (
     <article className="rounded-[2rem] bg-card/95">
-      <button type="button" onClick={onToggle} className="w-full px-6 py-6 text-left md:px-8 md:py-7">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-6 py-6 text-left md:px-8 md:py-7"
+      >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-black uppercase tracking-[0.16em]">Заказ {orderNumberLabel}</span>
+              <span className="font-black uppercase tracking-[0.16em]">
+                Заказ {orderNumberLabel}
+              </span>
               <span className="hidden sm:inline">•</span>
               <span className="font-medium">{formatDate(order.createdAt)}</span>
               {hasUnreadManagerReply && (
@@ -494,8 +519,12 @@ function AccountOrderCard({
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${listPaymentTone.className}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${listPaymentTone.dot}`} />
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${listPaymentTone.className}`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${listPaymentTone.dot}`}
+                />
                 {getPaymentStatusLabel(order.paymentStatus)}
               </span>
               <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">
@@ -503,14 +532,19 @@ function AccountOrderCard({
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              {getDeliveryTypeLabel(order.deliveryType)} · {getPaymentTypeLabel(order.paymentType)}
+              {getDeliveryTypeLabel(order.deliveryType)} ·{" "}
+              {getPaymentTypeLabel(order.paymentType)}
             </p>
             {order.deliveryType === "delivery" && order.deliveryCustomer ? (
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getDeliveryCustomerToneClass(order.deliveryCustomer.tone)}`}>
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getDeliveryCustomerToneClass(order.deliveryCustomer.tone)}`}
+                >
                   {order.deliveryCustomer.label}
                 </span>
-                <span className="text-muted-foreground">{order.deliveryCustomer.message}</span>
+                <span className="text-muted-foreground">
+                  {order.deliveryCustomer.message}
+                </span>
               </div>
             ) : null}
           </div>
@@ -536,7 +570,7 @@ function AccountOrderCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-border px-8 pb-8">
+        <div className="border-t border-border/50 px-5 pb-6 md:px-8 md:pb-8">
           {(detailsLoading || feedLoading) && (
             <div className="flex justify-center py-10">
               <Loader2 className="animate-spin text-[#05C3D4]" size={28} />
@@ -550,14 +584,23 @@ function AccountOrderCard({
             </div>
           )}
 
-          {!detailsLoading && !feedLoading && !detailsError && !feedError && details && (
-            <div className="space-y-8 pt-8">
-              <div className="flex flex-wrap gap-2">
+          {!detailsLoading &&
+            !feedLoading &&
+            !detailsError &&
+            !feedError &&
+            details && (
+              <div className="space-y-10 pt-7 md:pt-9">
+                <div className="flex flex-wrap items-center gap-3">
                   {actions.showReceipt ? (
                     <Button
                       type="button"
                       onClick={() => {
-                        if (receiptActionHref) window.open(receiptActionHref, "_blank", "noopener,noreferrer");
+                        if (receiptActionHref)
+                          window.open(
+                            receiptActionHref,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
                       }}
                       className="w-full rounded-full bg-[#05C3D4] text-black sm:w-auto"
                     >
@@ -568,7 +611,9 @@ function AccountOrderCard({
                     <Button
                       type="button"
                       disabled={createPayment.isPending}
-                      onClick={() => createPayment.mutate({ orderId: order.id })}
+                      onClick={() =>
+                        createPayment.mutate({ orderId: order.id })
+                      }
                       className="w-full rounded-full bg-[#05C3D4] text-black hover:bg-[#05C3D4]/90 sm:w-auto"
                     >
                       {createPayment.isPending ? (
@@ -576,311 +621,459 @@ function AccountOrderCard({
                       ) : (
                         <ShoppingBag size={16} className="mr-2" />
                       )}
-                      {createPayment.isPending ? "Готовим оплату" : "Оплатить онлайн"}
+                      {createPayment.isPending
+                        ? "Готовим оплату"
+                        : "Оплатить онлайн"}
                     </Button>
                   ) : actions.showReceiptPending ? (
-                    <Button type="button" variant="outline" disabled className="w-full rounded-full sm:w-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled
+                      className="w-full rounded-full sm:w-auto"
+                    >
                       Чек формируется
                     </Button>
                   ) : null}
                   {actions.showSupport ? (
-                    <Button type="button" variant="ghost" className="w-full rounded-full sm:w-auto" onClick={openOrderConversation}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full rounded-full sm:w-auto"
+                      onClick={openOrderConversation}
+                    >
                       <MessageSquare size={16} className="mr-2" />
                       Написать по заказу
                     </Button>
                   ) : null}
                   {actions.showReview ? (
-                    <Button type="button" variant="ghost" className="w-full rounded-full sm:w-auto">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full rounded-full sm:w-auto"
+                    >
                       <MessageSquare size={16} className="mr-2" />
                       Оставить отзыв
                     </Button>
                   ) : null}
-              </div>
-
-              {compatibilityWarnings.length > 0 && (
-                <div className="rounded-2xl border border-amber-200/80 bg-amber-50 p-4 text-sm text-amber-800">
-                  <div className="font-semibold">Режим совместимости</div>
-                  <ul className="mt-2 space-y-1">
-                    {compatibilityWarnings.map(warning => (
-                      <li key={warning}>• {warning}</li>
-                    ))}
-                  </ul>
                 </div>
-              )}
 
-              <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.95fr)]">
-                <div className="space-y-8">
-                  <section className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Состав заказа</h3>
-                    <div className="mt-4 space-y-3">
-                      {details.items.length === 0 ? (
-                        <div className="text-sm text-muted-foreground">В заказе пока нет позиций.</div>
-                      ) : (
-                        details.items.map(item => (
-                          <div key={item.id} className="rounded-2xl bg-background/90 p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0">
-                                <div className="font-semibold leading-snug">
-                                  {item.productName || `Товар #${item.productId}`}
-                                </div>
-                                {item.variantName ? (
-                                  <div className="mt-1 text-xs font-medium text-foreground/75">Вариант: {item.variantName}</div>
-                                ) : null}
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  Артикул: {item.article || item.sku || "—"}
-                                </div>
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                  {item.quantity} шт. × {formatPrice(item.price)}
-                                </div>
-                                {item.productId ? (
-                                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                                    {myReviewsByProductId[item.productId]?.isVerifiedPurchase ? (
-                                      <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
-                                        Подтверждённая покупка
-                                      </span>
-                                    ) : null}
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        setEditingReviewProductId(current =>
-                                          current === item.productId ? null : item.productId
-                                        )
-                                      }
-                                    >
-                                      <Star size={14} className="mr-2" />
-                                      {myReviewsByProductId[item.productId] ? "Редактировать отзыв" : "Оставить отзыв"}
-                                    </Button>
+                {compatibilityWarnings.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200/80 bg-amber-50 p-4 text-sm text-amber-800">
+                    <div className="font-semibold">Режим совместимости</div>
+                    <ul className="mt-2 space-y-1">
+                      {compatibilityWarnings.map(warning => (
+                        <li key={warning}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="grid gap-10 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)] xl:items-start">
+                  <div className="space-y-10">
+                    <section>
+                      <h3 className="text-lg font-black tracking-tight">
+                        Состав заказа
+                      </h3>
+                      <div className="mt-4 divide-y divide-border/50">
+                        {details.items.length === 0 ? (
+                          <div className="py-5 text-sm text-muted-foreground">
+                            В заказе пока нет позиций.
+                          </div>
+                        ) : (
+                          details.items.map(item => (
+                            <div
+                              key={item.id}
+                              className="py-5 first:pt-2 last:pb-0"
+                            >
+                              <div className="flex items-start justify-between gap-5">
+                                <div className="min-w-0">
+                                  <div className="font-semibold leading-snug">
+                                    {item.productName ||
+                                      `Товар #${item.productId}`}
                                   </div>
-                                ) : null}
+                                  {item.variantName ? (
+                                    <div className="mt-1 text-xs font-medium text-foreground/75">
+                                      Вариант: {item.variantName}
+                                    </div>
+                                  ) : null}
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    Артикул: {item.article || item.sku || "—"}
+                                  </div>
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    {item.quantity} шт. ×{" "}
+                                    {formatPrice(item.price)}
+                                  </div>
+                                  {item.productId ? (
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                      {myReviewsByProductId[item.productId]
+                                        ?.isVerifiedPurchase ? (
+                                        <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                                          Подтверждённая покупка
+                                        </span>
+                                      ) : null}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setEditingReviewProductId(current =>
+                                            current === item.productId
+                                              ? null
+                                              : item.productId
+                                          )
+                                        }
+                                      >
+                                        <Star size={14} className="mr-2" />
+                                        {myReviewsByProductId[item.productId]
+                                          ? "Редактировать отзыв"
+                                          : "Оставить отзыв"}
+                                      </Button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="text-sm font-bold whitespace-nowrap text-[#05C3D4]">
+                                  {formatPrice(
+                                    item.total || item.price * item.quantity
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-sm font-bold whitespace-nowrap text-[#05C3D4]">
-                                {formatPrice(item.total || item.price * item.quantity)}
-                              </div>
-                            </div>
-                            {editingReviewProductId === item.productId && item.productId ? (
-                              <div className="mt-4">
-                                <ReviewComposer
-                                  compact
-                                  productId={item.productId}
-                                  productName={item.productName || `Товар #${item.productId}`}
-                                  verifiedPurchase
-                                  existingReview={myReviewsByProductId[item.productId] ?? undefined}
-                                  onSuccess={async () => {
-                                    setEditingReviewProductId(null);
-                                    await utils.reviews.myReviews.invalidate();
-                                  }}
-                                />
-                              </div>
-                            ) : null}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="rounded-[1.75rem] bg-muted/25 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Сообщения по заказу</h3>
-                    {(feed?.comments ?? []).length === 0 ? (
-                      <div className="mt-4 text-sm text-muted-foreground">
-                        Сообщений пока нет. Если у вас есть вопрос по заказу, напишите нам через форму выше.
-                      </div>
-                    ) : (
-                      <ul className="mt-4 divide-y divide-border/60">
-                        {(feed?.comments ?? []).map(comment => (
-                          <li key={`comment-${comment.id}`} className="py-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                                <MessageSquare size={16} className="text-[#05C3D4]" />
-                                {comment.commentType === "client"
-                                  ? "Ваше сообщение"
-                                  : comment.commentType === "manager"
-                                  ? "Ответ менеджера"
-                                  : "Комментарий"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</div>
-                            </div>
-                            <div className="mt-1 text-sm text-muted-foreground">{comment.comment}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                </div>
-
-                <div className="space-y-6">
-                  <section className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Оплата</h3>
-                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                      <div>
-                        <div className="text-muted-foreground">Статус оплаты</div>
-                        <div className="font-semibold">{getPaymentStatusLabel(detailsAny?.paymentStatus)}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Способ оплаты</div>
-                        <div className="font-semibold">{getPaymentTypeLabel(detailsAny?.paymentType)}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Сумма оплаты</div>
-                        <div className="font-semibold">{formatPrice(Number(detailsAny?.paidAmount || detailsAny?.totalPrice || 0))}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Дата оплаты</div>
-                        <div className="font-semibold">{formatDateTime(detailsAny?.paidAt)}</div>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <div className="text-muted-foreground">ID платежа</div>
-                        <div className="break-all font-semibold">{detailsAny?.paymentId || "—"}</div>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!canDownloadReceipt}
-                        onClick={() => {
-                          if (receiptActionHref) window.open(receiptActionHref, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        <Receipt size={16} className="mr-2" />
-                        {canDownloadReceipt ? "Открыть чек" : "Чек недоступен"}
-                      </Button>
-                      {!canDownloadReceipt ? (
-                        <Button type="button" variant="ghost" onClick={openOrderConversation}>
-                          <ExternalLink size={16} className="mr-2" />
-                          Запросить чек
-                        </Button>
-                      ) : null}
-                    </div>
-                  </section>
-
-                  <section className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Получение заказа</h3>
-                    <div className="mt-4 space-y-4 text-sm">
-                      <div className="flex items-start gap-3">
-                        <Truck size={16} className="mt-0.5 text-[#05C3D4]" />
-                        <div>
-                          <div className="font-semibold">{getDeliveryTypeLabel(detailsAny?.deliveryType)}</div>
-                          <div className="text-muted-foreground">{detailsAny?.address || "Адрес не указан"}</div>
-                          {detailsAny?.deliveryService ? (
-                            <div className="text-muted-foreground">Служба: {detailsAny.deliveryService}</div>
-                          ) : null}
-                          {detailsAny?.deliveryTrackNumber ? (
-                            <div className="text-muted-foreground">Трек-номер: {detailsAny.deliveryTrackNumber}</div>
-                          ) : null}
-                        </div>
-                      </div>
-                      {detailsAny?.deliveryType === "delivery" && deliveryCustomer ? (
-                        <div className="rounded-2xl bg-background/90 p-4">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#05C3D4]">
-                                Доставка
-                              </div>
-                              <div className="mt-1 text-base font-black">{deliveryCustomer.label}</div>
-                              <div className="mt-1 max-w-xl text-sm text-muted-foreground">
-                                {deliveryCustomer.message}
-                              </div>
-                            </div>
-                            <div className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${getDeliveryCustomerToneClass(deliveryCustomer.tone)}`}>
-                              {deliveryCustomer.label}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                            <div>
-                              <div className="text-muted-foreground">Стоимость</div>
-                              <div className="font-semibold">
-                                {Number(detailsAny?.deliveryPrice || 0) > 0
-                                  ? formatPrice(Number(detailsAny.deliveryPrice))
-                                  : "Уточняется"}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">Тип</div>
-                              <div className="font-semibold">Курьерская доставка</div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">Ориентир по времени</div>
-                              <div className="font-semibold">{deliveryCustomer.etaLabel || "Уточняется"}</div>
-                            </div>
-                          </div>
-
-                          {!deliveryCustomer.isProblem ? (
-                            <div className="mt-5 grid grid-cols-5 gap-1" aria-label="Этапы доставки">
-                              {deliveryCustomer.timeline.map(step => (
-                                <div key={step.key} className="min-w-0">
-                                  <div
-                                    className={`h-1.5 rounded-full ${
-                                      step.state === "completed"
-                                        ? "bg-[#05C3D4]"
-                                        : step.state === "current"
-                                          ? "bg-[#05C3D4]/55"
-                                          : "bg-muted"
-                                    }`}
+                              {editingReviewProductId === item.productId &&
+                              item.productId ? (
+                                <div className="mt-4">
+                                  <ReviewComposer
+                                    compact
+                                    productId={item.productId}
+                                    productName={
+                                      item.productName ||
+                                      `Товар #${item.productId}`
+                                    }
+                                    verifiedPurchase
+                                    existingReview={
+                                      myReviewsByProductId[item.productId] ??
+                                      undefined
+                                    }
+                                    onSuccess={async () => {
+                                      setEditingReviewProductId(null);
+                                      await utils.reviews.myReviews.invalidate();
+                                    }}
                                   />
-                                  <div className={`mt-2 hidden text-[10px] leading-tight sm:block ${step.state === "upcoming" ? "text-muted-foreground" : "font-semibold"}`}>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </section>
+
+                    {detailsAny?.deliveryType === "delivery" &&
+                    deliveryCustomer ? (
+                      <section className="rounded-[1.75rem] bg-muted/20 p-6 md:p-8">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#05C3D4]/12 text-[#05C3D4]">
+                              <Truck size={20} />
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
+                                Доставка заказа
+                              </p>
+                              <h3 className="mt-1 text-2xl font-black tracking-tight">
+                                {deliveryCustomer.label}
+                              </h3>
+                              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                                {deliveryCustomer.message}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`w-fit rounded-full px-3.5 py-2 text-xs font-bold ${getDeliveryCustomerToneClass(deliveryCustomer.tone)}`}
+                          >
+                            {deliveryCustomer.label}
+                          </span>
+                        </div>
+
+                        <div className="mt-7 flex items-start gap-3 border-t border-border/50 pt-6">
+                          <MapPin
+                            size={18}
+                            className="mt-0.5 shrink-0 text-[#05C3D4]"
+                          />
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                              Адрес доставки
+                            </div>
+                            <div className="mt-1 font-semibold leading-6">
+                              {detailsAny?.address || "Уточняется менеджером"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 grid gap-5 sm:grid-cols-3">
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                              <CreditCard size={14} /> Стоимость
+                            </div>
+                            <div className="mt-2 text-base font-black">
+                              {Number(detailsAny?.deliveryPrice || 0) > 0
+                                ? formatPrice(Number(detailsAny.deliveryPrice))
+                                : "Уточняется"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                              <Truck size={14} /> Способ
+                            </div>
+                            <div className="mt-2 text-base font-black">
+                              Курьером
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                              <Clock3 size={14} /> Ориентир
+                            </div>
+                            <div className="mt-2 text-base font-black">
+                              {deliveryCustomer.etaLabel || "Уточняется"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {!deliveryCustomer.isProblem ? (
+                          <div className="mt-8" aria-label="Этапы доставки">
+                            <div className="space-y-3 sm:hidden">
+                              {deliveryCustomer.timeline.map(step => (
+                                <div
+                                  key={step.key}
+                                  className="flex items-center gap-3"
+                                >
+                                  <CheckCircle2
+                                    size={18}
+                                    className={
+                                      step.state === "upcoming"
+                                        ? "text-muted-foreground/35"
+                                        : "text-[#05C3D4]"
+                                    }
+                                  />
+                                  <span
+                                    className={
+                                      step.state === "current"
+                                        ? "font-black"
+                                        : step.state === "upcoming"
+                                          ? "text-muted-foreground"
+                                          : "font-semibold"
+                                    }
+                                  >
+                                    {step.label}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="hidden grid-cols-5 sm:grid">
+                              {deliveryCustomer.timeline.map((step, index) => (
+                                <div
+                                  key={step.key}
+                                  className="relative min-w-0 pr-2"
+                                >
+                                  {index <
+                                  deliveryCustomer.timeline.length - 1 ? (
+                                    <div
+                                      className={`absolute left-5 right-0 top-2 h-px ${step.state === "upcoming" ? "bg-border" : "bg-[#05C3D4]/60"}`}
+                                    />
+                                  ) : null}
+                                  <div
+                                    className={`relative z-10 h-4 w-4 rounded-full ring-4 ring-muted/80 ${step.state === "completed" ? "bg-[#05C3D4]" : step.state === "current" ? "bg-[#05C3D4]/65" : "bg-muted-foreground/20"}`}
+                                  />
+                                  <div
+                                    className={`mt-3 max-w-[8rem] text-xs leading-4 ${step.state === "current" ? "font-black" : step.state === "upcoming" ? "text-muted-foreground" : "font-semibold"}`}
+                                  >
                                     {step.label}
                                   </div>
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={openOrderConversation}>
-                              <MessageSquare size={16} className="mr-2" />
-                              Написать по заказу
-                            </Button>
-                          )}
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-6 rounded-full"
+                            onClick={openOrderConversation}
+                          >
+                            <MessageSquare size={16} className="mr-2" />
+                            Написать по заказу
+                          </Button>
+                        )}
 
-                          {detailsAny?.deliveryProviderLastSyncAt ? (
-                            <div className="mt-4 text-xs text-muted-foreground">
-                              Обновлено: {formatDateTime(detailsAny.deliveryProviderLastSyncAt)}
-                            </div>
-                          ) : null}
+                        {detailsAny?.deliveryProviderLastSyncAt ? (
+                          <div className="mt-6 text-xs text-muted-foreground">
+                            Обновлено:{" "}
+                            {formatDateTime(
+                              detailsAny.deliveryProviderLastSyncAt
+                            )}
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : (
+                      <section className="rounded-[1.75rem] bg-muted/20 p-6 md:p-8">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#05C3D4]/12 text-[#05C3D4]">
+                            <Package size={20} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#05C3D4]">
+                              Получение заказа
+                            </p>
+                            <h3 className="mt-1 text-2xl font-black tracking-tight">
+                              {getDeliveryTypeLabel(detailsAny?.deliveryType)}
+                            </h3>
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                              {detailsAny?.address ||
+                                "Адрес уточняется менеджером"}
+                            </p>
+                          </div>
                         </div>
-                      ) : null}
-                      {detailsAny?.customerComment ? (
-                        <div className="rounded-xl bg-background/90 p-3 text-sm text-muted-foreground">
-                          <div className="mb-1 text-[10px] font-black uppercase tracking-[0.16em]">Ваш комментарий</div>
-                          {detailsAny.customerComment}
-                        </div>
-                      ) : null}
-                    </div>
-                  </section>
+                      </section>
+                    )}
 
-                  <section id={`order-conversation-${order.id}`} className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6">
-                    <h3 className="text-lg font-black tracking-tight">Написать по заказу</h3>
-                    <textarea
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      rows={4}
-                      className="mt-4 w-full rounded-2xl bg-background px-4 py-3 text-sm outline-none ring-1 ring-border/70 transition focus:ring-2 focus:ring-[#05C3D4]/50"
-                      placeholder="Например: уточнить время доставки, запросить чек или задать вопрос по заказу."
-                    />
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        addComment.mutate({
-                          orderId: order.id,
-                          comment: message,
-                        })
-                      }
-                      disabled={message.trim().length === 0 || addComment.isPending}
-                      className="mt-4 h-11 rounded-full px-6"
-                    >
-                      {addComment.isPending ? (
-                        <Loader2 className="mr-2 animate-spin" size={16} />
+                    <section className="border-t border-border/50 pt-8">
+                      <h3 className="text-lg font-black tracking-tight">
+                        Сообщения по заказу
+                      </h3>
+                      {(feed?.comments ?? []).length === 0 ? (
+                        <div className="mt-4 text-sm text-muted-foreground">
+                          Сообщений пока нет. Если у вас есть вопрос по заказу,
+                          напишите нам через форму выше.
+                        </div>
                       ) : (
-                        <Send className="mr-2" size={16} />
+                        <ul className="mt-4 divide-y divide-border/60">
+                          {(feed?.comments ?? []).map(comment => (
+                            <li key={`comment-${comment.id}`} className="py-3">
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div className="inline-flex items-center gap-2 text-sm font-semibold">
+                                  <MessageSquare
+                                    size={16}
+                                    className="text-[#05C3D4]"
+                                  />
+                                  {comment.commentType === "client"
+                                    ? "Ваше сообщение"
+                                    : comment.commentType === "manager"
+                                      ? "Ответ менеджера"
+                                      : "Комментарий"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatDateTime(comment.createdAt)}
+                                </div>
+                              </div>
+                              <div className="mt-1 text-sm text-muted-foreground">
+                                {comment.comment}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       )}
-                      Отправить сообщение
-                    </Button>
-                  </section>
+                    </section>
+                  </div>
+
+                  <div className="space-y-8">
+                    <section className="rounded-[1.75rem] bg-muted/20 p-6">
+                      <h3 className="text-lg font-black tracking-tight">
+                        Оплата
+                      </h3>
+                      <div className="mt-5 space-y-4 text-sm">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-muted-foreground">Статус</span>
+                          <span className="font-black">
+                            {getPaymentStatusLabel(detailsAny?.paymentStatus)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-muted-foreground">Способ</span>
+                          <span className="text-right font-semibold">
+                            {getPaymentTypeLabel(detailsAny?.paymentType)}
+                          </span>
+                        </div>
+                        <div className="flex items-end justify-between gap-4 border-t border-border/50 pt-4">
+                          <span className="text-muted-foreground">
+                            Оплачено
+                          </span>
+                          <span className="text-xl font-black text-[#05C3D4]">
+                            {formatPrice(
+                              Number(
+                                detailsAny?.paidAmount ||
+                                  detailsAny?.totalPrice ||
+                                  0
+                              )
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-start justify-between gap-4">
+                          <span className="text-muted-foreground">Дата</span>
+                          <span className="text-right font-semibold">
+                            {formatDateTime(detailsAny?.paidAt)}
+                          </span>
+                        </div>
+                        {detailsAny?.paymentId ? (
+                          <details className="pt-1 text-xs text-muted-foreground">
+                            <summary className="cursor-pointer font-semibold">
+                              Номер операции
+                            </summary>
+                            <div className="mt-2 break-all">
+                              {detailsAny.paymentId}
+                            </div>
+                          </details>
+                        ) : null}
+                      </div>
+                    </section>
+
+                    {detailsAny?.customerComment ? (
+                      <section className="border-t border-border/50 pt-6">
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                          Ваш комментарий
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {detailsAny.customerComment}
+                        </p>
+                      </section>
+                    ) : null}
+
+                    <section
+                      id={`order-conversation-${order.id}`}
+                      className="rounded-[1.75rem] bg-muted/30 p-5 md:p-6"
+                    >
+                      <h3 className="text-lg font-black tracking-tight">
+                        Написать по заказу
+                      </h3>
+                      <textarea
+                        value={message}
+                        onChange={e => setMessage(e.target.value)}
+                        rows={4}
+                        className="mt-4 w-full rounded-2xl bg-background px-4 py-3 text-sm outline-none ring-1 ring-border/70 transition focus:ring-2 focus:ring-[#05C3D4]/50"
+                        placeholder="Например: уточнить время доставки, запросить чек или задать вопрос по заказу."
+                      />
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          addComment.mutate({
+                            orderId: order.id,
+                            comment: message,
+                          })
+                        }
+                        disabled={
+                          message.trim().length === 0 || addComment.isPending
+                        }
+                        className="mt-4 h-11 rounded-full px-6"
+                      >
+                        {addComment.isPending ? (
+                          <Loader2 className="mr-2 animate-spin" size={16} />
+                        ) : (
+                          <Send className="mr-2" size={16} />
+                        )}
+                        Отправить сообщение
+                      </Button>
+                    </section>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
     </article>
@@ -911,10 +1104,13 @@ export default function AccountPage() {
     enabled: isAuthenticated,
     retry: false,
   });
-  const { data: favoriteProducts = [] } = trpc.user.getFavorites.useQuery(undefined, {
-    enabled: isAuthenticated,
-    retry: false,
-  });
+  const { data: favoriteProducts = [] } = trpc.user.getFavorites.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated,
+      retry: false,
+    }
+  );
   const { data: loyaltyState } = trpc.ecommerce.getMyLoyaltyState.useQuery(
     { refresh: false },
     {
@@ -922,13 +1118,11 @@ export default function AccountPage() {
       retry: false,
     }
   );
-  const { data: bonusTransactions = [] } = trpc.ecommerce.getMyBonusTransactions.useQuery(
-    undefined,
-    {
+  const { data: bonusTransactions = [] } =
+    trpc.ecommerce.getMyBonusTransactions.useQuery(undefined, {
       enabled: isAuthenticated,
       retry: false,
-    }
-  );
+    });
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -941,10 +1135,9 @@ export default function AccountPage() {
 
   const myReviewsByProductId = useMemo(
     () =>
-      Object.fromEntries(myReviews.map(review => [review.productId, review])) as Record<
-        number,
-        any
-      >,
+      Object.fromEntries(
+        myReviews.map(review => [review.productId, review])
+      ) as Record<number, any>,
     [myReviews]
   );
 
@@ -965,7 +1158,9 @@ export default function AccountPage() {
                   <h1 className="mt-1 text-2xl font-black tracking-tight md:text-3xl">
                     {user?.fullName}
                   </h1>
-                  <p className="mt-1 text-sm text-muted-foreground">{user?.email}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {user?.email}
+                  </p>
                 </div>
               </div>
               <Button
@@ -982,11 +1177,13 @@ export default function AccountPage() {
       </section>
 
       <div className="container-main py-10 md:py-12">
-        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
+        <div className="grid grid-cols-1 items-start gap-10 xl:grid-cols-4">
+          <div className="space-y-6 xl:col-span-3">
             <div className="flex items-center gap-3">
               <Package size={18} className="text-[#05C3D4]" />
-              <h2 className="text-xl font-black tracking-tight">История заказов</h2>
+              <h2 className="text-xl font-black tracking-tight">
+                История заказов
+              </h2>
             </div>
 
             {isLoading ? (
@@ -999,10 +1196,16 @@ export default function AccountPage() {
               </div>
             ) : orders.length === 0 ? (
               <div className="space-y-4 rounded-[1.75rem] bg-muted/30 p-10 text-center">
-                <ShoppingBag size={44} className="mx-auto text-muted-foreground/25" />
-                <p className="text-sm font-semibold text-muted-foreground">У вас пока нет заказов</p>
+                <ShoppingBag
+                  size={44}
+                  className="mx-auto text-muted-foreground/25"
+                />
+                <p className="text-sm font-semibold text-muted-foreground">
+                  У вас пока нет заказов
+                </p>
                 <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                  Перейдите в каталог и выберите аксессуары для телефона, авто или гаджета.
+                  Перейдите в каталог и выберите аксессуары для телефона, авто
+                  или гаджета.
                 </p>
                 <Link
                   to="/catalog"
@@ -1019,7 +1222,9 @@ export default function AccountPage() {
                     order={order as AccountOrder}
                     expanded={expandedOrderId === order.id}
                     onToggle={() =>
-                      setExpandedOrderId(current => (current === order.id ? null : order.id))
+                      setExpandedOrderId(current =>
+                        current === order.id ? null : order.id
+                      )
                     }
                     myReviewsByProductId={myReviewsByProductId}
                   />
@@ -1039,7 +1244,8 @@ export default function AccountPage() {
                     Вы пока ничего не добавили в избранное
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Сохраняйте товары сердечком в каталоге, и они появятся здесь.
+                    Сохраняйте товары сердечком в каталоге, и они появятся
+                    здесь.
                   </p>
                 </div>
               ) : (
@@ -1052,16 +1258,19 @@ export default function AccountPage() {
             </section>
           </div>
 
-          <aside className="space-y-5 lg:sticky lg:top-24">
+          <aside className="space-y-5 xl:sticky xl:top-24">
             <section className="rounded-[1.75rem] bg-muted/25 p-6">
               <div className="flex items-center gap-2">
                 <Star size={18} className="text-[#05C3D4]" />
-                <h3 className="text-base font-black tracking-tight">Мои отзывы</h3>
+                <h3 className="text-base font-black tracking-tight">
+                  Мои отзывы
+                </h3>
               </div>
               <div className="mt-4 space-y-2.5">
                 {myReviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Отзывов пока нет. Их удобно оставлять прямо из состава заказа.
+                    Отзывов пока нет. Их удобно оставлять прямо из состава
+                    заказа.
                   </p>
                 ) : (
                   myReviews.slice(0, 4).map(review => (
@@ -1071,19 +1280,23 @@ export default function AccountPage() {
                       className="block rounded-xl bg-background/85 px-4 py-3 transition-colors hover:bg-background"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="line-clamp-2 text-sm font-semibold leading-snug">{review.productName}</div>
-                        <div className="text-xs font-black text-[#05C3D4]">{review.rating}/5</div>
+                        <div className="line-clamp-2 text-sm font-semibold leading-snug">
+                          {review.productName}
+                        </div>
+                        <div className="text-xs font-black text-[#05C3D4]">
+                          {review.rating}/5
+                        </div>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         {review.status === "pending_moderation"
                           ? "На модерации"
                           : review.status === "published"
-                          ? "Опубликован"
-                          : review.status === "rejected"
-                          ? "Отклонён"
-                          : review.status === "hidden"
-                          ? "Скрыт"
-                          : review.status}
+                            ? "Опубликован"
+                            : review.status === "rejected"
+                              ? "Отклонён"
+                              : review.status === "hidden"
+                                ? "Скрыт"
+                                : review.status}
                       </div>
                     </Link>
                   ))
@@ -1092,11 +1305,18 @@ export default function AccountPage() {
             </section>
 
             <Can I="read" a="AdminPanel">
-              <Link to="/admin" className="block rounded-[1.75rem] bg-muted/25 p-6 transition-colors hover:bg-muted/35">
+              <Link
+                to="/admin"
+                className="block rounded-[1.75rem] bg-muted/25 p-6 transition-colors hover:bg-muted/35"
+              >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Служебный доступ</p>
-                    <h3 className="mt-2 text-lg font-black tracking-tight">Админ-панель</h3>
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                      Служебный доступ
+                    </p>
+                    <h3 className="mt-2 text-lg font-black tracking-tight">
+                      Админ-панель
+                    </h3>
                   </div>
                   <Settings size={24} className="text-[#05C3D4]" />
                 </div>
@@ -1104,7 +1324,9 @@ export default function AccountPage() {
             </Can>
 
             <section className="rounded-[1.75rem] bg-muted/25 p-6">
-              <h3 className="text-base font-black tracking-tight">Бонусная программа</h3>
+              <h3 className="text-base font-black tracking-tight">
+                Бонусная программа
+              </h3>
               {loyaltyState?.enabled ? (
                 <div className="mt-4 space-y-4">
                   <div className="rounded-2xl bg-background/90 px-4 py-4">
@@ -1181,7 +1403,9 @@ export default function AccountPage() {
 
             <section className="rounded-[1.75rem] bg-muted/25 p-6">
               <h3 className="text-base font-black tracking-tight">Поддержка</h3>
-              <p className="mt-3 text-sm text-muted-foreground">Поможем с оплатой, чеком и статусом заказа.</p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Поможем с оплатой, чеком и статусом заказа.
+              </p>
               <div className="mt-4 space-y-2.5">
                 <a
                   href="tel:+79273750555"
@@ -1191,7 +1415,8 @@ export default function AccountPage() {
                   <ChevronRight size={16} />
                 </a>
                 <div className="rounded-xl bg-background/90 px-4 py-3 text-sm text-muted-foreground">
-                  Для вопросов по заказу используйте внутреннюю переписку в карточке заказа.
+                  Для вопросов по заказу используйте внутреннюю переписку в
+                  карточке заказа.
                 </div>
               </div>
             </section>
