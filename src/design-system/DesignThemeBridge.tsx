@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useLocation } from "react-router";
 import { useTheme } from "next-themes";
 import { trpc } from "@/providers/trpc";
-import { applyThemeToElement } from "./theme-runtime";
+import { applyThemeToElement, clearThemeFromElement } from "./theme-runtime";
 
 export default function DesignThemeBridge() {
   const { pathname } = useLocation();
@@ -13,21 +13,31 @@ export default function DesignThemeBridge() {
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    if (!data?.theme || typeof document === "undefined") return;
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
 
     const root = document.documentElement;
     const isAdminRoute = pathname.startsWith("/admin");
     const isDarkSiteTheme = resolvedTheme === "dark";
 
+    // Themes are applied as inline variables, so changing only the `dark` class
+    // leaves the previous storefront palette active until the API query resolves.
+    clearThemeFromElement(root);
+
     if (isAdminRoute) {
       root.classList.remove("dark");
-      applyThemeToElement(root, data.theme.admin);
+      root.dataset.themeScope = "admin";
+      if (data?.theme) {
+        applyThemeToElement(root, data.theme.admin);
+      }
       return;
     }
 
+    root.dataset.themeScope = "site";
     root.classList.toggle("dark", isDarkSiteTheme);
-    applyThemeToElement(root, isDarkSiteTheme ? data.theme.siteDark : data.theme.siteLight);
+    if (data?.theme) {
+      applyThemeToElement(root, isDarkSiteTheme ? data.theme.siteDark : data.theme.siteLight);
+    }
   }, [data?.theme, pathname, resolvedTheme]);
 
   return null;

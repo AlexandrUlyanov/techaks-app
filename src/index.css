@@ -97,6 +97,10 @@
     --input: 216 7% 20%;
     --ring: 185 95% 43%;
   }
+
+  :root[data-theme-scope="admin"] {
+    color-scheme: light;
+  }
 }
 
 @layer base {

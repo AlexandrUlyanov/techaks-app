@@ -136,3 +136,34 @@ export function applyThemeToElement(element: HTMLElement, theme: DesignTheme) {
     element.style.setProperty(key, value);
   }
 }
+
+const SHARED_THEME_VARIABLES = new Set([
+  "--background",
+  "--foreground",
+  "--card",
+  "--card-foreground",
+  "--popover",
+  "--popover-foreground",
+  "--primary",
+  "--primary-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--muted",
+  "--muted-foreground",
+  "--accent",
+  "--accent-foreground",
+  "--destructive",
+  "--destructive-foreground",
+  "--border",
+  "--input",
+  "--ring",
+  "--radius",
+]);
+
+export function clearThemeFromElement(element: HTMLElement) {
+  for (const property of Array.from(element.style)) {
+    if (property.startsWith("--tech-") || SHARED_THEME_VARIABLES.has(property)) {
+      element.style.removeProperty(property);
+    }
+  }
+}
