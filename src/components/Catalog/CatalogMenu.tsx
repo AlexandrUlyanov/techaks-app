@@ -23,22 +23,6 @@ const IconWrapper = ({
   return <CategoryIcon name={title} slug={slug} size={size} className={className} />;
 };
 
-const Badge = ({ type }: { type?: string }) => {
-  if (!type) return null;
-  const styles: Record<string, string> = {
-    new: "bg-green-500 text-white",
-    sale: "bg-red-500 text-white",
-    popular: "bg-[#05C3D4] text-white",
-  };
-  return (
-    <span
-      className={`ml-1.5 rounded px-1 py-0.5 text-[7px] font-black uppercase ${styles[type] || styles.new}`}
-    >
-      {type}
-    </span>
-  );
-};
-
 type PromoMenuProduct = {
   id: number;
   slug: string;
@@ -494,6 +478,7 @@ const DesktopCatalog = () => {
 
 const MobileCatalog = () => {
   const menu = useCatalog();
+  const navigate = useNavigate();
   useBodyScrollLock(menu.isOpen);
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
 

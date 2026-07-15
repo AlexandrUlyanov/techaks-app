@@ -340,11 +340,11 @@ export async function upsertDemandClusterForListingPage(args: {
     ctr:
       args.data.ctr === null || args.data.ctr === undefined
         ? null
-        : Number(args.data.ctr.toFixed(2)),
+        : args.data.ctr.toFixed(2),
     avgPosition:
       args.data.avgPosition === null || args.data.avgPosition === undefined
         ? null
-        : Number(args.data.avgPosition.toFixed(2)),
+        : args.data.avgPosition.toFixed(2),
     notes: args.data.notes?.trim() || null,
     updatedBy: args.userId ?? null,
     updatedAt: new Date(),

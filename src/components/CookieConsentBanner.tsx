@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 declare global {
   interface Window {
     ym?: (...args: unknown[]) => void;
-    dataLayer?: unknown[];
+    dataLayer?: Record<string, unknown>[];
   }
 }
 

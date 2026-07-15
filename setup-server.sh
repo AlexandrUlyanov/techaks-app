@@ -9,6 +9,8 @@
 
 set -e
 
+: "${TECHAKS_DB_PASSWORD:?Set TECHAKS_DB_PASSWORD before running setup-server.sh}"
+
 echo "Starting server setup..."
 
 # 1. Create SWAP File (Critical for 1GB RAM)
@@ -46,7 +48,8 @@ fi
 # 4. Configure MySQL
 echo "Configuring MySQL..."
 mysql -e "CREATE DATABASE IF NOT EXISTS techaks_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -e "CREATE USER IF NOT EXISTS 'techaks'@'localhost' IDENTIFIED BY 'TechAks_DB_Secure123!';"
+mysql -e "CREATE USER IF NOT EXISTS 'techaks'@'localhost' IDENTIFIED BY '${TECHAKS_DB_PASSWORD}';"
+mysql -e "ALTER USER 'techaks'@'localhost' IDENTIFIED BY '${TECHAKS_DB_PASSWORD}';"
 mysql -e "GRANT ALL PRIVILEGES ON techaks_prod.* TO 'techaks'@'localhost';"
 mysql -e "FLUSH PRIVILEGES;"
 
@@ -62,6 +65,5 @@ echo "================================================================"
 echo "SERVER SETUP COMPLETE!"
 echo "Database: techaks_prod"
 echo "DB User: techaks"
-echo "DB Pass: TechAks_DB_Secure123!"
 echo "App Dir: $APP_DIR"
 echo "================================================================"

@@ -737,6 +737,8 @@ export default function AdminOrderDetails() {
     return <div className="text-sm text-gray-500">Заказ не найден</div>;
   }
 
+  const loyaltyOrder = "loyaltyBonusSpent" in order ? order : null;
+
   const compatibilityWarnings = [
     ...(order.compatibilityWarnings ?? []),
     ...(feed?.warning ? [feed.warning] : []),
@@ -1502,13 +1504,14 @@ export default function AdminOrderDetails() {
             </AdminSection>
           ) : null}
 
-          {(order.loyaltyBonusSpent > 0 ||
-            order.loyaltyBonusExpectedAccrued > 0 ||
-            order.loyaltyActualSpent > 0 ||
-            order.loyaltyActualAccrued > 0 ||
-            order.loyaltySyncStatus ||
-            order.loyaltyLastSyncedAt ||
-            order.loyaltyLastSyncError) ? (
+          {loyaltyOrder &&
+          ((loyaltyOrder.loyaltyBonusSpent ?? 0) > 0 ||
+            (loyaltyOrder.loyaltyBonusExpectedAccrued ?? 0) > 0 ||
+            (loyaltyOrder.loyaltyActualSpent ?? 0) > 0 ||
+            (loyaltyOrder.loyaltyActualAccrued ?? 0) > 0 ||
+            loyaltyOrder.loyaltySyncStatus ||
+            loyaltyOrder.loyaltyLastSyncedAt ||
+            loyaltyOrder.loyaltyLastSyncError) ? (
             <AdminSection
               title="Бонусная программа"
               description="Сводка по списанию, начислению и статусу синхронизации бонусов с МойСклад."
@@ -1531,36 +1534,41 @@ export default function AdminOrderDetails() {
               <div className="space-y-3 text-sm">
                 <InfoRow
                   label="Баланс до заказа"
-                  value={formatPrice(order.loyaltyBalanceBefore)}
+                  value={formatPrice(loyaltyOrder.loyaltyBalanceBefore)}
                 />
                 <InfoRow
                   label="Запрошено к списанию"
-                  value={formatPrice(order.loyaltyBonusRequested)}
+                  value={formatPrice(loyaltyOrder.loyaltyBonusRequested)}
                 />
                 <InfoRow
                   label="Списано по факту"
-                  value={formatPrice(order.loyaltyActualSpent || order.loyaltyBonusSpent)}
+                  value={formatPrice(
+                    loyaltyOrder.loyaltyActualSpent || loyaltyOrder.loyaltyBonusSpent
+                  )}
                 />
                 <InfoRow
                   label="Ожидалось к начислению"
-                  value={formatPrice(order.loyaltyBonusExpectedAccrued)}
+                  value={formatPrice(loyaltyOrder.loyaltyBonusExpectedAccrued)}
                 />
                 <InfoRow
                   label="Начислено по факту"
-                  value={formatPrice(order.loyaltyActualAccrued || order.loyaltyBonusAccrued)}
+                  value={formatPrice(
+                    loyaltyOrder.loyaltyActualAccrued ||
+                      loyaltyOrder.loyaltyBonusAccrued
+                  )}
                 />
                 <InfoRow
                   label="Статус синхронизации"
-                  value={getLoyaltySyncStatusLabel(order.loyaltySyncStatus)}
+                  value={getLoyaltySyncStatusLabel(loyaltyOrder.loyaltySyncStatus)}
                 />
                 <InfoRow
                   label="Последняя синхронизация"
-                  value={formatDateTime(order.loyaltyLastSyncedAt)}
+                  value={formatDateTime(loyaltyOrder.loyaltyLastSyncedAt)}
                 />
-                {order.loyaltyLastSyncError ? (
+                {loyaltyOrder.loyaltyLastSyncError ? (
                   <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     <span className="font-black">Последняя ошибка:</span>{" "}
-                    {order.loyaltyLastSyncError}
+                    {loyaltyOrder.loyaltyLastSyncError}
                   </div>
                 ) : null}
               </div>

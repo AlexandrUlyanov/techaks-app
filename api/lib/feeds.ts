@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, desc, inArray } from "drizzle-orm";
 import {
   categories,
   manufacturers,

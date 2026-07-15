@@ -27,6 +27,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Validate required deploy secrets
+        env:
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          APP_ENCRYPTION_KEY: ${{ secrets.APP_ENCRYPTION_KEY }}
+        run: |
+          set -eu
+          test -n "$VPS_PASSWORD"
+          test -n "$DB_PASSWORD"
+          test -n "$APP_SECRET"
+          test -n "$APP_ENCRYPTION_KEY"
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -78,11 +91,11 @@ jobs:
             
             # Create/Update .env file
             cat << 'EOF' > .env
-            DATABASE_URL="mysql://techaks:TechAks_DB_Secure123!@127.0.0.1:3306/techaks_prod"
+            DATABASE_URL="mysql://techaks:${{ secrets.DB_PASSWORD }}@127.0.0.1:3306/techaks_prod"
             PORT=3000
             NODE_ENV=production
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
-            APP_SECRET="${{ secrets.APP_SECRET || 'secret-techaks-2026' }}"
+            APP_SECRET="${{ secrets.APP_SECRET }}"
             APP_ENCRYPTION_KEY="${{ secrets.APP_ENCRYPTION_KEY }}"
             YANDEX_GEOSUGGEST_API_KEY="${{ secrets.YANDEX_GEOSUGGEST_API_KEY }}"
             YANDEX_GEOCODER_API_KEY="${{ secrets.YANDEX_GEOCODER_API_KEY }}"
@@ -181,6 +194,8 @@ jobs:
             npm run deploy:migrate-delivery
 
             echo "Building application..."
+            npm run check
+            npm test
             npm run build
 
             echo "Verifying production schema against SQL migrations..."

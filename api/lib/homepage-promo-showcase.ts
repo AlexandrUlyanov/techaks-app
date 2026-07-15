@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { categories, products } from "@db/schema";
 import * as schema from "@db/schema";
 import { getDb } from "../queries/connection";
@@ -202,6 +202,10 @@ async function listDiscountCandidates(limit = 160): Promise<DiscountCandidate[]>
 
 function mapRowsToCandidates(rows: CandidateSourceRow[]): DiscountCandidate[] {
   return rows
+    .filter(
+      (row): row is CandidateSourceRow & { categorySlug: string } =>
+        Boolean(row.categorySlug)
+    )
     .map(row => {
       const oldPrice =
         typeof row.oldPrice === "number" && row.oldPrice > row.price ? row.oldPrice : null;
@@ -226,10 +230,7 @@ function mapRowsToCandidates(rows: CandidateSourceRow[]): DiscountCandidate[] {
         discountPercent: calculateDiscountPercent(row.price, oldPrice),
       } satisfies DiscountCandidate;
     })
-    .filter(
-      candidate =>
-        Boolean(candidate.categorySlug) && (candidate.discountValue > 0 || candidate.badge === "Акция")
-    );
+    .filter(candidate => candidate.discountValue > 0 || candidate.badge === "Акция");
 }
 
 async function listPinnedCandidates(ids: number[]): Promise<DiscountCandidate[]> {

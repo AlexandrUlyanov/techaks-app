@@ -54,7 +54,8 @@ export type CatalogAnalyticsEvent =
   | "catalog_search_empty"
   | "catalog_promo_click"
   | "catalog_mobile_back"
-  | "catalog_mobile_close";
+  | "catalog_mobile_close"
+  | "catalog_mobile_category_toggle";
 
 export interface CatalogEventData {
   event: CatalogAnalyticsEvent;

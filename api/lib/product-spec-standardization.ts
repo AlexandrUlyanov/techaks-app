@@ -11,7 +11,7 @@ type RuleRow = typeof schema.productSpecRules.$inferSelect;
 type ValueRuleRow = typeof schema.productSpecValueRules.$inferSelect;
 type ProductRow = Pick<
   typeof schema.products.$inferSelect,
-  "id" | "name" | "slug" | "categoryId" | "specs"
+  "id" | "name" | "slug" | "categoryId" | "description" | "specs"
 >;
 
 type ProductSpecsIndexRow = Pick<
@@ -584,6 +584,7 @@ export async function bulkManageSpecOverview(input: {
       name: schema.products.name,
       slug: schema.products.slug,
       categoryId: schema.products.categoryId,
+      description: schema.products.description,
       specs: schema.products.specs,
     })
     .from(schema.products)
@@ -747,6 +748,7 @@ export async function applyCategorySpecStandardization(input: {
       name: schema.products.name,
       slug: schema.products.slug,
       categoryId: schema.products.categoryId,
+      description: schema.products.description,
       specs: schema.products.specs,
     })
     .from(schema.products)
@@ -842,6 +844,7 @@ export async function applyCategorySpecValueStandardization(input: {
       name: schema.products.name,
       slug: schema.products.slug,
       categoryId: schema.products.categoryId,
+      description: schema.products.description,
       specs: schema.products.specs,
     })
     .from(schema.products)

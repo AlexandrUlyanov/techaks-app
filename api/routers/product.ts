@@ -365,10 +365,10 @@ async function collectCategoryPreviewImageSuggestions(
     const fallbackOriginal = typeof row.image === "string" ? row.image.trim() : "";
     const variants = normalizeProductImageVariantSet(row.imageVariants, fallbackOriginal);
     const image =
-      variants.thumb ||
-      variants.card ||
-      variants.medium ||
-      variants.original ||
+      variants?.thumb ||
+      variants?.card ||
+      variants?.medium ||
+      variants?.original ||
       fallbackOriginal;
     if (!image || excludedImages.has(image) || excludedImages.has(fallbackOriginal)) continue;
 
@@ -850,6 +850,7 @@ export const productRouter = createRouter({
         isActive: categories.isActive,
         imageUrl: categories.imageUrl,
         previewImages: categories.previewImages,
+        previewImageExclusions: categories.previewImageExclusions,
       })
       .from(categories)
       .orderBy(asc(categories.sortOrder));
@@ -961,10 +962,10 @@ export const productRouter = createRouter({
           fallbackOriginal
         );
         const optimized =
-          variants.thumb ||
-          variants.card ||
-          variants.medium ||
-          variants.original ||
+          variants?.thumb ||
+          variants?.card ||
+          variants?.medium ||
+          variants?.original ||
           fallbackOriginal;
         return excludedImages.has(optimized) ? null : optimized;
       })();

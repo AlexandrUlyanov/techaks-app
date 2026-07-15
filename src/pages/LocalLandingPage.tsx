@@ -38,9 +38,6 @@ function formatProductCount(count: number) {
 export default function LocalLandingPage() {
   const params = useParams<{ slug: string }>();
   const landing = getLocalSeoLandingBySlug(params.slug || "");
-  const { data: categories = [] } = trpc.product.getCategories.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
-  });
   const { data: manufacturers = [] } = trpc.manufacturer.getAll.useQuery(
     { onlyVisible: true, withProductsOnly: true },
     { staleTime: 5 * 60 * 1000 }
@@ -99,11 +96,10 @@ export default function LocalLandingPage() {
     );
   }
 
-  const categoryMap = new Map(categories.map(item => [item.slug, item] as const));
   const manufacturerMap = new Map(manufacturers.map(item => [item.slug, item] as const));
   const relatedLandings = landing.relatedSlugs
     .map(slug => getLocalSeoLandingBySlug(slug))
-    .filter(Boolean);
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return (
     <div className="bg-background text-foreground">
@@ -186,7 +182,6 @@ export default function LocalLandingPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {landing.categoryLinks.map(item => {
-            const category = categoryMap.get(item.slug);
             return (
               <Link
                 key={item.slug}
@@ -205,9 +200,7 @@ export default function LocalLandingPage() {
                   <MoveRight className="h-5 w-5 shrink-0 text-[#05C3D4]" />
                 </div>
                 <div className="mt-auto pt-6 text-[13px] font-semibold text-[#047987]">
-                  {typeof category?.productCount === "number" && category.productCount > 0
-                    ? formatProductCount(category.productCount)
-                    : "Открыть подборку"}
+                  Открыть подборку
                 </div>
               </Link>
             );

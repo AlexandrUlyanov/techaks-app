@@ -16,8 +16,6 @@ import {
   Store,
   FolderKanban,
   Truck,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";

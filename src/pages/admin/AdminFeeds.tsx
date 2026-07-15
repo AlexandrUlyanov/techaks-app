@@ -190,7 +190,7 @@ export default function AdminFeeds() {
       ? Number.parseInt(normalizedMaxItems, 10)
       : null;
 
-    if (normalizedMaxItems && (!Number.isFinite(parsedMaxItems) || parsedMaxItems < 1)) {
+    if (parsedMaxItems !== null && (!Number.isFinite(parsedMaxItems) || parsedMaxItems < 1)) {
       alert("Максимум товаров должен быть целым числом больше нуля.");
       return;
     }
