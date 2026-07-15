@@ -10,7 +10,6 @@ import { CategoryIcon } from "@/lib/category-icons";
 import { useSeo } from "@/lib/seo";
 import {
   buildOrganizationStructuredData,
-  buildBreadcrumbStructuredData,
   getPublicSchemaAddress,
   buildWebsiteStructuredData,
 } from "@/lib/seo-structured";
@@ -76,7 +75,6 @@ export default function HomePage() {
           legalAddress: siteProfile?.seller.legalAddress,
         }) || "Пенза",
       }),
-      buildBreadcrumbStructuredData([{ name: "Главная", path: "/" }]),
     ],
   });
 

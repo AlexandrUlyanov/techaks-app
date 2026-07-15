@@ -1,7 +1,10 @@
-type BreadcrumbItem = {
-  name: string;
-  path: string;
-};
+import { buildSeoBreadcrumbStructuredData } from "@contracts/seo-breadcrumbs";
+
+type BreadcrumbItem =
+  | { name: string; path: string; url?: never }
+  | { name: string; url: string; path?: never };
+
+type BreadcrumbTuple = [BreadcrumbItem, BreadcrumbItem, ...BreadcrumbItem[]];
 
 const SITE_URL = "https://techaks.ru";
 
@@ -73,17 +76,18 @@ function guessAddressLocality(address?: string | null) {
   return undefined;
 }
 
-export function buildBreadcrumbStructuredData(items: BreadcrumbItem[]) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
+export function buildBreadcrumbStructuredData(items: BreadcrumbTuple): Record<string, unknown>;
+export function buildBreadcrumbStructuredData(items: BreadcrumbItem[]): Record<string, unknown> | null;
+export function buildBreadcrumbStructuredData(
+  items: BreadcrumbItem[]
+): Record<string, unknown> | null {
+  return buildSeoBreadcrumbStructuredData(
+    items.map(item => ({
       name: item.name,
-      item: `${SITE_URL}${item.path}`,
+      url: item.path ?? item.url,
     })),
-  };
+    { siteOrigin: SITE_URL }
+  );
 }
 
 export function buildOrganizationStructuredData(input: {

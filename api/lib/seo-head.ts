@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import * as schema from "@db/schema";
 import { normalizeProductImageVariantSet } from "@contracts/product-images";
+import { buildSeoBreadcrumbStructuredData } from "@contracts/seo-breadcrumbs";
 import {
   buildBrandSeoCopy,
   buildCategorySeoCopy,
@@ -110,16 +111,7 @@ function guessAddressLocality(address?: string | null) {
 }
 
 function buildBreadcrumbStructuredData(items: BreadcrumbItem[]) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      name: item.name,
-      item: item.url,
-    })),
-  };
+  return buildSeoBreadcrumbStructuredData(items, { siteOrigin: SEO_HOST });
 }
 
 function buildWebsiteStructuredData(input?: {
@@ -800,7 +792,10 @@ function buildServerSeoHeadTags(meta: SeoHeadData) {
   const type = meta.type || "website";
   const ldJson = (meta.structuredData ?? [])
     .filter(Boolean)
-    .map(item => `<script id="__seo-ldjson" type="application/ld+json">${JSON.stringify(item)}</script>`)
+    .map(
+      (item, index) =>
+        `<script data-seo-server="structured-data" data-seo-index="${index}" type="application/ld+json">${JSON.stringify(item)}</script>`
+    )
     .join("\n");
 
   return [
@@ -833,7 +828,7 @@ function injectSeoHead(html: string, meta: SeoHeadData) {
     .replace(/<link\s+rel="canonical"[\s\S]*?\/>\s*/i, "")
     .replace(/<meta\s+property="og:[^"]+"[\s\S]*?\/>\s*/gi, "")
     .replace(/<meta\s+name="twitter:[^"]+"[\s\S]*?\/>\s*/gi, "")
-    .replace(/<script id="__seo-ldjson"[\s\S]*?<\/script>\s*/gi, "");
+    .replace(/<script[^>]*(?:id="__seo-ldjson"|data-seo-server="structured-data")[^>]*>[\s\S]*?<\/script>\s*/gi, "");
 
   const withHead = cleaned.replace(
     "</head>",

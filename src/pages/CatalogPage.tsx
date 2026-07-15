@@ -707,10 +707,9 @@ export default function CatalogPage() {
       };
     }
 
-    return [
-      buildBreadcrumbStructuredData(breadcrumbItems),
-      baseCollection,
-    ];
+    return [buildBreadcrumbStructuredData(breadcrumbItems), baseCollection].filter(
+      (item): item is Record<string, unknown> => item !== null
+    );
   }, [
     activeBrand,
     breadcrumbs,

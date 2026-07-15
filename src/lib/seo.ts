@@ -53,6 +53,10 @@ function ensureCanonical() {
 }
 
 function ensureStructuredData() {
+  document
+    .querySelectorAll('script[data-seo-server="structured-data"]')
+    .forEach(element => element.remove());
+
   let element = document.querySelector<HTMLScriptElement>(
     'script[data-seo="structured-data"]'
   );
