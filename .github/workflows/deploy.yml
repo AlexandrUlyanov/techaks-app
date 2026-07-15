@@ -88,10 +88,21 @@ jobs:
 
             # 2. Setup environment variables
             cd ${{ env.APP_DIR }}
+
+            # The production database credential is server-owned. Preserve the
+            # last known-good URL during regular deploys; DB_PASSWORD is only a
+            # bootstrap fallback for a fresh installation.
+            EXISTING_DATABASE_URL=""
+            if [ -f .env ]; then
+              EXISTING_DATABASE_URL="$(sed -n 's/^DATABASE_URL=//p' .env | head -n 1)"
+            fi
+            if [ -z "$EXISTING_DATABASE_URL" ]; then
+              EXISTING_DATABASE_URL='"mysql://techaks:${{ secrets.DB_PASSWORD }}@127.0.0.1:3306/techaks_prod"'
+            fi
             
             # Create/Update .env file
             cat << 'EOF' > .env
-            DATABASE_URL="mysql://techaks:${{ secrets.DB_PASSWORD }}@127.0.0.1:3306/techaks_prod"
+            DATABASE_URL=__TECHAKS_DATABASE_URL__
             PORT=3000
             NODE_ENV=production
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
@@ -113,6 +124,19 @@ jobs:
             SMTP_PASS="${{ secrets.SMTP_PASS }}"
             SMTP_FROM="${{ secrets.SMTP_FROM || 'TechAks <no-reply@techaks.ru>' }}"
             EOF
+            EXISTING_DATABASE_URL="$EXISTING_DATABASE_URL" python3 - <<'PY'
+            import os
+            from pathlib import Path
+
+            env_path = Path(".env")
+            env_path.write_text(
+                env_path.read_text().replace(
+                    "__TECHAKS_DATABASE_URL__",
+                    os.environ["EXISTING_DATABASE_URL"],
+                    1,
+                )
+            )
+            PY
 
             # 3. Install dependencies, apply safe idempotent migrations, and build.
             echo "Environment versions:"
