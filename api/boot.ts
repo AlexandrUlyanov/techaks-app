@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { secureHeaders } from "hono/secure-headers";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
@@ -205,6 +206,25 @@ async function logWebhookAudit(status: string, message: string, details?: Record
     // no-op
   }
 }
+
+app.use(
+  "*",
+  secureHeaders({
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    referrerPolicy: "strict-origin-when-cross-origin",
+    strictTransportSecurity: "max-age=31536000; includeSubDomains",
+    permissionsPolicy: {
+      accelerometer: false,
+      camera: false,
+      displayCapture: false,
+      gyroscope: false,
+      magnetometer: false,
+      microphone: false,
+      usb: false,
+    },
+  })
+);
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
