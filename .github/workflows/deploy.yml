@@ -153,6 +153,9 @@ jobs:
               npm ci
             fi
 
+            echo "Checking dependencies for known vulnerabilities..."
+            npm run security:audit
+
             echo "Applying safe store visibility migration..."
             node --input-type=module <<'NODE'
             import "dotenv/config";
