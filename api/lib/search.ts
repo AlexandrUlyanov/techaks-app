@@ -23,6 +23,7 @@ import {
 import { getManufacturerNameFromProductSpecs } from "./manufacturers";
 import { publicAvailableStockQtySql } from "./public-products";
 import { buildPublicVisibleCategoryIdSet } from "./category-visibility";
+import { isProductVisibleOnSite } from "@contracts/product-visibility";
 
 const SEARCH_SETTINGS_KEYS = [
   "search_include_description",
@@ -436,6 +437,7 @@ export function buildProductSearchDocument(row: {
   price: number;
   oldPrice: number | null;
   isActive: boolean;
+  isPublishedFromMoySklad?: boolean;
   isAutoBlocked: boolean;
   categoryId: number;
   categoryName: string | null;
@@ -487,7 +489,12 @@ export function buildProductSearchDocument(row: {
     externalCode: identity.externalCode,
     moyskladId: row.msId,
     isActive: row.isActive,
-    isVisible: !row.isAutoBlocked,
+    isVisible: isProductVisibleOnSite({
+      price: row.price,
+      isActive: row.isActive,
+      isPublishedFromMoySklad: row.isPublishedFromMoySklad ?? true,
+      isAutoBlocked: row.isAutoBlocked,
+    }),
     inStock: row.stockCount > 0,
     stockCount: row.stockCount,
     sortWeight: row.totalScore ?? 0,
@@ -717,6 +724,7 @@ export async function rebuildSearchDocumentsForProducts(productIds?: number[]) {
           price: products.price,
           oldPrice: products.oldPrice,
           isActive: products.isActive,
+          isPublishedFromMoySklad: products.isPublishedFromMoySklad,
           isAutoBlocked: products.isAutoBlocked,
           categoryId: products.categoryId,
           categoryName: categories.name,
@@ -741,6 +749,7 @@ export async function rebuildSearchDocumentsForProducts(productIds?: number[]) {
           price: products.price,
           oldPrice: products.oldPrice,
           isActive: products.isActive,
+          isPublishedFromMoySklad: products.isPublishedFromMoySklad,
           isAutoBlocked: products.isAutoBlocked,
           categoryId: products.categoryId,
           categoryName: categories.name,

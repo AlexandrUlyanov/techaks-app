@@ -46,4 +46,31 @@ describe("product visibility", () => {
     expect(product.isActive).toBe(false);
     expect(product.isAutoBlocked).toBe(false);
   });
+
+  it("keeps an enabled out-of-stock product visible", () => {
+    expect(isProductVisibleOnSite({
+      price: 1500,
+      isActive: true,
+      isPublishedFromMoySklad: true,
+      isAutoBlocked: false,
+    })).toBe(true);
+  });
+
+  it("hides a product disabled in MoySklad", () => {
+    expect(isProductVisibleOnSite({
+      price: 1500,
+      isActive: true,
+      isPublishedFromMoySklad: false,
+      isAutoBlocked: false,
+    })).toBe(false);
+  });
+
+  it("keeps MoySklad publication and automatic blocking independent", () => {
+    expect(isProductVisibleOnSite({
+      price: 1500,
+      isActive: true,
+      isPublishedFromMoySklad: true,
+      isAutoBlocked: true,
+    })).toBe(false);
+  });
 });

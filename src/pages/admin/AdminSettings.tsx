@@ -404,6 +404,10 @@ export default function AdminSettings() {
   const [manufacturerLogoToken, setManufacturerLogoToken] = useState("");
   const [msToken, setMsToken] = useState("");
   const [msWebhookSecret, setMsWebhookSecret] = useState("");
+  const [msPublicationFieldId, setMsPublicationFieldId] = useState("");
+  const [msPublicationFieldName, setMsPublicationFieldName] = useState("Выгружать на сайт");
+  const [msPublicationStrictMode, setMsPublicationStrictMode] = useState(false);
+  const [msPublicationHideDisabled, setMsPublicationHideDisabled] = useState(true);
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [loyaltyGroupName, setLoyaltyGroupName] = useState("техакс");
   const [loyaltyParticipantTag, setLoyaltyParticipantTag] = useState("техакс");
@@ -570,6 +574,14 @@ export default function AdminSettings() {
   }, [data]);
 
   useEffect(() => {
+    if (!msData?.publication) return;
+    setMsPublicationFieldId(msData.publication.fieldId || "");
+    setMsPublicationFieldName(msData.publication.fieldName || "Выгружать на сайт");
+    setMsPublicationStrictMode(Boolean(msData.publication.strictMode));
+    setMsPublicationHideDisabled(msData.publication.hideDisabled !== false);
+  }, [msData]);
+
+  useEffect(() => {
     if (!siteProfileSettings) return;
     setSiteProfileForm(siteProfileSettings);
   }, [siteProfileSettings]);
@@ -616,6 +628,24 @@ export default function AdminSettings() {
       setMsWebhookSecret("");
     },
   });
+
+  const checkMsPublicationMutation =
+    trpc.settings.checkMoySkladPublication.useMutation({
+      onSuccess: result => {
+        setMsPublicationFieldId(result.fieldId);
+        setMsPublicationFieldName(result.fieldName);
+        utils.settings.getMoySklad.invalidate();
+        alert("Поле публикации найдено. Проверьте статистику перед включением строгого режима.");
+      },
+    });
+
+  const saveMsPublicationMutation =
+    trpc.settings.saveMoySkladPublication.useMutation({
+      onSuccess: () => {
+        utils.settings.getMoySklad.invalidate();
+        alert("Правила публикации товаров сохранены.");
+      },
+    });
 
   const clearMsMutation = trpc.settings.clearMoySkladToken.useMutation({
     onSuccess: () => {
@@ -1369,6 +1399,134 @@ export default function AdminSettings() {
                 <span className="font-mono">
                   https://techaks.ru/api/webhooks/moysklad
                 </span>
+              </div>
+
+              <div className="rounded-2xl bg-[#F5FAFB] p-5">
+                <div className="mb-1 text-base font-black text-[#15171A]">
+                  Публикация товаров на сайте
+                </div>
+                <p className="mb-5 max-w-3xl text-sm leading-6 text-gray-600">
+                  Поле-флажок МойСклад управляет публикацией без удаления товара. Сначала
+                  выполните проверку, изучите статистику и только затем включайте строгий
+                  режим.
+                </p>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[#15171A]">Название поля</span>
+                    <input
+                      value={msPublicationFieldName}
+                      onChange={event => setMsPublicationFieldName(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-[#15171A] outline-none focus:border-[#05C3D4]"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-bold text-[#15171A]">ID поля МойСклад</span>
+                    <input
+                      value={msPublicationFieldId}
+                      onChange={event => setMsPublicationFieldId(event.target.value)}
+                      placeholder="Заполнится после проверки"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 font-mono text-sm text-[#15171A] outline-none focus:border-[#05C3D4]"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setMsPublicationStrictMode(value => !value)}
+                    className={`flex min-h-14 items-center justify-between rounded-xl px-4 text-left text-sm font-bold transition ${
+                      msPublicationStrictMode
+                        ? "bg-[#DDF8FA] text-[#047987]"
+                        : "bg-white text-[#464A50]"
+                    }`}
+                  >
+                    <span>
+                      Строгий режим
+                      <small className="mt-1 block font-medium opacity-70">
+                        {msPublicationStrictMode ? "Флажок управляет публикацией" : "Текущий каталог не меняется"}
+                      </small>
+                    </span>
+                    <span>{msPublicationStrictMode ? "Включён" : "Выключен"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMsPublicationHideDisabled(value => !value)}
+                    className={`flex min-h-14 items-center justify-between rounded-xl px-4 text-left text-sm font-bold transition ${
+                      msPublicationHideDisabled
+                        ? "bg-[#DDF8FA] text-[#047987]"
+                        : "bg-white text-[#464A50]"
+                    }`}
+                  >
+                    <span>
+                      Скрывать при выключении
+                      <small className="mt-1 block font-medium opacity-70">
+                        Данные, заказы и изображения сохраняются
+                      </small>
+                    </span>
+                    <span>{msPublicationHideDisabled ? "Да" : "Нет"}</span>
+                  </button>
+                </div>
+
+                {(() => {
+                  const report = checkMsPublicationMutation.data ?? msData?.publication?.lastCheck;
+                  if (!report?.stats) return null;
+                  const items = [
+                    ["Разрешено", report.stats.allowed],
+                    ["Выключено", report.stats.disabled],
+                    ["Не заполнено", report.stats.unset],
+                    ["Будет скрыто", report.stats.existingWouldHide],
+                    ["Новых будет пропущено", report.stats.newWouldSkip],
+                    ["Ошибки", report.stats.errors],
+                  ];
+                  return (
+                    <div className="mt-5">
+                      <div className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-gray-500">
+                        Последняя проверка {report.checkedAt ? `· ${new Date(report.checkedAt).toLocaleString("ru-RU")}` : ""}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                        {items.map(([label, value]) => (
+                          <div key={String(label)} className="rounded-xl bg-white p-3">
+                            <div className="text-xl font-black text-[#15171A]">{String(value ?? 0)}</div>
+                            <div className="mt-1 text-xs text-gray-500">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {(checkMsPublicationMutation.error || saveMsPublicationMutation.error) ? (
+                  <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {checkMsPublicationMutation.error?.message || saveMsPublicationMutation.error?.message}
+                  </div>
+                ) : null}
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => checkMsPublicationMutation.mutate()}
+                    disabled={checkMsPublicationMutation.isPending || !msData?.hasToken}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#15171A] disabled:opacity-50"
+                  >
+                    {checkMsPublicationMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                    Проверить поле
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveMsPublicationMutation.mutate({
+                      fieldId: msPublicationFieldId,
+                      fieldName: msPublicationFieldName,
+                      strictMode: msPublicationStrictMode,
+                      hideDisabled: msPublicationHideDisabled,
+                    })}
+                    disabled={saveMsPublicationMutation.isPending || !msPublicationFieldName.trim()}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#05C3D4] px-4 text-sm font-black text-black disabled:opacity-50"
+                  >
+                    {saveMsPublicationMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Сохранить правила публикации
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-red-200 bg-red-50 p-4">

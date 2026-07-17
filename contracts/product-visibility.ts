@@ -5,6 +5,7 @@ export type ProductAutoBlockReason = typeof AUTO_BLOCK_REASON_ZERO_PRICE | strin
 export type ProductVisibilitySnapshot = {
   price?: unknown;
   isActive?: boolean | null;
+  isPublishedFromMoySklad?: boolean | null;
   isAutoBlocked?: boolean | null;
   autoBlockReason?: ProductAutoBlockReason;
 };
@@ -22,6 +23,7 @@ export function hasInvalidProductPrice(price: unknown) {
 export function isProductVisibleOnSite(product: ProductVisibilitySnapshot) {
   return (
     product.isActive === true &&
+    product.isPublishedFromMoySklad !== false &&
     product.isAutoBlocked !== true &&
     !hasInvalidProductPrice(product.price)
   );
@@ -67,4 +69,3 @@ export function applyProductAutoBlockState<T extends ProductVisibilitySnapshot>(
     ...nextState,
   };
 }
-

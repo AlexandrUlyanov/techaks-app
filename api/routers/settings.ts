@@ -57,6 +57,13 @@ import { getDb } from "../queries/connection";
 import * as schema from "@db/schema";
 import { buildPublicProductVisibilityCondition } from "../lib/product-visibility";
 import { getManufacturerNameFromProductSpecs } from "../lib/manufacturers";
+import {
+  assertMoyskladPublicationChecked,
+  checkMoyskladPublicationField,
+  getMoyskladPublicationConfig,
+  MOYSKLAD_PUBLICATION_KEYS,
+  resolveMoyskladPublicationField,
+} from "../lib/moysklad-publication";
 
 const siteProfileSettingsSchema = z.object({
   contacts: z.object({
@@ -705,6 +712,19 @@ export const settingsRouter = createRouter({
     ]);
     const token = settings.moysklad_token?.trim() || "";
     const webhookSecret = settings.moysklad_webhook_secret?.trim() || "";
+    const publication = await getMoyskladPublicationConfig();
+    const publicationSettings = await getAppSettings([
+      MOYSKLAD_PUBLICATION_KEYS.lastCheck,
+    ]);
+    let lastCheck = null;
+    try {
+      const rawLastCheck = publicationSettings[MOYSKLAD_PUBLICATION_KEYS.lastCheck];
+      lastCheck = rawLastCheck
+        ? JSON.parse(rawLastCheck)
+        : null;
+    } catch {
+      lastCheck = null;
+    }
     return {
       hasToken: Boolean(token),
       tokenMasked: token
@@ -714,8 +734,60 @@ export const settingsRouter = createRouter({
       webhookSecretMasked: webhookSecret
         ? `${webhookSecret.slice(0, 4)}••••••••${webhookSecret.slice(-4)}`
         : "",
+      publication: { ...publication, lastCheck },
     };
   }),
+
+  checkMoySkladPublication: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "configure", "Settings");
+    const result = await checkMoyskladPublicationField();
+    await writeAdminAuditLog({
+      ctx,
+      action: "settings.moysklad.publication_check",
+      entityType: "settings",
+      entityLabel: "Поле публикации МойСклад",
+      after: result,
+    });
+    return result;
+  }),
+
+  saveMoySkladPublication: protectedProcedure
+    .input(z.object({
+      fieldId: z.string().trim().default(""),
+      fieldName: z.string().trim().min(1).default("Выгружать на сайт"),
+      strictMode: z.boolean(),
+      hideDisabled: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAbility(ctx, "configure", "Settings");
+      const before = await getAppSettings(Object.values(MOYSKLAD_PUBLICATION_KEYS));
+      let verifiedFieldId = input.fieldId;
+      let verifiedFieldName = input.fieldName;
+      if (input.strictMode) {
+        const field = await resolveMoyskladPublicationField({
+          fieldId: input.fieldId,
+          fieldName: input.fieldName,
+          strictMode: true,
+          hideDisabled: input.hideDisabled,
+        });
+        await assertMoyskladPublicationChecked(field.id);
+        verifiedFieldId = field.id;
+        verifiedFieldName = field.name;
+      }
+      await setAppSetting(MOYSKLAD_PUBLICATION_KEYS.fieldId, verifiedFieldId);
+      await setAppSetting(MOYSKLAD_PUBLICATION_KEYS.fieldName, verifiedFieldName);
+      await setAppSetting(MOYSKLAD_PUBLICATION_KEYS.strict, String(input.strictMode));
+      await setAppSetting(MOYSKLAD_PUBLICATION_KEYS.hideDisabled, String(input.hideDisabled));
+      await writeAdminAuditLog({
+        ctx,
+        action: "settings.moysklad.publication_update",
+        entityType: "settings",
+        entityLabel: "Управление публикацией из МойСклад",
+        before,
+        after: { ...input, fieldId: verifiedFieldId, fieldName: verifiedFieldName },
+      });
+      return { success: true };
+    }),
 
   saveMoySklad: protectedProcedure
     .input(

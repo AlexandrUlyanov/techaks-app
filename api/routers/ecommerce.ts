@@ -695,6 +695,7 @@ async function resolvePurchasableCartItems(
       image: products.image,
       price: products.price,
       isActive: products.isActive,
+      isPublishedFromMoySklad: products.isPublishedFromMoySklad,
       isAutoBlocked: products.isAutoBlocked,
       autoBlockReason: products.autoBlockReason,
     })
@@ -742,6 +743,7 @@ async function resolvePurchasableCartItems(
       !isProductVisibleOnSite({
         price: product.price,
         isActive: product.isActive,
+        isPublishedFromMoySklad: product.isPublishedFromMoySklad,
         isAutoBlocked: product.isAutoBlocked,
         autoBlockReason: product.autoBlockReason,
       })

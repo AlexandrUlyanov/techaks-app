@@ -18,12 +18,20 @@ export {
 export function buildPublicProductVisibilityCondition() {
   return and(
     eq(products.isActive, true),
+    eq(products.isPublishedFromMoySklad, true),
     eq(products.isAutoBlocked, false),
     sql`${products.price} > 0`
   );
 }
 
 export function getAdminProductPublicationStatus(product: ProductVisibilitySnapshot) {
+  if (product.isPublishedFromMoySklad === false) {
+    return {
+      code: "moysklad_off",
+      label: "Скрыт в МойСклад",
+      hint: "Флажок «Выгружать на сайт» выключен. Данные сохранены, но товар не публикуется.",
+    };
+  }
   if (product.isActive === false) {
     return {
       code: "manual_off",
@@ -51,4 +59,3 @@ export function getAdminProductPublicationStatus(product: ProductVisibilitySnaps
     hint: "Товар доступен на витрине и может быть куплен.",
   };
 }
-

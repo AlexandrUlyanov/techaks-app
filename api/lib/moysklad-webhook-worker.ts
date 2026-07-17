@@ -5,6 +5,13 @@ import {
   acquireMoyskladWorkerLock,
   releaseMoyskladWorkerLock,
 } from "./moysklad-runtime";
+import { getMoyskladClient } from "./moysklad-client";
+import {
+  getMoyskladPublicationConfig,
+  getPublicationValue,
+  resolveMoyskladPublicationField,
+} from "./moysklad-publication";
+import { enqueueSearchReindexJob } from "./search";
 
 const MAX_ATTEMPTS = 6;
 
@@ -79,6 +86,21 @@ function detectMsProductId(payload: Record<string, unknown>): string | null {
   return extractMsIdFromHref(href);
 }
 
+function isProductEntityPayload(payload: Record<string, unknown>) {
+  const product = toObject(payload.product);
+  const meta = toObject(payload.meta);
+  const productMeta = toObject(product?.meta);
+  const href =
+    (typeof meta?.href === "string" ? meta.href : null) ??
+    (typeof productMeta?.href === "string" ? productMeta.href : null);
+
+  const declaredType =
+    (typeof meta?.type === "string" ? meta.type : null) ??
+    (typeof productMeta?.type === "string" ? productMeta.type : null);
+
+  return declaredType === "product" || Boolean(href?.includes("/entity/product/"));
+}
+
 function hasStockPayload(payload: Record<string, unknown>) {
   const rows = parseStockByStore(payload);
   return rows.length > 0;
@@ -110,7 +132,7 @@ async function processStockEvent(payload: Record<string, unknown>) {
   const db = getDb();
   const msProductId = detectMsProductId(payload);
   if (!msProductId) {
-    return { success: false, retriable: false, reason: "msProductId not found in payload" as const };
+    return { success: true as const, skipped: true as const };
   }
 
   const [product] = await db
@@ -155,6 +177,51 @@ async function processStockEvent(payload: Record<string, unknown>) {
 
   await markProductInStock(product.id);
   return { success: true as const };
+}
+
+async function processProductPublicationEvent(payload: Record<string, unknown>) {
+  const config = await getMoyskladPublicationConfig();
+  if (!config.strictMode) {
+    return { success: true as const, skipped: true as const };
+  }
+
+  if (!isProductEntityPayload(payload)) {
+    return { success: true as const, skipped: true as const };
+  }
+
+  const msProductId = detectMsProductId(payload);
+  if (!msProductId) {
+    return { success: false, retriable: false, reason: "msProductId not found in payload" as const };
+  }
+
+  const field = await resolveMoyskladPublicationField(config);
+  const client = await getMoyskladClient();
+  const remoteProduct = await client.get<Record<string, unknown>>(`/entity/product/${msProductId}`);
+  const allowed = getPublicationValue(remoteProduct, field.id) === true;
+  const db = getDb();
+  const [localProduct] = await db
+    .select({ id: schema.products.id })
+    .from(schema.products)
+    .where(eq(schema.products.msId, msProductId))
+    .limit(1);
+
+  if (!localProduct) {
+    return { success: true as const, skipped: true as const };
+  }
+
+  if (allowed || config.hideDisabled) {
+    await db
+      .update(schema.products)
+      .set({ isPublishedFromMoySklad: allowed })
+      .where(eq(schema.products.id, localProduct.id));
+    await enqueueSearchReindexJob({
+      entityType: "product",
+      entityId: localProduct.id,
+      reason: "moysklad_publication_webhook",
+    });
+  }
+
+  return { success: true as const, skipped: false as const };
 }
 
 export async function processMoyskladWebhookQueue(limit = 50) {
@@ -217,14 +284,25 @@ export async function processMoyskladWebhookQueue(limit = 50) {
 
     try {
       if (!hasStockPayload(payload)) {
-        skipped += 1;
+        const publicationResult = await processProductPublicationEvent(payload);
+        if (!publicationResult.success) {
+          await db
+            .update(schema.webhookEvents)
+            .set({
+              status: publicationResult.retriable ? "failed" : "dead",
+              lastError: publicationResult.reason,
+              processedAt: publicationResult.retriable ? new Date(Date.now() + 60_000) : new Date(),
+            })
+            .where(eq(schema.webhookEvents.id, event.id));
+          if (publicationResult.retriable) failed += 1;
+          else dead += 1;
+          continue;
+        }
+
+        if (publicationResult.skipped) skipped += 1;
         await db
           .update(schema.webhookEvents)
-          .set({
-            status: "done",
-            lastError: "skipped: unsupported non-stock event",
-            processedAt: new Date(),
-          })
+          .set({ status: "done", lastError: null, processedAt: new Date() })
           .where(eq(schema.webhookEvents.id, event.id));
         done += 1;
         continue;

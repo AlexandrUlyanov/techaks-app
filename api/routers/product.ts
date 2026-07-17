@@ -595,6 +595,7 @@ function buildAdminProductWhere(input?: {
       conditions.push(
         and(
           eq(products.isActive, true),
+          eq(products.isPublishedFromMoySklad, true),
           eq(products.isAutoBlocked, false),
           sql`${products.price} > 0`
         )

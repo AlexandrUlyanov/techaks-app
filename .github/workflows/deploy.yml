@@ -181,6 +181,30 @@ jobs:
                 console.log("stores.is_public added");
               }
 
+              const [publicationColumns] = await connection.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'is_published_from_moysklad'",
+              );
+              if (!Array.isArray(publicationColumns) || publicationColumns.length === 0) {
+                await connection.execute(
+                  "ALTER TABLE `products` ADD COLUMN `is_published_from_moysklad` boolean NOT NULL DEFAULT true AFTER `is_active`",
+                );
+                console.log("products.is_published_from_moysklad added");
+              } else {
+                console.log("products.is_published_from_moysklad already exists");
+              }
+
+              const [publicationIndexes] = await connection.execute(
+                "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND INDEX_NAME = 'products_moysklad_publication_idx'",
+              );
+              if (!Array.isArray(publicationIndexes) || publicationIndexes.length === 0) {
+                await connection.execute(
+                  "CREATE INDEX `products_moysklad_publication_idx` ON `products` (`is_published_from_moysklad`, `is_active`, `is_auto_blocked`)",
+                );
+                console.log("products_moysklad_publication_idx added");
+              } else {
+                console.log("products_moysklad_publication_idx already exists");
+              }
+
               const [loyaltyColumns] = await connection.execute(
                 "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'loyalty_sync_jobs' AND COLUMN_NAME = 'active_key'",
               );

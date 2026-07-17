@@ -50,6 +50,11 @@ import {
   reportMoyskladPressure,
   updateMoyskladRuntimeFlags,
 } from "../lib/moysklad-runtime";
+import {
+  getMoyskladPublicationConfig,
+  getPublicationValue,
+  resolveMoyskladPublicationField,
+} from "../lib/moysklad-publication";
 
 const moyskladApi = axios.create({
   baseURL: "https://api.moysklad.ru/api/remap/1.2",
@@ -1632,6 +1637,13 @@ export const syncRouter = createRouter({
         const localProductNameById = new Map<number, string>();
         const localProductFolderById = new Map<number, string>();
         const msVariantIdToLocalId = new Map<string, number>();
+        const publicationConfig = await getMoyskladPublicationConfig();
+        const publicationField = publicationConfig.strictMode && syncProducts
+          ? await resolveMoyskladPublicationField(publicationConfig)
+          : null;
+        if (publicationField) {
+          writeLog(`Publication field verified: ${publicationField.name} (${publicationField.id})`);
+        }
 
         while (hasMore) {
           await abortIfStopRequested();
@@ -1666,6 +1678,23 @@ export const syncRouter = createRouter({
             const folderId = folderIdRaw ? folderIdRaw.split("?")[0] : null;
 
             if (selectedCategories && folderId && !selectedCategories.includes(folderId)) continue;
+
+            const existingProd = await db.select().from(schema.products).where(eq(schema.products.msId, msId)).limit(1);
+            const publicationAllowed = publicationField
+              ? getPublicationValue(item, publicationField.id)
+              : true;
+            if (publicationField && !publicationAllowed) {
+              if (existingProd.length > 0 && publicationConfig.hideDisabled) {
+                await db.update(schema.products)
+                  .set({ isPublishedFromMoySklad: false })
+                  .where(eq(schema.products.id, existingProd[0].id));
+                changedProductIds.add(existingProd[0].id);
+                logDetails.stats.productsHidden = (logDetails.stats.productsHidden || 0) + 1;
+              } else {
+                logDetails.stats.productsSkipped = (logDetails.stats.productsSkipped || 0) + 1;
+              }
+              continue;
+            }
 
             let categoryId: number | null = null;
             let folderSlug = "general";
@@ -1720,7 +1749,6 @@ export const syncRouter = createRouter({
               }
             }
 
-            const existingProd = await db.select().from(schema.products).where(eq(schema.products.msId, msId)).limit(1);
             let dbProductId: number;
 
             if (existingProd.length > 0) {
@@ -1739,6 +1767,7 @@ export const syncRouter = createRouter({
                 externalCode: productExternalCode,
                 barcode: productBarcode,
               };
+              if (publicationField) updateData.isPublishedFromMoySklad = true;
 
               if (wasNormalized) {
                 const preview = previewProductNormalization(incomingDescription, {
@@ -1795,6 +1824,7 @@ export const syncRouter = createRouter({
                   specs,
                   inStock,
                   isActive: true,
+                  isPublishedFromMoySklad: true,
                 })
               );
               dbProductId = res.insertId;

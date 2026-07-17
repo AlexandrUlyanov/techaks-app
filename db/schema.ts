@@ -51,6 +51,7 @@ export const products = mysqlTable("products", {
   categoryId: int("category_id").notNull(),
   price: int("price").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  isPublishedFromMoySklad: boolean("is_published_from_moysklad").notNull().default(true),
   isAutoBlocked: boolean("is_auto_blocked").notNull().default(false),
   autoBlockReason: varchar("auto_block_reason", { length: 50 }),
   oldPrice: int("old_price"),
