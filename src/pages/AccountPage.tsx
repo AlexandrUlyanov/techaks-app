@@ -17,6 +17,8 @@ import {
   Settings,
   ShoppingBag,
   Star,
+  Car,
+  Phone,
   Truck,
   User as UserIcon,
 } from "lucide-react";
@@ -410,6 +412,12 @@ function AccountOrderCard({
         tone: string;
         isProblem: boolean;
         etaLabel: string | null;
+        courier: {
+          name: string | null;
+          phone: string | null;
+          carModel: string | null;
+          carNumber: string | null;
+        } | null;
         timeline: Array<{
           key: string;
           label: string;
@@ -836,6 +844,53 @@ function AccountOrderCard({
                             </div>
                           </div>
                         </div>
+
+                        {deliveryCustomer.courier ? (
+                          <div className="mt-7 bg-background/55 px-5 py-5 md:px-6">
+                            <div className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                              Ваш курьер
+                            </div>
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#05C3D4]/12 text-[#05C3D4]">
+                                  <UserIcon size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-black">
+                                    {deliveryCustomer.courier.name || "Курьер назначен"}
+                                  </div>
+                                  {deliveryCustomer.courier.phone ? (
+                                    <a
+                                      className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[#0099A8]"
+                                      href={`tel:${deliveryCustomer.courier.phone}`}
+                                    >
+                                      <Phone size={14} />
+                                      {deliveryCustomer.courier.phone}
+                                    </a>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {deliveryCustomer.courier.carModel ||
+                              deliveryCustomer.courier.carNumber ? (
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                    <Car size={16} />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold">
+                                      {deliveryCustomer.courier.carModel || "Автомобиль курьера"}
+                                    </div>
+                                    {deliveryCustomer.courier.carNumber ? (
+                                      <div className="mt-1 text-sm text-muted-foreground">
+                                        {deliveryCustomer.courier.carNumber}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
 
                         {!deliveryCustomer.isProblem ? (
                           <div className="mt-8" aria-label="Этапы доставки">

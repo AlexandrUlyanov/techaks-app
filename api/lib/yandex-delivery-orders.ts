@@ -13,6 +13,10 @@ import {
 import { getAppSetting, setAppSetting } from "./app-settings";
 import { getOrderDbCapabilities } from "./order-compat";
 import { getYandexDeliveryRuntimeSettings } from "./yandex-delivery-settings";
+import {
+  buildDeliveryPackageSnapshot,
+  type DeliveryPackageSnapshot,
+} from "./delivery-packages";
 
 const YANDEX_DELIVERY_SYNC_LOCK_KEY = "yandex_delivery_sync_worker_lock";
 const YANDEX_DELIVERY_SYNC_LOCK_TTL_MS = 4 * 60_000;
@@ -41,6 +45,12 @@ type DeliveryOrderCore = {
   deliveryProviderLastSyncAt: Date | null;
   deliveryProviderError: string | null;
   deliveryProviderRawJson: unknown;
+  deliveryProviderPrice: number | null;
+  deliveryPricingPolicyJson: unknown;
+  deliveryPackageSnapshotJson: unknown;
+  deliveryEtaFrom: Date | null;
+  deliveryEtaTo: Date | null;
+  deliveryCourierJson: unknown;
   address: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -182,6 +192,12 @@ export async function getOrderCoreForYandexDelivery(
       deliveryProviderLastSyncAt: orders.deliveryProviderLastSyncAt,
       deliveryProviderError: orders.deliveryProviderError,
       deliveryProviderRawJson: orders.deliveryProviderRawJson,
+      deliveryProviderPrice: orders.deliveryProviderPrice,
+      deliveryPricingPolicyJson: orders.deliveryPricingPolicyJson,
+      deliveryPackageSnapshotJson: orders.deliveryPackageSnapshotJson,
+      deliveryEtaFrom: orders.deliveryEtaFrom,
+      deliveryEtaTo: orders.deliveryEtaTo,
+      deliveryCourierJson: orders.deliveryCourierJson,
       address: orders.address,
       customerPhone: orders.customerPhone,
       customerEmail: orders.customerEmail,
@@ -266,6 +282,36 @@ export async function buildOrderItemSummary(
     .slice(0, 900);
 }
 
+function parseDeliveryPackageSnapshot(value: unknown): DeliveryPackageSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<DeliveryPackageSnapshot>;
+  if (candidate.version !== 1 || !Array.isArray(candidate.items) || !candidate.items.length) {
+    return null;
+  }
+  return candidate as DeliveryPackageSnapshot;
+}
+
+async function buildOrderPackageSnapshot(
+  db: ReturnType<typeof getDb>,
+  orderId: number,
+  defaults: DeliveryPackageSnapshot["defaults"],
+) {
+  const itemRows = await db
+    .select({
+      productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      name: sql<string>`coalesce(${orderItems.productName}, ${products.name}, concat('Товар ', ${orderItems.productId}))`,
+      quantity: orderItems.quantity,
+      price: orderItems.price,
+    })
+    .from(orderItems)
+    .leftJoin(products, eq(orderItems.productId, products.id))
+    .where(eq(orderItems.orderId, orderId))
+    .orderBy(orderItems.id);
+
+  return buildDeliveryPackageSnapshot(itemRows, defaults);
+}
+
 export async function patchOrderYandexDeliveryState(
   db: ReturnType<typeof getDb>,
   orderId: number,
@@ -279,6 +325,12 @@ export async function patchOrderYandexDeliveryState(
     deliveryProviderLastSyncAt: Date | null;
     deliveryProviderError: string | null;
     deliveryProviderRawJson: unknown;
+    deliveryProviderPrice: number | null;
+    deliveryPricingPolicyJson: unknown;
+    deliveryPackageSnapshotJson: unknown;
+    deliveryEtaFrom: Date | null;
+    deliveryEtaTo: Date | null;
+    deliveryCourierJson: unknown;
   }>,
 ) {
   await db
@@ -310,6 +362,24 @@ export async function patchOrderYandexDeliveryState(
         : {}),
       ...(patch.deliveryProviderRawJson !== undefined
         ? { deliveryProviderRawJson: patch.deliveryProviderRawJson as any }
+        : {}),
+      ...(patch.deliveryProviderPrice !== undefined
+        ? { deliveryProviderPrice: patch.deliveryProviderPrice }
+        : {}),
+      ...(patch.deliveryPricingPolicyJson !== undefined
+        ? { deliveryPricingPolicyJson: patch.deliveryPricingPolicyJson as any }
+        : {}),
+      ...(patch.deliveryPackageSnapshotJson !== undefined
+        ? { deliveryPackageSnapshotJson: patch.deliveryPackageSnapshotJson as any }
+        : {}),
+      ...(patch.deliveryEtaFrom !== undefined
+        ? { deliveryEtaFrom: patch.deliveryEtaFrom }
+        : {}),
+      ...(patch.deliveryEtaTo !== undefined
+        ? { deliveryEtaTo: patch.deliveryEtaTo }
+        : {}),
+      ...(patch.deliveryCourierJson !== undefined
+        ? { deliveryCourierJson: patch.deliveryCourierJson as any }
         : {}),
       updatedAt: new Date(),
     } as any)
@@ -350,6 +420,10 @@ export async function createYandexDeliveryOrderForOrder(params: {
 
   const sourceStore = await resolveDeliveryStore(db, order);
   const itemSummary = await buildOrderItemSummary(db, order.id);
+  const deliverySettings = await getYandexDeliveryRuntimeSettings();
+  const packageSnapshot =
+    parseDeliveryPackageSnapshot(order.deliveryPackageSnapshotJson) ||
+    (await buildOrderPackageSnapshot(db, order.id, deliverySettings.defaultPackage));
 
   try {
     const providerResult = await createAndProcessYandexDeliveryOrder({
@@ -360,6 +434,7 @@ export async function createYandexDeliveryOrderForOrder(params: {
       customerComment: order.deliveryComment || order.customerComment || null,
       orderNumber: order.orderNumber || `ORDER-${order.id}`,
       itemSummary,
+      items: packageSnapshot.items,
       totalPrice: order.totalPrice,
     });
 
@@ -379,6 +454,10 @@ export async function createYandexDeliveryOrderForOrder(params: {
       deliveryProviderLastSyncAt: new Date(),
       deliveryProviderError: null,
       deliveryProviderRawJson: providerResult.raw,
+      deliveryPackageSnapshotJson: packageSnapshot,
+      deliveryEtaFrom: providerResult.etaFrom,
+      deliveryEtaTo: providerResult.etaTo,
+      deliveryCourierJson: providerResult.courier,
     });
 
     await safeInsertOrderHistory({
@@ -536,6 +615,9 @@ export async function refreshYandexDeliveryOrderForOrder(params: {
       deliveryProviderLastSyncAt: new Date(),
       deliveryProviderError: null,
       deliveryProviderRawJson: providerInfo,
+      deliveryEtaFrom: providerInfo.etaFrom,
+      deliveryEtaTo: providerInfo.etaTo,
+      deliveryCourierJson: providerInfo.courier,
     });
 
     const shouldWriteHistory =

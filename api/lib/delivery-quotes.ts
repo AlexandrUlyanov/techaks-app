@@ -56,6 +56,9 @@ export async function persistDeliveryQuote(params: {
   destinationCoordinates?: [number, number] | null;
   providerOfferId?: string | null;
   price: number;
+  providerPrice?: number | null;
+  pricingPolicy?: unknown;
+  packageSnapshot?: unknown;
   currency?: string | null;
   etaMinutes?: number | null;
   raw?: unknown;
@@ -80,6 +83,12 @@ export async function persistDeliveryQuote(params: {
     destinationCoordinates: params.destinationCoordinates ?? null,
     providerOfferId: params.providerOfferId ?? null,
     price: Math.max(0, Math.round(params.price)),
+    providerPrice:
+      params.providerPrice == null
+        ? null
+        : Math.max(0, Math.round(params.providerPrice)),
+    pricingPolicyJson: params.pricingPolicy ?? null,
+    packageSnapshotJson: params.packageSnapshot ?? null,
     currency: params.currency || "RUB",
     etaMinutes: params.etaMinutes ?? null,
     rawJson: params.raw ?? null,

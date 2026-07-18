@@ -780,7 +780,61 @@ export default function AdminOrderDetails() {
     deliveryProviderStatus?: string | null;
     deliveryProviderLastSyncAt?: string | Date | null;
     deliveryProviderError?: string | null;
+    deliveryProviderPrice?: number | null;
+    deliveryPricingPolicyJson?: unknown;
+    deliveryPackageSnapshotJson?: unknown;
+    deliveryEtaFrom?: string | Date | null;
+    deliveryEtaTo?: string | Date | null;
+    deliveryCourierJson?: unknown;
   };
+  const deliveryPricingPolicy =
+    yandexDeliveryDiagnostics.deliveryPricingPolicyJson &&
+    typeof yandexDeliveryDiagnostics.deliveryPricingPolicyJson === "object"
+      ? (yandexDeliveryDiagnostics.deliveryPricingPolicyJson as Record<string, unknown>)
+      : null;
+  const deliveryPackageSnapshot =
+    yandexDeliveryDiagnostics.deliveryPackageSnapshotJson &&
+    typeof yandexDeliveryDiagnostics.deliveryPackageSnapshotJson === "object"
+      ? (yandexDeliveryDiagnostics.deliveryPackageSnapshotJson as Record<string, unknown>)
+      : null;
+  const deliveryCourier =
+    yandexDeliveryDiagnostics.deliveryCourierJson &&
+    typeof yandexDeliveryDiagnostics.deliveryCourierJson === "object"
+      ? (yandexDeliveryDiagnostics.deliveryCourierJson as Record<string, unknown>)
+      : null;
+  const deliveryEtaLabel =
+    yandexDeliveryDiagnostics.deliveryEtaFrom ||
+    yandexDeliveryDiagnostics.deliveryEtaTo
+      ? [
+          yandexDeliveryDiagnostics.deliveryEtaFrom
+            ? formatDateTime(yandexDeliveryDiagnostics.deliveryEtaFrom)
+            : null,
+          yandexDeliveryDiagnostics.deliveryEtaTo
+            ? formatDateTime(yandexDeliveryDiagnostics.deliveryEtaTo)
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" — ")
+      : "Уточняется";
+  const deliveryPackageLabel = deliveryPackageSnapshot
+    ? `${Number(deliveryPackageSnapshot.itemCount || 0)} поз. · ${Number(deliveryPackageSnapshot.totalWeightKg || 0).toLocaleString("ru-RU")} кг`
+    : "Не зафиксированы";
+  const deliveryPricingLabel = deliveryPricingPolicy
+    ? [
+        Number(deliveryPricingPolicy.markupPercent || 0) > 0
+          ? `наценка ${deliveryPricingPolicy.markupPercent}%`
+          : null,
+        Number(deliveryPricingPolicy.markupFixed || 0) > 0
+          ? `+${formatPrice(Number(deliveryPricingPolicy.markupFixed))}`
+          : null,
+        Number(deliveryPricingPolicy.subsidyFixed || 0) > 0
+          ? `субсидия ${formatPrice(Number(deliveryPricingPolicy.subsidyFixed))}`
+          : null,
+        deliveryPricingPolicy.freeApplied ? "бесплатно для клиента" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Без корректировок"
+    : "Не зафиксированы";
   const deliveryDispatchJob = getDeliveryDispatchJob(order);
   const remainingAmount = Math.max(0, (order.totalPrice || 0) - (order.paidAmount || 0));
 
@@ -1472,6 +1526,40 @@ export default function AdminOrderDetails() {
                   label="Локальный статус"
                   value={getDeliveryStatusLabel(order.deliveryStatus)}
                 />
+                <InfoRow
+                  label="Стоимость для клиента"
+                  value={
+                    Number(order.deliveryPrice || 0) > 0
+                      ? formatPrice(Number(order.deliveryPrice))
+                      : "Бесплатно / уточняется"
+                  }
+                />
+                <InfoRow
+                  label="Стоимость провайдера"
+                  value={
+                    yandexDeliveryDiagnostics.deliveryProviderPrice != null
+                      ? formatPrice(
+                          Number(yandexDeliveryDiagnostics.deliveryProviderPrice)
+                        )
+                      : "Не получена"
+                  }
+                />
+                <InfoRow label="Правила цены" value={deliveryPricingLabel} />
+                <InfoRow label="Отправление" value={deliveryPackageLabel} />
+                <InfoRow label="Ожидаемое время" value={deliveryEtaLabel} />
+                {deliveryCourier ? (
+                  <InfoRow
+                    label="Курьер"
+                    value={[
+                      deliveryCourier.name,
+                      deliveryCourier.phone,
+                      deliveryCourier.carModel,
+                      deliveryCourier.carNumber,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "Назначен"}
+                  />
+                ) : null}
                 <InfoRow
                   label="Последняя синхронизация"
                   value={formatDateTime(yandexDeliveryDiagnostics.deliveryProviderLastSyncAt)}

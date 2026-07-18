@@ -70,6 +70,8 @@ const productSchema = z.object({
   categoryId: z.number(),
   price: z.number(),
   isActive: z.boolean().default(true),
+  deliveryAllowed: z.boolean().default(true),
+  deliveryRestrictionReason: z.string().trim().max(255).nullable().optional(),
   oldPrice: z.number().nullable(),
   badge: z.string().nullable(),
   image: z.string(),

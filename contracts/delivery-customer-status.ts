@@ -25,8 +25,52 @@ export type DeliveryCustomerView = {
   tone: DeliveryCustomerTone;
   isProblem: boolean;
   etaLabel: string | null;
+  courier: {
+    name: string | null;
+    phone: string | null;
+    carModel: string | null;
+    carNumber: string | null;
+  } | null;
   timeline: DeliveryTimelineItem[];
 };
+
+function explicitEtaLabel(from?: Date | string | null, to?: Date | string | null) {
+  const parse = (value?: Date | string | null) => {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const fromDate = parse(from);
+  const toDate = parse(to);
+  if (!fromDate && !toDate) return null;
+  const format = (value: Date) => value.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (fromDate && toDate) return `${format(fromDate)} — ${format(toDate)}`;
+  return format((fromDate || toDate)!);
+}
+
+function normalizeCourier(value: unknown): DeliveryCustomerView["courier"] {
+  const courier = asRecord(value);
+  if (!courier) return null;
+  const read = (...keys: string[]) => {
+    for (const key of keys) {
+      const candidate = courier[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+    return null;
+  };
+  const result = {
+    name: read("name", "courierName"),
+    phone: read("phone", "courierPhone"),
+    carModel: read("carModel", "car_model"),
+    carNumber: read("carNumber", "car_number"),
+  };
+  return Object.values(result).some(Boolean) ? result : null;
+}
 
 const STATUS_ALIASES: Record<string, DeliveryCustomerStatus> = {
   new: "delivery_pending",
@@ -168,12 +212,18 @@ export function buildDeliveryCustomerView(input: {
   providerStatus?: string | null;
   localStatus?: string | null;
   rawPayload?: unknown;
+  etaFrom?: Date | string | null;
+  etaTo?: Date | string | null;
+  courier?: unknown;
 }): DeliveryCustomerView {
   const status = normalizeDeliveryCustomerStatus(input.providerStatus, input.localStatus);
   return {
     status,
     ...STATUS_COPY[status],
-    etaLabel: extractDeliveryEtaLabel(input.rawPayload),
+    etaLabel:
+      explicitEtaLabel(input.etaFrom, input.etaTo) ||
+      extractDeliveryEtaLabel(input.rawPayload),
+    courier: normalizeCourier(input.courier),
     timeline: buildTimeline(status),
   };
 }

@@ -14,6 +14,7 @@ export type OrderDbCapabilities = {
   hasOrdersUpdatedAt: boolean;
   hasOrdersDeliveryService: boolean;
   hasOrdersDeliveryProviderMetadata: boolean;
+  hasOrdersDeliveryCommercialMetadata: boolean;
   hasOrdersDeliveryAddressDetails: boolean;
   hasOrdersDeliveryTrackingFields: boolean;
   hasOrdersShippingLifecycleFields: boolean;
@@ -41,6 +42,7 @@ const DEFAULT_CAPABILITIES: OrderDbCapabilities = {
   hasOrdersUpdatedAt: false,
   hasOrdersDeliveryService: false,
   hasOrdersDeliveryProviderMetadata: false,
+  hasOrdersDeliveryCommercialMetadata: false,
   hasOrdersDeliveryAddressDetails: false,
   hasOrdersDeliveryTrackingFields: false,
   hasOrdersShippingLifecycleFields: false,
@@ -475,6 +477,13 @@ export async function getOrderDbCapabilities(
         columnSet.has("orders.delivery_provider_last_sync_at") &&
         columnSet.has("orders.delivery_provider_error") &&
         columnSet.has("orders.delivery_provider_raw_json"),
+      hasOrdersDeliveryCommercialMetadata:
+        columnSet.has("orders.delivery_provider_price") &&
+        columnSet.has("orders.delivery_pricing_policy_json") &&
+        columnSet.has("orders.delivery_package_snapshot_json") &&
+        columnSet.has("orders.delivery_eta_from") &&
+        columnSet.has("orders.delivery_eta_to") &&
+        columnSet.has("orders.delivery_courier_json"),
       hasOrdersDeliveryAddressDetails:
         columnSet.has("orders.delivery_city") &&
         columnSet.has("orders.delivery_region") &&

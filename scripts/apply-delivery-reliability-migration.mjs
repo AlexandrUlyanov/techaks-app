@@ -24,6 +24,14 @@ async function hasIndex(tableName, indexName) {
   return Array.isArray(rows) && rows.length > 0;
 }
 
+async function addColumnIfMissing(tableName, columnName, definition) {
+  if (await hasColumn(tableName, columnName)) return;
+  await connection.execute(
+    `ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${definition}`,
+  );
+  console.log(`${tableName}.${columnName} added`);
+}
+
 try {
   if (!(await hasColumn("orders", "delivery_quote_id"))) {
     await connection.execute(
@@ -91,7 +99,65 @@ try {
     )
   `);
 
-  console.log("Delivery reliability schema is ready.");
+  await addColumnIfMissing(
+    "orders",
+    "delivery_provider_price",
+    "int NULL AFTER `delivery_price`",
+  );
+  await addColumnIfMissing(
+    "orders",
+    "delivery_pricing_policy_json",
+    "json NULL AFTER `delivery_provider_price`",
+  );
+  await addColumnIfMissing(
+    "orders",
+    "delivery_package_snapshot_json",
+    "json NULL AFTER `delivery_pricing_policy_json`",
+  );
+  await addColumnIfMissing(
+    "orders",
+    "delivery_eta_from",
+    "timestamp NULL AFTER `delivery_provider_raw_json`",
+  );
+  await addColumnIfMissing(
+    "orders",
+    "delivery_eta_to",
+    "timestamp NULL AFTER `delivery_eta_from`",
+  );
+  await addColumnIfMissing(
+    "orders",
+    "delivery_courier_json",
+    "json NULL AFTER `delivery_eta_to`",
+  );
+
+  await addColumnIfMissing(
+    "delivery_quotes",
+    "provider_price",
+    "int NULL AFTER `price`",
+  );
+  await addColumnIfMissing(
+    "delivery_quotes",
+    "pricing_policy_json",
+    "json NULL AFTER `provider_price`",
+  );
+  await addColumnIfMissing(
+    "delivery_quotes",
+    "package_snapshot_json",
+    "json NULL AFTER `pricing_policy_json`",
+  );
+
+  await addColumnIfMissing(
+    "products",
+    "delivery_allowed",
+    "boolean NOT NULL DEFAULT true AFTER `auto_block_reason`",
+  );
+  await addColumnIfMissing(
+    "products",
+    "delivery_restriction_reason",
+    "varchar(255) NULL AFTER `delivery_allowed`",
+  );
+
+  console.log("Delivery reliability and commercial schema is ready.");
 } finally {
   await connection.end();
 }

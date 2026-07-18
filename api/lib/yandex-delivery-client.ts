@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { getYandexDeliveryRuntimeSettings } from "./yandex-delivery-settings";
+import type { DeliveryPackageItem } from "./delivery-packages";
 
 type CreateClaimInput = {
   sourceAddress: string;
@@ -10,6 +11,7 @@ type CreateClaimInput = {
   orderNumber: string;
   itemSummary?: string | null;
   totalPrice?: number | null;
+  items?: DeliveryPackageItem[];
 };
 
 type YandexDeliveryStatusPayload = {
@@ -52,6 +54,13 @@ type ClaimInfoPayload = {
   performer_info?: Record<string, unknown> | null;
   available_cancel_state?: string | null;
   [key: string]: unknown;
+};
+
+export type YandexDeliveryCourier = {
+  name: string | null;
+  phone: string | null;
+  carModel: string | null;
+  carNumber: string | null;
 };
 
 type CancelInfoPayload = {
@@ -290,6 +299,50 @@ function buildStatusPayload(
   };
 }
 
+function parseDateCandidate(value: unknown): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+function readPerformerString(
+  performer: Record<string, unknown> | null | undefined,
+  keys: string[],
+) {
+  if (!performer) return null;
+  for (const key of keys) {
+    const value = readStringCandidate(performer[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function normalizeClaimRuntime(payload: ClaimInfoPayload) {
+  const performer = payload.performer_info || null;
+  const courier: YandexDeliveryCourier | null = performer
+    ? {
+        name: readPerformerString(performer, ["courier_name", "name", "legal_name"]),
+        phone: readPerformerString(performer, ["courier_phone", "phone"]),
+        carModel: readPerformerString(performer, ["car_model", "transport_model"]),
+        carNumber: readPerformerString(performer, ["car_number", "transport_number"]),
+      }
+    : null;
+
+  const etaFrom =
+    parseDateCandidate(payload.eta_from) ??
+    parseDateCandidate(payload.expected_delivery_interval_start) ??
+    parseDateCandidate(payload.expected_finish_time);
+  const etaTo =
+    parseDateCandidate(payload.eta_to) ??
+    parseDateCandidate(payload.expected_delivery_interval_end) ??
+    parseDateCandidate(payload.expected_finish_time);
+
+  return { courier, etaFrom, etaTo };
+}
+
 function extractStatusValue(
   input:
     | string
@@ -438,15 +491,39 @@ function buildOfferRoutePoint(
   };
 }
 
-function buildOfferItems(title: string) {
-  return [
-    {
-      quantity: 1,
-      pickup_point: 1,
-      dropoff_point: 2,
-      title: title.slice(0, 128),
+function buildOfferItems(
+  title: string,
+  items?: DeliveryPackageItem[],
+  fallbackCost = 0,
+) {
+  const sourceItems = items?.length
+    ? items
+    : [{
+        id: "techaks-delivery",
+        title,
+        quantity: 1,
+        cost: Math.max(0, Math.round(fallbackCost)),
+        weightKg: 0.5,
+        lengthM: 0.2,
+        widthM: 0.15,
+        heightM: 0.1,
+      }];
+
+  return sourceItems.map(item => ({
+    extra_id: item.id,
+    quantity: item.quantity,
+    pickup_point: 1,
+    dropoff_point: 2,
+    title: item.title.slice(0, 128),
+    cost_currency: "RUB",
+    cost_value: toMoneyString(item.cost),
+    weight: item.weightKg,
+    size: {
+      length: item.lengthM,
+      width: item.widthM,
+      height: item.heightM,
     },
-  ];
+  }));
 }
 
 function buildClaimRoutePoint(params: {
@@ -545,6 +622,7 @@ export async function calculateYandexDeliveryOffers(params: {
   sourceAddress: string;
   destinationAddress: string;
   destinationCoordinates?: [number, number] | null;
+  items?: DeliveryPackageItem[];
 }) {
   const sourceAddress = ensureNonEmpty(
     params.sourceAddress,
@@ -587,7 +665,7 @@ export async function calculateYandexDeliveryOffers(params: {
                   params.destinationCoordinates ?? undefined,
                 ),
               ],
-              items: buildOfferItems(`Доставка заказа в ТЕХАКС`),
+              items: buildOfferItems(`Доставка заказа в ТЕХАКС`, params.items),
               requirements: {
                 taxi_classes: ["express"],
               },
@@ -630,6 +708,7 @@ export async function calculateYandexDeliveryOffers(params: {
 }
 
 export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInput) {
+  const settings = await getYandexDeliveryRuntimeSettings();
   const sourceAddress = normalizeYandexRouteFullname(ensureNonEmpty(
     input.sourceAddress,
     "Для Яндекс Доставки нужен адрес отправления.",
@@ -651,17 +730,7 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
   const customerName = (input.customerName || "").trim() || "Получатель";
 
   const claimBody = {
-    items: [
-      {
-        extra_id: orderNumber,
-        pickup_point: 1,
-        dropoff_point: 2,
-        title: itemTitle.slice(0, 128),
-        quantity: 1,
-        cost_currency: "RUB",
-        cost_value: toMoneyString(input.totalPrice ?? 0),
-      },
-    ],
+    items: buildOfferItems(itemTitle, input.items, input.totalPrice ?? 0),
     route_points: [
       buildClaimRoutePoint({
         pointId: 1,
@@ -669,7 +738,7 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
         type: "source",
         fullname: sourceAddress,
         contactName: "ТЕХАКС",
-        contactPhone: customerPhone,
+        contactPhone: settings.sourceContactPhone || customerPhone,
       }),
       buildClaimRoutePoint({
         pointId: 2,
@@ -711,11 +780,13 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
   const acceptResult = await acceptClaimIfNeeded(claimId);
   const finalInfo = acceptResult.info || (await getClaimInfoInternal(claimId));
   const status = buildStatusPayload(finalInfo.status, null);
+  const runtime = normalizeClaimRuntime(finalInfo);
 
   return {
     providerOrderId: claimId,
     providerOfferId: requestId,
     status,
+    ...runtime,
     raw: {
       create: createResult.payload,
       accept: acceptResult.raw,
@@ -726,10 +797,12 @@ export async function createAndProcessYandexDeliveryOrder(input: CreateClaimInpu
 
 export async function getYandexDeliveryOrderInfo(providerOrderId: string) {
   const payload = await getClaimInfoInternal(providerOrderId);
+  const runtime = normalizeClaimRuntime(payload);
   return {
     providerOrderId,
     version: typeof payload.version === "number" ? payload.version : null,
     status: buildStatusPayload(payload.status, null),
+    ...runtime,
     raw: payload,
   };
 }

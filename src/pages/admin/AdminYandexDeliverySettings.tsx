@@ -22,7 +22,22 @@ type SettingsPayload = {
   selectedCorpClientId: string;
   useSelectedCorpClientId: boolean;
   defaultSourceStoreId: number | null;
+  sourceContactPhone: string;
   apiBaseUrl: string;
+  pricing: {
+    markupPercent: number;
+    markupFixed: number;
+    subsidyFixed: number;
+    freeDeliveryThreshold: number;
+    minCustomerPrice: number;
+    maxCustomerPrice: number;
+  };
+  defaultPackage: {
+    weightGrams: number;
+    lengthCm: number;
+    widthCm: number;
+    heightCm: number;
+  };
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
   accessTokenSetAt: string | null;
@@ -145,6 +160,23 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
   const [defaultSourceStoreId, setDefaultSourceStoreId] = useState(
     data.defaultSourceStoreId ? String(data.defaultSourceStoreId) : ""
   );
+  const [sourceContactPhone, setSourceContactPhone] = useState(
+    data.sourceContactPhone || ""
+  );
+  const [pricing, setPricing] = useState({
+    markupPercent: String(data.pricing?.markupPercent ?? 0),
+    markupFixed: String(data.pricing?.markupFixed ?? 0),
+    subsidyFixed: String(data.pricing?.subsidyFixed ?? 0),
+    freeDeliveryThreshold: String(data.pricing?.freeDeliveryThreshold ?? 0),
+    minCustomerPrice: String(data.pricing?.minCustomerPrice ?? 0),
+    maxCustomerPrice: String(data.pricing?.maxCustomerPrice ?? 0),
+  });
+  const [defaultPackage, setDefaultPackage] = useState({
+    weightGrams: String(data.defaultPackage?.weightGrams ?? 500),
+    lengthCm: String(data.defaultPackage?.lengthCm ?? 20),
+    widthCm: String(data.defaultPackage?.widthCm ?? 15),
+    heightCm: String(data.defaultPackage?.heightCm ?? 10),
+  });
   const [apiBaseUrl, setApiBaseUrl] = useState(
     data.apiBaseUrl || DEFAULT_API_BASE_URL
   );
@@ -188,6 +220,17 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
       defaultSourceStoreId: defaultSourceStoreId
         ? Number(defaultSourceStoreId)
         : null,
+      sourceContactPhone,
+      markupPercent: Number(pricing.markupPercent) || 0,
+      markupFixed: Number(pricing.markupFixed) || 0,
+      subsidyFixed: Number(pricing.subsidyFixed) || 0,
+      freeDeliveryThreshold: Number(pricing.freeDeliveryThreshold) || 0,
+      minCustomerPrice: Number(pricing.minCustomerPrice) || 0,
+      maxCustomerPrice: Number(pricing.maxCustomerPrice) || 0,
+      defaultWeightGrams: Number(defaultPackage.weightGrams) || 500,
+      defaultLengthCm: Number(defaultPackage.lengthCm) || 20,
+      defaultWidthCm: Number(defaultPackage.widthCm) || 15,
+      defaultHeightCm: Number(defaultPackage.heightCm) || 10,
       apiBaseUrl,
       geosuggestEnabled,
       geosuggestApiKey,
@@ -264,6 +307,93 @@ function AdminYandexDeliverySettingsForm({ data }: { data: SettingsPayload }) {
               заказ нельзя собрать там по остаткам, система возьмёт доступный
               магазин, где есть все товары.
             </p>
+          </div>
+
+          <div className="mt-5 space-y-2">
+            <label className="text-sm font-bold text-[#15171A]">
+              Телефон точки отправления
+            </label>
+            <input
+              value={sourceContactPhone}
+              onChange={event => setSourceContactPhone(event.target.value)}
+              placeholder="Например, +7 927 000-00-00"
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#05C3D4]"
+            />
+            <p className="text-xs leading-5 text-gray-500">
+              Передаётся курьеру как контакт магазина. Телефон покупателя для
+              точки отправления больше не используется.
+            </p>
+          </div>
+        </AdminSection>
+
+        <AdminSection
+          title="Стоимость для покупателя"
+          description="Цена Яндекс Доставки сохраняется отдельно. Здесь настраивается только сумма, которую увидит и оплатит покупатель."
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <NumberSetting
+              label="Наценка, %"
+              value={pricing.markupPercent}
+              onChange={value => setPricing(current => ({ ...current, markupPercent: value }))}
+            />
+            <NumberSetting
+              label="Фиксированная наценка, ₽"
+              value={pricing.markupFixed}
+              onChange={value => setPricing(current => ({ ...current, markupFixed: value }))}
+            />
+            <NumberSetting
+              label="Субсидия магазина, ₽"
+              value={pricing.subsidyFixed}
+              onChange={value => setPricing(current => ({ ...current, subsidyFixed: value }))}
+            />
+            <NumberSetting
+              label="Бесплатно от суммы, ₽"
+              value={pricing.freeDeliveryThreshold}
+              onChange={value => setPricing(current => ({ ...current, freeDeliveryThreshold: value }))}
+            />
+            <NumberSetting
+              label="Минимальная цена, ₽"
+              value={pricing.minCustomerPrice}
+              onChange={value => setPricing(current => ({ ...current, minCustomerPrice: value }))}
+            />
+            <NumberSetting
+              label="Максимальная цена, ₽"
+              value={pricing.maxCustomerPrice}
+              onChange={value => setPricing(current => ({ ...current, maxCustomerPrice: value }))}
+            />
+          </div>
+          <p className="mt-4 text-xs leading-5 text-gray-500">
+            Нулевое значение отключает соответствующее правило. Порядок:
+            наценка, фиксированная надбавка, субсидия, затем ограничения и
+            бесплатная доставка.
+          </p>
+        </AdminSection>
+
+        <AdminSection
+          title="Габариты по умолчанию"
+          description="Используются только для товаров без собственных размеров и веса. В заявку передаётся реальный состав корзины."
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <NumberSetting
+              label="Вес, г"
+              value={defaultPackage.weightGrams}
+              onChange={value => setDefaultPackage(current => ({ ...current, weightGrams: value }))}
+            />
+            <NumberSetting
+              label="Длина, см"
+              value={defaultPackage.lengthCm}
+              onChange={value => setDefaultPackage(current => ({ ...current, lengthCm: value }))}
+            />
+            <NumberSetting
+              label="Ширина, см"
+              value={defaultPackage.widthCm}
+              onChange={value => setDefaultPackage(current => ({ ...current, widthCm: value }))}
+            />
+            <NumberSetting
+              label="Высота, см"
+              value={defaultPackage.heightCm}
+              onChange={value => setDefaultPackage(current => ({ ...current, heightCm: value }))}
+            />
           </div>
         </AdminSection>
 
@@ -597,5 +727,29 @@ function ToggleRow({
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
+  );
+}
+
+function NumberSetting({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="block text-sm font-bold text-[#15171A]">{label}</span>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-[#15171A] outline-none focus:border-[#05C3D4]"
+      />
+    </label>
   );
 }

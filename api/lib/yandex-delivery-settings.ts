@@ -17,6 +17,17 @@ const SETTING_KEYS = [
   "yandex_delivery_use_selected_corp_client_id",
   "yandex_delivery_api_base_url",
   "yandex_delivery_default_source_store_id",
+  "yandex_delivery_source_contact_phone",
+  "yandex_delivery_markup_percent",
+  "yandex_delivery_markup_fixed",
+  "yandex_delivery_subsidy_fixed",
+  "yandex_delivery_free_threshold",
+  "yandex_delivery_min_customer_price",
+  "yandex_delivery_max_customer_price",
+  "yandex_delivery_default_weight_grams",
+  "yandex_delivery_default_length_cm",
+  "yandex_delivery_default_width_cm",
+  "yandex_delivery_default_height_cm",
   "yandex_delivery_last_check_ok",
   "yandex_delivery_last_check_status",
   "yandex_delivery_last_check_at",
@@ -38,6 +49,17 @@ export const yandexDeliverySettingsInputSchema = z.object({
   useSelectedCorpClientId: z.boolean().default(false),
   apiBaseUrl: z.string().trim().url().default(DEFAULT_API_BASE_URL),
   defaultSourceStoreId: z.number().int().positive().nullable().optional().default(null),
+  sourceContactPhone: z.string().trim().max(32).default(""),
+  markupPercent: z.number().min(0).max(500).default(0),
+  markupFixed: z.number().int().min(0).default(0),
+  subsidyFixed: z.number().int().min(0).default(0),
+  freeDeliveryThreshold: z.number().int().min(0).default(0),
+  minCustomerPrice: z.number().int().min(0).default(0),
+  maxCustomerPrice: z.number().int().min(0).default(0),
+  defaultWeightGrams: z.number().int().min(1).max(1_000_000).default(500),
+  defaultLengthCm: z.number().min(1).max(500).default(20),
+  defaultWidthCm: z.number().min(1).max(500).default(15),
+  defaultHeightCm: z.number().min(1).max(500).default(10),
   geosuggestEnabled: z.boolean().default(false),
   geosuggestApiKey: z.string().trim().max(1024).optional().default(""),
 });
@@ -73,6 +95,14 @@ function parseBoolean(value: string | null | undefined, fallback: boolean) {
 function parsePositiveInteger(value: string | null | undefined) {
   const parsed = Number.parseInt((value || "").trim(), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseNonNegativeNumber(
+  value: string | null | undefined,
+  fallback: number,
+) {
+  const parsed = Number((value || "").trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function tail4(value: string) {
@@ -133,6 +163,21 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
   useSelectedCorpClientId: boolean;
   apiBaseUrl: string;
   defaultSourceStoreId: number | null;
+  sourceContactPhone: string;
+  pricing: {
+    markupPercent: number;
+    markupFixed: number;
+    subsidyFixed: number;
+    freeDeliveryThreshold: number;
+    minCustomerPrice: number;
+    maxCustomerPrice: number;
+  };
+  defaultPackage: {
+    weightGrams: number;
+    lengthCm: number;
+    widthCm: number;
+    heightCm: number;
+  };
   accessTokenConfigured: boolean;
   accessTokenLast4: string;
   accessTokenSetAt: string | null;
@@ -200,6 +245,21 @@ export async function getYandexDeliveryAdminSettings(): Promise<{
         : Boolean(env.yandexDeliverySelectedCorpClientId.trim()),
     apiBaseUrl: dbApiBaseUrl || buildBaseUrl(env.yandexDeliveryApiBaseUrl),
     defaultSourceStoreId: dbDefaultSourceStoreId,
+    sourceContactPhone: settings.yandex_delivery_source_contact_phone || "",
+    pricing: {
+      markupPercent: parseNonNegativeNumber(settings.yandex_delivery_markup_percent, 0),
+      markupFixed: parseNonNegativeNumber(settings.yandex_delivery_markup_fixed, 0),
+      subsidyFixed: parseNonNegativeNumber(settings.yandex_delivery_subsidy_fixed, 0),
+      freeDeliveryThreshold: parseNonNegativeNumber(settings.yandex_delivery_free_threshold, 0),
+      minCustomerPrice: parseNonNegativeNumber(settings.yandex_delivery_min_customer_price, 0),
+      maxCustomerPrice: parseNonNegativeNumber(settings.yandex_delivery_max_customer_price, 0),
+    },
+    defaultPackage: {
+      weightGrams: parseNonNegativeNumber(settings.yandex_delivery_default_weight_grams, 500) || 500,
+      lengthCm: parseNonNegativeNumber(settings.yandex_delivery_default_length_cm, 20) || 20,
+      widthCm: parseNonNegativeNumber(settings.yandex_delivery_default_width_cm, 15) || 15,
+      heightCm: parseNonNegativeNumber(settings.yandex_delivery_default_height_cm, 10) || 10,
+    },
     accessTokenConfigured: Boolean(
       dbEncryptedToken || env.yandexDeliveryAccessToken.trim()
     ),
@@ -271,6 +331,9 @@ export async function saveYandexDeliveryAdminSettings(
     "useSelectedCorpClientId",
     "apiBaseUrl",
     "defaultSourceStoreId",
+    "sourceContactPhone",
+    "pricing",
+    "defaultPackage",
     "geosuggestEnabled",
   ];
 
@@ -286,6 +349,17 @@ export async function saveYandexDeliveryAdminSettings(
     "yandex_delivery_enabled",
     normalized.enabled ? "true" : "false"
   );
+  await setAppSetting("yandex_delivery_source_contact_phone", normalized.sourceContactPhone);
+  await setAppSetting("yandex_delivery_markup_percent", String(normalized.markupPercent));
+  await setAppSetting("yandex_delivery_markup_fixed", String(normalized.markupFixed));
+  await setAppSetting("yandex_delivery_subsidy_fixed", String(normalized.subsidyFixed));
+  await setAppSetting("yandex_delivery_free_threshold", String(normalized.freeDeliveryThreshold));
+  await setAppSetting("yandex_delivery_min_customer_price", String(normalized.minCustomerPrice));
+  await setAppSetting("yandex_delivery_max_customer_price", String(normalized.maxCustomerPrice));
+  await setAppSetting("yandex_delivery_default_weight_grams", String(normalized.defaultWeightGrams));
+  await setAppSetting("yandex_delivery_default_length_cm", String(normalized.defaultLengthCm));
+  await setAppSetting("yandex_delivery_default_width_cm", String(normalized.defaultWidthCm));
+  await setAppSetting("yandex_delivery_default_height_cm", String(normalized.defaultHeightCm));
   await setAppSetting(
     "yandex_delivery_selected_corp_client_id",
     normalized.selectedCorpClientId
@@ -342,6 +416,15 @@ export async function saveYandexDeliveryAdminSettings(
     useSelectedCorpClientId: normalized.useSelectedCorpClientId,
     apiBaseUrl: buildBaseUrl(normalized.apiBaseUrl),
     defaultSourceStoreId: normalized.defaultSourceStoreId ?? null,
+    sourceContactPhoneConfigured: Boolean(normalized.sourceContactPhone),
+    pricing: {
+      markupPercent: normalized.markupPercent,
+      markupFixed: normalized.markupFixed,
+      subsidyFixed: normalized.subsidyFixed,
+      freeDeliveryThreshold: normalized.freeDeliveryThreshold,
+      minCustomerPrice: normalized.minCustomerPrice,
+      maxCustomerPrice: normalized.maxCustomerPrice,
+    },
     geosuggestEnabled: nextGeoSuggestEnabled,
     geosuggestApiKeyUpdated: Boolean(geosuggestApiKey),
   });
@@ -379,6 +462,21 @@ export async function getYandexDeliveryRuntimeSettings() {
       ? parseBoolean(settings.yandex_delivery_enabled, false)
       : env.yandexDeliveryEnabled;
 
+  const pricing = {
+    markupPercent: parseNonNegativeNumber(settings.yandex_delivery_markup_percent, 0),
+    markupFixed: parseNonNegativeNumber(settings.yandex_delivery_markup_fixed, 0),
+    subsidyFixed: parseNonNegativeNumber(settings.yandex_delivery_subsidy_fixed, 0),
+    freeDeliveryThreshold: parseNonNegativeNumber(settings.yandex_delivery_free_threshold, 0),
+    minCustomerPrice: parseNonNegativeNumber(settings.yandex_delivery_min_customer_price, 0),
+    maxCustomerPrice: parseNonNegativeNumber(settings.yandex_delivery_max_customer_price, 0),
+  };
+  const defaultPackage = {
+    weightGrams: parseNonNegativeNumber(settings.yandex_delivery_default_weight_grams, 500) || 500,
+    lengthCm: parseNonNegativeNumber(settings.yandex_delivery_default_length_cm, 20) || 20,
+    widthCm: parseNonNegativeNumber(settings.yandex_delivery_default_width_cm, 15) || 15,
+    heightCm: parseNonNegativeNumber(settings.yandex_delivery_default_height_cm, 10) || 10,
+  };
+
   return {
     enabled,
     accessToken: token,
@@ -386,6 +484,9 @@ export async function getYandexDeliveryRuntimeSettings() {
     useSelectedCorpClientId,
     apiBaseUrl,
     defaultSourceStoreId,
+    sourceContactPhone: settings.yandex_delivery_source_contact_phone?.trim() || "",
+    pricing,
+    defaultPackage,
     source,
     isConfigured: Boolean(enabled && token),
   };

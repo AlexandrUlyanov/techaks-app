@@ -268,6 +268,9 @@ export default function AdminProducts() {
       categoryId: parseInt(formData.get("categoryId") as string),
       price: parseInt(formData.get("price") as string),
       isActive: formData.get("isActive") === "on",
+      deliveryAllowed: formData.get("deliveryAllowed") === "on",
+      deliveryRestrictionReason:
+        ((formData.get("deliveryRestrictionReason") as string) || "").trim() || null,
       oldPrice: formData.get("oldPrice")
         ? parseInt(formData.get("oldPrice") as string)
         : null,
@@ -1110,6 +1113,38 @@ export default function AdminProducts() {
                 />
                 <label htmlFor="inStock" className="text-sm font-medium text-gray-700">
                   В наличии
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="deliveryAllowed"
+                    defaultChecked={editingProduct.deliveryAllowed ?? true}
+                    id="deliveryAllowed"
+                    className="mt-1"
+                  />
+                  <div>
+                    <label htmlFor="deliveryAllowed" className="text-sm font-semibold text-slate-800">
+                      Доступна курьерская доставка
+                    </label>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Если выключить, товар останется доступен для самовывоза, но его нельзя будет
+                      оформить с доставкой.
+                    </p>
+                  </div>
+                </div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Причина ограничения
+                  <input
+                    type="text"
+                    name="deliveryRestrictionReason"
+                    defaultValue={editingProduct.deliveryRestrictionReason ?? ""}
+                    maxLength={255}
+                    placeholder="Например: требуется специальная перевозка"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal normal-case tracking-normal text-slate-800 outline-none focus:border-[#05C3D4]"
+                  />
                 </label>
               </div>
 

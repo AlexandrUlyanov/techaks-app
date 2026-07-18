@@ -62,6 +62,8 @@ import {
   searchPenzaDeliveryAddressLine,
 } from "../lib/delivery-address-geocode";
 import { getYandexDeliveryRuntimeSettings } from "../lib/yandex-delivery-settings";
+import { buildDeliveryPackageSnapshot } from "../lib/delivery-packages";
+import { calculateCustomerDeliveryPrice } from "../lib/delivery-pricing";
 import {
   assertYandexDeliverySchemaReady,
   createYandexDeliveryOrderForOrder,
@@ -681,6 +683,8 @@ async function resolvePurchasableCartItems(
         slug: string;
         image: string;
         price: number;
+        deliveryAllowed: boolean;
+        deliveryRestrictionReason: string | null;
       }>,
       removedItemKeys: [] as string[],
       removedProductIds: [] as number[],
@@ -698,6 +702,8 @@ async function resolvePurchasableCartItems(
       isPublishedFromMoySklad: products.isPublishedFromMoySklad,
       isAutoBlocked: products.isAutoBlocked,
       autoBlockReason: products.autoBlockReason,
+      deliveryAllowed: products.deliveryAllowed,
+      deliveryRestrictionReason: products.deliveryRestrictionReason,
     })
     .from(products)
     .where(inArray(products.id, requestedProductIds));
@@ -732,6 +738,8 @@ async function resolvePurchasableCartItems(
     slug: string;
     image: string;
     price: number;
+    deliveryAllowed: boolean;
+    deliveryRestrictionReason: string | null;
   }> = [];
 
   for (const item of inputItems) {
@@ -778,6 +786,8 @@ async function resolvePurchasableCartItems(
       slug: product.slug,
       image: product.image,
       price: Number(variant?.price ?? product.price),
+      deliveryAllowed: product.deliveryAllowed,
+      deliveryRestrictionReason: product.deliveryRestrictionReason,
     });
   }
 
@@ -786,6 +796,33 @@ async function resolvePurchasableCartItems(
     removedItemKeys: Array.from(removedItemKeys),
     removedProductIds: Array.from(removedProductIds),
   };
+}
+
+function getDeliveryRestrictedItems(
+  items: Array<{
+    name: string;
+    deliveryAllowed: boolean;
+    deliveryRestrictionReason: string | null;
+  }>
+) {
+  return items.filter(item => item.deliveryAllowed === false);
+}
+
+function buildDeliveryRestrictionMessage(
+  items: Array<{ name: string; deliveryRestrictionReason: string | null }>
+) {
+  const names = items.slice(0, 3).map(item => `«${item.name}»`).join(", ");
+  const remaining = Math.max(0, items.length - 3);
+  const reasons = Array.from(
+    new Set(
+      items
+        .map(item => item.deliveryRestrictionReason?.trim())
+        .filter((reason): reason is string => Boolean(reason))
+    )
+  );
+  const reasonText = reasons.length > 0 ? ` ${reasons.join(" ")}` : "";
+
+  return `Курьерская доставка недоступна для ${names}${remaining > 0 ? ` и ещё ${remaining}` : ""}.${reasonText} Выберите самовывоз или измените состав корзины.`;
 }
 
 async function resolveOrCreateCustomerUser(
@@ -2025,6 +2062,26 @@ export const ecommerceRouter = createRouter({
         });
       }
 
+      const deliveryRestrictedItems = getDeliveryRestrictedItems(purchasableItems);
+      if (deliveryRestrictedItems.length > 0) {
+        return {
+          available: false,
+          price: null,
+          currency: "RUB",
+          etaMinutes: null,
+          etaLabel: null,
+          offerId: null,
+          message: buildDeliveryRestrictionMessage(deliveryRestrictedItems),
+          raw: null,
+          sourceStore: null,
+          itemSummary: buildCartItemSummary(
+            purchasableItems.map(item => ({ name: item.name, quantity: item.quantity }))
+          ),
+          quoteId: null,
+          expiresAt: null,
+        };
+      }
+
       const sourceStore = await resolveCheckoutFulfillmentStore(db, {
         preferredStoreId: null,
         items: purchasableItems.map(item => ({
@@ -2040,14 +2097,40 @@ export const ecommerceRouter = createRouter({
           ? input.destinationCoordinates
           : null;
 
+      const deliverySettings = await getYandexDeliveryRuntimeSettings();
+      const orderSubtotal = purchasableItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      const packageSnapshot = buildDeliveryPackageSnapshot(
+        purchasableItems.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        deliverySettings.defaultPackage,
+      );
+
       const quote = await calculateYandexDeliveryOffers({
         sourceAddress: sourceStore.address,
         destinationAddress: normalizedAddressLine,
         destinationCoordinates,
+        items: packageSnapshot.items,
       });
 
-      const persistedQuote =
+      const pricedQuote =
         quote.available && typeof quote.price === "number"
+          ? calculateCustomerDeliveryPrice({
+              providerPrice: quote.price,
+              orderSubtotal,
+              policy: deliverySettings.pricing,
+            })
+          : null;
+
+      const persistedQuote =
+        pricedQuote
           ? await persistDeliveryQuote({
               db,
               userId: ctx.user?.id ?? null,
@@ -2061,7 +2144,10 @@ export const ecommerceRouter = createRouter({
               destinationAddress: normalizedAddressLine,
               destinationCoordinates,
               providerOfferId: quote.offerId,
-              price: quote.price,
+              price: pricedQuote.customerPrice,
+              providerPrice: pricedQuote.providerPrice,
+              pricingPolicy: pricedQuote,
+              packageSnapshot,
               currency: quote.currency,
               etaMinutes: quote.etaMinutes,
               raw: quote.raw,
@@ -2070,6 +2156,9 @@ export const ecommerceRouter = createRouter({
 
       return {
         ...quote,
+        price: pricedQuote?.customerPrice ?? quote.price,
+        providerPrice: pricedQuote?.providerPrice ?? null,
+        isFree: pricedQuote?.isFree ?? false,
         message: quote.message,
         sourceStore: {
           id: sourceStore.id,
@@ -2259,6 +2348,14 @@ export const ecommerceRouter = createRouter({
       }
 
       if (input.deliveryType === "delivery") {
+        const deliveryRestrictedItems = getDeliveryRestrictedItems(purchasableItems);
+        if (deliveryRestrictedItems.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: buildDeliveryRestrictionMessage(deliveryRestrictedItems),
+          });
+        }
+
         fulfillmentStore = await resolveCheckoutFulfillmentStore(db, {
           preferredStoreId: input.storeId ?? null,
           items: purchasableItems.map(item => ({
@@ -2449,6 +2546,9 @@ export const ecommerceRouter = createRouter({
             discountTotal: loyaltyBonusSpent,
             deliveryPrice,
             deliveryQuoteId: trustedDeliveryQuote?.publicId ?? null,
+            deliveryProviderPrice: trustedDeliveryQuote?.providerPrice ?? null,
+            deliveryPricingPolicyJson: trustedDeliveryQuote?.pricingPolicyJson ?? null,
+            deliveryPackageSnapshotJson: trustedDeliveryQuote?.packageSnapshotJson ?? null,
             deliveryComment:
               input.deliveryType === "delivery"
                 ? input.deliveryComment?.trim() || null
@@ -3204,6 +3304,15 @@ export const ecommerceRouter = createRouter({
         deliveryProviderLastSyncAt: capabilities.hasOrdersDeliveryProviderMetadata
           ? orders.deliveryProviderLastSyncAt
           : sql<Date | null>`NULL`,
+        deliveryEtaFrom: capabilities.hasOrdersDeliveryCommercialMetadata
+          ? orders.deliveryEtaFrom
+          : sql<Date | null>`NULL`,
+        deliveryEtaTo: capabilities.hasOrdersDeliveryCommercialMetadata
+          ? orders.deliveryEtaTo
+          : sql<Date | null>`NULL`,
+        deliveryCourierJson: capabilities.hasOrdersDeliveryCommercialMetadata
+          ? orders.deliveryCourierJson
+          : sql<unknown | null>`NULL`,
         createdAt: orders.createdAt,
         latestManagerCommentAt: capabilities.hasOrderCommentsTable
           ? sql<Date | null>`(
@@ -3224,11 +3333,17 @@ export const ecommerceRouter = createRouter({
           ? buildDeliveryCustomerView({
               providerStatus: order.deliveryProviderStatus,
               localStatus: order.deliveryStatus,
+              etaFrom: order.deliveryEtaFrom,
+              etaTo: order.deliveryEtaTo,
+              courier: order.deliveryCourierJson,
             })
           : null;
       const publicOrder: Record<string, unknown> = { ...order };
       delete publicOrder.deliveryProviderStatus;
       delete publicOrder.deliveryStatus;
+      delete publicOrder.deliveryEtaFrom;
+      delete publicOrder.deliveryEtaTo;
+      delete publicOrder.deliveryCourierJson;
       return { ...publicOrder, deliveryCustomer };
     });
   }),
@@ -3841,6 +3956,15 @@ export const ecommerceRouter = createRouter({
             deliveryProviderRawJson: capabilities.hasOrdersDeliveryProviderMetadata
               ? orders.deliveryProviderRawJson
               : sql<unknown | null>`NULL`,
+            deliveryEtaFrom: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryEtaFrom
+              : sql<Date | null>`NULL`,
+            deliveryEtaTo: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryEtaTo
+              : sql<Date | null>`NULL`,
+            deliveryCourierJson: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryCourierJson
+              : sql<unknown | null>`NULL`,
             deliveryCity: orders.deliveryCity,
             deliveryRegion: orders.deliveryRegion,
             deliveryPostalCode: orders.deliveryPostalCode,
@@ -4061,6 +4185,15 @@ export const ecommerceRouter = createRouter({
             deliveryProviderLastSyncAt: orders.deliveryProviderLastSyncAt,
             deliveryProviderError: orders.deliveryProviderError,
             deliveryProviderRawJson: orders.deliveryProviderRawJson,
+            deliveryEtaFrom: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryEtaFrom
+              : sql<Date | null>`NULL`,
+            deliveryEtaTo: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryEtaTo
+              : sql<Date | null>`NULL`,
+            deliveryCourierJson: capabilities.hasOrdersDeliveryCommercialMetadata
+              ? orders.deliveryCourierJson
+              : sql<unknown | null>`NULL`,
             deliveryCity: orders.deliveryCity,
             deliveryRegion: orders.deliveryRegion,
             deliveryPostalCode: orders.deliveryPostalCode,
@@ -4121,6 +4254,15 @@ export const ecommerceRouter = createRouter({
                 deliveryProviderLastSyncAt: orders.deliveryProviderLastSyncAt,
                 deliveryProviderError: orders.deliveryProviderError,
                 deliveryProviderRawJson: orders.deliveryProviderRawJson,
+                deliveryEtaFrom: capabilities.hasOrdersDeliveryCommercialMetadata
+                  ? orders.deliveryEtaFrom
+                  : sql<Date | null>`NULL`,
+                deliveryEtaTo: capabilities.hasOrdersDeliveryCommercialMetadata
+                  ? orders.deliveryEtaTo
+                  : sql<Date | null>`NULL`,
+                deliveryCourierJson: capabilities.hasOrdersDeliveryCommercialMetadata
+                  ? orders.deliveryCourierJson
+                  : sql<unknown | null>`NULL`,
                 deliveryCity: orders.deliveryCity,
                 deliveryRegion: orders.deliveryRegion,
                 deliveryPostalCode: orders.deliveryPostalCode,
@@ -4168,6 +4310,9 @@ export const ecommerceRouter = createRouter({
                 providerStatus: normalizedOrder.deliveryProviderStatus,
                 localStatus: normalizedOrder.deliveryStatus,
                 rawPayload: normalizedOrder.deliveryProviderRawJson,
+                etaFrom: normalizedOrder.deliveryEtaFrom,
+                etaTo: normalizedOrder.deliveryEtaTo,
+                courier: normalizedOrder.deliveryCourierJson,
               })
             : null;
         const publicOrder: Record<string, unknown> = { ...normalizedOrder };
@@ -4175,6 +4320,9 @@ export const ecommerceRouter = createRouter({
         delete publicOrder.deliveryProviderStatus;
         delete publicOrder.deliveryProviderError;
         delete publicOrder.deliveryProviderRawJson;
+        delete publicOrder.deliveryEtaFrom;
+        delete publicOrder.deliveryEtaTo;
+        delete publicOrder.deliveryCourierJson;
 
         return {
           ...publicOrder,
