@@ -1,8 +1,8 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { verifyToken } from "./lib/auth";
 import { getDb } from "./queries/connection";
-import { users } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { accountSessions, users } from "@db/schema";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { defineAbilityFor, type AppAbility } from "../contracts/ability";
 
 export type User = typeof users.$inferSelect;
@@ -12,6 +12,7 @@ export type TrpcContext = {
   resHeaders: Headers;
   user?: User | null;
   ability?: AppAbility;
+  sessionId?: string;
 };
 
 export async function createContext(
@@ -35,11 +36,27 @@ export async function createContext(
 
   let user: User | null = null;
   let ability: AppAbility | undefined;
+  let sessionId: string | undefined;
 
   if (token) {
     const payload = await verifyToken(token);
     if (payload) {
       const db = getDb();
+      if (payload.sessionId) {
+        const [session] = await db
+          .select({ id: accountSessions.id })
+          .from(accountSessions)
+          .where(and(
+            eq(accountSessions.id, payload.sessionId),
+            eq(accountSessions.userId, payload.id),
+            isNull(accountSessions.revokedAt),
+            gt(accountSessions.expiresAt, new Date())
+          ))
+          .limit(1);
+        if (!session) return { req, resHeaders, user: null, ability: undefined };
+        sessionId = session.id;
+        await db.update(accountSessions).set({ lastSeenAt: new Date() }).where(eq(accountSessions.id, session.id));
+      }
       const results = await db
         .select()
         .from(users)
@@ -53,5 +70,5 @@ export async function createContext(
     }
   }
 
-  return { req, resHeaders, user, ability };
+  return { req, resHeaders, user, ability, sessionId };
 }

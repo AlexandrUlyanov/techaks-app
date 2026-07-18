@@ -244,6 +244,9 @@ jobs:
             echo "Applying delivery reliability migration..."
             npm run deploy:migrate-delivery
 
+            echo "Applying account settings migration..."
+            npm run deploy:migrate-account
+
             echo "Building application..."
             npm run check
             npm test

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import type { HttpBindings } from "@hono/node-server";
@@ -6,14 +6,14 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { getDb } from "./queries/connection";
 import * as schema from "@db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 import { getAppSetting } from "./lib/app-settings";
 import { processMoyskladWebhookQueue } from "./lib/moysklad-webhook-worker";
 import { runMoyskladFullSyncWatchdog } from "./lib/moysklad-full-sync-watchdog";
@@ -43,6 +43,8 @@ import {
 import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
 import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
 import { shouldIncludeCategoryListingInSitemap } from "./lib/listing-pages";
+import { verifyToken } from "./lib/auth";
+import sharp from "sharp";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 const SEO_HOST = "https://techaks.ru";
@@ -792,6 +794,78 @@ app.post("/api/upload", async c => {
     const message = error instanceof Error ? error.message : "Failed to upload file";
     return c.json({ error: message }, 500);
   }
+});
+
+async function getAuthenticatedUser(c: Context) {
+  const authorization = c.req.header("authorization");
+  const cookieToken = c.req.header("cookie")?.match(/(?:^|;\s*)token=([^;]+)/)?.[1];
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : cookieToken;
+  if (!token) return null;
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+  if (payload.sessionId) {
+    const [session] = await getDb()
+      .select({ id: schema.accountSessions.id })
+      .from(schema.accountSessions)
+      .where(
+        and(
+          eq(schema.accountSessions.id, payload.sessionId),
+          eq(schema.accountSessions.userId, payload.id),
+          isNull(schema.accountSessions.revokedAt),
+          gt(schema.accountSessions.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+    if (!session) return null;
+  }
+  const [user] = await getDb().select().from(schema.users).where(eq(schema.users.id, payload.id)).limit(1);
+  return user?.status === "active" ? user : null;
+}
+
+app.post("/api/account/avatar", async c => {
+  try {
+    const user = await getAuthenticatedUser(c);
+    if (!user) return c.json({ error: "Требуется авторизация" }, 401);
+    const body = await c.req.parseBody();
+    const file = body.file;
+    if (!(file instanceof File)) return c.json({ error: "Выберите изображение" }, 400);
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+      return c.json({ error: "Поддерживаются изображения до 5 МБ" }, 400);
+    }
+
+    const directory = join(process.cwd(), "public", "images", "avatars");
+    await mkdir(directory, { recursive: true });
+    const filename = `${user.id}-${Date.now()}.webp`;
+    const destination = join(directory, filename);
+    await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize(512, 512, { fit: "cover", position: "attention", withoutEnlargement: true })
+      .webp({ quality: 86 })
+      .toFile(destination);
+
+    const avatarUrl = `/images/avatars/${filename}`;
+    await getDb().update(schema.users).set({ avatarUrl, updatedAt: new Date() }).where(eq(schema.users.id, user.id));
+    await getDb().insert(schema.accountSecurityEvents).values({ userId: user.id, action: "avatar_changed" });
+    if (user.avatarUrl?.startsWith("/images/avatars/")) {
+      const previous = join(process.cwd(), "public", user.avatarUrl.replace(/^\//, ""));
+      await unlink(previous).catch(() => undefined);
+    }
+    return c.json({ success: true, avatarUrl });
+  } catch (error) {
+    console.error("Avatar upload failed", error);
+    return c.json({ error: "Не удалось обработать изображение" }, 500);
+  }
+});
+
+app.delete("/api/account/avatar", async c => {
+  const user = await getAuthenticatedUser(c);
+  if (!user) return c.json({ error: "Требуется авторизация" }, 401);
+  await getDb().update(schema.users).set({ avatarUrl: null, updatedAt: new Date() }).where(eq(schema.users.id, user.id));
+  await getDb().insert(schema.accountSecurityEvents).values({ userId: user.id, action: "avatar_deleted" });
+  if (user.avatarUrl?.startsWith("/images/avatars/")) {
+    await unlink(join(process.cwd(), "public", user.avatarUrl.replace(/^\//, ""))).catch(() => undefined);
+  }
+  return c.json({ success: true });
 });
 
 app.post("/api/webhooks/moysklad", async c => {

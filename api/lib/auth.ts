@@ -9,6 +9,7 @@ export type JwtPayload = {
   id: number;
   role: string;
   status: string;
+  sessionId?: string;
 };
 
 export async function signToken(payload: JwtPayload): Promise<string> {

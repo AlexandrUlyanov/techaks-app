@@ -32,6 +32,7 @@ import { trpc } from "@/providers/trpc";
 import { Can } from "@/providers/AbilityProvider";
 import ReviewComposer from "@/components/reviews/ReviewComposer";
 import ProductCard from "@/components/ProductCard";
+import AccountSettings from "@/components/account/AccountSettings";
 
 type AccountOrder = {
   id: number;
@@ -1230,6 +1231,8 @@ export default function AccountPage() {
           </div>
         </div>
       </section>
+
+      <AccountSettings />
 
       <div className="container-main py-10 md:py-12">
         <div className="grid grid-cols-1 items-start gap-10 xl:grid-cols-4">

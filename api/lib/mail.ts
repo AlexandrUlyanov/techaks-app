@@ -32,6 +32,7 @@ type OrderEventType =
 type TransactionalEmailType =
   | "AUTH_REGISTERED"
   | "AUTH_EMAIL_CONFIRM"
+  | "AUTH_EMAIL_CHANGED"
   | "AUTH_PASSWORD_RESET"
   | "AUTH_PASSWORD_CHANGED"
   | "AUTH_LOGIN_CODE"
@@ -75,6 +76,8 @@ export type EmailTemplateData = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  previousEmail?: string | null;
+  newEmail?: string | null;
 
   orderNumber?: string | null;
   orderDate?: string | Date | null;
@@ -574,6 +577,20 @@ function createTemplateConfig(
         warning:
           "Если вы не создавали аккаунт в ТЕХАКС, просто проигнорируйте это письмо.",
       };
+    case "AUTH_EMAIL_CHANGED":
+      return {
+        brand,
+        subject: "Email аккаунта ТЕХАКС изменён",
+        title: "Электронная почта изменена",
+        intro: `Здравствуйте, ${customerName}! Адрес электронной почты вашего аккаунта ТЕХАКС был изменён.`,
+        summaryRows: [
+          { label: "Предыдущий email", value: data.previousEmail },
+          { label: "Новый email", value: data.newEmail },
+          { label: "Дата и время", value: data.changedAt ? formatDate(data.changedAt) : null },
+        ],
+        warning:
+          "Если это сделали не вы, немедленно свяжитесь с поддержкой ТЕХАКС и смените пароль.",
+      };
     case "AUTH_PASSWORD_RESET":
       return {
         brand,
@@ -950,6 +967,22 @@ export async function sendPasswordResetEmail(
     expiresAt: options?.expiresAt ?? new Date(Date.now() + 30 * 60 * 1000),
     requestIp: options?.requestIp,
     requestLocation: options?.requestLocation,
+  });
+}
+
+export async function sendAccountEmailChangedEmail(input: {
+  email: string;
+  customerName?: string | null;
+  previousEmail: string;
+  newEmail: string;
+  changedAt?: string | Date | null;
+}) {
+  await sendTemplateEmail(input.email, "AUTH_EMAIL_CHANGED", {
+    customerName: input.customerName,
+    customerEmail: input.email,
+    previousEmail: input.previousEmail,
+    newEmail: input.newEmail,
+    changedAt: input.changedAt ?? new Date(),
   });
 }
 

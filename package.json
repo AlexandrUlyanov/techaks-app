@@ -19,7 +19,8 @@
     "db:push": "drizzle-kit push --force",
     "images:backfill": "node scripts/backfill-product-image-variants.mjs",
     "deploy:verify-schema": "node scripts/verify-production-schema.mjs",
-    "deploy:migrate-delivery": "node scripts/apply-delivery-reliability-migration.mjs"
+    "deploy:migrate-delivery": "node scripts/apply-delivery-reliability-migration.mjs",
+    "deploy:migrate-account": "node scripts/apply-account-settings-migration.mjs"
   },
   "dependencies": {
     "@casl/ability": "^6.8.1",

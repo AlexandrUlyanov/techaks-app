@@ -18,6 +18,7 @@ import { designSystemRouter } from "./routers/design-system";
 import { searchRouter } from "./routers/search";
 import { listingRouter } from "./routers/listing";
 import { loyaltyRouter } from "./routers/loyalty";
+import { accountRouter } from "./routers/account";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -40,6 +41,7 @@ export const appRouter = createRouter({
   manufacturer: manufacturerRouter,
   user: userRouter,
   reviews: reviewsRouter,
+  account: accountRouter,
 });
 
 export type AppRouter = typeof appRouter;

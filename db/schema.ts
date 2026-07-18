@@ -295,6 +295,12 @@ export const users = mysqlTable("users", {
   id: serial("id").primaryKey(),
   phone: varchar("phone", { length: 20 }).unique(),
   fullName: varchar("full_name", { length: 255 }),
+  firstName: varchar("first_name", { length: 120 }),
+  lastName: varchar("last_name", { length: 120 }),
+  displayName: varchar("display_name", { length: 160 }),
+  avatarUrl: text("avatar_url"),
+  language: varchar("language", { length: 12 }).notNull().default("ru"),
+  timezone: varchar("timezone", { length: 64 }).notNull().default("Europe/Moscow"),
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }),
   role: varchar("role", { length: 40 }).notNull().default("customer"),
@@ -318,7 +324,11 @@ export const users = mysqlTable("users", {
   loyaltyRulesJson: json("loyalty_rules_json"),
   loyaltyLastSyncedAt: timestamp("loyalty_last_synced_at"),
   loyaltyLastError: text("loyalty_last_error"),
+  marketingConsent: boolean("marketing_consent").notNull().default(false),
+  marketingConsentAt: timestamp("marketing_consent_at"),
+  deactivatedAt: timestamp("deactivated_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
   roleIdx: index("users_role_idx").on(table.role),
   statusIdx: index("users_status_idx").on(table.status),
@@ -330,6 +340,79 @@ export const users = mysqlTable("users", {
   loyalyCounterpartyIdx: index("users_loyalty_counterparty_idx").on(
     table.moyskladCounterpartyId
   ),
+}));
+
+export const userAddresses = mysqlTable("user_addresses", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  label: varchar("label", { length: 80 }).notNull().default("Адрес"),
+  recipientName: varchar("recipient_name", { length: 255 }).notNull(),
+  recipientPhone: varchar("recipient_phone", { length: 20 }).notNull(),
+  country: varchar("country", { length: 100 }).notNull().default("Россия"),
+  region: varchar("region", { length: 160 }),
+  city: varchar("city", { length: 160 }).notNull(),
+  street: varchar("street", { length: 255 }).notNull(),
+  house: varchar("house", { length: 40 }).notNull(),
+  apartment: varchar("apartment", { length: 40 }),
+  postcode: varchar("postcode", { length: 20 }),
+  courierComment: text("courier_comment"),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: index("user_addresses_user_idx").on(table.userId, table.isDefault),
+}));
+
+export const userNotificationPreferences = mysqlTable("user_notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull().unique(),
+  orderEmail: boolean("order_email").notNull().default(true),
+  orderPush: boolean("order_push").notNull().default(true),
+  orderInApp: boolean("order_in_app").notNull().default(true),
+  marketingEmail: boolean("marketing_email").notNull().default(false),
+  marketingPush: boolean("marketing_push").notNull().default(false),
+  priceDropEmail: boolean("price_drop_email").notNull().default(false),
+  priceDropPush: boolean("price_drop_push").notNull().default(false),
+  consentUpdatedAt: timestamp("consent_updated_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: unique("user_notification_preferences_user_unique").on(table.userId),
+}));
+
+export const accountSessions = mysqlTable("account_sessions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("user_id").notNull(),
+  userAgent: varchar("user_agent", { length: 512 }),
+  deviceLabel: varchar("device_label", { length: 160 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+}, table => ({
+  userIdx: index("account_sessions_user_idx").on(table.userId, table.revokedAt, table.lastSeenAt),
+}));
+
+export const accountEmailChangeRequests = mysqlTable("account_email_change_requests", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  oldEmail: varchar("old_email", { length: 255 }).notNull(),
+  newEmail: varchar("new_email", { length: 255 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: index("account_email_change_user_idx").on(table.userId, table.createdAt),
+}));
+
+export const accountSecurityEvents = mysqlTable("account_security_events", {
+  id: serial("id").primaryKey(),
+  userId: int("user_id").notNull(),
+  action: varchar("action", { length: 80 }).notNull(),
+  metadataJson: json("metadata_json"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => ({
+  userIdx: index("account_security_events_user_idx").on(table.userId, table.createdAt),
 }));
 
 export const userFavorites = mysqlTable("user_favorites", {

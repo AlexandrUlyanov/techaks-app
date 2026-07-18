@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, pushSubscriptions, authSessions, passwordResetTokens } from "@db/schema";
+import { users, pushSubscriptions, authSessions, passwordResetTokens, accountSessions } from "@db/schema";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
@@ -22,6 +22,26 @@ const emailOtpStore = new Map<string, { code: string; expires: number }>();
 
 function toMySqlDateTime(date: Date) {
   return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function deviceLabel(userAgent: string | null) {
+  if (!userAgent) return "Неизвестное устройство";
+  const browser = /Edg\//.test(userAgent) ? "Edge" : /Firefox\//.test(userAgent) ? "Firefox" : /Chrome\//.test(userAgent) ? "Chrome" : /Safari\//.test(userAgent) ? "Safari" : "Браузер";
+  const platform = /iPhone|iPad/.test(userAgent) ? "iOS" : /Android/.test(userAgent) ? "Android" : /Windows/.test(userAgent) ? "Windows" : /Mac OS/.test(userAgent) ? "macOS" : "устройство";
+  return `${browser} · ${platform}`;
+}
+
+async function createAccountToken(user: typeof users.$inferSelect, request: Request) {
+  const id = uuidv4();
+  const userAgent = request.headers.get("user-agent");
+  await getDb().insert(accountSessions).values({
+    id,
+    userId: user.id,
+    userAgent: userAgent?.slice(0, 512) || null,
+    deviceLabel: deviceLabel(userAgent),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+  return signToken({ id: user.id, role: user.role, status: user.status, sessionId: id });
 }
 
 export const authRouter = createRouter({
@@ -46,7 +66,7 @@ export const authRouter = createRouter({
       fullName: z.string().min(2),
       password: z.string().min(6),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
       
       const [existingUser] = await db
@@ -61,6 +81,12 @@ export const authRouter = createRouter({
         .limit(1);
 
       if (existingUser) {
+        if (existingUser.status !== "active") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Аккаунт деактивирован. Обратитесь в поддержку для восстановления доступа",
+          });
+        }
         if (existingUser.passwordHash) {
           throw new TRPCError({
             code: "CONFLICT",
@@ -76,7 +102,6 @@ export const authRouter = createRouter({
             phone: input.phone || existingUser.phone || null,
             fullName: input.fullName || existingUser.fullName,
             passwordHash: migratedPasswordHash,
-            status: "active",
           })
           .where(eq(users.id, existingUser.id));
 
@@ -86,11 +111,7 @@ export const authRouter = createRouter({
           .where(eq(users.id, existingUser.id))
           .limit(1);
 
-        const migratedToken = await signToken({
-          id: migratedUser.id,
-          role: migratedUser.role,
-          status: migratedUser.status,
-        });
+        const migratedToken = await createAccountToken(migratedUser, ctx.req);
 
         return { success: true, user: migratedUser, token: migratedToken };
       }
@@ -112,11 +133,7 @@ export const authRouter = createRouter({
         .where(eq(users.id, result[0].insertId))
         .limit(1);
 
-      const token = await signToken({
-        id: newUser.id,
-        role: newUser.role,
-        status: newUser.status,
-      });
+      const token = await createAccountToken(newUser, ctx.req);
 
       await sendRegistrationWelcomeEmail({
         email: input.email,
@@ -135,7 +152,7 @@ export const authRouter = createRouter({
       identifier: z.string().min(3), // Can be email or phone
       password: z.string().min(6),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
       
       const matchedUsers = await db
@@ -181,11 +198,7 @@ export const authRouter = createRouter({
         });
       }
 
-      const token = await signToken({
-        id: user.id,
-        role: user.role,
-        status: user.status,
-      });
+      const token = await createAccountToken(user, ctx.req);
 
       return { success: true, user, token };
     }),
@@ -317,7 +330,7 @@ export const authRouter = createRouter({
 
   verifyEmailOTP: publicQuery
     .input(z.object({ email: z.string().email(), code: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const stored = emailOtpStore.get(input.email);
 
       if (!stored || stored.expires < Date.now() || (input.code !== stored.code && input.code !== "123456")) {
@@ -350,13 +363,12 @@ export const authRouter = createRouter({
         user = [newUser[0]];
       }
 
-      emailOtpStore.delete(input.email);
+      if (user[0].status !== "active") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Аккаунт деактивирован" });
+      }
 
-      const token = await signToken({
-        id: user[0].id,
-        role: user[0].role,
-        status: user[0].status,
-      });
+      emailOtpStore.delete(input.email);
+      const token = await createAccountToken(user[0], ctx.req);
 
       return { success: true, user: user[0], token };
     }),
@@ -468,7 +480,7 @@ export const authRouter = createRouter({
 
   confirmPushAuth: publicQuery
     .input(z.object({ sessionId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const [session] = await db
         .select()
@@ -481,12 +493,10 @@ export const authRouter = createRouter({
       }
 
       const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
-      
-      const token = await signToken({
-        id: user.id,
-        role: user.role,
-        status: user.status,
-      });
+      if (!user || user.status !== "active") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Аккаунт деактивирован" });
+      }
+      const token = await createAccountToken(user, ctx.req);
 
       await db
         .update(authSessions)

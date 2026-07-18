@@ -8,6 +8,12 @@ interface User {
   email: string;
   role: string;
   status: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  language?: string;
+  timezone?: string;
 }
 
 interface AuthStore {
