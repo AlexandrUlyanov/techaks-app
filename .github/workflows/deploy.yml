@@ -248,9 +248,9 @@ jobs:
             npm run deploy:migrate-account
 
             echo "Building application..."
-            npm run check
-            npm test
-            npm run build
+            NODE_OPTIONS=--max-old-space-size=1536 npm run check
+            NODE_OPTIONS=--max-old-space-size=1536 npm test
+            NODE_OPTIONS=--max-old-space-size=1536 npm run build
 
             echo "Verifying production schema against SQL migrations..."
             npm run deploy:verify-schema
