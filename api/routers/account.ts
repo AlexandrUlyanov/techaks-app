@@ -9,6 +9,7 @@ import {
   accountSecurityEvents,
   accountSessions,
   orders,
+  products,
   userAddresses,
   userFavorites,
   userNotificationPreferences,
@@ -19,6 +20,7 @@ import { getDb } from "../queries/connection";
 import { sendAccountEmailChangedEmail, sendEmailConfirmationLinkEmail, sendPasswordChangedEmail } from "../lib/mail";
 import { normalizeAccountPhone } from "../lib/account-validation";
 import { env } from "../lib/env";
+import { buildAccountDataExport } from "../lib/account-export";
 
 const phoneSchema = z.string().trim().max(20).nullable().optional().transform(value => {
   try {
@@ -213,11 +215,22 @@ export const accountRouter = createRouter({
     const [addresses, orderRows, favorites, securityEvents] = await Promise.all([
       db.select().from(userAddresses).where(eq(userAddresses.userId, ctx.user.id)),
       db.select().from(orders).where(eq(orders.userId, ctx.user.id)).orderBy(desc(orders.createdAt)),
-      db.select().from(userFavorites).where(eq(userFavorites.userId, ctx.user.id)),
+      db.select({
+        productName: products.name,
+        productSlug: products.slug,
+        createdAt: userFavorites.createdAt,
+      }).from(userFavorites)
+        .leftJoin(products, eq(products.id, userFavorites.productId))
+        .where(eq(userFavorites.userId, ctx.user.id)),
       db.select().from(accountSecurityEvents).where(eq(accountSecurityEvents.userId, ctx.user.id)).orderBy(desc(accountSecurityEvents.createdAt)),
     ]);
-    const { passwordHash: _passwordHash, ...profile } = ctx.user;
-    return { generatedAt: new Date(), profile, addresses, orders: orderRows, favorites, securityEvents };
+    return buildAccountDataExport({
+      profile: ctx.user,
+      addresses,
+      orders: orderRows,
+      favorites,
+      securityEvents,
+    });
   }),
 
   deactivate: protectedProcedure.input(z.object({ currentPassword: z.string().min(1) })).mutation(async ({ ctx, input }) => {
