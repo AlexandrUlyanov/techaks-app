@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { createRouter, publicQuery, protectedProcedure } from "../middleware";
 import { getDb } from "../queries/connection";
-import { users, pushSubscriptions, authSessions, passwordResetTokens, accountSessions } from "@db/schema";
+import {
+  users,
+  pushSubscriptions,
+  authSessions,
+  passwordResetTokens,
+  accountSessions,
+  userNotificationPreferences,
+} from "@db/schema";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { signToken } from "../lib/auth";
@@ -377,21 +384,23 @@ export const authRouter = createRouter({
   registerPush: protectedProcedure
     .input(z.object({
       subscription: z.object({
-        endpoint: z.string(),
+        endpoint: z.string().url().max(2048),
         keys: z.object({
-          p256dh: z.string(),
-          auth: z.string(),
+          p256dh: z.string().min(1).max(512),
+          auth: z.string().min(1).max(512),
         }),
       }),
-      userAgent: z.string().optional(),
+      userAgent: z.string().max(512).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      
-      // Delete old matching endpoint if exists
-      // In Drizzle we can't easily do it by endpoint if it's a TEXT column without full match,
-      // but endpoint is unique enough.
-      
+
+      // One browser subscription belongs to one current account. Re-registering
+      // must update ownership rather than create duplicate push deliveries.
+      await db
+        .delete(pushSubscriptions)
+        .where(eq(pushSubscriptions.endpoint, input.subscription.endpoint));
+
       await db.insert(pushSubscriptions).values({
         userId: ctx.user.id,
         endpoint: input.subscription.endpoint,
@@ -399,6 +408,22 @@ export const authRouter = createRouter({
         auth: input.subscription.keys.auth,
         userAgent: input.userAgent || null,
       });
+
+      await db
+        .insert(userNotificationPreferences)
+        .values({
+          userId: ctx.user.id,
+          orderPush: true,
+          consentUpdatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            orderPush: true,
+            consentUpdatedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
 
       return { success: true };
     }),

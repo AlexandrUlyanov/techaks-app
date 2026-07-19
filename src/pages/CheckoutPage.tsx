@@ -27,6 +27,7 @@ import { applyProductImageFallback, resolveProductImageSrc } from "@/lib/product
 import PersonalDataConsent from "@/components/PersonalDataConsent";
 import { trackBeginCheckout } from "@/lib/yandex-metrika";
 import { storeCheckoutOrderSnapshot } from "@/lib/checkout-order-session";
+import { markPushPromptTrigger } from "@/lib/push-notifications";
 
 type CheckoutPickupStore = {
   storeId: number;
@@ -423,6 +424,7 @@ export default function CheckoutPage() {
   const placeOrder = trpc.ecommerce.placeOrder.useMutation({
     onSuccess: data => {
       storeCheckoutOrderSnapshot(data.orderId, items);
+      markPushPromptTrigger("order");
 
       if (data.payment?.confirmationUrl) {
         clearCart();

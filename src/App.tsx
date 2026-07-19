@@ -7,6 +7,7 @@ import StickyBottomBar from "@/components/StickyBottomBar";
 import ScrollToTop from "@/components/ScrollToTop";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import FavoritesBootstrap from "@/components/FavoritesBootstrap";
+import PushNotificationPrompt from "@/components/PushNotificationPrompt";
 import DesignThemeBridge from "@/design-system/DesignThemeBridge";
 import HomePage from "@/pages/HomePage";
 import CatalogMenu from "@/components/Catalog/CatalogMenu";
@@ -238,6 +239,7 @@ export default function App() {
       </main>
       {!isAdmin && !isCheckout && <Footer />}
       {!isAdmin && !isCheckout && <StickyBottomBar />}
+      {!isAdmin && <PushNotificationPrompt />}
       {!isAdmin && <CookieConsentBanner />}
       <Toaster position="top-center" richColors />
     </div>
