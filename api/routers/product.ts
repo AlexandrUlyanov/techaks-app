@@ -1107,10 +1107,12 @@ export const productRouter = createRouter({
       z
         .object({
           categorySlug: z.string().optional().default("all"),
+          specFilters: z.array(specFilterSchema).max(20).optional().default([]),
         })
         .optional()
         .default({
           categorySlug: "all",
+          specFilters: [],
         })
     )
     .query(async ({ input }) => {
@@ -1170,6 +1172,7 @@ export const productRouter = createRouter({
           return {
             products: [],
             categories: categoryCounts,
+            priceBounds: { min: 0, max: 0 },
           };
         }
         scopedCategoryIds = collectDescendantCategoryIds(
@@ -1177,6 +1180,26 @@ export const productRouter = createRouter({
           selectedCategory.id
         );
       }
+
+      const categoryCondition =
+        scopedCategoryIds && scopedCategoryIds.length > 0
+          ? inArray(products.categoryId, scopedCategoryIds)
+          : undefined;
+      const baseCondition = categoryCondition
+        ? sql`${publicProductVisibilityCondition} AND ${promotionalCondition} AND ${categoryCondition}`
+        : sql`${publicProductVisibilityCondition} AND ${promotionalCondition}`;
+      const specCondition = buildSpecFilterConditions(input.specFilters);
+      const listingCondition = specCondition
+        ? sql`${baseCondition} AND ${specCondition}`
+        : baseCondition;
+
+      const [priceBoundsRow] = await db
+        .select({
+          min: sql<number>`coalesce(min(${products.price}), 0)`,
+          max: sql<number>`coalesce(max(${products.price}), 0)`,
+        })
+        .from(products)
+        .where(baseCondition);
 
       const rows = await db
         .select(publicProductSelectFields)
@@ -1186,11 +1209,7 @@ export const productRouter = createRouter({
           schema.productMerchandising,
           eq(schema.productMerchandising.productId, products.id)
         )
-        .where(
-          scopedCategoryIds && scopedCategoryIds.length > 0
-            ? sql`${publicProductVisibilityCondition} AND ${promotionalCondition} AND ${inArray(products.categoryId, scopedCategoryIds)}`
-            : sql`${publicProductVisibilityCondition} AND ${promotionalCondition}`
-        )
+        .where(listingCondition)
         .orderBy(
           desc(sql<number>`coalesce(${products.oldPrice} - ${products.price}, 0)`),
           asc(products.name),
@@ -1200,6 +1219,10 @@ export const productRouter = createRouter({
       return {
         products: await attachVisibleMerchandisingBadges(rows),
         categories: categoryCounts,
+        priceBounds: {
+          min: Number(priceBoundsRow?.min || 0),
+          max: Number(priceBoundsRow?.max || 0),
+        },
       };
     }),
 
@@ -1243,7 +1266,14 @@ export const productRouter = createRouter({
     }),
 
   getSpecFilters: publicQuery
-    .input(z.object({ categorySlug: z.string().default("all") }).optional())
+    .input(
+      z
+        .object({
+          categorySlug: z.string().default("all"),
+          promotionalOnly: z.boolean().optional().default(false),
+        })
+        .optional()
+    )
     .query(async ({ input }) => {
       const db = getDb();
       const categorySlug = input?.categorySlug ?? "all";
@@ -1259,6 +1289,13 @@ export const productRouter = createRouter({
         categoryIds = collectDescendantCategoryIds(allCats, targetCat.id);
       }
 
+      const scopeCondition = categoryIds
+        ? sql`${productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)}) AND ${publicProductVisibilityCondition}`
+        : publicProductVisibilityCondition;
+      const specListingCondition = input?.promotionalOnly
+        ? sql`${scopeCondition} AND ${buildPromotionalProductCondition()}`
+        : scopeCondition;
+
       const rows = await db
         .select({
           key: productSpecValues.specKey,
@@ -1269,11 +1306,7 @@ export const productRouter = createRouter({
         })
         .from(productSpecValues)
         .innerJoin(products, eq(productSpecValues.productId, products.id))
-        .where(
-          categoryIds
-            ? sql`${productSpecValues.categoryId} IN (${sql.join(categoryIds, sql`, `)}) AND ${publicProductVisibilityCondition}`
-            : publicProductVisibilityCondition
-        )
+        .where(specListingCondition)
         .groupBy(
           productSpecValues.specKey,
           productSpecValues.normalizedKey,
