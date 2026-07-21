@@ -1541,7 +1541,9 @@ export const listingPages = mysqlTable("listing_pages", {
 
 export const listingDemandClusters = mysqlTable("listing_demand_clusters", {
   id: serial("id").primaryKey(),
-  listingPageId: int("listing_page_id").notNull(),
+  targetType: varchar("target_type", { length: 20 }).notNull().default("listing"),
+  listingPageId: int("listing_page_id"),
+  productId: int("product_id"),
   primaryQuery: varchar("primary_query", { length: 255 }).notNull(),
   supportingQueriesJson: json("supporting_queries_json"),
   synonymsJson: json("synonyms_json"),
@@ -1555,14 +1557,60 @@ export const listingDemandClusters = mysqlTable("listing_demand_clusters", {
   avgPosition: decimal("avg_position", { precision: 7, scale: 2 }),
   notes: text("notes"),
   lastImportedAt: timestamp("last_imported_at"),
+  lastSyncedAt: timestamp("last_synced_at"),
   createdBy: int("created_by"),
   updatedBy: int("updated_by"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, table => ({
   listingUnique: unique("listing_demand_clusters_listing_unique").on(table.listingPageId),
+  productUnique: unique("listing_demand_clusters_product_unique").on(table.productId),
+  targetIdx: index("listing_demand_clusters_target_idx").on(table.targetType, table.lastSyncedAt),
   sourceIdx: index("listing_demand_clusters_source_idx").on(table.source, table.updatedAt),
   intentIdx: index("listing_demand_clusters_intent_idx").on(table.intent, table.updatedAt),
+}));
+
+export const demandClusterQueries = mysqlTable("demand_cluster_queries", {
+  id: serial("id").primaryKey(),
+  clusterId: int("cluster_id").notNull(),
+  query: varchar("query", { length: 512 }).notNull(),
+  normalizedQuery: varchar("normalized_query", { length: 512 }).notNull(),
+  kind: varchar("kind", { length: 30 }).notNull().default("result"),
+  count30d: int("count_30d").notNull().default(0),
+  decision: varchar("decision", { length: 30 }).notNull().default("suggested"),
+  source: varchar("source", { length: 40 }).notNull().default("yandex_wordstat"),
+  rank: int("rank").notNull().default(0),
+  regionIdsJson: json("region_ids_json"),
+  fetchedAt: timestamp("fetched_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, table => ({
+  clusterQueryUnique: unique("demand_cluster_queries_cluster_query_unique").on(
+    table.clusterId,
+    table.normalizedQuery
+  ),
+  clusterDecisionIdx: index("demand_cluster_queries_cluster_decision_idx").on(
+    table.clusterId,
+    table.decision,
+    table.rank
+  ),
+}));
+
+export const wordstatSyncRuns = mysqlTable("wordstat_sync_runs", {
+  id: serial("id").primaryKey(),
+  clusterId: int("cluster_id").notNull(),
+  seedQuery: varchar("seed_query", { length: 512 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull().default("running"),
+  resultCount: int("result_count").notNull().default(0),
+  associationCount: int("association_count").notNull().default(0),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
+}, table => ({
+  clusterStartedIdx: index("wordstat_sync_runs_cluster_started_idx").on(
+    table.clusterId,
+    table.startedAt
+  ),
 }));
 
 export const listingTemplates = mysqlTable("listing_templates", {

@@ -20,7 +20,8 @@
     "images:backfill": "node scripts/backfill-product-image-variants.mjs",
     "deploy:verify-schema": "node scripts/verify-production-schema.mjs",
     "deploy:migrate-delivery": "node scripts/apply-delivery-reliability-migration.mjs",
-    "deploy:migrate-account": "node scripts/apply-account-settings-migration.mjs"
+    "deploy:migrate-account": "node scripts/apply-account-settings-migration.mjs",
+    "deploy:migrate-wordstat": "node scripts/apply-wordstat-demand-clusters-migration.mjs"
   },
   "dependencies": {
     "@casl/ability": "^6.8.1",

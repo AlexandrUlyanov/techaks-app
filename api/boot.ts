@@ -44,6 +44,7 @@ import { buildVkFeed, buildYandexYmlFeed } from "./lib/feeds";
 import { buildLocalLandingUrl, localSeoLandings } from "@contracts/local-seo-landings";
 import { shouldIncludeCategoryListingInSitemap } from "./lib/listing-pages";
 import { verifyToken } from "./lib/auth";
+import { runWordstatMaintenanceCycle } from "./lib/wordstat";
 import sharp from "sharp";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
@@ -1175,6 +1176,12 @@ if (env.isProduction) {
       console.error("[full-sync-watchdog] cycle failed:", error);
     });
   }, 60_000);
+
+  setInterval(() => {
+    runWordstatMaintenanceCycle().catch(error => {
+      console.error("[wordstat-maintenance] cycle failed:", error);
+    });
+  }, 6 * 60 * 60_000);
 
   setInterval(() => {
     void (async () => {

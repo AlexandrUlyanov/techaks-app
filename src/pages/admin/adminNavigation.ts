@@ -180,7 +180,27 @@ export function buildAdminNavigation(
           ? [{ id: "feeds", name: "Фиды", href: "/admin/feeds", icon: Rss }]
           : []),
         ...(options.canReadSeo
-          ? [{ id: "seo", name: "SEO", href: "/admin/seo", icon: Globe }]
+          ? [
+              {
+                id: "seo",
+                name: "SEO и рост",
+                href: "/admin/seo",
+                icon: Globe,
+                match: hrefStartsWith("/admin/seo"),
+                children: [
+                  {
+                    id: "seo-overview",
+                    name: "Обзор",
+                    href: "/admin/seo",
+                  },
+                  {
+                    id: "seo-wordstat",
+                    name: "Wordstat и кластеры",
+                    href: "/admin/seo/wordstat",
+                  },
+                ],
+              },
+            ]
           : []),
         {
           id: "settings",

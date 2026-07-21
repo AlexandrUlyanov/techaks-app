@@ -35,6 +35,7 @@ db/migrations/*.sql
 !db/migrations/0030_category_activity.sql
 !db/migrations/0031_loyalty_foundation.sql
 !db/migrations/0032_loyalty_jobs_and_snapshots.sql
+!db/migrations/0046_wordstat_demand_clusters.sql
 # TypeScript cache
 *.tsbuildinfo
 # Build outputs

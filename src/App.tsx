@@ -75,6 +75,7 @@ const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminAuditLog = lazy(() => import("@/pages/admin/AdminAuditLog"));
 const AdminFeeds = lazy(() => import("@/pages/admin/AdminFeeds"));
 const AdminSeoDashboard = lazy(() => import("@/pages/admin/AdminSeoDashboard"));
+const AdminWordstat = lazy(() => import("@/pages/admin/AdminWordstat"));
 const AdminYooKassaSettings = lazy(
   () => import("@/pages/admin/AdminYooKassaSettings")
 );
@@ -202,6 +203,7 @@ export default function App() {
                   <Route path="audit" element={<AdminAuditLog />} />
                   <Route path="feeds" element={<AdminFeeds />} />
                   <Route path="seo" element={<AdminSeoDashboard />} />
+                  <Route path="seo/wordstat" element={<AdminWordstat />} />
                   <Route path="normalize-specs" element={<AdminNormalizeSpecs />} />
 
                   <Route path="sync" element={<SyncLayout />}>

@@ -247,6 +247,9 @@ jobs:
             echo "Applying account settings migration..."
             npm run deploy:migrate-account
 
+            echo "Applying Wordstat demand cluster migration..."
+            npm run deploy:migrate-wordstat
+
             echo "Building application..."
             NODE_OPTIONS=--max-old-space-size=1536 npm run check
             NODE_OPTIONS=--max-old-space-size=1536 npm test
