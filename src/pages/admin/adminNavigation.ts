@@ -195,7 +195,7 @@ export function buildAdminNavigation(
                   },
                   {
                     id: "seo-wordstat",
-                    name: "Wordstat и кластеры",
+                    name: "Спрос и запросы",
                     href: "/admin/seo/wordstat",
                   },
                 ],

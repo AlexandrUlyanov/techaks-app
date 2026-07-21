@@ -1,6 +1,7 @@
 import {
   Check,
   CircleAlert,
+  CircleCheckBig,
   CloudDownload,
   KeyRound,
   Loader2,
@@ -8,6 +9,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  Sparkles,
   X,
 } from "lucide-react";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -35,6 +37,21 @@ const decisionLabels: Record<Decision, string> = {
 
 const fieldClass =
   "h-11 border-border bg-background text-foreground placeholder:text-muted-foreground";
+
+function isTargetStale(lastSyncedAt: string | Date | null | undefined, refreshDays: number) {
+  if (!lastSyncedAt) return true;
+  return new Date(lastSyncedAt).getTime() < Date.now() - refreshDays * 24 * 60 * 60 * 1000;
+}
+
+function getTargetState(target: { primaryQuery: string | null; lastSyncedAt: string | Date | null }, refreshDays: number) {
+  if (!target.primaryQuery || !target.lastSyncedAt) {
+    return { label: "Нет кластера", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300" };
+  }
+  if (isTargetStale(target.lastSyncedAt, refreshDays)) {
+    return { label: "Нужно обновить", className: "bg-sky-500/10 text-sky-700 dark:text-sky-300" };
+  }
+  return { label: "Актуально", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" };
+}
 
 function formatDate(value: string | Date | null | undefined) {
   if (!value) return "Ещё не собирался";
@@ -91,12 +108,22 @@ export default function AdminWordstat() {
     onError: error => toast.error(error.message),
   });
 
+  const targetSummary = useMemo(() => {
+    const targets = targetsQuery.data || [];
+    const refreshDays = settingsQuery.data?.refreshDays ?? 30;
+    return {
+      total: targets.length,
+      missing: targets.filter(target => !target.primaryQuery || !target.lastSyncedAt).length,
+      stale: targets.filter(target => target.lastSyncedAt && isTargetStale(target.lastSyncedAt, refreshDays)).length,
+    };
+  }, [settingsQuery.data?.refreshDays, targetsQuery.data]);
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
         eyebrow="SEO и рост"
-        title="Wordstat и кластеры спроса"
-        description="Собирайте отдельный кластер запросов для каждой страницы товара и каждого опубликованного листинга. Частотность загружается только из админки и не замедляет витрину."
+        title="Спрос и запросы"
+        description="Управляйте реальными поисковыми запросами для товаров и товарных листингов. Сбор работает в фоне и не влияет на скорость витрины."
         actions={
           <Button
             type="button"
@@ -112,10 +139,23 @@ export default function AdminWordstat() {
 
       <WordstatSettings />
 
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Сводка по спросу">
+        <SummaryCard label="В очереди" value={targetSummary.total} hint={targetType === "product" ? "товаров в выборке" : "листингов в выборке"} icon={<PackageSearch size={18} />} />
+        <SummaryCard label="Без кластера" value={targetSummary.missing} hint="нужен первый сбор" tone="warning" icon={<Sparkles size={18} />} />
+        <SummaryCard label="Нужно обновить" value={targetSummary.stale} hint={`старше ${settingsQuery.data?.refreshDays ?? 30} дней`} tone="info" icon={<RefreshCw size={18} />} />
+        <SummaryCard
+          label="Подключение"
+          value={settingsQuery.data?.enabled ? "Включено" : "Выключено"}
+          hint={settingsQuery.data?.apiKeyConfigured ? "ключ настроен" : "нужен API-ключ"}
+          tone={settingsQuery.data?.enabled && settingsQuery.data?.apiKeyConfigured ? "success" : "neutral"}
+          icon={<CircleCheckBig size={18} />}
+        />
+      </section>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(330px,0.38fr)_minmax(0,0.62fr)]">
         <AdminSection
           title="Страницы для сбора"
-          description="Сначала показываются страницы без кластера и с самой старой датой обновления."
+          description="Сначала показываются страницы без кластера и с самой старой датой обновления. Выберите страницу, чтобы проверить её запросы."
           contentClassName="p-4"
           actions={
             <div className="flex rounded-xl bg-muted p-1">
@@ -155,8 +195,10 @@ export default function AdminWordstat() {
                 <Loader2 size={16} className="animate-spin" /> Загружаю страницы...
               </div>
             ) : targetsQuery.data?.length ? (
-              targetsQuery.data.map(target => (
-                <button
+              targetsQuery.data.map(target => {
+                const state = getTargetState(target, settingsQuery.data?.refreshDays ?? 30);
+                return (
+                  <button
                   key={target.id}
                   type="button"
                   onClick={() => setSelectedId(target.id)}
@@ -169,12 +211,16 @@ export default function AdminWordstat() {
                   <span className="block truncate text-sm font-bold text-foreground">
                     {target.name || target.slug || `Страница #${target.id}`}
                   </span>
-                  <span className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                     <span className="truncate">{target.primaryQuery || "Кластер не создан"}</span>
-                    <span className="shrink-0">{formatDate(target.lastSyncedAt)}</span>
+                    <span className="shrink-0">{target.lastSyncedAt ? formatDate(target.lastSyncedAt) : "Не собирался"}</span>
                   </span>
-                </button>
-              ))
+                  <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.08em] ${state.className}`}>
+                    {state.label}
+                  </span>
+                  </button>
+                );
+              })
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Подходящих страниц не найдено.</p>
             )}
@@ -185,7 +231,7 @@ export default function AdminWordstat() {
           title={clusterQuery.data?.target?.label || "Кластер страницы"}
           description={
             selectedId
-              ? "Проверяйте реальные запросы и отмечайте те, которые подходят странице."
+              ? "Оставляйте только коммерчески релевантные запросы: их можно использовать при подготовке контента и посадочных страниц."
               : "Выберите товар или листинг слева."
           }
           contentClassName="p-0"
@@ -206,7 +252,7 @@ export default function AdminWordstat() {
           {!selectedId ? (
             <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
               <PackageSearch size={34} />
-              <p className="max-w-md text-sm">Для каждого товара и списка товаров хранится собственный независимый кластер.</p>
+              <p className="max-w-md text-sm">Для товара или листинга хранится отдельный независимый кластер. Ничего не публикуется автоматически.</p>
             </div>
           ) : clusterQuery.isLoading ? (
             <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -274,7 +320,7 @@ function WordstatSettings() {
   return (
     <AdminSection
       title="Подключение к Yandex Search API"
-      description="Ключ хранится зашифрованно. Для Wordstat нужны права search-api.webSearch.user и yc.search-api.execute."
+      description="Ключ хранится зашифрованно. Для сбора Wordstat нужны права search-api.webSearch.user и yc.search-api.execute."
       tone="subtle"
       actions={
         <div className="flex items-center gap-3">
@@ -307,10 +353,12 @@ function WordstatSettings() {
         </Field>
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
+        <div className="rounded-xl bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-bold text-foreground">{enabled ? "Сбор включён" : "Сбор выключен"}</span>
+          {" · "}
           {data.lastCheck
             ? `Последняя проверка: ${String(data.lastCheck.message || "без сообщения")}`
-            : "Подключение ещё не проверялось"}
+            : "подключение ещё не проверялось"}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => test.mutate({ seedQuery: "техника" })} disabled={test.isPending} className="gap-2">
@@ -349,6 +397,37 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+function SummaryCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+  icon: ReactNode;
+  tone?: "neutral" | "warning" | "info" | "success";
+}) {
+  const toneClass = {
+    neutral: "bg-muted text-muted-foreground",
+    warning: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    info: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  }[tone];
+  return (
+    <div className="flex min-h-28 items-start justify-between gap-3 rounded-2xl border border-border/70 bg-card p-4">
+      <div>
+        <p className="text-xs font-bold text-muted-foreground">{label}</p>
+        <p className="mt-2 text-2xl font-black text-foreground">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${toneClass}`}>{icon}</span>
+    </div>
+  );
+}
+
 function ClusterDetails({
   data,
   onDecision,
@@ -364,22 +443,52 @@ function ClusterDetails({
       all: queries.length,
       accepted: queries.filter(item => item.decision === "accepted").length,
       review: queries.filter(item => item.decision === "needs_review").length,
+      suggested: queries.filter(item => item.decision === "suggested").length,
+      totalDemand: queries.reduce((sum, item) => sum + Number(item.count30d || 0), 0),
     };
   }, [data.queries]);
+  const [scope, setScope] = useState<"all" | "suggested" | "needs_review" | "accepted">("all");
+  const visibleQueries = useMemo(
+    () => data.queries.filter(query => scope === "all" || query.decision === scope),
+    [data.queries, scope]
+  );
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-px bg-border/60">
+      <div className="grid grid-cols-2 gap-px bg-border/60 md:grid-cols-4">
         {[
           ["Всего запросов", stats.all],
           ["Принято", stats.accepted],
           ["На проверке", stats.review],
+          ["Суммарный спрос", stats.totalDemand.toLocaleString("ru-RU")],
         ].map(([label, value]) => (
           <div key={String(label)} className="bg-card px-5 py-4">
             <div className="text-2xl font-black text-foreground">{value}</div>
             <div className="mt-1 text-xs text-muted-foreground">{label}</div>
           </div>
         ))}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-5 py-3">
+        <p className="text-xs text-muted-foreground">Решение по запросу не меняет SEO автоматически: оно формирует рабочую очередь для контента.</p>
+        <div className="flex rounded-xl bg-muted p-1">
+          {[
+            ["all", `Все ${stats.all}`],
+            ["suggested", `Новые ${stats.suggested}`],
+            ["needs_review", `Проверить ${stats.review}`],
+            ["accepted", `Принято ${stats.accepted}`],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setScope(value as typeof scope)}
+              className={`h-8 rounded-lg px-2.5 text-xs font-bold transition-colors ${
+                scope === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
@@ -393,7 +502,7 @@ function ClusterDetails({
             </tr>
           </thead>
           <tbody>
-            {data.queries.map(query => (
+            {visibleQueries.map(query => (
               <tr key={query.id} className="border-t border-border/60">
                 <td className="max-w-sm px-5 py-3 font-semibold text-foreground">{query.query}</td>
                 <td className="px-4 py-3 font-black text-foreground">{Number(query.count30d).toLocaleString("ru-RU")}</td>
@@ -411,6 +520,9 @@ function ClusterDetails({
           </tbody>
         </table>
       </div>
+      {!visibleQueries.length ? (
+        <p className="border-t border-border/60 px-5 py-7 text-center text-sm text-muted-foreground">В этой группе запросов пока нет.</p>
+      ) : null}
       {data.runs?.length ? (
         <div className="border-t border-border/70 px-5 py-4 text-xs text-muted-foreground">
           Последний запуск: {formatDate(data.runs[0].startedAt)} · {data.runs[0].status === "completed" ? "успешно" : data.runs[0].status}
