@@ -676,6 +676,7 @@ export default function AdminListings() {
       </div>
 
       <AdminSection
+        id="listing-quality"
         title="Качество листингов"
         description="Быстрый operational-срез по category pages, single-filter pages и canonical-конфликтам. Здесь видно, что реально мешает росту спросовых листингов."
       >

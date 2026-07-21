@@ -15,6 +15,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import type { AppRouter } from "../../../api/router";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -164,6 +165,8 @@ export default function AdminWordstat() {
           </div>
         }
       />
+
+      <DemandNavigation />
 
       <WordstatSettings />
 
@@ -320,6 +323,57 @@ export default function AdminWordstat() {
         </AdminSection>
       </div>
     </div>
+  );
+}
+
+function DemandNavigation() {
+  const steps = [
+    {
+      href: "/admin/listings",
+      label: "Посадочные страницы",
+      description: "Что опубликовано и что требует подготовки",
+    },
+    {
+      href: "/admin/seo/wordstat",
+      label: "Спрос и кластеры",
+      description: "Какие запросы важны для каждой страницы",
+      current: true,
+    },
+    {
+      href: "/admin/listings#listing-quality",
+      label: "Качество листингов",
+      description: "Дубли, пустые страницы и слабые места",
+    },
+  ];
+
+  return (
+    <nav
+      aria-label="Рабочий контур SEO и роста"
+      className="grid gap-2 rounded-2xl bg-muted/35 p-2 md:grid-cols-3"
+    >
+      {steps.map(step => (
+        <Link
+          key={step.href}
+          to={step.href}
+          aria-current={step.current ? "page" : undefined}
+          className={`group rounded-xl px-4 py-3 transition-colors ${
+            step.current
+              ? "bg-background text-foreground"
+              : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+          }`}
+        >
+          <span className="flex items-center justify-between gap-3">
+            <span className="text-sm font-black">{step.label}</span>
+            <span className="text-[var(--tech-color-primary)] opacity-0 transition-opacity group-hover:opacity-100">
+              →
+            </span>
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+            {step.description}
+          </span>
+        </Link>
+      ))}
+    </nav>
   );
 }
 

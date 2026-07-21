@@ -195,8 +195,18 @@ export function buildAdminNavigation(
                   },
                   {
                     id: "seo-wordstat",
-                    name: "Спрос и запросы",
+                    name: "Спрос и кластеры",
                     href: "/admin/seo/wordstat",
+                  },
+                  {
+                    id: "seo-listings",
+                    name: "Посадочные страницы",
+                    href: "/admin/listings",
+                  },
+                  {
+                    id: "seo-listing-quality",
+                    name: "Качество листингов",
+                    href: "/admin/listings#listing-quality",
                   },
                 ],
               },

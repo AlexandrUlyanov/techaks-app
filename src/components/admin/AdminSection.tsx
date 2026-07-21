@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 type AdminSectionProps = {
+  id?: string;
   title: string;
   description?: string;
   actions?: ReactNode;
@@ -17,6 +18,7 @@ const toneClasses: Record<NonNullable<AdminSectionProps["tone"]>, string> = {
 };
 
 export default function AdminSection({
+  id,
   title,
   description,
   actions,
@@ -26,6 +28,7 @@ export default function AdminSection({
 }: AdminSectionProps) {
   return (
     <section
+      id={id}
       className={`overflow-hidden rounded-[var(--tech-radius-card)] border shadow-[var(--tech-shadow-card)] ${toneClasses[tone]}`}
     >
       <div className="flex flex-col gap-3 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
