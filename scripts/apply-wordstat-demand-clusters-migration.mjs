@@ -97,6 +97,7 @@ async function ensureListingDemandClustersTable() {
     target_type varchar(20) NOT NULL DEFAULT 'listing',
     listing_page_id int NULL,
     product_id int NULL,
+    category_id int NULL,
     primary_query varchar(255) NOT NULL,
     supporting_queries_json json NULL,
     synonyms_json json NULL,
@@ -118,7 +119,9 @@ async function ensureListingDemandClustersTable() {
     PRIMARY KEY (id),
     UNIQUE KEY listing_demand_clusters_listing_unique (listing_page_id),
     UNIQUE KEY listing_demand_clusters_product_unique (product_id),
+    UNIQUE KEY listing_demand_clusters_category_unique (category_id),
     KEY listing_demand_clusters_target_idx (target_type, last_synced_at),
+    KEY listing_demand_clusters_category_idx (target_type, category_id, last_synced_at),
     KEY listing_demand_clusters_source_idx (source, updated_at),
     KEY listing_demand_clusters_intent_idx (intent, updated_at)
   )`);
@@ -147,6 +150,11 @@ try {
   );
   await addColumnIfMissing(
     "listing_demand_clusters",
+    "category_id",
+    "int NULL AFTER `product_id`",
+  );
+  await addColumnIfMissing(
+    "listing_demand_clusters",
     "last_synced_at",
     "timestamp NULL AFTER `last_imported_at`",
   );
@@ -161,9 +169,19 @@ try {
       "CREATE UNIQUE INDEX `listing_demand_clusters_product_unique` ON `listing_demand_clusters` (`product_id`)",
     );
   }
+  if (!(await hasIndex("listing_demand_clusters", "listing_demand_clusters_category_unique"))) {
+    await connection.execute(
+      "CREATE UNIQUE INDEX `listing_demand_clusters_category_unique` ON `listing_demand_clusters` (`category_id`)",
+    );
+  }
   if (!(await hasIndex("listing_demand_clusters", "listing_demand_clusters_target_idx"))) {
     await connection.execute(
       "CREATE INDEX `listing_demand_clusters_target_idx` ON `listing_demand_clusters` (`target_type`, `last_synced_at`)",
+    );
+  }
+  if (!(await hasIndex("listing_demand_clusters", "listing_demand_clusters_category_idx"))) {
+    await connection.execute(
+      "CREATE INDEX `listing_demand_clusters_category_idx` ON `listing_demand_clusters` (`target_type`, `category_id`, `last_synced_at`)",
     );
   }
 

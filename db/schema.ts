@@ -1544,6 +1544,7 @@ export const listingDemandClusters = mysqlTable("listing_demand_clusters", {
   targetType: varchar("target_type", { length: 20 }).notNull().default("listing"),
   listingPageId: int("listing_page_id"),
   productId: int("product_id"),
+  categoryId: int("category_id"),
   primaryQuery: varchar("primary_query", { length: 255 }).notNull(),
   supportingQueriesJson: json("supporting_queries_json"),
   synonymsJson: json("synonyms_json"),
@@ -1565,7 +1566,9 @@ export const listingDemandClusters = mysqlTable("listing_demand_clusters", {
 }, table => ({
   listingUnique: unique("listing_demand_clusters_listing_unique").on(table.listingPageId),
   productUnique: unique("listing_demand_clusters_product_unique").on(table.productId),
+  categoryUnique: unique("listing_demand_clusters_category_unique").on(table.categoryId),
   targetIdx: index("listing_demand_clusters_target_idx").on(table.targetType, table.lastSyncedAt),
+  categoryIdx: index("listing_demand_clusters_category_idx").on(table.targetType, table.categoryId, table.lastSyncedAt),
   sourceIdx: index("listing_demand_clusters_source_idx").on(table.source, table.updatedAt),
   intentIdx: index("listing_demand_clusters_intent_idx").on(table.intent, table.updatedAt),
 }));

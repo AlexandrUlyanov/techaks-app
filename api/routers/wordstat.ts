@@ -4,10 +4,12 @@ import { writeAdminAuditLog } from "../lib/admin-audit";
 import {
   getWordstatAdminSettings,
   getWordstatCluster,
+  getWordstatCoverageSummary,
   listWordstatTargets,
   saveWordstatSettings,
   setWordstatQueryDecision,
   syncWordstatBatch,
+  syncWordstatPriorityBatch,
   syncWordstatTarget,
   testWordstatConnection,
   wordstatQueryDecisions,
@@ -79,6 +81,11 @@ export const wordstatRouter = createRouter({
       return listWordstatTargets(input);
     }),
 
+  getCoverageSummary: protectedProcedure.query(async ({ ctx }) => {
+    requireAbility(ctx, "read", "Listing");
+    return getWordstatCoverageSummary();
+  }),
+
   getCluster: protectedProcedure
     .input(z.object({ targetType: targetTypeSchema, targetId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
@@ -130,6 +137,18 @@ export const wordstatRouter = createRouter({
       });
       return result;
     }),
+
+  syncPriorityBatch: protectedProcedure.mutation(async ({ ctx }) => {
+    requireAbility(ctx, "manage", "Listing");
+    const result = await syncWordstatPriorityBatch({ userId: ctx.user?.id });
+    await writeAdminAuditLog({
+      ctx,
+      action: "wordstat.priority_batch_sync",
+      entityType: "wordstat",
+      after: { targetType: result.targetType, processed: result.processed, succeeded: result.succeeded, failed: result.failed },
+    });
+    return result;
+  }),
 
   setQueryDecision: protectedProcedure
     .input(z.object({ queryId: z.number().int().positive(), decision: decisionSchema }))

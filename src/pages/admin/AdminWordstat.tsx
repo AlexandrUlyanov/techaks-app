@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/providers/trpc";
 
-type TargetType = "product" | "listing";
+type TargetType = "category" | "product" | "listing";
 type Decision = "suggested" | "accepted" | "rejected" | "needs_review";
 type WordstatClusterData = inferRouterOutputs<AppRouter>["wordstat"]["getCluster"];
 
@@ -64,7 +64,8 @@ function formatDate(value: string | Date | null | undefined) {
 export default function AdminWordstat() {
   const utils = trpc.useUtils();
   const settingsQuery = trpc.wordstat.getSettings.useQuery();
-  const [targetType, setTargetType] = useState<TargetType>("product");
+  const coverageQuery = trpc.wordstat.getCoverageSummary.useQuery();
+  const [targetType, setTargetType] = useState<TargetType>("category");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -103,6 +104,21 @@ export default function AdminWordstat() {
     },
     onError: error => toast.error(error.message),
   });
+  const syncPriorityBatch = trpc.wordstat.syncPriorityBatch.useMutation({
+    onSuccess: async result => {
+      if (!result.targetType) {
+        toast.info("Все очереди сейчас пусты");
+      } else {
+        toast.success(`Собрана очередь: ${result.processed} объектов, ошибок ${result.failed}`);
+      }
+      await Promise.all([
+        utils.wordstat.listTargets.invalidate(),
+        utils.wordstat.getCoverageSummary.invalidate(),
+        utils.wordstat.getCluster.invalidate(),
+      ]);
+    },
+    onError: error => toast.error(error.message),
+  });
   const setDecision = trpc.wordstat.setQueryDecision.useMutation({
     onSuccess: async () => utils.wordstat.getCluster.invalidate(),
     onError: error => toast.error(error.message),
@@ -125,22 +141,50 @@ export default function AdminWordstat() {
         title="Спрос и запросы"
         description="Управляйте реальными поисковыми запросами для товаров и товарных листингов. Сбор работает в фоне и не влияет на скорость витрины."
         actions={
-          <Button
-            type="button"
-            onClick={() => syncBatch.mutate({ targetType })}
-            disabled={syncBatch.isPending || !settingsQuery.data?.enabled}
-            className="gap-2"
-          >
-            {syncBatch.isPending ? <Loader2 size={16} className="animate-spin" /> : <CloudDownload size={16} />}
-            Обновить очередь
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={() => syncPriorityBatch.mutate()}
+              disabled={syncPriorityBatch.isPending || !settingsQuery.data?.enabled}
+              className="gap-2"
+            >
+              {syncPriorityBatch.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              Собрать следующий приоритет
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => syncBatch.mutate({ targetType })}
+              disabled={syncBatch.isPending || !settingsQuery.data?.enabled}
+              className="gap-2"
+            >
+              {syncBatch.isPending ? <Loader2 size={16} className="animate-spin" /> : <CloudDownload size={16} />}
+              Обновить очередь
+            </Button>
+          </div>
         }
       />
 
       <WordstatSettings />
 
+      {coverageQuery.data ? (
+        <section className="grid gap-3 md:grid-cols-3" aria-label="Покрытие кластеризацией">
+          {coverageQuery.data.phases.map(phase => (
+            <div key={phase.targetType} className="rounded-2xl bg-muted/40 p-4">
+              <div className="text-sm font-black text-foreground">{phase.label}</div>
+              <div className="mt-2 text-2xl font-black text-foreground">
+                {phase.clustered} <span className="text-base font-bold text-muted-foreground">/ {phase.total}</span>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Без кластера: {phase.missing} · Спрос: {phase.demand.toLocaleString("ru-RU")}
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Сводка по спросу">
-        <SummaryCard label="В очереди" value={targetSummary.total} hint={targetType === "product" ? "товаров в выборке" : "листингов в выборке"} icon={<PackageSearch size={18} />} />
+        <SummaryCard label="В очереди" value={targetSummary.total} hint={targetType === "category" ? "категорий в выборке" : targetType === "product" ? "товаров в выборке" : "листингов в выборке"} icon={<PackageSearch size={18} />} />
         <SummaryCard label="Без кластера" value={targetSummary.missing} hint="нужен первый сбор" tone="warning" icon={<Sparkles size={18} />} />
         <SummaryCard label="Нужно обновить" value={targetSummary.stale} hint={`старше ${settingsQuery.data?.refreshDays ?? 30} дней`} tone="info" icon={<RefreshCw size={18} />} />
         <SummaryCard
@@ -159,7 +203,7 @@ export default function AdminWordstat() {
           contentClassName="p-4"
           actions={
             <div className="flex rounded-xl bg-muted p-1">
-              {(["product", "listing"] as const).map(type => (
+              {(["category", "product", "listing"] as const).map(type => (
                 <button
                   key={type}
                   type="button"
@@ -170,7 +214,7 @@ export default function AdminWordstat() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {type === "product" ? "Товары" : "Списки товаров"}
+                  {type === "category" ? "Категории" : type === "product" ? "Товары" : "Списки товаров"}
                 </button>
               ))}
             </div>
@@ -184,7 +228,7 @@ export default function AdminWordstat() {
             <Input
               value={search}
               onChange={event => setSearch(event.target.value)}
-              placeholder={targetType === "product" ? "Название или slug товара" : "H1 или URL листинга"}
+              placeholder={targetType === "category" ? "Название или slug категории" : targetType === "product" ? "Название или slug товара" : "H1 или URL листинга"}
               className={`${fieldClass} pl-10`}
             />
           </label>
@@ -232,7 +276,7 @@ export default function AdminWordstat() {
           description={
             selectedId
               ? "Оставляйте только коммерчески релевантные запросы: их можно использовать при подготовке контента и посадочных страниц."
-              : "Выберите товар или листинг слева."
+              : "Выберите категорию, товар или листинг слева."
           }
           contentClassName="p-0"
           actions={
@@ -252,7 +296,7 @@ export default function AdminWordstat() {
           {!selectedId ? (
             <div className="flex min-h-72 flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
               <PackageSearch size={34} />
-              <p className="max-w-md text-sm">Для товара или листинга хранится отдельный независимый кластер. Ничего не публикуется автоматически.</p>
+              <p className="max-w-md text-sm">Для каждой категории, товара и посадочной страницы хранится отдельный независимый кластер. Ничего не публикуется автоматически.</p>
             </div>
           ) : clusterQuery.isLoading ? (
             <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, isNull, like, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like, lt, or, sql } from "drizzle-orm";
 import {
   demandClusterQueries,
+  categories,
   listingDemandClusters,
   listingPages,
   products,
@@ -23,7 +24,12 @@ const SETTING_KEYS = {
   lastCheck: "wordstat_last_check",
 } as const;
 
-export const wordstatTargetTypes = ["product", "listing"] as const;
+export const wordstatTargetTypes = ["category", "product", "listing"] as const;
+export const wordstatTargetPhaseLabels = {
+  category: "Категории",
+  product: "Товары",
+  listing: "Фильтрованные списки",
+} as const;
 export const wordstatQueryDecisions = [
   "suggested",
   "accepted",
@@ -288,6 +294,15 @@ export async function testWordstatConnection(seedQuery = "техника") {
 
 async function getTarget(targetType: WordstatTargetType, targetId: number) {
   const db = getDb();
+  if (targetType === "category") {
+    const [row] = await db
+      .select({ id: categories.id, name: categories.name, slug: categories.slug })
+      .from(categories)
+      .where(and(eq(categories.id, targetId), eq(categories.isActive, true)))
+      .limit(1);
+    if (!row) throw new Error("Категория не найдена");
+    return { ...row, label: row.name, seedQuery: row.name, url: `/catalog?cat=${row.slug}` };
+  }
   if (targetType === "product") {
     const [row] = await db
       .select({ id: products.id, name: products.name, slug: products.slug })
@@ -322,9 +337,11 @@ async function ensureCluster(
 ) {
   const db = getDb();
   const targetCondition =
-    targetType === "product"
-      ? eq(listingDemandClusters.productId, targetId)
-      : eq(listingDemandClusters.listingPageId, targetId);
+    targetType === "category"
+      ? eq(listingDemandClusters.categoryId, targetId)
+      : targetType === "product"
+        ? eq(listingDemandClusters.productId, targetId)
+        : eq(listingDemandClusters.listingPageId, targetId);
   const [existing] = await db
     .select()
     .from(listingDemandClusters)
@@ -336,6 +353,7 @@ async function ensureCluster(
     targetType,
     listingPageId: targetType === "listing" ? targetId : null,
     productId: targetType === "product" ? targetId : null,
+    categoryId: targetType === "category" ? targetId : null,
     primaryQuery: seedQuery.slice(0, 255),
     source: "yandex_wordstat",
     sourceLabel: "Yandex Wordstat",
@@ -470,6 +488,41 @@ export async function listWordstatTargets(args: {
   const db = getDb();
   const limit = clampInt(args.limit, 1, 100, 30);
   const search = args.search?.trim();
+  if (args.targetType === "category") {
+    return db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+        clusterId: listingDemandClusters.id,
+        primaryQuery: listingDemandClusters.primaryQuery,
+        lastSyncedAt: listingDemandClusters.lastSyncedAt,
+      })
+      .from(categories)
+      .leftJoin(
+        listingDemandClusters,
+        and(
+          eq(listingDemandClusters.targetType, "category"),
+          eq(listingDemandClusters.categoryId, categories.id)
+        )
+      )
+      .where(
+        and(
+          eq(categories.isActive, true),
+          args.staleBefore
+            ? or(
+                isNull(listingDemandClusters.lastSyncedAt),
+                lt(listingDemandClusters.lastSyncedAt, args.staleBefore)
+              )
+            : undefined,
+          search
+            ? or(like(categories.name, `%${search}%`), like(categories.slug, `%${search}%`))
+            : undefined
+        )
+      )
+      .orderBy(asc(listingDemandClusters.lastSyncedAt), asc(categories.name))
+      .limit(limit);
+  }
   if (args.targetType === "product") {
     return db
       .select({
@@ -548,9 +601,11 @@ export async function getWordstatCluster(args: {
   const db = getDb();
   const target = await getTarget(args.targetType, args.targetId);
   const condition =
-    args.targetType === "product"
-      ? eq(listingDemandClusters.productId, args.targetId)
-      : eq(listingDemandClusters.listingPageId, args.targetId);
+    args.targetType === "category"
+      ? eq(listingDemandClusters.categoryId, args.targetId)
+      : args.targetType === "product"
+        ? eq(listingDemandClusters.productId, args.targetId)
+        : eq(listingDemandClusters.listingPageId, args.targetId);
   const [cluster] = await db
     .select()
     .from(listingDemandClusters)
@@ -635,6 +690,45 @@ export async function syncWordstatBatch(args: {
   };
 }
 
+async function getCoveragePhase(targetType: WordstatTargetType) {
+  const db = getDb();
+  const [row] = targetType === "category"
+    ? await db
+        .select({ total: sql<number>`COUNT(*)`, clustered: sql<number>`COUNT(${listingDemandClusters.id})`, demand: sql<number>`COALESCE(SUM(${listingDemandClusters.impressions}), 0)` })
+        .from(categories)
+        .leftJoin(listingDemandClusters, and(eq(listingDemandClusters.targetType, "category"), eq(listingDemandClusters.categoryId, categories.id)))
+        .where(eq(categories.isActive, true))
+    : targetType === "product"
+      ? await db
+          .select({ total: sql<number>`COUNT(*)`, clustered: sql<number>`COUNT(${listingDemandClusters.id})`, demand: sql<number>`COALESCE(SUM(${listingDemandClusters.impressions}), 0)` })
+          .from(products)
+          .leftJoin(listingDemandClusters, and(eq(listingDemandClusters.targetType, "product"), eq(listingDemandClusters.productId, products.id)))
+          .where(buildPublicProductVisibilityCondition())
+      : await db
+          .select({ total: sql<number>`COUNT(*)`, clustered: sql<number>`COUNT(${listingDemandClusters.id})`, demand: sql<number>`COALESCE(SUM(${listingDemandClusters.impressions}), 0)` })
+          .from(listingPages)
+          .leftJoin(listingDemandClusters, and(eq(listingDemandClusters.targetType, "listing"), eq(listingDemandClusters.listingPageId, listingPages.id)))
+          .where(eq(listingPages.isPublished, true));
+  const total = Number(row?.total ?? 0);
+  const clustered = Number(row?.clustered ?? 0);
+  return { targetType, label: wordstatTargetPhaseLabels[targetType], total, clustered, missing: Math.max(0, total - clustered), demand: Number(row?.demand ?? 0) };
+}
+
+export async function getWordstatCoverageSummary() {
+  return {
+    phases: await Promise.all(wordstatTargetTypes.map(getCoveragePhase)),
+    refreshedAt: new Date().toISOString(),
+  };
+}
+
+export async function syncWordstatPriorityBatch(args: { userId?: number | null }) {
+  for (const targetType of wordstatTargetTypes) {
+    const result = await syncWordstatBatch({ targetType, userId: args.userId });
+    if (result.processed > 0 || result.failed > 0) return { targetType, ...result };
+  }
+  return { targetType: null, processed: 0, succeeded: 0, failed: 0, results: [] };
+}
+
 let maintenanceCycleRunning = false;
 
 export async function runWordstatMaintenanceCycle() {
@@ -649,10 +743,12 @@ export async function runWordstatMaintenanceCycle() {
       return { skipped: true, reason: "disabled" as const };
     }
 
+    const categoriesResult = await syncWordstatBatch({ targetType: "category" });
     const productsResult = await syncWordstatBatch({ targetType: "product" });
     const listingsResult = await syncWordstatBatch({ targetType: "listing" });
     return {
       skipped: false,
+      categories: categoriesResult,
       products: productsResult,
       listings: listingsResult,
     };
