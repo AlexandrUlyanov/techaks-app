@@ -168,22 +168,22 @@ try {
   }
 
   await connection.execute(`CREATE TABLE IF NOT EXISTS demand_cluster_queries (
-    id serial AUTO_INCREMENT NOT NULL,
-    cluster_id int NOT NULL,
-    query varchar(512) NOT NULL,
-    normalized_query varchar(512) NOT NULL,
-    kind varchar(30) NOT NULL DEFAULT 'result',
-    count_30d int NOT NULL DEFAULT 0,
-    decision varchar(30) NOT NULL DEFAULT 'suggested',
-    source varchar(40) NOT NULL DEFAULT 'yandex_wordstat',
-    rank int NOT NULL DEFAULT 0,
-    region_ids_json json NULL,
-    fetched_at timestamp NULL,
-    created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY demand_cluster_queries_cluster_query_unique (cluster_id, normalized_query),
-    KEY demand_cluster_queries_cluster_decision_idx (cluster_id, decision, rank)
+    \`id\` serial AUTO_INCREMENT NOT NULL,
+    \`cluster_id\` int NOT NULL,
+    \`query\` varchar(512) NOT NULL,
+    \`normalized_query\` varchar(512) NOT NULL,
+    \`kind\` varchar(30) NOT NULL DEFAULT 'result',
+    \`count_30d\` int NOT NULL DEFAULT 0,
+    \`decision\` varchar(30) NOT NULL DEFAULT 'suggested',
+    \`source\` varchar(40) NOT NULL DEFAULT 'yandex_wordstat',
+    \`rank\` int NOT NULL DEFAULT 0,
+    \`region_ids_json\` json NULL,
+    \`fetched_at\` timestamp NULL,
+    \`created_at\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    \`updated_at\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`demand_cluster_queries_cluster_query_unique\` (\`cluster_id\`, \`normalized_query\`),
+    KEY \`demand_cluster_queries_cluster_decision_idx\` (\`cluster_id\`, \`decision\`, \`rank\`)
   )`);
 
   await connection.execute(`CREATE TABLE IF NOT EXISTS wordstat_sync_runs (
